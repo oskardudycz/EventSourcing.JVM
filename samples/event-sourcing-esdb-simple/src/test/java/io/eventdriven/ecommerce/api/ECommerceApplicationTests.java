@@ -1,10 +1,10 @@
-package io.eventdriven.eventsourcingesdbsimple;
+package io.eventdriven.ecommerce.api;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class EventSourcingEsdbSimpleApplicationTests {
+class ECommerceApplicationTests {
 
     @Test
     void contextLoads() {
