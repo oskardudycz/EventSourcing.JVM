@@ -1,4 +1,4 @@
-package io.eventdriven.ecommerce.api;
+package io.eventdriven.ecommerce.api.config;
 
 import io.eventdriven.ecommerce.shoppingcarts.initializing.InitializeShoppingCart;
 import org.springframework.context.annotation.Bean;
