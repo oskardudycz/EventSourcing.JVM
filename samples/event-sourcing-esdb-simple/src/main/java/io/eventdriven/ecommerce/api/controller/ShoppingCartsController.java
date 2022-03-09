@@ -1,15 +1,13 @@
-package io.eventdriven.ecommerce.api.controllers;
+package io.eventdriven.ecommerce.api.controller;
 
 import io.eventdriven.ecommerce.api.requests.ShoppingCartsRequests;
 import io.eventdriven.ecommerce.shoppingcarts.initializing.InitializeShoppingCart;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -47,6 +45,11 @@ public class ShoppingCartsController {
     return ResponseEntity
       .created(new URI("api/ShoppingCarts/%s".formatted(cartId)))
       .build();
+  }
+
+  @GetMapping
+  public List<String> getAll(){
+    return List.of("test", "ttt");
   }
 
 //    [HttpPost("{id}/products")]
