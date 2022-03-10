@@ -9,7 +9,7 @@ public final class ShoppingCartsRequests {
   }
 
   public record ProductItemRequest(
-    UUID ProductId,
+    UUID productId,
     Integer quantity
   ) {
   }
@@ -20,17 +20,9 @@ public final class ShoppingCartsRequests {
   }
 
   public record PricedProductItemRequest(
-    UUID ProductId,
-    Integer Quantity,
-    Double UnitPrice
+    UUID productId,
+    Integer quantity,
+    Double unitPrice
   ) {
-  }
-
-  public record RemoveProductRequest(
-    PricedProductItemRequest ProductItem
-  ) {
-  }
-
-  public class ConfirmShoppingCartRequest {
   }
 }

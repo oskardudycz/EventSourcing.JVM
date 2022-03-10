@@ -18,11 +18,11 @@ public record PricedProductItem(
     return quantity() * unitPrice();
   }
 
-  public static PricedProductItem From(ProductItem productItem, double unitPrice) {
+  public static PricedProductItem From(ProductItem productItem, Double unitPrice) {
     if (productItem == null)
       throw new IllegalArgumentException("Product Item cannot be null");
 
-    if (unitPrice <= 0)
+    if (unitPrice == null || unitPrice <= 0)
       throw new IllegalArgumentException("Unit Price has to be a positive number");
 
     return new PricedProductItem(productItem, unitPrice);

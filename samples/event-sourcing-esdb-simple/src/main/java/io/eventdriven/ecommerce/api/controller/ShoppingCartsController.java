@@ -1,7 +1,13 @@
 package io.eventdriven.ecommerce.api.controller;
 
 import io.eventdriven.ecommerce.api.requests.ShoppingCartsRequests;
+import io.eventdriven.ecommerce.core.commands.CommandHandler;
+import io.eventdriven.ecommerce.shoppingcarts.addingproductitem.AddProductItemToShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.confirming.ConfirmShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.initializing.InitializeShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
+import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
+import io.eventdriven.ecommerce.shoppingcarts.removingproductitem.RemoveProductItemFromShoppingCart;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,18 +17,26 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 
 @RestController
 @RequestMapping("/shopping-carts")
 public class ShoppingCartsController {
-  private final Function<InitializeShoppingCart, CompletableFuture<Void>> handleInitializeShoppingCart;
+  private final CommandHandler<InitializeShoppingCart> handleInitializeShoppingCart;
+  private final CommandHandler<AddProductItemToShoppingCart> handleAddProductItemToShoppingCart;
+  private final CommandHandler<RemoveProductItemFromShoppingCart> handleRemoveProductItemFromShoppingCart;
+  private final CommandHandler<ConfirmShoppingCart> handleConfirmShoppingCart;
 
   public ShoppingCartsController(
-    Function<InitializeShoppingCart, CompletableFuture<Void>> handleInitializeShoppingCart
+    CommandHandler<InitializeShoppingCart> handleInitializeShoppingCart,
+    CommandHandler<AddProductItemToShoppingCart> handleAddProductItemToShoppingCart,
+    CommandHandler<RemoveProductItemFromShoppingCart> handleRemoveProductItemFromShoppingCart,
+    CommandHandler<ConfirmShoppingCart> handleConfirmShoppingCart
   ) {
 
     this.handleInitializeShoppingCart = handleInitializeShoppingCart;
+    this.handleAddProductItemToShoppingCart = handleAddProductItemToShoppingCart;
+    this.handleRemoveProductItemFromShoppingCart = handleRemoveProductItemFromShoppingCart;
+    this.handleConfirmShoppingCart = handleConfirmShoppingCart;
   }
 
   @PostMapping
@@ -40,11 +54,64 @@ public class ShoppingCartsController {
       request.clientId()
     );
 
-    handleInitializeShoppingCart.apply(command).get();
+    handleInitializeShoppingCart.handle(command).get();
 
     return ResponseEntity
       .created(new URI("api/ShoppingCarts/%s".formatted(cartId)))
       .build();
+  }
+
+  @PostMapping("{id}/products")
+  public CompletableFuture<Void> addProduct(
+    @PathVariable UUID id,
+    @RequestBody ShoppingCartsRequests.AddProductRequest request
+  ) {
+    if (request == null)
+      throw new IllegalArgumentException("Request body cannot be empty");
+
+    if(request.productItem() == null)
+      throw new IllegalArgumentException("Product Item has to be defined");
+
+    var command = AddProductItemToShoppingCart.From(
+      id,
+      ProductItem.From(
+        request.productItem().productId(),
+        request.productItem().quantity()
+      )
+    );
+
+    return handleAddProductItemToShoppingCart.handle(command);
+  }
+
+  @PostMapping("{id}/products/{productId}")
+  public CompletableFuture<Void> removeProduct(
+    @PathVariable UUID id,
+    @PathVariable UUID productId,
+    @RequestParam Integer quantity,
+    @RequestParam Double price
+  ) {
+    var command = RemoveProductItemFromShoppingCart.From(
+      id,
+      PricedProductItem.From(
+        ProductItem.From(
+          productId,
+          quantity
+        ),
+        price
+      )
+    );
+
+    return handleRemoveProductItemFromShoppingCart.handle(command);
+  }
+
+
+  @PutMapping("{id}")
+  public CompletableFuture<Void> removeProduct(
+    @PathVariable UUID id
+  ) {
+    var command = ConfirmShoppingCart.From(id);
+
+    return handleConfirmShoppingCart.handle(command);
   }
 
   @GetMapping
@@ -52,75 +119,6 @@ public class ShoppingCartsController {
     return List.of("test", "ttt");
   }
 
-//    [HttpPost("{id}/products")]
-//  public async Task<IActionResult> AddProduct(
-//        [FromServices] Func<AddProductItemToShoppingCart, CancellationToken, ValueTask> handle,
-//        [FromRoute] Guid id,
-//        [FromBody] AddProductRequest? request,
-//        CancellationToken ct
-//  )
-//  {
-//    if (request == null)
-//      throw new ArgumentNullException(nameof(request));
-//
-//    var command = AddProductItemToShoppingCart.From(
-//      id,
-//      ProductItem.From(
-//        request.ProductItem?.ProductId,
-//      request.ProductItem?.Quantity
-//            )
-//        );
-//
-//    await handle(command, ct);
-//
-//    return Ok();
-//  }
-//
-//    [HttpDelete("{id}/products/{productId}")]
-//  public async Task<IActionResult> RemoveProduct(
-//        [FromServices] Func<RemoveProductItemFromShoppingCart, CancellationToken, ValueTask> handle,
-//        Guid id,
-//        [FromRoute]Guid? productId,
-//        [FromQuery]int? quantity,
-//        [FromQuery]decimal? unitPrice,
-//        CancellationToken ct
-//  )
-//  {
-//    var command = RemoveProductItemFromShoppingCart.From(
-//      id,
-//      PricedProductItem.From(
-//        ProductItem.From(
-//          productId,
-//          quantity
-//        ),
-//        unitPrice
-//      )
-//    );
-//
-//    await handle(command, ct);
-//
-//    return NoContent();
-//  }
-//
-//    [HttpPut("{id}/confirmation")]
-//  public async Task<IActionResult> ConfirmCart(
-//        [FromServices] Func<ConfirmShoppingCart, CancellationToken, ValueTask> handle,
-//        Guid id,
-//        [FromBody] ConfirmShoppingCartRequest request,
-//        CancellationToken ct
-//  )
-//  {
-//    if (request == null)
-//      throw new ArgumentNullException(nameof(request));
-//
-//    var command =
-//      ConfirmShoppingCart.From(id);
-//
-//    await handle(command, ct);
-//
-//    return Ok();
-//  }
-//
 //    [HttpGet("{id}")]
 //  public async Task<IActionResult> Get(
 //        [FromServices] Func<GetCartById, CancellationToken, Task<ShoppingCartDetails?>> query,
