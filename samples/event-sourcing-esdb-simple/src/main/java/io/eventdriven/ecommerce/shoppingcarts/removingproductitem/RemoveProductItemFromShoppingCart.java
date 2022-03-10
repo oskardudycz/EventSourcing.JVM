@@ -1,6 +1,5 @@
 package io.eventdriven.ecommerce.shoppingcarts.removingproductitem;
 
-import io.eventdriven.ecommerce.pricing.IProductPriceCalculator;
 import io.eventdriven.ecommerce.shoppingcarts.Events;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
@@ -23,8 +22,7 @@ public record RemoveProductItemFromShoppingCart(
     return new RemoveProductItemFromShoppingCart(cartId, productItem);
   }
 
-  public static Events.ProductItemAddedToShoppingCart Handle(
-    IProductPriceCalculator productPriceCalculator,
+  public static Events.ProductItemRemovedFromShoppingCart Handle(
     RemoveProductItemFromShoppingCart command,
     ShoppingCart shoppingCart
   )
@@ -34,7 +32,7 @@ public record RemoveProductItemFromShoppingCart(
 
     shoppingCart.productItems().remove(command.productItem());
 
-    return new Events.ProductItemAddedToShoppingCart(
+    return new Events.ProductItemRemovedFromShoppingCart(
       command.shoppingCartId,
       command.productItem()
     );

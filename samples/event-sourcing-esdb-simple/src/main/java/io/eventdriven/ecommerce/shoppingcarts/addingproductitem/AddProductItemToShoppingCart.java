@@ -23,7 +23,7 @@ public record AddProductItemToShoppingCart(
     return new AddProductItemToShoppingCart(cartId, productItem);
   }
 
-  public static Events.ProductItemRemovedFromShoppingCart Handle(
+  public static Events.ProductItemAddedToShoppingCart Handle(
     IProductPriceCalculator productPriceCalculator,
     AddProductItemToShoppingCart command,
     ShoppingCart shoppingCart
@@ -36,7 +36,7 @@ public record AddProductItemToShoppingCart(
 
     shoppingCart.productItems().add(pricedProductItem);
 
-    return new Events.ProductItemRemovedFromShoppingCart(
+    return new Events.ProductItemAddedToShoppingCart(
       command.shoppingCartId,
       pricedProductItem
     );
