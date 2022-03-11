@@ -65,7 +65,7 @@ public class ShoppingCartsController {
   public CompletableFuture<Void> addProduct(
     @PathVariable UUID id,
     @RequestBody ShoppingCartsRequests.AddProductRequest request
-  ) {
+  ) throws ExecutionException, InterruptedException {
     if (request == null)
       throw new IllegalArgumentException("Request body cannot be empty");
 
@@ -89,7 +89,7 @@ public class ShoppingCartsController {
     @PathVariable UUID productId,
     @RequestParam Integer quantity,
     @RequestParam Double price
-  ) {
+  ) throws ExecutionException, InterruptedException {
     var command = RemoveProductItemFromShoppingCart.From(
       id,
       PricedProductItem.From(
@@ -108,7 +108,7 @@ public class ShoppingCartsController {
   @PutMapping("{id}")
   public CompletableFuture<Void> removeProduct(
     @PathVariable UUID id
-  ) {
+  ) throws ExecutionException, InterruptedException {
     var command = ConfirmShoppingCart.From(id);
 
     return handleConfirmShoppingCart.handle(command);

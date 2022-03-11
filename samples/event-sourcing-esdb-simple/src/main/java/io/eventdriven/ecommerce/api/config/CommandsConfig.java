@@ -1,8 +1,11 @@
 package io.eventdriven.ecommerce.api.config;
 
 import com.eventstore.dbclient.EventStoreDBClient;
+import com.eventstore.dbclient.ParseError;
+import io.eventdriven.ecommerce.core.Config;
 import io.eventdriven.ecommerce.core.commands.CommandHandler;
 import io.eventdriven.ecommerce.core.commands.Handle;
+import io.eventdriven.ecommerce.core.subscriptions.EventStoreDBSubscriptionToAll;
 import io.eventdriven.ecommerce.pricing.IProductPriceCalculator;
 import io.eventdriven.ecommerce.pricing.RandomProductPriceCalculator;
 import io.eventdriven.ecommerce.shoppingcarts.Events;
@@ -13,6 +16,7 @@ import io.eventdriven.ecommerce.shoppingcarts.initializing.InitializeShoppingCar
 import io.eventdriven.ecommerce.shoppingcarts.removingproductitem.RemoveProductItemFromShoppingCart;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.context.annotation.ApplicationScope;
 import org.springframework.web.context.annotation.RequestScope;
 
@@ -94,5 +98,17 @@ public class CommandsConfig {
   @ApplicationScope
   IProductPriceCalculator productPriceCalculator() {
     return new RandomProductPriceCalculator();
+  }
+
+  @Scheduled(fixedDelay = Long.MAX_VALUE)
+  public void runOnceOnStartup() throws ParseError, ExecutionException, InterruptedException {
+    try{
+      new EventStoreDBSubscriptionToAll(Config.eventStoreDBClient())
+        .subscribeToAll()
+        .get();
+    } catch (Exception e){
+      e.printStackTrace();
+      throw e;
+    }
   }
 }
