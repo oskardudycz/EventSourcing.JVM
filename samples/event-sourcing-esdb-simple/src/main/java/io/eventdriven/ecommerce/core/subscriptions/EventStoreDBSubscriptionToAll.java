@@ -7,7 +7,7 @@ import com.eventstore.dbclient.SubscriptionListener;
 import io.eventdriven.ecommerce.core.events.EventTypeMapper;
 
 import java.util.Random;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 
 public class EventStoreDBSubscriptionToAll {
@@ -17,6 +17,8 @@ public class EventStoreDBSubscriptionToAll {
   //  private readonly ISubscriptionCheckpointRepository checkpointRepository;
   private EventStoreDBSubscriptionToAllOptions subscriptionOptions;
   private final Object resubscribeLock = new Object();
+  private Subscription subscription;
+  private boolean isRunning;
 //  private CancellationToken cancellationToken;
 
   public EventStoreDBSubscriptionToAll(
@@ -31,11 +33,11 @@ public class EventStoreDBSubscriptionToAll {
 //    this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
   }
 
-  public CompletableFuture<Subscription> subscribeToAll() {
-    return subscribeToAll(EventStoreDBSubscriptionToAllOptions.getDefault());
+  public void subscribeToAll() throws ExecutionException, InterruptedException {
+    subscribeToAll(EventStoreDBSubscriptionToAllOptions.getDefault());
   }
 
-  public CompletableFuture<Subscription> subscribeToAll(EventStoreDBSubscriptionToAllOptions subscriptionOptions) {
+  public void subscribeToAll(EventStoreDBSubscriptionToAllOptions subscriptionOptions) throws ExecutionException, InterruptedException {
     this.subscriptionOptions = subscriptionOptions;
 
 //    var checkpoint = await checkpointRepository.Load(SubscriptionId, ct);
@@ -55,10 +57,24 @@ public class EventStoreDBSubscriptionToAll {
       }
     };
 
-    return eventStoreClient.subscribeToAll(
+    subscription = eventStoreClient.subscribeToAll(
       listener,
       this.subscriptionOptions.subscribeToAllOptions()
-    );
+    ).get();
+
+    isRunning = true;
+  }
+
+  public void stop(){
+    if(!isRunning)
+      return;
+
+    isRunning = false;
+    subscription.stop();
+  }
+
+  public boolean isRunning() {
+    return this.isRunning;
   }
 
   private void handleEvent(Subscription subscription, ResolvedEvent resolvedEvent) {
