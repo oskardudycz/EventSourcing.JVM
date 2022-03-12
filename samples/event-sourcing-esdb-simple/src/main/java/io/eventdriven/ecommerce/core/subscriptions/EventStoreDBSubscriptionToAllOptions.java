@@ -10,10 +10,11 @@ public record EventStoreDBSubscriptionToAllOptions(
 ) {
   public static EventStoreDBSubscriptionToAllOptions getDefault() {
     SubscriptionFilter filterOutSystemEvents = SubscriptionFilter.newBuilder()
-      .withEventTypeRegularExpression("/^[^\\$].*/")
+      .withEventTypeRegularExpression("^[^\\$].*")
       .build();
 
     SubscribeToAllOptions options = SubscribeToAllOptions.get()
+      .fromStart()
       .filter(filterOutSystemEvents);
 
     return new EventStoreDBSubscriptionToAllOptions("default", true, options);

@@ -21,6 +21,19 @@ public class EventStoreDBSubscriptionToAll {
   private boolean isRunning;
 //  private CancellationToken cancellationToken;
 
+  SubscriptionListener listener = new SubscriptionListener() {
+    @Override
+    public void onEvent(Subscription subscription, ResolvedEvent event) {
+      handleEvent(subscription, event);
+    }
+
+    @Override
+    public void onError(Subscription subscription, Throwable throwable) {
+      System.out.println("Subscription was dropped due to " + throwable.getMessage());
+      handleDrop(subscription, throwable);
+    }
+  };
+
   public EventStoreDBSubscriptionToAll(
     EventStoreDBClient eventStoreClient
 //    IEventBus eventBus,
@@ -43,19 +56,6 @@ public class EventStoreDBSubscriptionToAll {
 //    var checkpoint = await checkpointRepository.Load(SubscriptionId, ct);
 
     System.out.println("Subscription to all '%s'".formatted(subscriptionOptions.subscriptionId()));
-
-    SubscriptionListener listener = new SubscriptionListener() {
-      @Override
-      public void onEvent(Subscription subscription, ResolvedEvent event) {
-        handleEvent(subscription, event);
-      }
-
-      @Override
-      public void onError(Subscription subscription, Throwable throwable) {
-        System.out.println("Subscription was dropped due to " + throwable.getMessage());
-        handleDrop(subscription, throwable);
-      }
-    };
 
     subscription = eventStoreClient.subscribeToAll(
       listener,
