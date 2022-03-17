@@ -1,30 +1,30 @@
 package io.eventdriven.ecommerce.core.subscriptions;
 
-import com.eventstore.dbclient.EventStoreDBClient;
-import com.eventstore.dbclient.ResolvedEvent;
-import com.eventstore.dbclient.Subscription;
-import com.eventstore.dbclient.SubscriptionListener;
+import com.eventstore.dbclient.*;
+import io.eventdriven.ecommerce.core.events.EventEnvelope;
 import io.eventdriven.ecommerce.core.events.EventTypeMapper;
+import io.eventdriven.ecommerce.core.events.IEventBus;
 
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 
-
 public class EventStoreDBSubscriptionToAll {
-
-  //  private readonly IEventBus eventBus;
   private final EventStoreDBClient eventStoreClient;
-  //  private readonly ISubscriptionCheckpointRepository checkpointRepository;
+  private final ISubscriptionCheckpointRepository checkpointRepository;
+  private final IEventBus eventBus;
   private EventStoreDBSubscriptionToAllOptions subscriptionOptions;
   private final Object resubscribeLock = new Object();
   private Subscription subscription;
   private boolean isRunning;
-//  private CancellationToken cancellationToken;
 
   SubscriptionListener listener = new SubscriptionListener() {
     @Override
     public void onEvent(Subscription subscription, ResolvedEvent event) {
-      handleEvent(subscription, event);
+      try {
+        handleEvent(subscription, event);
+      } catch (Throwable e) {
+        throw new RuntimeException(e);
+      }
     }
 
     @Override
@@ -35,15 +35,13 @@ public class EventStoreDBSubscriptionToAll {
   };
 
   public EventStoreDBSubscriptionToAll(
-    EventStoreDBClient eventStoreClient
-//    IEventBus eventBus,
-//    ISubscriptionCheckpointRepository checkpointRepository
+    EventStoreDBClient eventStoreClient,
+    ISubscriptionCheckpointRepository checkpointRepository,
+    IEventBus eventBus
   ) {
-//    this.eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
     this.eventStoreClient = eventStoreClient;
-//    this.checkpointRepository =
-//      checkpointRepository ?? throw new ArgumentNullException(nameof(checkpointRepository));
-//    this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    this.checkpointRepository = checkpointRepository;
+    this.eventBus = eventBus;
   }
 
   public void subscribeToAll() throws ExecutionException, InterruptedException {
@@ -53,7 +51,16 @@ public class EventStoreDBSubscriptionToAll {
   public void subscribeToAll(EventStoreDBSubscriptionToAllOptions subscriptionOptions) throws ExecutionException, InterruptedException {
     this.subscriptionOptions = subscriptionOptions;
 
-//    var checkpoint = await checkpointRepository.Load(SubscriptionId, ct);
+    var checkpoint = checkpointRepository.load(this.subscriptionOptions.subscriptionId());
+
+    if(!checkpoint.isEmpty()) {
+      this.subscriptionOptions.subscribeToAllOptions()
+        .fromPosition(new Position(checkpoint.get(), checkpoint.get()));
+    }
+    else {
+      this.subscriptionOptions.subscribeToAllOptions()
+        .fromStart();
+    }
 
     System.out.println("Subscription to all '%s'".formatted(subscriptionOptions.subscriptionId()));
 
@@ -77,34 +84,39 @@ public class EventStoreDBSubscriptionToAll {
     return this.isRunning;
   }
 
-  private void handleEvent(Subscription subscription, ResolvedEvent resolvedEvent) {
+  private void handleEvent(Subscription subscription, ResolvedEvent resolvedEvent) throws ExecutionException, InterruptedException {
     try {
       if (isEventWithEmptyData(resolvedEvent) || isCheckpointEvent(resolvedEvent))
         return;
 
-//      var streamEvent = resolvedEvent.ToStreamEvent();
-//
-//      if (streamEvent == null) {
-//        // That can happen if we're sharing database between modules.
-//        // If we're subscribing to all and not filtering out events from other modules,
-//        // then we might get events that are from other module and we might not be able to deserialize them.
-//        // In that case it's safe to ignore deserialization error.
-//        // You may add more sophisticated logic checking if it should be ignored or not.
-//        System.out.println("Couldn't deserialize event with id: %s".formatted(resolvedEvent.getEvent().getEventId()));
-//
-//        if (!subscriptionOptions.ignoreDeserializationErrors())
-//          throw new IllegalStateException(
-//            "Unable to deserialize event %s with id: %s"
-//              .formatted(resolvedEvent.getEvent().getEventType(), resolvedEvent.getEvent().getEventId())
-//          );
-//
-//        return;
-//      }
+      var eventClass = EventTypeMapper.ToClass(resolvedEvent.getEvent().getEventType());
+
+      var streamEvent = EventEnvelope.From(eventClass, resolvedEvent);
+
+      if (streamEvent == null) {
+        // That can happen if we're sharing database between modules.
+        // If we're subscribing to all and not filtering out events from other modules,
+        // then we might get events that are from other module and we might not be able to deserialize them.
+        // In that case it's safe to ignore deserialization error.
+        // You may add more sophisticated logic checking if it should be ignored or not.
+        System.out.println("Couldn't deserialize event with id: %s".formatted(resolvedEvent.getEvent().getEventId()));
+
+        if (!subscriptionOptions.ignoreDeserializationErrors())
+          throw new IllegalStateException(
+            "Unable to deserialize event %s with id: %s"
+              .formatted(resolvedEvent.getEvent().getEventType(), resolvedEvent.getEvent().getEventId())
+          );
+
+        return;
+      }
 
       // publish event to internal event bus
-//      await eventBus.Publish(streamEvent, ct);
-//
-//      await checkpointRepository.Store(SubscriptionId, resolvedEvent.Event.Position.CommitPosition, ct);
+      eventBus.Publish(streamEvent);
+
+      checkpointRepository.store(
+        subscription.getSubscriptionId(),
+        resolvedEvent.getEvent().getPosition().getCommitUnsigned()
+      );
     } catch (Exception e) {
       System.out.println("Error consuming message: {%s}".formatted(e.getMessage()));
       e.printStackTrace();
