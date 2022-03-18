@@ -42,6 +42,9 @@ public final class EventSerializer {
 
   public static <TEvent> TEvent Deserialize(Class<TEvent> eventClass, ResolvedEvent resolvedEvent) {
     try {
+      if(eventClass == null)
+        return null;
+
       var result = mapper.readValue(resolvedEvent.getEvent().getEventData(), eventClass);
 
       if (result == null)

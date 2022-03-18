@@ -1,27 +1,27 @@
-package io.eventdriven.ecommerce.shoppingcarts.initializing;
+package io.eventdriven.ecommerce.shoppingcarts.opening;
 
 import io.eventdriven.ecommerce.shoppingcarts.Events;
 
 import java.util.UUID;
 
-public record InitializeShoppingCart(
+public record OpenShoppingCart(
   UUID shoppingCartId,
   UUID clientId
 )
 {
-  public static InitializeShoppingCart From(UUID cartId, UUID clientId)
+  public static OpenShoppingCart From(UUID cartId, UUID clientId)
   {
     if (cartId == null)
       throw new IllegalArgumentException("Cart id has to be defined");
     if (clientId == null)
       throw new IllegalArgumentException("Client id has to be defined");
 
-    return new InitializeShoppingCart(cartId, clientId);
+    return new OpenShoppingCart(cartId, clientId);
   }
 
-  public static Events.ShoppingCartInitialized Handle(InitializeShoppingCart command)
+  public static Events.ShoppingCartOpened Handle(OpenShoppingCart command)
   {
-    return new Events.ShoppingCartInitialized(
+    return new Events.ShoppingCartOpened(
       command.shoppingCartId(),
       command.clientId()
     );

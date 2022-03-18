@@ -12,7 +12,8 @@ public record ShoppingCart(
   UUID clientId,
   ShoppingCart.Status status,
   ProductItemsList productItems,
-  Optional<LocalDateTime> confirmedAt
+  Optional<LocalDateTime> confirmedAt,
+  Optional<LocalDateTime> canceledAt
 ) {
 
   public enum Status {
@@ -24,7 +25,7 @@ public record ShoppingCart(
   }
 
   public static ShoppingCart empty(){
-    return new ShoppingCart(null, null, null, null, Optional.empty());
+    return new ShoppingCart(null, null, null, null, Optional.empty(), Optional.empty());
   }
 
   public static String mapToStreamId(UUID shoppingCartId) {
@@ -37,12 +38,13 @@ public record ShoppingCart(
 
   public static ShoppingCart when(ShoppingCart current, Events.ShoppingCartEvent event) {
     return switch (event) {
-      case Events.ShoppingCartInitialized shoppingCartInitialized:
+      case Events.ShoppingCartOpened shoppingCartOpened:
         yield new ShoppingCart(
-          shoppingCartInitialized.shoppingCartId(),
-          shoppingCartInitialized.clientId(),
+          shoppingCartOpened.shoppingCartId(),
+          shoppingCartOpened.clientId(),
           Status.Pending,
           ProductItemsList.empty(),
+          Optional.empty(),
           Optional.empty()
         );
       case Events.ProductItemAddedToShoppingCart productItemAddedToShoppingCart:
@@ -51,7 +53,8 @@ public record ShoppingCart(
           current.clientId,
           current.status,
           current.productItems().add(productItemAddedToShoppingCart.productItem()),
-          current.confirmedAt()
+          Optional.empty(),
+          Optional.empty()
         );
       case Events.ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart:
         yield new ShoppingCart(
@@ -59,7 +62,8 @@ public record ShoppingCart(
           current.clientId,
           current.status,
           current.productItems().remove(productItemRemovedFromShoppingCart.productItem()),
-          current.confirmedAt()
+          Optional.empty(),
+          Optional.empty()
         );
       case Events.ShoppingCartConfirmed shoppingCartConfirmed:
         yield new ShoppingCart(
@@ -67,7 +71,17 @@ public record ShoppingCart(
           current.clientId,
           Status.Confirmed,
           current.productItems(),
-          Optional.of(shoppingCartConfirmed.confirmedAt())
+          Optional.of(shoppingCartConfirmed.confirmedAt()),
+          Optional.empty()
+        );
+      case Events.ShoppingCartCanceled shoppingCartCanceled:
+        yield new ShoppingCart(
+          current.id(),
+          current.clientId,
+          Status.Confirmed,
+          current.productItems(),
+          Optional.empty(),
+          Optional.of(shoppingCartCanceled.canceledAt())
         );
       case null:
         throw new IllegalArgumentException("Event cannot be null!");

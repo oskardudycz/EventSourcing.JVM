@@ -8,13 +8,14 @@ import java.util.UUID;
 public final class Events {
 
   public sealed interface ShoppingCartEvent permits
-    ShoppingCartInitialized,
+    ShoppingCartOpened,
     ProductItemAddedToShoppingCart,
     ProductItemRemovedFromShoppingCart,
-    ShoppingCartConfirmed {
+    ShoppingCartConfirmed,
+    ShoppingCartCanceled {
   }
 
-  public record ShoppingCartInitialized(
+  public record ShoppingCartOpened(
     UUID shoppingCartId,
     UUID clientId
   ) implements ShoppingCartEvent {
@@ -35,6 +36,12 @@ public final class Events {
   public record ShoppingCartConfirmed(
     UUID shoppingCartId,
     LocalDateTime confirmedAt
+  ) implements ShoppingCartEvent {
+  }
+
+  public record ShoppingCartCanceled(
+    UUID shoppingCartId,
+    LocalDateTime canceledAt
   ) implements ShoppingCartEvent {
   }
 }
