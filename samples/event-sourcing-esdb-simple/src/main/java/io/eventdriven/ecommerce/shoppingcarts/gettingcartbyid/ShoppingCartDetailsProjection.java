@@ -7,7 +7,7 @@ import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 import java.util.ArrayList;
 
 public final class ShoppingCartDetailsProjection {
-  public static ShoppingCartDetails HandleShoppingCartOpened(EventEnvelope<Events.ShoppingCartOpened> eventEnvelope) {
+  public static ShoppingCartDetails handleShoppingCartOpened(EventEnvelope<Events.ShoppingCartOpened> eventEnvelope) {
     var event = eventEnvelope.data();
 
     return new ShoppingCartDetails(
@@ -20,15 +20,15 @@ public final class ShoppingCartDetailsProjection {
     );
   }
 
-  public static void HandleProductAdded(EventEnvelope<Events.ProductItemAddedToShoppingCart> eventEnvelope, ShoppingCartDetails view) {
+  public static ShoppingCartDetails handleProductItemAddedToShoppingCart(ShoppingCartDetails view, EventEnvelope<Events.ProductItemAddedToShoppingCart> eventEnvelope) {
     if (wasAlreadyApplied(eventEnvelope, view))
-      return;
+      return view;
 
     var event = eventEnvelope.data();
 
     var productItem = event.productItem();
     var existingProductItem = view.getProductItems().stream()
-      .filter(x -> x.getProductId() == productItem.productId())
+      .filter(x -> x.getProductId().equals(productItem.productId()))
       .findFirst();
 
     if (existingProductItem.isEmpty()) {
@@ -44,6 +44,8 @@ public final class ShoppingCartDetailsProjection {
     }
 
     view.setMetadata(eventEnvelope.metadata());
+
+    return view;
   }
 
   public static void HandleProductItemRemovedFromShoppingCart(EventEnvelope<Events.ProductItemRemovedFromShoppingCart> eventEnvelope, ShoppingCartDetails view) {
@@ -52,7 +54,7 @@ public final class ShoppingCartDetailsProjection {
 
     var productItem = eventEnvelope.data().productItem();
     var existingProductItem = view.getProductItems().stream()
-      .filter(x -> x.getProductId() == productItem.productId())
+      .filter(x -> x.getProductId().equals(productItem.productId()))
       .findFirst();
 
     if (existingProductItem.isEmpty()) {

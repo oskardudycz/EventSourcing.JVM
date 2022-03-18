@@ -8,6 +8,7 @@ import io.eventdriven.ecommerce.pricing.RandomProductPriceCalculator;
 import io.eventdriven.ecommerce.shoppingcarts.Events;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.addingproductitem.AddProductItemToShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.canceling.CancelShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.confirming.ConfirmShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.opening.OpenShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.removingproductitem.RemoveProductItemFromShoppingCart;
@@ -66,6 +67,18 @@ public class CommandsConfig {
     return (command) -> GetAndUpdate(
       eventStore,
       (shoppingCart, c) -> ConfirmShoppingCart.Handle(c, shoppingCart),
+      command.shoppingCartId(),
+      command,
+      Optional.empty()
+    );
+  }
+
+  @Bean
+  @RequestScope
+  CommandHandler<CancelShoppingCart> handleCancelShoppingCart(EventStoreDBClient eventStore) {
+    return (command) -> GetAndUpdate(
+      eventStore,
+      (shoppingCart, c) -> CancelShoppingCart.Handle(c, shoppingCart),
       command.shoppingCartId(),
       command,
       Optional.empty()

@@ -10,7 +10,6 @@ import java.util.UUID;
 @Entity
 public class ShoppingCartDetails {
   @Id
-  @GeneratedValue
   private UUID id;
 
   @Column(nullable = false)
@@ -20,7 +19,7 @@ public class ShoppingCartDetails {
   @Enumerated(EnumType.STRING)
   private ShoppingCart.Status status;
 
-  @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+  @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
   @JoinColumn(name="shopping_cart_id")
   private List<ShoppingCartDetailsProductItem> productItems;
 
