@@ -14,9 +14,11 @@ public class RandomProductPriceCalculator implements IProductPriceCalculator {
   public PricedProductItem Calculate(ProductItem productItem) {
     var random = new Random();
 
-    var price = productPrices.putIfAbsent(
+    var price = random.nextDouble() * 100;
+
+    productPrices.putIfAbsent(
       productItem.productId(),
-      random.nextDouble()
+      price
     );
 
     return PricedProductItem.From(productItem, price);

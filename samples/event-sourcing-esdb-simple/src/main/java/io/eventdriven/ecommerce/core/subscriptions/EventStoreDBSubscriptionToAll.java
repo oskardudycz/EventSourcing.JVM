@@ -111,10 +111,10 @@ public class EventStoreDBSubscriptionToAll {
       }
 
       // publish event to internal event bus
-      eventBus.Publish(streamEvent);
+      eventBus.Publish(eventClass, streamEvent);
 
       checkpointRepository.store(
-        subscription.getSubscriptionId(),
+        this.subscriptionOptions.subscriptionId(),
         resolvedEvent.getEvent().getPosition().getCommitUnsigned()
       );
     } catch (Exception e) {
@@ -172,7 +172,7 @@ public class EventStoreDBSubscriptionToAll {
   }
 
   private static boolean isCheckpointEvent(ResolvedEvent resolvedEvent) {
-    if (resolvedEvent.getEvent().getEventType() != EventTypeMapper.ToName(CheckpointStored.class))
+    if (!resolvedEvent.getEvent().getEventType().equals(EventTypeMapper.ToName(CheckpointStored.class)))
       return false;
 
     System.out.println("Checkpoint event - ignoring");

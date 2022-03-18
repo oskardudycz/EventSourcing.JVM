@@ -49,8 +49,11 @@ public record EventStoreDBSubscriptionCheckpointRepository(
         streamName,
         AppendToStreamOptions.get().expectedRevision(ExpectedRevision.STREAM_EXISTS),
         event
-      );
-    } catch (WrongExpectedVersionException ex) {
+      ).get();
+    } catch (ExecutionException ex) {
+      if(!(ex.getCause() instanceof WrongExpectedVersionException))
+        throw ex;
+
       // WrongExpectedVersionException means that stream did not exist
       // Set the checkpoint stream to have at most 1 event
       // using stream metadata $maxCount property
@@ -69,7 +72,7 @@ public record EventStoreDBSubscriptionCheckpointRepository(
         streamName,
         AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
         event
-      );
+      ).get();
     }
   }
 

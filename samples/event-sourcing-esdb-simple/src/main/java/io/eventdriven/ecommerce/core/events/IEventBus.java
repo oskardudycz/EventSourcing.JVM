@@ -1,5 +1,5 @@
 package io.eventdriven.ecommerce.core.events;
 
 public interface IEventBus {
-  void Publish(Object... events);
+  <TEvent> void Publish(Class<TEvent> type, EventEnvelope<TEvent> event);
 }
