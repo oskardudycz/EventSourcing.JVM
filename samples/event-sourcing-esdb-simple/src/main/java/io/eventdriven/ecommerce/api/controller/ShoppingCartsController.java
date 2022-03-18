@@ -4,7 +4,7 @@ import io.eventdriven.ecommerce.api.requests.ShoppingCartsRequests;
 import io.eventdriven.ecommerce.core.commands.CommandHandler;
 import io.eventdriven.ecommerce.shoppingcarts.addingproductitem.AddProductItemToShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.confirming.ConfirmShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.initializing.InitializeShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.opening.OpenShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.removingproductitem.RemoveProductItemFromShoppingCart;
@@ -21,13 +21,13 @@ import java.util.concurrent.ExecutionException;
 @RestController
 @RequestMapping("/shopping-carts")
 public class ShoppingCartsController {
-  private final CommandHandler<InitializeShoppingCart> handleInitializeShoppingCart;
+  private final CommandHandler<OpenShoppingCart> handleInitializeShoppingCart;
   private final CommandHandler<AddProductItemToShoppingCart> handleAddProductItemToShoppingCart;
   private final CommandHandler<RemoveProductItemFromShoppingCart> handleRemoveProductItemFromShoppingCart;
   private final CommandHandler<ConfirmShoppingCart> handleConfirmShoppingCart;
 
   public ShoppingCartsController(
-    CommandHandler<InitializeShoppingCart> handleInitializeShoppingCart,
+    CommandHandler<OpenShoppingCart> handleInitializeShoppingCart,
     CommandHandler<AddProductItemToShoppingCart> handleAddProductItemToShoppingCart,
     CommandHandler<RemoveProductItemFromShoppingCart> handleRemoveProductItemFromShoppingCart,
     CommandHandler<ConfirmShoppingCart> handleConfirmShoppingCart
@@ -49,7 +49,7 @@ public class ShoppingCartsController {
 
     var cartId = UUID.randomUUID();
 
-    var command = InitializeShoppingCart.From(
+    var command = OpenShoppingCart.From(
       cartId,
       request.clientId()
     );

@@ -1,18 +1,27 @@
 package io.eventdriven.ecommerce.core;
 
-import com.eventstore.dbclient.EventStoreDBClient;
-import com.eventstore.dbclient.EventStoreDBClientSettings;
-import com.eventstore.dbclient.EventStoreDBConnectionString;
-import com.eventstore.dbclient.ParseError;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.eventdriven.ecommerce.core.events.EventBus;
+import io.eventdriven.ecommerce.core.events.IEventBus;
+import io.eventdriven.ecommerce.core.scopes.ServiceScope;
+import io.eventdriven.ecommerce.core.serialization.EventSerializer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
+@Configuration
 public class Config {
-  public static EventStoreDBClient eventStoreDBClient() throws ParseError {
-    return eventStoreDBClient("esdb://localhost:2113?tls=false");
+  @Bean
+  public ObjectMapper defaultJSONMapper() {
+    return EventSerializer.mapper;
   }
 
-  public static EventStoreDBClient eventStoreDBClient(String connectionString) throws ParseError {
-    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse(connectionString);
+  @Bean
+  public ServiceScope serviceScope() {
+    return new ServiceScope();
+  }
 
-    return EventStoreDBClient.create(settings);
+  @Bean
+  public IEventBus eventBus(ServiceScope serviceScope) {
+    return new EventBus(serviceScope);
   }
 }

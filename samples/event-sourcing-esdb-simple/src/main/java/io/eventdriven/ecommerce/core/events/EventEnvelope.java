@@ -8,8 +8,11 @@ public record EventEnvelope<TEvent>(
   EventMetadata metadata
 ) {
   public static <TEvent> EventEnvelope<TEvent> From(final Class<TEvent> type, ResolvedEvent resolvedEvent){
+    if(type == null)
+      return null;
+
     return new EventEnvelope<>(
-      EventSerializer.Deserialize(resolvedEvent),
+      EventSerializer.Deserialize(type, resolvedEvent),
       new EventMetadata(
         resolvedEvent.getEvent().getEventId().toString(),
         resolvedEvent.getEvent().getStreamRevision().getValueUnsigned(),

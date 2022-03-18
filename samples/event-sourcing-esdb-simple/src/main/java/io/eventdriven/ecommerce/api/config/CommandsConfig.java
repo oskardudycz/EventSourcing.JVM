@@ -9,7 +9,7 @@ import io.eventdriven.ecommerce.shoppingcarts.Events;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.addingproductitem.AddProductItemToShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.confirming.ConfirmShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.initializing.InitializeShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.opening.OpenShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.removingproductitem.RemoveProductItemFromShoppingCart;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,10 +26,10 @@ import java.util.function.BiFunction;
 public class CommandsConfig {
   @Bean
   @RequestScope
-  public CommandHandler<InitializeShoppingCart> handleInitializeShoppingCart(EventStoreDBClient eventStore) {
+  public CommandHandler<OpenShoppingCart> handleInitializeShoppingCart(EventStoreDBClient eventStore) {
     return (command) -> Handle.Add(
       eventStore,
-      c -> InitializeShoppingCart.Handle(c),
+      c -> OpenShoppingCart.Handle(c),
       ShoppingCart.mapToStreamId(command.shoppingCartId()),
       command
     );
