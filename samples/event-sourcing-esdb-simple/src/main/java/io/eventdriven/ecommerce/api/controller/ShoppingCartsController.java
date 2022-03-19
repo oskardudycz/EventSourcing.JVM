@@ -122,9 +122,9 @@ public class ShoppingCartsController {
   public CompletableFuture<Void> cancelCart(
     @PathVariable UUID id
   ) throws ExecutionException, InterruptedException {
-    var command = ConfirmShoppingCart.From(id);
+    var command = CancelShoppingCart.From(id);
 
-    return handleConfirmShoppingCart.handle(command);
+    return handleCancelShoppingCart.handle(command);
   }
 
   @GetMapping
