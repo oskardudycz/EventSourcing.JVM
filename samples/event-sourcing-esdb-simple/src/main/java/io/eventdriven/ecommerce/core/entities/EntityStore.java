@@ -1,10 +1,8 @@
-package io.eventdriven.ecommerce.core.commands;
+package io.eventdriven.ecommerce.core.entities;
 
 import com.eventstore.dbclient.AppendToStreamOptions;
-import com.eventstore.dbclient.EventData;
 import com.eventstore.dbclient.EventStoreDBClient;
 import com.eventstore.dbclient.ExpectedRevision;
-import io.eventdriven.ecommerce.core.events.EventTypeMapper;
 import io.eventdriven.ecommerce.core.serialization.EventSerializer;
 
 import java.util.Optional;
@@ -15,22 +13,34 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public final class Handle {
+public class EntityStore<TEntity> {
+  private final EventStoreDBClient eventStore;
+  private final BiFunction<TEntity, Object, TEntity> when;
+  private final Function<UUID, String> mapToStreamId;
+  private final Supplier<TEntity> getDefault;
 
-  public static <TEntity> TEntity Get(
+  public EntityStore(
     EventStoreDBClient eventStore,
-    Supplier<TEntity> getDefault,
     BiFunction<TEntity, Object, TEntity> when,
-    String streamId
-  ) throws ExecutionException, InterruptedException {
-    var current = getDefault.get();
+    Function<UUID, String> mapToStreamId,
+    Supplier<TEntity> getDefault
+  ) {
 
+    this.eventStore = eventStore;
+    this.when = when;
+    this.mapToStreamId = mapToStreamId;
+    this.getDefault = getDefault;
+  }
+
+  public TEntity Get(UUID id) throws ExecutionException, InterruptedException {
+    var streamId = mapToStreamId.apply(id);
     var result = eventStore.readStream(streamId).get();
 
     var events = result.getEvents().stream()
       .map(e -> EventSerializer.Deserialize(e))
       .toList();
 
+    var current = getDefault.get();
     for (var event : events) {
       current = when.apply(current, event);
     }
@@ -38,42 +48,35 @@ public final class Handle {
     return current;
   }
 
-  public static <TCommand> CompletableFuture<Void> Add(
-    EventStoreDBClient eventStore,
-    Function<TCommand, Object> handle,
-    String streamId,
-    TCommand command
+  public CompletableFuture<Void> Add(
+    Supplier<Object> handle,
+    UUID id
   ) {
-    var event = handle.apply(command);
+    var streamId = mapToStreamId.apply(id);
+    var event = handle.get();
 
-    var appendOptions = AppendToStreamOptions.get()
-      .expectedRevision(ExpectedRevision.NO_STREAM);
-
-    return CompletableFuture.allOf(eventStore.appendToStream(
-      streamId,
-      appendOptions,
-      EventData.builderAsJson(
-        UUID.randomUUID(),
-        EventTypeMapper.ToName(event.getClass()),
-        event
-      ).build()
-    ));
+    return appendToStream(streamId, event, Optional.empty());
   }
 
-  public static <TEntity, TCommand> CompletableFuture<Void> GetAndUpdate(
-    EventStoreDBClient eventStore,
-    Supplier<TEntity> getDefault,
-    BiFunction<TEntity, Object, TEntity> when,
-    BiFunction<TEntity, TCommand, Object> handle,
-    String streamId,
-    TCommand command,
+  public CompletableFuture<Void> GetAndUpdate(
+    Function<TEntity, Object> handle,
+    UUID id,
     Optional<Long> expectedRevision
   ) throws ExecutionException, InterruptedException {
 
-    var entity = Get(eventStore, getDefault, when, streamId);
+    var streamId = mapToStreamId.apply(id);
+    var entity = Get(id);
 
-    var event = handle.apply(entity, command);
+    var event = handle.apply(entity);
 
+    return appendToStream(streamId, event, expectedRevision);
+  }
+
+  private CompletableFuture<Void> appendToStream(
+    String streamId,
+    Object event,
+    Optional<Long> expectedRevision
+  ) {
     var appendOptions = AppendToStreamOptions.get();
 
     if (!expectedRevision.isEmpty())
