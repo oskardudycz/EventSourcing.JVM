@@ -18,11 +18,4 @@ public final class ShoppingCartsRequests {
     ProductItemRequest productItem
   ) {
   }
-
-  public record PricedProductItemRequest(
-    UUID productId,
-    Integer quantity,
-    Double unitPrice
-  ) {
-  }
 }

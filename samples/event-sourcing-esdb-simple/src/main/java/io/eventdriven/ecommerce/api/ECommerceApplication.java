@@ -9,11 +9,11 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
-@ComponentScan(basePackages = { "io.eventdriven.ecommerce.shoppingcarts", "io.eventdriven.ecommerce.core", "io.eventdriven.ecommerce.api" })
-@EnableJpaRepositories(basePackages={"io.eventdriven.ecommerce.shoppingcarts"})
+@ComponentScan(basePackages = {"io.eventdriven.ecommerce.shoppingcarts", "io.eventdriven.ecommerce.core", "io.eventdriven.ecommerce.api"})
+@EnableJpaRepositories(basePackages = {"io.eventdriven.ecommerce.shoppingcarts"})
 @EntityScan("io.eventdriven.ecommerce.shoppingcarts")
 public class ECommerceApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(ECommerceApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(ECommerceApplication.class, args);
+  }
 }

@@ -1,4 +1,4 @@
-package io.eventdriven.ecommerce.api.config;
+package io.eventdriven.ecommerce.core.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.eventdriven.ecommerce.core.events.EventBus;

@@ -1,10 +1,8 @@
-package io.eventdriven.ecommerce.api.config;
+package io.eventdriven.ecommerce.shoppingcarts.gettingcartbyid;
 
 import io.eventdriven.ecommerce.core.events.IEventHandler;
 import io.eventdriven.ecommerce.core.projections.JPAProjection;
 import io.eventdriven.ecommerce.shoppingcarts.Events;
-import io.eventdriven.ecommerce.shoppingcarts.gettingcartbyid.ShoppingCartDetailsProjection;
-import io.eventdriven.ecommerce.shoppingcarts.gettingcartbyid.ShoppingCartDetailsRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;

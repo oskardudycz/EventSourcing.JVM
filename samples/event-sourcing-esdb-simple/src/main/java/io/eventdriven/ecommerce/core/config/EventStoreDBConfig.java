@@ -1,4 +1,4 @@
-package io.eventdriven.ecommerce.api.config;
+package io.eventdriven.ecommerce.core.config;
 
 import com.eventstore.dbclient.EventStoreDBClient;
 import com.eventstore.dbclient.EventStoreDBClientSettings;
