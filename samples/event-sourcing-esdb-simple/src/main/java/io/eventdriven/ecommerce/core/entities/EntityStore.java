@@ -3,11 +3,11 @@ package io.eventdriven.ecommerce.core.entities;
 import com.eventstore.dbclient.AppendToStreamOptions;
 import com.eventstore.dbclient.EventStoreDBClient;
 import com.eventstore.dbclient.ExpectedRevision;
+import io.eventdriven.ecommerce.core.http.ETag;
 import io.eventdriven.ecommerce.core.serialization.EventSerializer;
 
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -48,17 +48,17 @@ public class EntityStore<TEntity> {
     return current;
   }
 
-  public CompletableFuture<Void> Add(
+  public ETag Add(
     Supplier<Object> handle,
     UUID id
-  ) {
+  ) throws ExecutionException, InterruptedException {
     var streamId = mapToStreamId.apply(id);
     var event = handle.get();
 
     return appendToStream(streamId, event, Optional.empty());
   }
 
-  public CompletableFuture<Void> GetAndUpdate(
+  public ETag GetAndUpdate(
     Function<TEntity, Object> handle,
     UUID id,
     Optional<Long> expectedRevision
@@ -72,24 +72,25 @@ public class EntityStore<TEntity> {
     return appendToStream(streamId, event, expectedRevision);
   }
 
-  private CompletableFuture<Void> appendToStream(
+  private ETag appendToStream(
     String streamId,
     Object event,
     Optional<Long> expectedRevision
-  ) {
+  ) throws ExecutionException, InterruptedException {
     var appendOptions = AppendToStreamOptions.get();
 
     if (!expectedRevision.isEmpty())
       appendOptions.expectedRevision(expectedRevision.get());
     else
-      appendOptions.expectedRevision(ExpectedRevision.STREAM_EXISTS);
+      appendOptions.expectedRevision(ExpectedRevision.NO_STREAM);
 
-    return CompletableFuture.allOf(
+    var result =
       eventStore.appendToStream(
         streamId,
         appendOptions,
         EventSerializer.Serialize(event)
-      )
-    );
+      ).get();
+
+    return ETag.weak(result.getNextExpectedRevision());
   }
 }

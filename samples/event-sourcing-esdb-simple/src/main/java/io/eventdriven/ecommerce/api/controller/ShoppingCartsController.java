@@ -2,21 +2,28 @@ package io.eventdriven.ecommerce.api.controller;
 
 import io.eventdriven.ecommerce.api.requests.ShoppingCartsRequests;
 import io.eventdriven.ecommerce.core.commands.CommandHandler;
+import io.eventdriven.ecommerce.core.http.ETag;
+import io.eventdriven.ecommerce.core.queries.QueryHandler;
 import io.eventdriven.ecommerce.shoppingcarts.addingproductitem.AddProductItemToShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.canceling.CancelShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.confirming.ConfirmShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.GetShoppingCartById;
+import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.ShoppingCartDetails;
 import io.eventdriven.ecommerce.shoppingcarts.opening.OpenShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.removingproductitem.RemoveProductItemFromShoppingCart;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 @RestController
@@ -27,13 +34,15 @@ public class ShoppingCartsController {
   private final CommandHandler<RemoveProductItemFromShoppingCart> handleRemoveProductItemFromShoppingCart;
   private final CommandHandler<ConfirmShoppingCart> handleConfirmShoppingCart;
   private final CommandHandler<CancelShoppingCart> handleCancelShoppingCart;
+  private final QueryHandler<GetShoppingCartById, Optional<ShoppingCartDetails>> handleGetShoppingCartById;
 
   public ShoppingCartsController(
     CommandHandler<OpenShoppingCart> handleInitializeShoppingCart,
     CommandHandler<AddProductItemToShoppingCart> handleAddProductItemToShoppingCart,
     CommandHandler<RemoveProductItemFromShoppingCart> handleRemoveProductItemFromShoppingCart,
     CommandHandler<ConfirmShoppingCart> handleConfirmShoppingCart,
-    CommandHandler<CancelShoppingCart> handleCancelShoppingCart
+    CommandHandler<CancelShoppingCart> handleCancelShoppingCart,
+    QueryHandler<GetShoppingCartById, Optional<ShoppingCartDetails>> handleGetShoppingCartById
   ) {
 
     this.handleInitializeShoppingCart = handleInitializeShoppingCart;
@@ -41,6 +50,7 @@ public class ShoppingCartsController {
     this.handleRemoveProductItemFromShoppingCart = handleRemoveProductItemFromShoppingCart;
     this.handleConfirmShoppingCart = handleConfirmShoppingCart;
     this.handleCancelShoppingCart = handleCancelShoppingCart;
+    this.handleGetShoppingCartById = handleGetShoppingCartById;
   }
 
   @PostMapping
@@ -58,22 +68,22 @@ public class ShoppingCartsController {
       request.clientId()
     );
 
-    handleInitializeShoppingCart.handle(command).get();
-
     return ResponseEntity
       .created(new URI("api/ShoppingCarts/%s".formatted(cartId)))
+      .eTag(handleInitializeShoppingCart.handle(command).value())
       .build();
   }
 
   @PostMapping("{id}/products")
-  public CompletableFuture<Void> addProduct(
+  public ResponseEntity addProduct(
     @PathVariable UUID id,
-    @RequestBody ShoppingCartsRequests.AddProductRequest request
+    @RequestBody ShoppingCartsRequests.AddProductRequest request,
+    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
   ) throws ExecutionException, InterruptedException {
     if (request == null)
       throw new IllegalArgumentException("Request body cannot be empty");
 
-    if(request.productItem() == null)
+    if (request.productItem() == null)
       throw new IllegalArgumentException("Product Item has to be defined");
 
     var command = AddProductItemToShoppingCart.From(
@@ -81,18 +91,23 @@ public class ShoppingCartsController {
       ProductItem.From(
         request.productItem().productId(),
         request.productItem().quantity()
-      )
+      ),
+      ifMatch.toLong()
     );
 
-    return handleAddProductItemToShoppingCart.handle(command);
+    return ResponseEntity
+      .ok()
+      .eTag(handleAddProductItemToShoppingCart.handle(command).value())
+      .build();
   }
 
   @DeleteMapping("{id}/products/{productId}")
-  public CompletableFuture<Void> removeProduct(
+  public ResponseEntity removeProduct(
     @PathVariable UUID id,
     @PathVariable UUID productId,
     @RequestParam Integer quantity,
-    @RequestParam Double price
+    @RequestParam Double price,
+    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
   ) throws ExecutionException, InterruptedException {
     var command = RemoveProductItemFromShoppingCart.From(
       id,
@@ -102,51 +117,56 @@ public class ShoppingCartsController {
           quantity
         ),
         price
-      )
+      ),
+      ifMatch.toLong()
     );
 
-    return handleRemoveProductItemFromShoppingCart.handle(command);
+    return ResponseEntity
+      .ok()
+      .eTag(handleRemoveProductItemFromShoppingCart.handle(command).value())
+      .build();
   }
 
   @PutMapping("{id}")
-  public CompletableFuture<Void> confirmCart(
-    @PathVariable UUID id
+  public ResponseEntity confirmCart(
+    @PathVariable UUID id,
+    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
   ) throws ExecutionException, InterruptedException {
-    var command = ConfirmShoppingCart.From(id);
+    var command = ConfirmShoppingCart.From(id, ifMatch.toLong());
 
-    return handleConfirmShoppingCart.handle(command);
+    return ResponseEntity
+      .ok()
+      .eTag(handleConfirmShoppingCart.handle(command).value())
+      .build();
   }
 
 
   @DeleteMapping("{id}")
-  public CompletableFuture<Void> cancelCart(
-    @PathVariable UUID id
+  public ResponseEntity cancelCart(
+    @PathVariable UUID id,
+    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
   ) throws ExecutionException, InterruptedException {
-    var command = CancelShoppingCart.From(id);
+    var command = CancelShoppingCart.From(id, ifMatch.toLong());
 
-    return handleCancelShoppingCart.handle(command);
+    return ResponseEntity
+      .ok()
+      .eTag(handleCancelShoppingCart.handle(command).value())
+      .build();
   }
 
-  @GetMapping
-  public List<String> getAll(){
-    return List.of("test", "ttt");
+  @GetMapping("{id}")
+  public ResponseEntity<ShoppingCartDetails> Get(
+    @PathVariable UUID id
+  ) {
+    return handleGetShoppingCartById.handle(GetShoppingCartById.From(id))
+      .map(result ->
+        ResponseEntity
+          .ok()
+          .eTag(ETag.weak(result.getVersion()).value())
+          .body(result)
+      )
+      .orElse(ResponseEntity.notFound().build());
   }
-
-//    [HttpGet("{id}")]
-//  public async Task<IActionResult> Get(
-//        [FromServices] Func<GetCartById, CancellationToken, Task<ShoppingCartDetails?>> query,
-//        Guid id,
-//        CancellationToken ct
-//  )
-//  {
-//    var result = await query(GetCartById.From(id), ct);
-//
-//    if (result == null)
-//      return NotFound();
-//
-//    Response.TrySetETagResponseHeader(result.Version.ToString());
-//    return Ok(result);
-//  }
 //
 //    [HttpGet]
 //  public Task<IReadOnlyList<ShoppingCartShortInfo>> Get(

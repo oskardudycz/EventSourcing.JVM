@@ -1,6 +1,8 @@
-package io.eventdriven.ecommerce.shoppingcarts.gettingcartbyid;
+package io.eventdriven.ecommerce.shoppingcarts.gettingbyid;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.eventdriven.ecommerce.core.events.EventMetadata;
+import io.eventdriven.ecommerce.core.views.VersionedView;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 
 import javax.persistence.*;
@@ -8,7 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-public class ShoppingCartDetails {
+public class ShoppingCartDetails implements VersionedView {
   @Id
   private UUID id;
 
@@ -23,9 +25,12 @@ public class ShoppingCartDetails {
   @JoinColumn(name="shopping_cart_id")
   private List<ShoppingCartDetailsProductItem> productItems;
 
+  @JsonIgnore
+  @Version
   @Column(nullable = false)
   private long version;
 
+  @JsonIgnore
   @Column(nullable = false)
   private long lastProcessedPosition;
 
@@ -85,6 +90,7 @@ public class ShoppingCartDetails {
     this.lastProcessedPosition = lastProcessedPosition;
   }
 
+  @JsonIgnore
   public void setMetadata(EventMetadata eventMetadata) {
     this.version =  eventMetadata.streamPosition();
     this.lastProcessedPosition = eventMetadata.logPosition();

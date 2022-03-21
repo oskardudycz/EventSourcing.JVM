@@ -1,4 +1,4 @@
-package io.eventdriven.ecommerce.shoppingcarts.gettingcartbyid;
+package io.eventdriven.ecommerce.shoppingcarts.gettingbyid;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
