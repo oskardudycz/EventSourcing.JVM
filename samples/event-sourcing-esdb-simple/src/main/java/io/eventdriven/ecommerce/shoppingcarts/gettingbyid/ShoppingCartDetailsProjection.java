@@ -1,4 +1,4 @@
-package io.eventdriven.ecommerce.shoppingcarts.gettingcartbyid;
+package io.eventdriven.ecommerce.shoppingcarts.gettingbyid;
 
 import io.eventdriven.ecommerce.core.events.EventEnvelope;
 import io.eventdriven.ecommerce.shoppingcarts.Events;
@@ -21,9 +21,6 @@ public final class ShoppingCartDetailsProjection {
   }
 
   public static ShoppingCartDetails handleProductItemAddedToShoppingCart(ShoppingCartDetails view, EventEnvelope<Events.ProductItemAddedToShoppingCart> eventEnvelope) {
-    if (wasAlreadyApplied(eventEnvelope, view))
-      return view;
-
     var event = eventEnvelope.data();
 
     var productItem = event.productItem();
@@ -43,15 +40,10 @@ public final class ShoppingCartDetailsProjection {
       existingProductItem.get().increaseQuantity(productItem.quantity());
     }
 
-    view.setMetadata(eventEnvelope.metadata());
-
     return view;
   }
 
-  public static void HandleProductItemRemovedFromShoppingCart(EventEnvelope<Events.ProductItemRemovedFromShoppingCart> eventEnvelope, ShoppingCartDetails view) {
-    if (wasAlreadyApplied(eventEnvelope, view))
-      return;
-
+  public static ShoppingCartDetails handleProductItemRemovedFromShoppingCart(ShoppingCartDetails view, EventEnvelope<Events.ProductItemRemovedFromShoppingCart> eventEnvelope) {
     var productItem = eventEnvelope.data().productItem();
     var existingProductItem = view.getProductItems().stream()
       .filter(x -> x.getProductId().equals(productItem.productId()))
@@ -59,7 +51,7 @@ public final class ShoppingCartDetailsProjection {
 
     if (existingProductItem.isEmpty()) {
       // that's unexpected, but we have to leave with that
-      return;
+      return view;
     }
 
     if (existingProductItem.get().getQuantity() == productItem.quantity()) {
@@ -68,25 +60,18 @@ public final class ShoppingCartDetailsProjection {
       existingProductItem.get().decreaseQuantity(productItem.quantity());
     }
 
-    view.setMetadata(eventEnvelope.metadata());
+    return view;
   }
 
-  public static void HandleShoppingCartConfirmed(EventEnvelope<Events.ShoppingCartConfirmed> eventEnvelope, ShoppingCartDetails view) {
-    if (wasAlreadyApplied(eventEnvelope, view))
-      return;
-
+  public static ShoppingCartDetails handleShoppingCartConfirmed(ShoppingCartDetails view, EventEnvelope<Events.ShoppingCartConfirmed> eventEnvelope) {
     view.setStatus(ShoppingCart.Status.Confirmed);
-
-    view.setMetadata(eventEnvelope.metadata());
+    return view;
   }
 
-  public static void HandleShoppingCartCanceled(EventEnvelope<Events.ShoppingCartCanceled> eventEnvelope, ShoppingCartDetails view) {
-    if (wasAlreadyApplied(eventEnvelope, view))
-      return;
-
+  public static ShoppingCartDetails handleShoppingCartCanceled(ShoppingCartDetails view, EventEnvelope<Events.ShoppingCartCanceled> eventEnvelope) {
     view.setStatus(ShoppingCart.Status.Confirmed);
 
-    view.setMetadata(eventEnvelope.metadata());
+    return view;
   }
 
   private static boolean wasAlreadyApplied(EventEnvelope<?> eventEnvelope, ShoppingCartDetails view) {

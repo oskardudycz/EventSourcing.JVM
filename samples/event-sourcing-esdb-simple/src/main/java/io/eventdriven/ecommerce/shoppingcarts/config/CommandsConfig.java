@@ -41,7 +41,7 @@ public class CommandsConfig {
       store.GetAndUpdate(
         current -> AddProductItemToShoppingCart.Handle(productPriceCalculator, command, current),
         command.shoppingCartId(),
-        Optional.empty()
+        Optional.of(command.expectedVersion())
       );
   }
 
@@ -53,7 +53,7 @@ public class CommandsConfig {
       store.GetAndUpdate(
         current -> RemoveProductItemFromShoppingCart.Handle(command, current),
         command.shoppingCartId(),
-        Optional.empty()
+        Optional.of(command.expectedVersion())
       );
   }
 
@@ -64,7 +64,7 @@ public class CommandsConfig {
       store.GetAndUpdate(
         current -> ConfirmShoppingCart.Handle(command, current),
         command.shoppingCartId(),
-        Optional.empty()
+        Optional.of(command.expectedVersion())
       );
   }
 
@@ -75,7 +75,7 @@ public class CommandsConfig {
       store.GetAndUpdate(
         current -> CancelShoppingCart.Handle(command, current),
         command.shoppingCartId(),
-        Optional.empty()
+        Optional.of(command.expectedVersion())
       );
   }
 

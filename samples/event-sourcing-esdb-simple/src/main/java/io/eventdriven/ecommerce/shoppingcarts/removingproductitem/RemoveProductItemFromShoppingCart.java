@@ -8,26 +8,27 @@ import java.util.UUID;
 
 public record RemoveProductItemFromShoppingCart(
   UUID shoppingCartId,
-  PricedProductItem productItem
-)
-{
-  public static RemoveProductItemFromShoppingCart From(UUID cartId, PricedProductItem productItem)
-  {
+  PricedProductItem productItem,
+  Long expectedVersion
+) {
+  public static RemoveProductItemFromShoppingCart From(UUID cartId, PricedProductItem productItem, Long expectedVersion) {
     if (cartId == null)
       throw new IllegalArgumentException("Cart id has to be defined");
 
     if (productItem == null)
       throw new IllegalArgumentException("Product item has to be defined");
 
-    return new RemoveProductItemFromShoppingCart(cartId, productItem);
+    if (expectedVersion == null)
+      throw new IllegalArgumentException("Expected version has to be provided");
+
+    return new RemoveProductItemFromShoppingCart(cartId, productItem, expectedVersion);
   }
 
   public static Events.ProductItemRemovedFromShoppingCart Handle(
     RemoveProductItemFromShoppingCart command,
     ShoppingCart shoppingCart
-  )
-  {
-    if(shoppingCart.isClosed())
+  ) {
+    if (shoppingCart.isClosed())
       throw new IllegalStateException("Adding product item for cart in '%s' status is not allowed.".formatted(shoppingCart.status()));
 
     shoppingCart.productItems().remove(command.productItem());

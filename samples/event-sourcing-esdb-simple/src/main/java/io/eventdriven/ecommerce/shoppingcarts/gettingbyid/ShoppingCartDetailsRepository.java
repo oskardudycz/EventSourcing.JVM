@@ -1,4 +1,4 @@
-package io.eventdriven.ecommerce.shoppingcarts.gettingcartbyid;
+package io.eventdriven.ecommerce.shoppingcarts.gettingbyid;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

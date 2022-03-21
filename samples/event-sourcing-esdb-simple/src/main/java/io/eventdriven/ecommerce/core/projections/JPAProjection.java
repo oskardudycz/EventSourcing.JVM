@@ -2,6 +2,7 @@ package io.eventdriven.ecommerce.core.projections;
 
 import io.eventdriven.ecommerce.core.events.EventEnvelope;
 import io.eventdriven.ecommerce.core.events.IEventHandler;
+import io.eventdriven.ecommerce.core.views.VersionedView;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.function.BiFunction;
@@ -19,9 +20,13 @@ public class JPAProjection<TEvent> implements IEventHandler<TEvent> {
 
   public static <TView, TEvent> JPAProjection<TEvent> Add(Class<TEvent> type, JpaRepository<TView, ?> repository, Function<EventEnvelope<TEvent>, TView> handle) {
     return new JPAProjection<>(type, event -> {
-      repository.save(
-        handle.apply(event)
-      );
+      var result = handle.apply(event);
+
+      if(result instanceof VersionedView versionedView){
+        versionedView.setMetadata(event.metadata());
+      }
+
+      repository.save(result);
     });
   }
 
@@ -32,10 +37,24 @@ public class JPAProjection<TEvent> implements IEventHandler<TEvent> {
     BiFunction<TView, EventEnvelope<TEvent>, TView> handle
   ) {
     return new JPAProjection<>(type, event -> {
-      var view = repository.findById(getId.apply(event.data()));
+      var viewId = getId.apply(event.data());
+      var view = repository.findById(viewId);
 
-      if (view.isEmpty())
+      if (view.isEmpty()) {
+        System.out.println("View with id %s was not found for event %s".formatted(viewId, type.getName()));
         return;
+      }
+
+      if (view.get() instanceof VersionedView versionedView && wasAlreadyApplied(versionedView, event)) {
+        System.out.println("View with id %s was not found for event %s".formatted(viewId, type.getName()));
+        return;
+      }
+
+      var result = handle.apply(view.get(), event);
+
+      if(result instanceof VersionedView versionedView){
+        versionedView.setMetadata(event.metadata());
+      }
 
       repository.save(
         handle.apply(view.get(), event)
@@ -51,5 +70,9 @@ public class JPAProjection<TEvent> implements IEventHandler<TEvent> {
   @Override
   public void handle(EventEnvelope<TEvent> event) {
     this.handle.accept(event);
+  }
+
+  private static boolean wasAlreadyApplied(VersionedView view, EventEnvelope<?> eventEnvelope) {
+    return view.getLastProcessedPosition() >= eventEnvelope.metadata().logPosition();
   }
 }

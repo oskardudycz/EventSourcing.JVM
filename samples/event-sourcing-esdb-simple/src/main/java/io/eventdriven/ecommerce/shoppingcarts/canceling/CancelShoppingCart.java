@@ -7,20 +7,21 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record CancelShoppingCart(
-  UUID shoppingCartId
-)
-{
-  public static CancelShoppingCart From(UUID cartId)
-  {
+  UUID shoppingCartId,
+  Long expectedVersion
+) {
+  public static CancelShoppingCart From(UUID cartId, Long expectedVersion) {
     if (cartId == null)
       throw new IllegalArgumentException("Cart id has to be defined");
 
-    return new CancelShoppingCart(cartId);
+    if (expectedVersion == null)
+      throw new IllegalArgumentException("Expected version has to be provided");
+
+    return new CancelShoppingCart(cartId, expectedVersion);
   }
 
-  public static Events.ShoppingCartCanceled Handle(CancelShoppingCart command, ShoppingCart shoppingCart)
-  {
-    if(shoppingCart.isClosed())
+  public static Events.ShoppingCartCanceled Handle(CancelShoppingCart command, ShoppingCart shoppingCart) {
+    if (shoppingCart.isClosed())
       throw new IllegalStateException("Canceling cart in '%s' status is not allowed.".formatted(shoppingCart.status()));
 
     return new Events.ShoppingCartCanceled(
