@@ -1,6 +1,6 @@
 package io.eventdriven.ecommerce.shoppingcarts.addingproductitem;
 
-import io.eventdriven.ecommerce.pricing.IProductPriceCalculator;
+import io.eventdriven.ecommerce.pricing.ProductPriceCalculator;
 import io.eventdriven.ecommerce.shoppingcarts.Events;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
@@ -26,7 +26,7 @@ public record AddProductItemToShoppingCart(
   }
 
   public static Events.ProductItemAddedToShoppingCart Handle(
-    IProductPriceCalculator productPriceCalculator,
+    ProductPriceCalculator productPriceCalculator,
     AddProductItemToShoppingCart command,
     ShoppingCart shoppingCart
   ) {

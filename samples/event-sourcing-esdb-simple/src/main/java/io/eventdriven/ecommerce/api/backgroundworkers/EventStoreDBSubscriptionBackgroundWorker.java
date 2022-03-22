@@ -1,21 +1,21 @@
 package io.eventdriven.ecommerce.api.backgroundworkers;
 
 import com.eventstore.dbclient.EventStoreDBClient;
-import io.eventdriven.ecommerce.core.events.IEventBus;
+import io.eventdriven.ecommerce.core.events.EventBus;
 import io.eventdriven.ecommerce.core.subscriptions.EventStoreDBSubscriptionToAll;
-import io.eventdriven.ecommerce.core.subscriptions.ISubscriptionCheckpointRepository;
+import io.eventdriven.ecommerce.core.subscriptions.SubscriptionCheckpointRepository;
 import org.springframework.context.SmartLifecycle;
 
 public class EventStoreDBSubscriptionBackgroundWorker implements SmartLifecycle {
-  private final ISubscriptionCheckpointRepository subscriptionCheckpointRepository;
+  private final SubscriptionCheckpointRepository subscriptionCheckpointRepository;
   private final EventStoreDBClient eventStore;
-  private final IEventBus eventBus;
+  private final EventBus eventBus;
   private EventStoreDBSubscriptionToAll subscription;
 
   public EventStoreDBSubscriptionBackgroundWorker(
     EventStoreDBClient eventStore,
-    ISubscriptionCheckpointRepository subscriptionCheckpointRepository,
-    IEventBus eventBus
+    SubscriptionCheckpointRepository subscriptionCheckpointRepository,
+    EventBus eventBus
   ) {
     this.eventStore = eventStore;
     this.subscriptionCheckpointRepository = subscriptionCheckpointRepository;

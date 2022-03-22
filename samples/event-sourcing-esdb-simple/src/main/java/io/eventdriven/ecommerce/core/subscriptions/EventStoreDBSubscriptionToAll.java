@@ -3,15 +3,15 @@ package io.eventdriven.ecommerce.core.subscriptions;
 import com.eventstore.dbclient.*;
 import io.eventdriven.ecommerce.core.events.EventEnvelope;
 import io.eventdriven.ecommerce.core.events.EventTypeMapper;
-import io.eventdriven.ecommerce.core.events.IEventBus;
+import io.eventdriven.ecommerce.core.events.EventBus;
 
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 
 public class EventStoreDBSubscriptionToAll {
   private final EventStoreDBClient eventStoreClient;
-  private final ISubscriptionCheckpointRepository checkpointRepository;
-  private final IEventBus eventBus;
+  private final SubscriptionCheckpointRepository checkpointRepository;
+  private final EventBus eventBus;
   private EventStoreDBSubscriptionToAllOptions subscriptionOptions;
   private final Object resubscribeLock = new Object();
   private Subscription subscription;
@@ -36,8 +36,8 @@ public class EventStoreDBSubscriptionToAll {
 
   public EventStoreDBSubscriptionToAll(
     EventStoreDBClient eventStoreClient,
-    ISubscriptionCheckpointRepository checkpointRepository,
-    IEventBus eventBus
+    SubscriptionCheckpointRepository checkpointRepository,
+    EventBus eventBus
   ) {
     this.eventStoreClient = eventStoreClient;
     this.checkpointRepository = checkpointRepository;

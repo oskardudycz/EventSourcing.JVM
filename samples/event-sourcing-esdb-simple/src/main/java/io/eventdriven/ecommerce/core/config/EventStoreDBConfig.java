@@ -5,9 +5,9 @@ import com.eventstore.dbclient.EventStoreDBClientSettings;
 import com.eventstore.dbclient.EventStoreDBConnectionString;
 import com.eventstore.dbclient.ParseError;
 import io.eventdriven.ecommerce.api.backgroundworkers.EventStoreDBSubscriptionBackgroundWorker;
-import io.eventdriven.ecommerce.core.events.IEventBus;
+import io.eventdriven.ecommerce.core.events.EventBus;
 import io.eventdriven.ecommerce.core.subscriptions.EventStoreDBSubscriptionCheckpointRepository;
-import io.eventdriven.ecommerce.core.subscriptions.ISubscriptionCheckpointRepository;
+import io.eventdriven.ecommerce.core.subscriptions.SubscriptionCheckpointRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
@@ -26,14 +26,14 @@ public class EventStoreDBConfig {
   @Bean
   public EventStoreDBSubscriptionBackgroundWorker eventStoreDBSubscriptionBackgroundWorker(
     EventStoreDBClient eventStore,
-    ISubscriptionCheckpointRepository subscriptionCheckpointRepository,
-    IEventBus eventBus
+    SubscriptionCheckpointRepository subscriptionCheckpointRepository,
+    EventBus eventBus
   ) {
     return new EventStoreDBSubscriptionBackgroundWorker(eventStore, subscriptionCheckpointRepository, eventBus);
   }
 
   @Bean
-  public ISubscriptionCheckpointRepository subscriptionCheckpointRepository(EventStoreDBClient eventStore) {
+  public SubscriptionCheckpointRepository subscriptionCheckpointRepository(EventStoreDBClient eventStore) {
     return new EventStoreDBSubscriptionCheckpointRepository(eventStore);
   }
 }
