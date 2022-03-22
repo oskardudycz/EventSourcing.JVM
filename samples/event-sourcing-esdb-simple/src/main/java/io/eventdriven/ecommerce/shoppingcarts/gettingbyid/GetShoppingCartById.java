@@ -6,7 +6,7 @@ import java.util.UUID;
 public record GetShoppingCartById(
   UUID shoppingCartId
 ) {
-  public static GetShoppingCartById From(UUID cartId)
+  public static GetShoppingCartById from(UUID cartId)
   {
     if (cartId == null)
       throw new IllegalArgumentException("Cart id has to be defined");
@@ -14,7 +14,7 @@ public record GetShoppingCartById(
     return new GetShoppingCartById(cartId);
   }
 
-  public static Optional<ShoppingCartDetails> Handle(
+  public static Optional<ShoppingCartDetails> handle(
     ShoppingCartDetailsRepository repository,
     GetShoppingCartById query
   )

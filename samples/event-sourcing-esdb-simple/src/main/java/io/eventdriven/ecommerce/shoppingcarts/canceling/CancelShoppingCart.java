@@ -10,7 +10,7 @@ public record CancelShoppingCart(
   UUID shoppingCartId,
   Long expectedVersion
 ) {
-  public static CancelShoppingCart From(UUID cartId, Long expectedVersion) {
+  public static CancelShoppingCart from(UUID cartId, Long expectedVersion) {
     if (cartId == null)
       throw new IllegalArgumentException("Cart id has to be defined");
 
