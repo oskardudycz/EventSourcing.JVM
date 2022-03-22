@@ -1,8 +1,8 @@
 package io.eventdriven.ecommerce.core.events;
 
-public interface EventHandler<TEvent>
+public interface EventHandler<Event>
 {
-  Class<TEvent> getEventType();
+  Class<Event> getEventType();
 
-  void handle(EventEnvelope<TEvent> event);
+  void handle(EventEnvelope<Event> event);
 }

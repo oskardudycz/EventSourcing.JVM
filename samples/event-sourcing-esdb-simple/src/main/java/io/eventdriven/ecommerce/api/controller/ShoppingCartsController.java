@@ -63,10 +63,6 @@ public class ShoppingCartsController {
   public ResponseEntity openCart(
     @RequestBody ShoppingCartsRequests.InitializeShoppingCartRequest request
   ) throws ExecutionException, InterruptedException, URISyntaxException {
-
-    if (request == null)
-      throw new IllegalArgumentException("Request body cannot be empty");
-
     var cartId = UUID.randomUUID();
 
     var command = OpenShoppingCart.From(
@@ -86,9 +82,6 @@ public class ShoppingCartsController {
     @RequestBody ShoppingCartsRequests.AddProductRequest request,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
   ) throws ExecutionException, InterruptedException {
-    if (request == null)
-      throw new IllegalArgumentException("Request body cannot be empty");
-
     if (request.productItem() == null)
       throw new IllegalArgumentException("Product Item has to be defined");
 
@@ -173,7 +166,7 @@ public class ShoppingCartsController {
       .orElse(ResponseEntity.notFound().build());
   }
 
-  @GetMapping()
+  @GetMapping
   public List<ShoppingCartShortInfo> Get(
     @RequestParam Optional<Integer> pageNumber,
     @RequestParam Optional<Integer> pageSize

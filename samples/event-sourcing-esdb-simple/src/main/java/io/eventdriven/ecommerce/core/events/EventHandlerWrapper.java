@@ -2,27 +2,27 @@ package io.eventdriven.ecommerce.core.events;
 
 import java.util.function.Consumer;
 
-public class EventHandlerWrapper<TEvent> implements EventHandler<TEvent>
+public class EventHandlerWrapper<Event> implements EventHandler<Event>
 {
-  private Class<TEvent> eventType;
-  private Consumer<EventEnvelope<TEvent>> consumer;
+  private Class<Event> eventType;
+  private Consumer<EventEnvelope<Event>> consumer;
 
-  private EventHandlerWrapper(Class<TEvent> eventType, Consumer<EventEnvelope<TEvent>> consumer) {
+  private EventHandlerWrapper(Class<Event> eventType, Consumer<EventEnvelope<Event>> consumer) {
     this.eventType = eventType;
     this.consumer = consumer;
   }
 
-  public static <TEvent> EventHandlerWrapper<TEvent> of(Class<TEvent> eventType, Consumer<EventEnvelope<TEvent>> consumer){
+  public static <Event> EventHandlerWrapper<Event> of(Class<Event> eventType, Consumer<EventEnvelope<Event>> consumer){
     return new EventHandlerWrapper<>(eventType, consumer);
   }
 
   @Override
-  public Class<TEvent> getEventType() {
+  public Class<Event> getEventType() {
     return eventType;
   }
 
   @Override
-  public void handle(EventEnvelope<TEvent> event) {
+  public void handle(EventEnvelope<Event> event) {
     consumer.accept(event);
   }
 }

@@ -27,7 +27,7 @@ public class ServiceScope implements ApplicationContextAware {
     return Objects.nonNull(context) ? context.getBeansOfType(type) : null;
   }
 
-  public <TResult> TResult run(Function<ServiceScope, TResult> handle) {
+  public <Result> Result run(Function<ServiceScope, Result> handle) {
     RequestContextHolder.setRequestAttributes(new InMemoryRequestAttributes());
     try {
       return handle.apply(this);
