@@ -16,7 +16,8 @@ public record EventEnvelope<TEvent>(
       new EventMetadata(
         resolvedEvent.getEvent().getEventId().toString(),
         resolvedEvent.getEvent().getStreamRevision().getValueUnsigned(),
-        resolvedEvent.getEvent().getPosition().getCommitUnsigned()
+        resolvedEvent.getEvent().getPosition().getCommitUnsigned(),
+        resolvedEvent.getEvent().getEventType()
       )
     );
   }

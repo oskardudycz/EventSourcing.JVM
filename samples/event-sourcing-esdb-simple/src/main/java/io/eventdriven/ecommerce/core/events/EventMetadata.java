@@ -3,6 +3,7 @@ package io.eventdriven.ecommerce.core.events;
 public record EventMetadata(
   String EventId,
   long streamPosition,
-  long logPosition
+  long logPosition,
+  String eventType
 ) {
 }

@@ -1,62 +1,62 @@
 package io.eventdriven.ecommerce.shoppingcarts.gettingbyid;
 
+import io.eventdriven.ecommerce.core.events.EventHandler;
 import io.eventdriven.ecommerce.core.events.IEventHandler;
-import io.eventdriven.ecommerce.core.projections.JPAProjection;
 import io.eventdriven.ecommerce.shoppingcarts.Events;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Scope;
 import org.springframework.web.context.annotation.RequestScope;
 
 @Configuration
 public class ShoppingCartDetailsConfig {
   @Bean
-  @Scope
-  public IEventHandler<Events.ShoppingCartOpened> handleShoppingCartOpened(ShoppingCartDetailsRepository repository) {
-    return JPAProjection.Add(Events.ShoppingCartOpened.class, repository, event -> ShoppingCartDetailsProjection.handleShoppingCartOpened(event));
+  @RequestScope
+  public ShoppingCartDetailsProjection shoppingCartDetailsProjection(ShoppingCartDetailsRepository repository) {
+    return new ShoppingCartDetailsProjection(repository);
   }
 
   @Bean
   @RequestScope
-  public IEventHandler<Events.ProductItemAddedToShoppingCart> handleProductItemAddedToShoppingCart(ShoppingCartDetailsRepository repository) {
-    return JPAProjection.Update(
+  public IEventHandler<Events.ShoppingCartOpened> handleShoppingCartOpened(ShoppingCartDetailsProjection projection) {
+    return EventHandler.of(
+      Events.ShoppingCartOpened.class,
+      (event) -> projection.handleShoppingCartOpened(event)
+    );
+  }
+
+  @Bean
+  @RequestScope
+  public IEventHandler<Events.ProductItemAddedToShoppingCart> handleProductItemAddedToShoppingCart(ShoppingCartDetailsProjection projection) {
+    return EventHandler.of(
       Events.ProductItemAddedToShoppingCart.class,
-      repository,
-      event -> event.shoppingCartId(),
-      (view, event) -> ShoppingCartDetailsProjection.handleProductItemAddedToShoppingCart(view, event)
+      (event) -> projection.handleProductItemAddedToShoppingCart(event)
     );
   }
 
   @Bean
   @RequestScope
-  public IEventHandler<Events.ProductItemRemovedFromShoppingCart> handleProductItemRemovedFromShoppingCart(ShoppingCartDetailsRepository repository) {
-    return JPAProjection.Update(
+  public IEventHandler<Events.ProductItemRemovedFromShoppingCart> handleProductItemRemovedFromShoppingCart(ShoppingCartDetailsProjection projection) {
+    return EventHandler.of(
       Events.ProductItemRemovedFromShoppingCart.class,
-      repository,
-      event -> event.shoppingCartId(),
-      (view, event) -> ShoppingCartDetailsProjection.handleProductItemRemovedFromShoppingCart(view, event)
+      (event) -> projection.handleProductItemRemovedFromShoppingCart(event)
     );
   }
 
   @Bean
   @RequestScope
-  public IEventHandler<Events.ShoppingCartConfirmed> handleShoppingCartConfirmed(ShoppingCartDetailsRepository repository) {
-    return JPAProjection.Update(
+  public IEventHandler<Events.ShoppingCartConfirmed> handleShoppingCartConfirmed(ShoppingCartDetailsProjection projection) {
+    return EventHandler.of(
       Events.ShoppingCartConfirmed.class,
-      repository,
-      event -> event.shoppingCartId(),
-      (view, event) -> ShoppingCartDetailsProjection.handleShoppingCartConfirmed(view, event)
+      (event) -> projection.handleShoppingCartConfirmed(event)
     );
   }
 
   @Bean
   @RequestScope
-  public IEventHandler<Events.ShoppingCartCanceled> handleShoppingCartCanceled(ShoppingCartDetailsRepository repository) {
-    return JPAProjection.Update(
+  public IEventHandler<Events.ShoppingCartCanceled> handleShoppingCartCanceled(ShoppingCartDetailsProjection projection) {
+    return EventHandler.of(
       Events.ShoppingCartCanceled.class,
-      repository,
-      event -> event.shoppingCartId(),
-      (view, event) -> ShoppingCartDetailsProjection.handleShoppingCartCanceled(view, event)
+      (event) -> projection.handleShoppingCartCanceled(event)
     );
   }
 }
