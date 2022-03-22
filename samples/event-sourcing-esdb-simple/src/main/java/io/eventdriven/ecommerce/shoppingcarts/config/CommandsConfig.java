@@ -3,7 +3,7 @@ package io.eventdriven.ecommerce.shoppingcarts.config;
 import com.eventstore.dbclient.EventStoreDBClient;
 import io.eventdriven.ecommerce.core.commands.CommandHandler;
 import io.eventdriven.ecommerce.core.entities.EntityStore;
-import io.eventdriven.ecommerce.pricing.IProductPriceCalculator;
+import io.eventdriven.ecommerce.pricing.ProductPriceCalculator;
 import io.eventdriven.ecommerce.pricing.RandomProductPriceCalculator;
 import io.eventdriven.ecommerce.shoppingcarts.Events;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
@@ -35,7 +35,7 @@ public class CommandsConfig {
   @RequestScope
   CommandHandler<AddProductItemToShoppingCart> handleAddProductItemToShoppingCart(
     EntityStore<ShoppingCart> store,
-    IProductPriceCalculator productPriceCalculator
+    ProductPriceCalculator productPriceCalculator
   ) {
     return command ->
       store.GetAndUpdate(
@@ -81,7 +81,7 @@ public class CommandsConfig {
 
   @Bean
   @ApplicationScope
-  IProductPriceCalculator productPriceCalculator() {
+  ProductPriceCalculator productPriceCalculator() {
     return new RandomProductPriceCalculator();
   }
 

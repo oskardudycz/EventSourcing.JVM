@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 
-public class RandomProductPriceCalculator implements IProductPriceCalculator {
+public class RandomProductPriceCalculator implements ProductPriceCalculator {
   private final Map<UUID, Double> productPrices = new HashMap<>();
 
   public PricedProductItem Calculate(ProductItem productItem) {

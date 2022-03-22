@@ -9,7 +9,7 @@ import java.util.concurrent.ExecutionException;
 
 public record EventStoreDBSubscriptionCheckpointRepository(
   EventStoreDBClient eventStore
-) implements ISubscriptionCheckpointRepository {
+) implements SubscriptionCheckpointRepository {
 
   public Optional<Long> load(String subscriptionId) throws InterruptedException, ExecutionException {
     var streamName = getCheckpointStreamName(subscriptionId);
