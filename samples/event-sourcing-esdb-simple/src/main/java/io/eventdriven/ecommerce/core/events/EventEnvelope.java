@@ -3,11 +3,11 @@ package io.eventdriven.ecommerce.core.events;
 import com.eventstore.dbclient.ResolvedEvent;
 import io.eventdriven.ecommerce.core.serialization.EventSerializer;
 
-public record EventEnvelope<TEvent>(
-  TEvent data,
+public record EventEnvelope<Event>(
+  Event data,
   EventMetadata metadata
 ) {
-  public static <TEvent> EventEnvelope<TEvent> From(final Class<TEvent> type, ResolvedEvent resolvedEvent){
+  public static <Event> EventEnvelope<Event> From(final Class<Event> type, ResolvedEvent resolvedEvent){
     if(type == null)
       return null;
 

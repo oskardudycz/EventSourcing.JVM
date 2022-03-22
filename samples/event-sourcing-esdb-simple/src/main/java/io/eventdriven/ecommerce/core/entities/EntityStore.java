@@ -13,17 +13,17 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public class EntityStore<TEntity> {
+public class EntityStore<Entity> {
   private final EventStoreDBClient eventStore;
-  private final BiFunction<TEntity, Object, TEntity> when;
+  private final BiFunction<Entity, Object, Entity> when;
   private final Function<UUID, String> mapToStreamId;
-  private final Supplier<TEntity> getDefault;
+  private final Supplier<Entity> getDefault;
 
   public EntityStore(
     EventStoreDBClient eventStore,
-    BiFunction<TEntity, Object, TEntity> when,
+    BiFunction<Entity, Object, Entity> when,
     Function<UUID, String> mapToStreamId,
-    Supplier<TEntity> getDefault
+    Supplier<Entity> getDefault
   ) {
 
     this.eventStore = eventStore;
@@ -32,7 +32,7 @@ public class EntityStore<TEntity> {
     this.getDefault = getDefault;
   }
 
-  public TEntity Get(UUID id) throws ExecutionException, InterruptedException {
+  public Entity Get(UUID id) throws ExecutionException, InterruptedException {
     var streamId = mapToStreamId.apply(id);
     var result = eventStore.readStream(streamId).get();
 
@@ -59,7 +59,7 @@ public class EntityStore<TEntity> {
   }
 
   public ETag GetAndUpdate(
-    Function<TEntity, Object> handle,
+    Function<Entity, Object> handle,
     UUID id,
     Optional<Long> expectedRevision
   ) throws ExecutionException, InterruptedException {

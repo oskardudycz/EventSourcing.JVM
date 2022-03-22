@@ -29,7 +29,7 @@ public final class EventSerializer {
     }
   }
 
-  public static <TEvent> TEvent Deserialize(ResolvedEvent resolvedEvent) {
+  public static <Event> Event Deserialize(ResolvedEvent resolvedEvent) {
     var result = Deserialize(
       EventTypeMapper.ToClass(resolvedEvent.getEvent().getEventType()),
       resolvedEvent
@@ -37,10 +37,10 @@ public final class EventSerializer {
     if (result == null)
       return null;
 
-    return (TEvent) result;
+    return (Event) result;
   }
 
-  public static <TEvent> TEvent Deserialize(Class<TEvent> eventClass, ResolvedEvent resolvedEvent) {
+  public static <Event> Event Deserialize(Class<Event> eventClass, ResolvedEvent resolvedEvent) {
     try {
       if(eventClass == null)
         return null;
@@ -50,7 +50,7 @@ public final class EventSerializer {
       if (result == null)
         return null;
 
-      return (TEvent) result;
+      return result;
     } catch (IOException ex) {
       return null;
     }

@@ -6,20 +6,20 @@ import org.springframework.core.ResolvableType;
 public record InMemoryEventBus(ServiceScope serviceScope) implements EventBus {
 
   @Override
-  public <TEvent> void Publish(Class<TEvent> type, EventEnvelope<TEvent> event) {
+  public <Event> void Publish(Class<Event> type, EventEnvelope<Event> event) {
     serviceScope.run(scope -> {
       PublishEvent(type, scope, event);
     });
   }
 
-  private <TEvent> void PublishEvent(final Class<TEvent> type, ServiceScope scope, final EventEnvelope<TEvent> event) {
+  private <Event> void PublishEvent(final Class<Event> type, ServiceScope scope, final EventEnvelope<Event> event) {
     var eventHandlers =
       scope.getBeansOfType(
           ResolvableType.forClassWithGenerics(EventHandler.class, type).resolve()
         )
         .values()
         .stream()
-        .map(eh -> (EventHandler<TEvent>) eh)
+        .map(eh -> (EventHandler<Event>) eh)
         .filter(eh -> eh.getEventType().isInstance(event.data()))
         .toList();
 

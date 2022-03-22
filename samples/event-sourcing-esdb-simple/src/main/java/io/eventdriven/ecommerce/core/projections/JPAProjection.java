@@ -7,14 +7,14 @@ import org.springframework.data.repository.CrudRepository;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public abstract class JPAProjection<TView, TId> {
-  private final CrudRepository<TView, TId> repository;
+public abstract class JPAProjection<View, Id> {
+  private final CrudRepository<View, Id> repository;
 
-  protected JPAProjection(CrudRepository<TView, TId> repository) {
+  protected JPAProjection(CrudRepository<View, Id> repository) {
     this.repository = repository;
   }
 
-  protected  <TEvent> void Add(EventEnvelope<TEvent> eventEnvelope, Supplier<TView> handle) {
+  protected <Event> void Add(EventEnvelope<Event> eventEnvelope, Supplier<View> handle) {
     var result = handle.get();
 
     if(result instanceof VersionedView versionedView){
@@ -24,10 +24,10 @@ public abstract class JPAProjection<TView, TId> {
     repository.save(result);
   }
 
-  protected <TEvent> void GetAndUpdate(
-    TId viewId,
-    EventEnvelope<TEvent> eventEnvelope,
-    Function<TView, TView> handle
+  protected <Event> void GetAndUpdate(
+    Id viewId,
+    EventEnvelope<Event> eventEnvelope,
+    Function<View, View> handle
   ) {
     var view = repository.findById(viewId);
 
@@ -50,7 +50,7 @@ public abstract class JPAProjection<TView, TId> {
     repository.save(result);
   }
 
-  protected <TEvent> void DeleteById(TId viewId) {
+  protected void DeleteById(Id viewId) {
     repository.deleteById(viewId);
   }
 
