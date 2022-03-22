@@ -29,7 +29,7 @@ public class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDet
   }
 
   public void handleProductItemAddedToShoppingCart(EventEnvelope<Events.ProductItemAddedToShoppingCart> eventEnvelope) {
-    GetAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope, (view) -> {
+    GetAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope, view -> {
       var event = eventEnvelope.data();
 
       var productItem = event.productItem();
@@ -54,7 +54,7 @@ public class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDet
   }
 
   public void handleProductItemRemovedFromShoppingCart(EventEnvelope<Events.ProductItemRemovedFromShoppingCart> eventEnvelope) {
-    GetAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope, (view) -> {
+    GetAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope, view -> {
       var productItem = eventEnvelope.data().productItem();
       var existingProductItem = view.getProductItems().stream()
         .filter(x -> x.getProductId().equals(productItem.productId()))
@@ -76,17 +76,14 @@ public class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDet
   }
 
   public void handleShoppingCartConfirmed(EventEnvelope<Events.ShoppingCartConfirmed> eventEnvelope) {
-    GetAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope, (view) -> {
-      view.setStatus(ShoppingCart.Status.Confirmed);
-      return view;
-    });
+    GetAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
+      view -> view.setStatus(ShoppingCart.Status.Confirmed)
+    );
   }
 
   public void handleShoppingCartCanceled(EventEnvelope<Events.ShoppingCartCanceled> eventEnvelope) {
-    GetAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope, (view) -> {
-      view.setStatus(ShoppingCart.Status.Confirmed);
-
-      return view;
-    });
+    GetAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
+      view -> view.setStatus(ShoppingCart.Status.Cancelled)
+    );
   }
 }

@@ -2,15 +2,15 @@ package io.eventdriven.ecommerce.core.projections;
 
 import io.eventdriven.ecommerce.core.events.EventEnvelope;
 import io.eventdriven.ecommerce.core.views.VersionedView;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.CrudRepository;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 public abstract class JPAProjection<TView, TId> {
-  private final JpaRepository<TView, TId> repository;
+  private final CrudRepository<TView, TId> repository;
 
-  protected JPAProjection(JpaRepository<TView, TId> repository) {
+  protected JPAProjection(CrudRepository<TView, TId> repository) {
     this.repository = repository;
   }
 
@@ -48,6 +48,10 @@ public abstract class JPAProjection<TView, TId> {
     }
 
     repository.save(result);
+  }
+
+  protected <TEvent> void DeleteById(TId viewId) {
+    repository.deleteById(viewId);
   }
 
   private static boolean wasAlreadyApplied(VersionedView view, EventEnvelope<?> eventEnvelope) {

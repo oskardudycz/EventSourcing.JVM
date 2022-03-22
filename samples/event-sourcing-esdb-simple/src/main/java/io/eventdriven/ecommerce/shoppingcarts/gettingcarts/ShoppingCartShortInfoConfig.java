@@ -1,4 +1,4 @@
-package io.eventdriven.ecommerce.shoppingcarts.gettingbyid;
+package io.eventdriven.ecommerce.shoppingcarts.gettingcarts;
 
 import io.eventdriven.ecommerce.core.events.EventHandler;
 import io.eventdriven.ecommerce.core.events.IEventHandler;
@@ -8,16 +8,16 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.context.annotation.RequestScope;
 
 @Configuration
-public class ShoppingCartDetailsConfig {
+public class ShoppingCartShortInfoConfig {
   @Bean
   @RequestScope
-  public ShoppingCartDetailsProjection shoppingCartDetailsProjectionForDetails(ShoppingCartDetailsRepository repository) {
-    return new ShoppingCartDetailsProjection(repository);
+  public ShoppingCartShortInfoProjection shoppingCartShortInfoProjection(ShoppingCartShortInfoRepository repository) {
+    return new ShoppingCartShortInfoProjection(repository);
   }
 
   @Bean
   @RequestScope
-  public IEventHandler<Events.ShoppingCartOpened> handleShoppingCartOpenedForDetails(ShoppingCartDetailsProjection projection) {
+  public IEventHandler<Events.ShoppingCartOpened> handleShoppingCartOpenedForShortInfo(ShoppingCartShortInfoProjection projection) {
     return EventHandler.of(
       Events.ShoppingCartOpened.class,
       (event) -> projection.handleShoppingCartOpened(event)
@@ -26,7 +26,7 @@ public class ShoppingCartDetailsConfig {
 
   @Bean
   @RequestScope
-  public IEventHandler<Events.ProductItemAddedToShoppingCart> handleProductItemAddedToShoppingCartForDetails(ShoppingCartDetailsProjection projection) {
+  public IEventHandler<Events.ProductItemAddedToShoppingCart> handleProductItemAddedToShoppingCartForShortInfo(ShoppingCartShortInfoProjection projection) {
     return EventHandler.of(
       Events.ProductItemAddedToShoppingCart.class,
       (event) -> projection.handleProductItemAddedToShoppingCart(event)
@@ -35,7 +35,7 @@ public class ShoppingCartDetailsConfig {
 
   @Bean
   @RequestScope
-  public IEventHandler<Events.ProductItemRemovedFromShoppingCart> handleProductItemRemovedFromShoppingCartForDetails(ShoppingCartDetailsProjection projection) {
+  public IEventHandler<Events.ProductItemRemovedFromShoppingCart> handleProductItemRemovedFromShoppingCartForShortInfo(ShoppingCartShortInfoProjection projection) {
     return EventHandler.of(
       Events.ProductItemRemovedFromShoppingCart.class,
       (event) -> projection.handleProductItemRemovedFromShoppingCart(event)
@@ -44,7 +44,7 @@ public class ShoppingCartDetailsConfig {
 
   @Bean
   @RequestScope
-  public IEventHandler<Events.ShoppingCartConfirmed> handleShoppingCartConfirmedForDetails(ShoppingCartDetailsProjection projection) {
+  public IEventHandler<Events.ShoppingCartConfirmed> handleShoppingCartConfirmedForShortInfo(ShoppingCartShortInfoProjection projection) {
     return EventHandler.of(
       Events.ShoppingCartConfirmed.class,
       (event) -> projection.handleShoppingCartConfirmed(event)
@@ -53,7 +53,7 @@ public class ShoppingCartDetailsConfig {
 
   @Bean
   @RequestScope
-  public IEventHandler<Events.ShoppingCartCanceled> handleShoppingCartCanceledForDetails(ShoppingCartDetailsProjection projection) {
+  public IEventHandler<Events.ShoppingCartCanceled> handleShoppingCartCanceledForShortInfo(ShoppingCartShortInfoProjection projection) {
     return EventHandler.of(
       Events.ShoppingCartCanceled.class,
       (event) -> projection.handleShoppingCartCanceled(event)

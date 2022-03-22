@@ -4,8 +4,12 @@ import io.eventdriven.ecommerce.core.queries.QueryHandler;
 import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.GetShoppingCartById;
 import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.ShoppingCartDetails;
 import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.ShoppingCartDetailsRepository;
+import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.GetShoppingCarts;
+import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.ShoppingCartShortInfo;
+import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.ShoppingCartShortInfoRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.domain.Page;
 import org.springframework.web.context.annotation.RequestScope;
 
 import java.util.Optional;
@@ -15,6 +19,12 @@ public class QueriesConfig {
   @Bean
   @RequestScope
   public QueryHandler<GetShoppingCartById, Optional<ShoppingCartDetails>> handleGetById(ShoppingCartDetailsRepository repository) {
-    return query -> GetShoppingCartById.Handle(repository, query);
+    return query -> GetShoppingCartById.handle(repository, query);
+  }
+
+  @Bean
+  @RequestScope
+  public QueryHandler<GetShoppingCarts, Page<ShoppingCartShortInfo>> handleGetShoppingCarts(ShoppingCartShortInfoRepository repository) {
+    return query -> GetShoppingCarts.handle(repository, query);
   }
 }
