@@ -25,8 +25,8 @@ public class CommandsConfig {
   @RequestScope
   public CommandHandler<OpenShoppingCart> handleInitializeShoppingCart(EntityStore<ShoppingCart> store) {
     return command ->
-      store.Add(
-        () -> OpenShoppingCart.Handle(command),
+      store.add(
+        () -> OpenShoppingCart.handle(command),
         command.shoppingCartId()
       );
   }
@@ -38,8 +38,8 @@ public class CommandsConfig {
     ProductPriceCalculator productPriceCalculator
   ) {
     return command ->
-      store.GetAndUpdate(
-        current -> AddProductItemToShoppingCart.Handle(productPriceCalculator, command, current),
+      store.getAndUpdate(
+        current -> AddProductItemToShoppingCart.handle(productPriceCalculator, command, current),
         command.shoppingCartId(),
         Optional.of(command.expectedVersion())
       );
@@ -50,8 +50,8 @@ public class CommandsConfig {
   @RequestScope
   CommandHandler<RemoveProductItemFromShoppingCart> handleRemoveProductItemFromShoppingCart(EntityStore<ShoppingCart> store) {
     return command ->
-      store.GetAndUpdate(
-        current -> RemoveProductItemFromShoppingCart.Handle(command, current),
+      store.getAndUpdate(
+        current -> RemoveProductItemFromShoppingCart.handle(command, current),
         command.shoppingCartId(),
         Optional.of(command.expectedVersion())
       );
@@ -61,8 +61,8 @@ public class CommandsConfig {
   @RequestScope
   CommandHandler<ConfirmShoppingCart> handleConfirmShoppingCart(EntityStore<ShoppingCart> store) {
     return command ->
-      store.GetAndUpdate(
-        current -> ConfirmShoppingCart.Handle(command, current),
+      store.getAndUpdate(
+        current -> ConfirmShoppingCart.handle(command, current),
         command.shoppingCartId(),
         Optional.of(command.expectedVersion())
       );
@@ -72,8 +72,8 @@ public class CommandsConfig {
   @RequestScope
   CommandHandler<CancelShoppingCart> handleCancelShoppingCart(EntityStore<ShoppingCart> store) {
     return command ->
-      store.GetAndUpdate(
-        current -> CancelShoppingCart.Handle(command, current),
+      store.getAndUpdate(
+        current -> CancelShoppingCart.handle(command, current),
         command.shoppingCartId(),
         Optional.of(command.expectedVersion())
       );

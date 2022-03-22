@@ -6,7 +6,7 @@ public record ProductItem(
   UUID productId,
   int quantity
 ) {
-  public static ProductItem From(UUID productId, Integer quantity) {
+  public static ProductItem of(UUID productId, Integer quantity) {
     if (productId == null)
       throw new IllegalArgumentException("ProductId has to be defined");
 

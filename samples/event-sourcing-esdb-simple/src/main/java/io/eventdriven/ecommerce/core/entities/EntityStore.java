@@ -32,12 +32,12 @@ public class EntityStore<Entity> {
     this.getDefault = getDefault;
   }
 
-  public Entity Get(UUID id) throws ExecutionException, InterruptedException {
+  public Entity get(UUID id) throws ExecutionException, InterruptedException {
     var streamId = mapToStreamId.apply(id);
     var result = eventStore.readStream(streamId).get();
 
     var events = result.getEvents().stream()
-      .map(e -> EventSerializer.Deserialize(e))
+      .map(e -> EventSerializer.deserialize(e))
       .toList();
 
     var current = getDefault.get();
@@ -48,7 +48,7 @@ public class EntityStore<Entity> {
     return current;
   }
 
-  public ETag Add(
+  public ETag add(
     Supplier<Object> handle,
     UUID id
   ) throws ExecutionException, InterruptedException {
@@ -58,14 +58,14 @@ public class EntityStore<Entity> {
     return appendToStream(streamId, event, Optional.empty());
   }
 
-  public ETag GetAndUpdate(
+  public ETag getAndUpdate(
     Function<Entity, Object> handle,
     UUID id,
     Optional<Long> expectedRevision
   ) throws ExecutionException, InterruptedException {
 
     var streamId = mapToStreamId.apply(id);
-    var entity = Get(id);
+    var entity = get(id);
 
     var event = handle.apply(entity);
 
@@ -88,7 +88,7 @@ public class EntityStore<Entity> {
       eventStore.appendToStream(
         streamId,
         appendOptions,
-        EventSerializer.Serialize(event)
+        EventSerializer.serialize(event)
       ).get();
 
     return ETag.weak(result.getNextExpectedRevision());

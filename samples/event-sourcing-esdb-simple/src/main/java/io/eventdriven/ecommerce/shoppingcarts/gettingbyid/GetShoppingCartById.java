@@ -6,7 +6,7 @@ import java.util.UUID;
 public record GetShoppingCartById(
   UUID shoppingCartId
 ) {
-  public static GetShoppingCartById from(UUID cartId)
+  public static GetShoppingCartById of(UUID cartId)
   {
     if (cartId == null)
       throw new IllegalArgumentException("Cart id has to be defined");

@@ -12,7 +12,7 @@ public record AddProductItemToShoppingCart(
   ProductItem productItem,
   Long expectedVersion
 ) {
-  public static AddProductItemToShoppingCart From(UUID cartId, ProductItem productItem, Long expectedVersion) {
+  public static AddProductItemToShoppingCart of(UUID cartId, ProductItem productItem, Long expectedVersion) {
     if (cartId == null)
       throw new IllegalArgumentException("Cart id has to be defined");
 
@@ -25,7 +25,7 @@ public record AddProductItemToShoppingCart(
     return new AddProductItemToShoppingCart(cartId, productItem, expectedVersion);
   }
 
-  public static Events.ProductItemAddedToShoppingCart Handle(
+  public static Events.ProductItemAddedToShoppingCart handle(
     ProductPriceCalculator productPriceCalculator,
     AddProductItemToShoppingCart command,
     ShoppingCart shoppingCart
@@ -33,7 +33,7 @@ public record AddProductItemToShoppingCart(
     if (shoppingCart.isClosed())
       throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(shoppingCart.status()));
 
-    var pricedProductItem = productPriceCalculator.Calculate(command.productItem);
+    var pricedProductItem = productPriceCalculator.calculate(command.productItem);
 
     shoppingCart.productItems().add(pricedProductItem);
 

@@ -18,7 +18,7 @@ public record PricedProductItem(
     return quantity() * unitPrice();
   }
 
-  public static PricedProductItem From(ProductItem productItem, Double unitPrice) {
+  public static PricedProductItem of(ProductItem productItem, Double unitPrice) {
     if (productItem == null)
       throw new IllegalArgumentException("Product Item cannot be null");
 
@@ -28,11 +28,11 @@ public record PricedProductItem(
     return new PricedProductItem(productItem, unitPrice);
   }
 
-  public boolean MatchesProductAndUnitPrice(PricedProductItem pricedProductItem) {
+  public boolean matchesProductAndUnitPrice(PricedProductItem pricedProductItem) {
     return productId() == pricedProductItem.productId() && unitPrice() == pricedProductItem.unitPrice();
   }
 
-  public PricedProductItem MergeWith(PricedProductItem productItem) {
+  public PricedProductItem mergeWith(PricedProductItem productItem) {
     if (productId() != productItem.productId())
       throw new IllegalArgumentException("Product ids do not match.");
     if (unitPrice() != productItem.unitPrice())

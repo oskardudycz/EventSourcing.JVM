@@ -89,9 +89,9 @@ public class EventStoreDBSubscriptionToAll {
       if (isEventWithEmptyData(resolvedEvent) || isCheckpointEvent(resolvedEvent))
         return;
 
-      var eventClass = EventTypeMapper.ToClass(resolvedEvent.getEvent().getEventType());
+      var eventClass = EventTypeMapper.toClass(resolvedEvent.getEvent().getEventType());
 
-      var streamEvent = EventEnvelope.From(eventClass, resolvedEvent);
+      var streamEvent = EventEnvelope.of(eventClass, resolvedEvent);
 
       if (streamEvent == null) {
         // That can happen if we're sharing database between modules.
@@ -111,7 +111,7 @@ public class EventStoreDBSubscriptionToAll {
       }
 
       // publish event to internal event bus
-      eventBus.Publish(eventClass, streamEvent);
+      eventBus.publish(eventClass, streamEvent);
 
       checkpointRepository.store(
         this.subscriptionOptions.subscriptionId(),
@@ -172,7 +172,7 @@ public class EventStoreDBSubscriptionToAll {
   }
 
   private static boolean isCheckpointEvent(ResolvedEvent resolvedEvent) {
-    if (!resolvedEvent.getEvent().getEventType().equals(EventTypeMapper.ToName(CheckpointStored.class)))
+    if (!resolvedEvent.getEvent().getEventType().equals(EventTypeMapper.toName(CheckpointStored.class)))
       return false;
 
     System.out.println("Checkpoint event - ignoring");

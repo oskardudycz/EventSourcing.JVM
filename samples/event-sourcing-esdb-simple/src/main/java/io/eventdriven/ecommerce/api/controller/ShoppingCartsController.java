@@ -65,7 +65,7 @@ public class ShoppingCartsController {
   ) throws ExecutionException, InterruptedException, URISyntaxException {
     var cartId = UUID.randomUUID();
 
-    var command = OpenShoppingCart.From(
+    var command = OpenShoppingCart.of(
       cartId,
       request.clientId()
     );
@@ -85,9 +85,9 @@ public class ShoppingCartsController {
     if (request.productItem() == null)
       throw new IllegalArgumentException("Product Item has to be defined");
 
-    var command = AddProductItemToShoppingCart.From(
+    var command = AddProductItemToShoppingCart.of(
       id,
-      ProductItem.From(
+      ProductItem.of(
         request.productItem().productId(),
         request.productItem().quantity()
       ),
@@ -108,10 +108,10 @@ public class ShoppingCartsController {
     @RequestParam Double price,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
   ) throws ExecutionException, InterruptedException {
-    var command = RemoveProductItemFromShoppingCart.From(
+    var command = RemoveProductItemFromShoppingCart.of(
       id,
-      PricedProductItem.From(
-        ProductItem.From(
+      PricedProductItem.of(
+        ProductItem.of(
           productId,
           quantity
         ),
@@ -131,7 +131,7 @@ public class ShoppingCartsController {
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
   ) throws ExecutionException, InterruptedException {
-    var command = ConfirmShoppingCart.From(id, ifMatch.toLong());
+    var command = ConfirmShoppingCart.of(id, ifMatch.toLong());
 
     return ResponseEntity
       .ok()
@@ -144,7 +144,7 @@ public class ShoppingCartsController {
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
   ) throws ExecutionException, InterruptedException {
-    var command = CancelShoppingCart.from(id, ifMatch.toLong());
+    var command = CancelShoppingCart.of(id, ifMatch.toLong());
 
     return ResponseEntity
       .ok()
@@ -153,10 +153,10 @@ public class ShoppingCartsController {
   }
 
   @GetMapping("{id}")
-  public ResponseEntity<ShoppingCartDetails> Get(
+  public ResponseEntity<ShoppingCartDetails> get(
     @PathVariable UUID id
   ) {
-    return handleGetShoppingCartById.handle(GetShoppingCartById.from(id))
+    return handleGetShoppingCartById.handle(GetShoppingCartById.of(id))
       .map(result ->
         ResponseEntity
           .ok()
@@ -167,10 +167,10 @@ public class ShoppingCartsController {
   }
 
   @GetMapping
-  public List<ShoppingCartShortInfo> Get(
+  public List<ShoppingCartShortInfo> get(
     @RequestParam Optional<Integer> pageNumber,
     @RequestParam Optional<Integer> pageSize
   ) {
-    return handleGetShoppingCarts.handle(GetShoppingCarts.from(pageNumber, pageSize)).stream().toList();
+    return handleGetShoppingCarts.handle(GetShoppingCarts.of(pageNumber, pageSize)).stream().toList();
   }
 }

@@ -10,7 +10,7 @@ public record ConfirmShoppingCart(
   UUID shoppingCartId,
   Long expectedVersion
 ) {
-  public static ConfirmShoppingCart From(UUID cartId, Long expectedVersion) {
+  public static ConfirmShoppingCart of(UUID cartId, Long expectedVersion) {
     if (cartId == null)
       throw new IllegalArgumentException("Cart id has to be defined");
 
@@ -20,7 +20,7 @@ public record ConfirmShoppingCart(
     return new ConfirmShoppingCart(cartId, expectedVersion);
   }
 
-  public static Events.ShoppingCartConfirmed Handle(ConfirmShoppingCart command, ShoppingCart shoppingCart) {
+  public static Events.ShoppingCartConfirmed handle(ConfirmShoppingCart command, ShoppingCart shoppingCart) {
     if (shoppingCart.isClosed())
       throw new IllegalStateException("Confirming cart in '%s' status is not allowed.".formatted(shoppingCart.status()));
 

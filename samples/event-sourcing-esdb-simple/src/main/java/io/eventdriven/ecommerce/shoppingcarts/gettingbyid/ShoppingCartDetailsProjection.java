@@ -14,7 +14,7 @@ public class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDet
   }
 
   public void handleShoppingCartOpened(EventEnvelope<Events.ShoppingCartOpened> eventEnvelope) {
-    Add(eventEnvelope, () -> {
+    add(eventEnvelope, () -> {
       var event = eventEnvelope.data();
 
       return new ShoppingCartDetails(

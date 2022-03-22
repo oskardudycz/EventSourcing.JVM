@@ -23,7 +23,7 @@ public record EventStoreDBSubscriptionCheckpointRepository(
         .get()
         .getEvents()
         .stream()
-        .map(e -> EventSerializer.<CheckpointStored>Deserialize(e).position())
+        .map(e -> EventSerializer.<CheckpointStored>deserialize(e).position())
         .findFirst();
 
     } catch (ExecutionException e) {
@@ -37,7 +37,7 @@ public record EventStoreDBSubscriptionCheckpointRepository(
   }
 
   public void store(String subscriptionId, long position) throws ExecutionException, InterruptedException {
-    var event = EventSerializer.Serialize(
+    var event = EventSerializer.serialize(
       new CheckpointStored(subscriptionId, position, LocalDateTime.now())
     );
 
