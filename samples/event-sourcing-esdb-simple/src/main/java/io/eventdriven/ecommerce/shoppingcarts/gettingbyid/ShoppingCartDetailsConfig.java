@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.context.annotation.RequestScope;
 
 @Configuration
-public class ShoppingCartDetailsConfig {
+class ShoppingCartDetailsConfig {
   @Bean
   @RequestScope
   public ShoppingCartDetailsProjection shoppingCartDetailsProjectionForDetails(ShoppingCartDetailsRepository repository) {

@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public record ProductItemsList(
+public record ProductItems
   List<PricedProductItem> items
 ) {
   public ProductItemsList add(PricedProductItem productItem) {
