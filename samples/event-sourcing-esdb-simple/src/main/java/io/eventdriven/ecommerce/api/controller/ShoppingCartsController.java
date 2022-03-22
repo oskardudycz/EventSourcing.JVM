@@ -32,7 +32,7 @@ import java.util.concurrent.ExecutionException;
 
 @RestController
 @RequestMapping("/shopping-carts")
-public class ShoppingCartsController {
+class ShoppingCartsController {
   private final CommandHandler<OpenShoppingCart> handleInitializeShoppingCart;
   private final CommandHandler<AddProductItemToShoppingCart> handleAddProductItemToShoppingCart;
   private final CommandHandler<RemoveProductItemFromShoppingCart> handleRemoveProductItemFromShoppingCart;
