@@ -14,7 +14,7 @@ public abstract class JPAProjection<View, Id> {
     this.repository = repository;
   }
 
-  protected <Event> void Add(EventEnvelope<Event> eventEnvelope, Supplier<View> handle) {
+  protected <Event> void add(EventEnvelope<Event> eventEnvelope, Supplier<View> handle) {
     var result = handle.get();
 
     if(result instanceof VersionedView versionedView){

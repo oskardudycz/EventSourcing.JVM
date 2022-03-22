@@ -11,7 +11,7 @@ import java.util.UUID;
 public class RandomProductPriceCalculator implements ProductPriceCalculator {
   private final Map<UUID, Double> productPrices = new HashMap<>();
 
-  public PricedProductItem Calculate(ProductItem productItem) {
+  public PricedProductItem calculate(ProductItem productItem) {
     var random = new Random();
 
     var price = random.nextDouble() * 100;
@@ -21,6 +21,6 @@ public class RandomProductPriceCalculator implements ProductPriceCalculator {
       price
     );
 
-    return PricedProductItem.From(productItem, price);
+    return PricedProductItem.of(productItem, price);
   }
 }

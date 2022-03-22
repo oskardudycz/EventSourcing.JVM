@@ -13,7 +13,7 @@ public class ShoppingCartShortInfoProjection extends JPAProjection<ShoppingCartS
   }
 
   public void handleShoppingCartOpened(EventEnvelope<Events.ShoppingCartOpened> eventEnvelope) {
-    Add(eventEnvelope, () ->
+    add(eventEnvelope, () ->
       new ShoppingCartShortInfo(
         eventEnvelope.data().shoppingCartId(),
         eventEnvelope.data().clientId(),

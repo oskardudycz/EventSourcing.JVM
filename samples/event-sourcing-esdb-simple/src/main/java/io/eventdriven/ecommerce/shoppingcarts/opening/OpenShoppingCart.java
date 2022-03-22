@@ -9,7 +9,7 @@ public record OpenShoppingCart(
   UUID clientId
 )
 {
-  public static OpenShoppingCart From(UUID cartId, UUID clientId)
+  public static OpenShoppingCart of(UUID cartId, UUID clientId)
   {
     if (cartId == null)
       throw new IllegalArgumentException("Cart id has to be defined");
@@ -19,7 +19,7 @@ public record OpenShoppingCart(
     return new OpenShoppingCart(cartId, clientId);
   }
 
-  public static Events.ShoppingCartOpened Handle(OpenShoppingCart command)
+  public static Events.ShoppingCartOpened handle(OpenShoppingCart command)
   {
     return new Events.ShoppingCartOpened(
       command.shoppingCartId(),

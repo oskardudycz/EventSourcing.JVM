@@ -11,7 +11,7 @@ public record RemoveProductItemFromShoppingCart(
   PricedProductItem productItem,
   Long expectedVersion
 ) {
-  public static RemoveProductItemFromShoppingCart From(UUID cartId, PricedProductItem productItem, Long expectedVersion) {
+  public static RemoveProductItemFromShoppingCart of(UUID cartId, PricedProductItem productItem, Long expectedVersion) {
     if (cartId == null)
       throw new IllegalArgumentException("Cart id has to be defined");
 
@@ -24,7 +24,7 @@ public record RemoveProductItemFromShoppingCart(
     return new RemoveProductItemFromShoppingCart(cartId, productItem, expectedVersion);
   }
 
-  public static Events.ProductItemRemovedFromShoppingCart Handle(
+  public static Events.ProductItemRemovedFromShoppingCart handle(
     RemoveProductItemFromShoppingCart command,
     ShoppingCart shoppingCart
   ) {

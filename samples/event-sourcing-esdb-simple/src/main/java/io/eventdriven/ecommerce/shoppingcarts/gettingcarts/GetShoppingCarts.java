@@ -9,7 +9,7 @@ public record GetShoppingCarts(
   int pageNumber,
   int pageSize
 ) {
-  public static GetShoppingCarts from(Optional<Integer> pageNumber, Optional<Integer> pageSize) {
+  public static GetShoppingCarts of(Optional<Integer> pageNumber, Optional<Integer> pageSize) {
     if (!pageNumber.isEmpty() && pageNumber.get() < 0)
       throw new IllegalArgumentException("Page number has to be a zero-based number");
 

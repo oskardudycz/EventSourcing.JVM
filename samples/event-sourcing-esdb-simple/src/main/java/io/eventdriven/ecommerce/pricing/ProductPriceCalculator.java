@@ -4,5 +4,5 @@ import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 
 public interface ProductPriceCalculator {
-  PricedProductItem Calculate(ProductItem productItem);
+  PricedProductItem calculate(ProductItem productItem);
 }

@@ -8,14 +8,14 @@ public final class EventTypeMapper {
   private HashMap<String, Class> typeMap = new HashMap<>();
   private HashMap<Class, String> typeNameMap = new HashMap<>();
 
-  public static String ToName(Class eventType) {
+  public static String toName(Class eventType) {
     return Instance.typeNameMap.computeIfAbsent(
       eventType,
       c -> c.getTypeName().replace(".", "_")
     );
   }
 
-  public static Class ToClass(String eventTypeName) {
+  public static Class toClass(String eventTypeName) {
     return Instance.typeMap.computeIfAbsent(
       eventTypeName,
       c -> {

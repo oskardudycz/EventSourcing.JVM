@@ -17,11 +17,11 @@ public final class EventSerializer {
     .registerModule(new JavaTimeModule())
     .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-  public static EventData Serialize(Object event) {
+  public static EventData serialize(Object event) {
     try {
       return EventDataBuilder.json(
         UUID.randomUUID(),
-        EventTypeMapper.ToName(event.getClass()),
+        EventTypeMapper.toName(event.getClass()),
         mapper.writeValueAsBytes(event)
       ).build();
     } catch (JsonProcessingException e) {
@@ -29,9 +29,9 @@ public final class EventSerializer {
     }
   }
 
-  public static <Event> Event Deserialize(ResolvedEvent resolvedEvent) {
-    var result = Deserialize(
-      EventTypeMapper.ToClass(resolvedEvent.getEvent().getEventType()),
+  public static <Event> Event deserialize(ResolvedEvent resolvedEvent) {
+    var result = deserialize(
+      EventTypeMapper.toClass(resolvedEvent.getEvent().getEventType()),
       resolvedEvent
     );
     if (result == null)
@@ -40,7 +40,7 @@ public final class EventSerializer {
     return (Event) result;
   }
 
-  public static <Event> Event Deserialize(Class<Event> eventClass, ResolvedEvent resolvedEvent) {
+  public static <Event> Event deserialize(Class<Event> eventClass, ResolvedEvent resolvedEvent) {
     try {
       if(eventClass == null)
         return null;

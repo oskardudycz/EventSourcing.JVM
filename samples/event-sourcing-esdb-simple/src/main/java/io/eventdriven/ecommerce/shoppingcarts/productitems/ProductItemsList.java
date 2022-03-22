@@ -4,13 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class ProductItemsList {
-  private final List<PricedProductItem> items;
-
-  public ProductItemsList(List<PricedProductItem> items) {
-    this.items = items;
-  }
-
+public record ProductItemsList(
+  List<PricedProductItem> items
+) {
   public ProductItemsList add(PricedProductItem productItem) {
     var clone = new ArrayList<>(items);
 
@@ -19,7 +15,7 @@ public class ProductItemsList {
     if (currentProductItem.isEmpty())
       clone.add(productItem);
     else
-      clone.set(clone.indexOf(currentProductItem.get()), currentProductItem.get().MergeWith(productItem));
+      clone.set(clone.indexOf(currentProductItem.get()), currentProductItem.get().mergeWith(productItem));
 
     return new ProductItemsList(clone);
   }
@@ -38,7 +34,7 @@ public class ProductItemsList {
   }
 
   public Optional<PricedProductItem> find(PricedProductItem productItem) {
-    return items.stream().filter(pi -> pi.MatchesProductAndUnitPrice(productItem)).findAny();
+    return items.stream().filter(pi -> pi.matchesProductAndUnitPrice(productItem)).findAny();
   }
 
   public static ProductItemsList empty() {
