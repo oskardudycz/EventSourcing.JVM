@@ -32,8 +32,9 @@ public final class EventStoreDBSubscriptionCheckpointRepository implements Subsc
         .get()
         .getEvents()
         .stream()
-        .map(e -> EventSerializer.<CheckpointStored>deserialize(e).position())
-        .findFirst();
+        .map(e -> EventSerializer.<CheckpointStored>deserialize(e).map(ch -> ch.position()))
+        .findFirst()
+        .orElse(Optional.empty());
 
     } catch (ExecutionException e) {
       Throwable innerException = e.getCause();

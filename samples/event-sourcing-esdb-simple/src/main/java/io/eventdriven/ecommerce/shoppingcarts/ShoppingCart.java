@@ -1,6 +1,6 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
-import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItemsList;
+import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItems;
 
 import java.time.LocalDateTime;
 import java.util.EnumSet;
@@ -11,7 +11,7 @@ public record ShoppingCart(
   UUID id,
   UUID clientId,
   ShoppingCart.Status status,
-  ProductItemsList productItems,
+  ProductItems productItems,
   Optional<LocalDateTime> confirmedAt,
   Optional<LocalDateTime> canceledAt
 ) {
@@ -43,7 +43,7 @@ public record ShoppingCart(
           shoppingCartOpened.shoppingCartId(),
           shoppingCartOpened.clientId(),
           Status.Pending,
-          ProductItemsList.empty(),
+          ProductItems.empty(),
           Optional.empty(),
           Optional.empty()
         );

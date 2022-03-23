@@ -93,12 +93,12 @@ public class EventStoreDBSubscriptionToAll {
 
     var eventClass = EventTypeMapper.toClass(resolvedEvent.getEvent().getEventType());
 
-    var streamEvent = EventEnvelope.of(eventClass, resolvedEvent);
+    var streamEvent = eventClass.flatMap(c -> EventEnvelope.of(c, resolvedEvent));
 
-    if (streamEvent == null) {
+    if (streamEvent.isEmpty()) {
       // That can happen if we're sharing database between modules.
       // If we're subscribing to all and not filtering out events from other modules,
-      // then we might get events that are from other module and we might not be able to deserialize them.
+      // then we might get events that are from other module, and we might not be able to deserialize them.
       // In that case it's safe to ignore deserialization error.
       // You may add more sophisticated logic checking if it should be ignored or not.
       logger.warn("Couldn't deserialize event with id: %s".formatted(resolvedEvent.getEvent().getEventId()));
@@ -113,7 +113,7 @@ public class EventStoreDBSubscriptionToAll {
     }
 
     // publish event to internal event bus
-    eventBus.publish(eventClass, streamEvent);
+    eventBus.publish(eventClass.get(), (EventEnvelope<?>) streamEvent.get());
 
     checkpointRepository.store(
       this.subscriptionOptions.subscriptionId(),
