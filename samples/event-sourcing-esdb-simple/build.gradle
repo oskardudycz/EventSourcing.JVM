@@ -20,6 +20,9 @@ dependencies {
   // Serialisation
   implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.2'
 
+  // Log4J logging
+  implementation 'org.springframework.boot:spring-boot-starter-log4j2:2.6.4'
+
   // EventStoreDB client
   implementation 'com.eventstore:db-client-java:2.0.0'
 
@@ -29,6 +32,10 @@ dependencies {
   implementation 'org.postgresql:postgresql:42.3.3'
 
   testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+configurations {
+  all*.exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
 }
 
 tasks.named('test') {

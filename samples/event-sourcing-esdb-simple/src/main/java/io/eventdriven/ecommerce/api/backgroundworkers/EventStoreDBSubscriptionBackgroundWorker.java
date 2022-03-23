@@ -4,6 +4,8 @@ import com.eventstore.dbclient.EventStoreDBClient;
 import io.eventdriven.ecommerce.core.events.EventBus;
 import io.eventdriven.ecommerce.core.subscriptions.EventStoreDBSubscriptionToAll;
 import io.eventdriven.ecommerce.core.subscriptions.SubscriptionCheckpointRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
 
 public class EventStoreDBSubscriptionBackgroundWorker implements SmartLifecycle {
@@ -11,6 +13,7 @@ public class EventStoreDBSubscriptionBackgroundWorker implements SmartLifecycle 
   private final EventStoreDBClient eventStore;
   private final EventBus eventBus;
   private EventStoreDBSubscriptionToAll subscription;
+  private final Logger logger = LoggerFactory.getLogger(EventStoreDBSubscriptionBackgroundWorker.class);
 
   public EventStoreDBSubscriptionBackgroundWorker(
     EventStoreDBClient eventStore,
@@ -32,8 +35,7 @@ public class EventStoreDBSubscriptionBackgroundWorker implements SmartLifecycle 
       );
       subscription.subscribeToAll();
     } catch (Throwable e) {
-      System.out.println("Failed to start Subscription to All");
-      e.printStackTrace();
+      logger.error("Failed to start Subscription to All", e);
     }
   }
 
