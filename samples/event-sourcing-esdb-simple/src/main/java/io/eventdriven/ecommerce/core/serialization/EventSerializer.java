@@ -4,6 +4,7 @@ import com.eventstore.dbclient.EventData;
 import com.eventstore.dbclient.EventDataBuilder;
 import com.eventstore.dbclient.ResolvedEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -13,9 +14,10 @@ import java.io.IOException;
 import java.util.UUID;
 
 public final class EventSerializer {
-  public static final JsonMapper mapper = (JsonMapper) new JsonMapper()
-    .registerModule(new JavaTimeModule())
-    .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+  public static final ObjectMapper mapper =
+    new JsonMapper()
+      .registerModule(new JavaTimeModule())
+      .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
   public static EventData serialize(Object event) {
     try {
@@ -42,7 +44,7 @@ public final class EventSerializer {
 
   public static <Event> Event deserialize(Class<Event> eventClass, ResolvedEvent resolvedEvent) {
     try {
-      if(eventClass == null)
+      if (eventClass == null)
         return null;
 
       var result = mapper.readValue(resolvedEvent.getEvent().getEventData(), eventClass);

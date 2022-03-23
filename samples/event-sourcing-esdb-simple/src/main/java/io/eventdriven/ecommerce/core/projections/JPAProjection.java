@@ -27,7 +27,7 @@ public abstract class JPAProjection<View, Id> {
     repository.save(result);
   }
 
-  protected <Event> void GetAndUpdate(
+  protected <Event> void getAndUpdate(
     Id viewId,
     EventEnvelope<Event> eventEnvelope,
     Function<View, View> handle

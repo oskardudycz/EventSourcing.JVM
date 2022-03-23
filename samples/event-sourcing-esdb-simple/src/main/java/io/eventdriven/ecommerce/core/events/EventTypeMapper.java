@@ -1,12 +1,13 @@
 package io.eventdriven.ecommerce.core.events;
 
 import java.util.HashMap;
+import java.util.Map;
 
 public final class EventTypeMapper {
   private static final EventTypeMapper Instance = new EventTypeMapper();
 
-  private HashMap<String, Class> typeMap = new HashMap<>();
-  private HashMap<Class, String> typeNameMap = new HashMap<>();
+  private Map<String, Class> typeMap = new HashMap<>();
+  private Map<Class, String> typeNameMap = new HashMap<>();
 
   public static String toName(Class eventType) {
     return Instance.typeNameMap.computeIfAbsent(

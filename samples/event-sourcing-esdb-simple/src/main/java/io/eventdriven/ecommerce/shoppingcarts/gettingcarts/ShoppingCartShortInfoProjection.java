@@ -27,19 +27,19 @@ public class ShoppingCartShortInfoProjection extends JPAProjection<ShoppingCartS
   }
 
   public void handleProductItemAddedToShoppingCart(EventEnvelope<Events.ProductItemAddedToShoppingCart> eventEnvelope) {
-    GetAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
+    getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
       view -> view.increaseProducts(eventEnvelope.data().productItem())
     );
   }
 
   public void handleProductItemRemovedFromShoppingCart(EventEnvelope<Events.ProductItemRemovedFromShoppingCart> eventEnvelope) {
-    GetAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
+    getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
       view -> view.decreaseProducts(eventEnvelope.data().productItem())
     );
   }
 
   public void handleShoppingCartConfirmed(EventEnvelope<Events.ShoppingCartConfirmed> eventEnvelope) {
-    GetAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
+    getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
       view -> view.setStatus(ShoppingCart.Status.Confirmed)
     );
   }
