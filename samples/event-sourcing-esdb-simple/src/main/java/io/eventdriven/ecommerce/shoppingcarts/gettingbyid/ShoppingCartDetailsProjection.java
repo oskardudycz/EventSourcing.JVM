@@ -4,15 +4,19 @@ import io.eventdriven.ecommerce.core.events.EventEnvelope;
 import io.eventdriven.ecommerce.core.projections.JPAProjection;
 import io.eventdriven.ecommerce.shoppingcarts.Events;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.UUID;
 
+@Component
 public class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDetails, UUID> {
   protected ShoppingCartDetailsProjection(ShoppingCartDetailsRepository repository) {
     super(repository);
   }
 
+  @EventListener
   public void handleShoppingCartOpened(EventEnvelope<Events.ShoppingCartOpened> eventEnvelope) {
     add(eventEnvelope, () -> {
       var event = eventEnvelope.data();
@@ -28,6 +32,7 @@ public class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDet
     });
   }
 
+  @EventListener
   public void handleProductItemAddedToShoppingCart(EventEnvelope<Events.ProductItemAddedToShoppingCart> eventEnvelope) {
     getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope, view -> {
       var event = eventEnvelope.data();
@@ -53,6 +58,7 @@ public class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDet
     });
   }
 
+  @EventListener
   public void handleProductItemRemovedFromShoppingCart(EventEnvelope<Events.ProductItemRemovedFromShoppingCart> eventEnvelope) {
     getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope, view -> {
       var productItem = eventEnvelope.data().productItem();
@@ -61,7 +67,7 @@ public class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDet
         .findFirst();
 
       if (existingProductItem.isEmpty()) {
-        // that's unexpected, but we have to leave with that
+        // that's unexpected, but we have to live with that
         return view;
       }
 
@@ -75,12 +81,14 @@ public class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDet
     });
   }
 
+  @EventListener
   public void handleShoppingCartConfirmed(EventEnvelope<Events.ShoppingCartConfirmed> eventEnvelope) {
     getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
       view -> view.setStatus(ShoppingCart.Status.Confirmed)
     );
   }
 
+  @EventListener
   public void handleShoppingCartCanceled(EventEnvelope<Events.ShoppingCartCanceled> eventEnvelope) {
     getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
       view -> view.setStatus(ShoppingCart.Status.Cancelled)

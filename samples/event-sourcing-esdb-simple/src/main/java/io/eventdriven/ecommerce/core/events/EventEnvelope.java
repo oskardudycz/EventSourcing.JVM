@@ -2,20 +2,23 @@ package io.eventdriven.ecommerce.core.events;
 
 import com.eventstore.dbclient.ResolvedEvent;
 import io.eventdriven.ecommerce.core.serialization.EventSerializer;
+import org.springframework.core.ResolvableType;
+import org.springframework.core.ResolvableTypeProvider;
 
 import java.util.Optional;
 
 public record EventEnvelope<Event>(
   Event data,
   EventMetadata metadata
-) {
+) implements ResolvableTypeProvider {
+
   public static <Event> Optional<EventEnvelope<Event>> of(final Class<Event> type, ResolvedEvent resolvedEvent) {
     if (type == null)
       return Optional.empty();
 
     var eventData = EventSerializer.deserialize(type, resolvedEvent);
 
-    if(eventData.isEmpty())
+    if (eventData.isEmpty())
       return Optional.empty();
 
     return Optional.of(
@@ -28,6 +31,13 @@ public record EventEnvelope<Event>(
           resolvedEvent.getEvent().getEventType()
         )
       )
+    );
+  }
+
+  @Override
+  public ResolvableType getResolvableType() {
+    return ResolvableType.forClassWithGenerics(
+      getClass(), ResolvableType.forInstance(data)
     );
   }
 }

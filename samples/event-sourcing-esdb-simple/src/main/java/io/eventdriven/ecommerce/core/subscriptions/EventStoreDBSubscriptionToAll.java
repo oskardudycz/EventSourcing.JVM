@@ -113,7 +113,7 @@ public class EventStoreDBSubscriptionToAll {
     }
 
     // publish event to internal event bus
-    eventBus.publish(eventClass.get(), (EventEnvelope<?>) streamEvent.get());
+    eventBus.publish((EventEnvelope<?>) streamEvent.get());
 
     checkpointRepository.store(
       this.subscriptionOptions.subscriptionId(),
