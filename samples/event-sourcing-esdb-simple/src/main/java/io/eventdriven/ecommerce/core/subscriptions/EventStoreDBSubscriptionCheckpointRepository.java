@@ -2,14 +2,23 @@ package io.eventdriven.ecommerce.core.subscriptions;
 
 import com.eventstore.dbclient.*;
 import io.eventdriven.ecommerce.core.serialization.EventSerializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
-public record EventStoreDBSubscriptionCheckpointRepository(
-  EventStoreDBClient eventStore
-) implements SubscriptionCheckpointRepository {
+public final class EventStoreDBSubscriptionCheckpointRepository implements SubscriptionCheckpointRepository {
+  private final EventStoreDBClient eventStore;
+  private final Logger logger = LoggerFactory.getLogger(EventStoreDBSubscriptionCheckpointRepository.class);
+
+  public EventStoreDBSubscriptionCheckpointRepository(
+    EventStoreDBClient eventStore
+  ) {
+    this.eventStore = eventStore;
+  }
 
   public Optional<Long> load(String subscriptionId) throws InterruptedException, ExecutionException {
     var streamName = getCheckpointStreamName(subscriptionId);
@@ -29,10 +38,11 @@ public record EventStoreDBSubscriptionCheckpointRepository(
     } catch (ExecutionException e) {
       Throwable innerException = e.getCause();
 
-      if (innerException instanceof StreamNotFoundException) {
-        return Optional.empty();
+      if (!(innerException instanceof StreamNotFoundException)) {
+        logger.error("Failed to load checkpoint", e);
+        throw e;
       }
-      throw e;
+      return Optional.empty();
     }
   }
 
@@ -51,7 +61,7 @@ public record EventStoreDBSubscriptionCheckpointRepository(
         event
       ).get();
     } catch (ExecutionException ex) {
-      if(!(ex.getCause() instanceof WrongExpectedVersionException))
+      if (!(ex.getCause() instanceof WrongExpectedVersionException))
         throw ex;
 
       // WrongExpectedVersionException means that stream did not exist
@@ -79,4 +89,28 @@ public record EventStoreDBSubscriptionCheckpointRepository(
   private static String getCheckpointStreamName(String subscriptionId) {
     return "checkpoint_%s".formatted(subscriptionId);
   }
+
+  public EventStoreDBClient eventStore() {
+    return eventStore;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == this) return true;
+    if (obj == null || obj.getClass() != this.getClass()) return false;
+    var that = (EventStoreDBSubscriptionCheckpointRepository) obj;
+    return Objects.equals(this.eventStore, that.eventStore);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(eventStore);
+  }
+
+  @Override
+  public String toString() {
+    return "EventStoreDBSubscriptionCheckpointRepository[" +
+      "eventStore=" + eventStore + ']';
+  }
+
 }
