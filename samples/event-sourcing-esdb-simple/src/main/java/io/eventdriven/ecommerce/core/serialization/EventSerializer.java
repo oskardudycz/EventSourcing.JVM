@@ -9,11 +9,15 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.eventdriven.ecommerce.core.events.EventTypeMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.UUID;
 
 public final class EventSerializer {
+  public static final Logger logger = LoggerFactory.getLogger(EventSerializer.class);
   public static final ObjectMapper mapper =
     new JsonMapper()
       .registerModule(new JavaTimeModule())
@@ -31,30 +35,27 @@ public final class EventSerializer {
     }
   }
 
-  public static <Event> Event deserialize(ResolvedEvent resolvedEvent) {
-    var result = deserialize(
-      EventTypeMapper.toClass(resolvedEvent.getEvent().getEventType()),
-      resolvedEvent
-    );
-    if (result == null)
-      return null;
+  public static <Event> Optional<Event> deserialize(ResolvedEvent resolvedEvent) {
+    var eventClass = EventTypeMapper.toClass(resolvedEvent.getEvent().getEventType());
 
-    return (Event) result;
+    if (eventClass.isEmpty())
+      return Optional.empty();
+
+    return deserialize(eventClass.get(), resolvedEvent);
   }
 
-  public static <Event> Event deserialize(Class<Event> eventClass, ResolvedEvent resolvedEvent) {
+  public static <Event> Optional<Event> deserialize(Class<Event> eventClass, ResolvedEvent resolvedEvent) {
     try {
-      if (eventClass == null)
-        return null;
 
       var result = mapper.readValue(resolvedEvent.getEvent().getEventData(), eventClass);
 
       if (result == null)
-        return null;
+        return Optional.empty();
 
-      return result;
-    } catch (IOException ex) {
-      return null;
+      return Optional.of(result);
+    } catch (IOException e) {
+      logger.warn("Error deserializing event %s".formatted(resolvedEvent.getEvent().getEventType()), e);
+      return Optional.empty();
     }
   }
 }

@@ -2,11 +2,12 @@ package io.eventdriven.ecommerce.core.events;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public final class EventTypeMapper {
   private static final EventTypeMapper Instance = new EventTypeMapper();
 
-  private Map<String, Class> typeMap = new HashMap<>();
+  private Map<String, Optional<Class>> typeMap = new HashMap<>();
   private Map<Class, String> typeNameMap = new HashMap<>();
 
   public static String toName(Class eventType) {
@@ -16,14 +17,14 @@ public final class EventTypeMapper {
     );
   }
 
-  public static Class toClass(String eventTypeName) {
+  public static Optional<Class> toClass(String eventTypeName) {
     return Instance.typeMap.computeIfAbsent(
       eventTypeName,
       c -> {
         try {
-          return Class.forName(eventTypeName.replace("_", "."));
+          return Optional.of(Class.forName(eventTypeName.replace("_", ".")));
         } catch (ClassNotFoundException e) {
-            return null;
+            return Optional.empty();
         }
       }
     );

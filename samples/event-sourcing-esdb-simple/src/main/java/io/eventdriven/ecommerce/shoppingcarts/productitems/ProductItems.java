@@ -4,10 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public record ProductItems
+public record ProductItems(
   List<PricedProductItem> items
 ) {
-  public ProductItemsList add(PricedProductItem productItem) {
+  public ProductItems add(PricedProductItem productItem) {
     var clone = new ArrayList<>(items);
 
     var currentProductItem = find(productItem);
@@ -17,10 +17,10 @@ public record ProductItems
     else
       clone.set(clone.indexOf(currentProductItem.get()), currentProductItem.get().mergeWith(productItem));
 
-    return new ProductItemsList(clone);
+    return new ProductItems(clone);
   }
 
-  public ProductItemsList remove(PricedProductItem productItem) {
+  public ProductItems remove(PricedProductItem productItem) {
     var clone = new ArrayList<>(items);
 
     var currentProductItem = find(productItem);
@@ -30,15 +30,15 @@ public record ProductItems
 
     clone.remove(currentProductItem.get());
 
-    return new ProductItemsList(clone);
+    return new ProductItems(clone);
   }
 
   public Optional<PricedProductItem> find(PricedProductItem productItem) {
     return items.stream().filter(pi -> pi.matchesProductAndUnitPrice(productItem)).findAny();
   }
 
-  public static ProductItemsList empty() {
-    return new ProductItemsList(new ArrayList<>());
+  public static ProductItems empty() {
+    return new ProductItems(new ArrayList<>());
   }
 
   @Override
