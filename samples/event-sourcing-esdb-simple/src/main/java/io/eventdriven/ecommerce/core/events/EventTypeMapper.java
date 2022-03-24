@@ -7,8 +7,8 @@ import java.util.Optional;
 public final class EventTypeMapper {
   private static final EventTypeMapper Instance = new EventTypeMapper();
 
-  private Map<String, Optional<Class>> typeMap = new HashMap<>();
-  private Map<Class, String> typeNameMap = new HashMap<>();
+  private final Map<String, Optional<Class>> typeMap = new HashMap<>();
+  private final Map<Class, String> typeNameMap = new HashMap<>();
 
   public static String toName(Class eventType) {
     return Instance.typeNameMap.computeIfAbsent(

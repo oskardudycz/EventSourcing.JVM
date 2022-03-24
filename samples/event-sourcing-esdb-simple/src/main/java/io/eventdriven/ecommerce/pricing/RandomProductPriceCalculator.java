@@ -21,6 +21,6 @@ public class RandomProductPriceCalculator implements ProductPriceCalculator {
       price
     );
 
-    return PricedProductItem.of(productItem, price);
+    return new PricedProductItem(productItem, price);
   }
 }

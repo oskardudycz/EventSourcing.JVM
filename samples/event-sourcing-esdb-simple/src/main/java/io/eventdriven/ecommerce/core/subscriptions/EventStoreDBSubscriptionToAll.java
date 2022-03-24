@@ -20,7 +20,7 @@ public class EventStoreDBSubscriptionToAll {
   private boolean isRunning;
   private final Logger logger = LoggerFactory.getLogger(EventStoreDBSubscriptionToAll.class);
 
-  SubscriptionListener listener = new SubscriptionListener() {
+  private final SubscriptionListener listener = new SubscriptionListener() {
     @Override
     public void onEvent(Subscription subscription, ResolvedEvent event) {
       try {

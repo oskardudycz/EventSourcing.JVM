@@ -6,7 +6,6 @@ import com.eventstore.dbclient.ExpectedRevision;
 import io.eventdriven.ecommerce.core.http.ETag;
 import io.eventdriven.ecommerce.core.serialization.EventSerializer;
 
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
@@ -55,13 +54,20 @@ public class EntityStore<Entity> {
     var streamId = mapToStreamId.apply(id);
     var event = handle.get();
 
-    return appendToStream(streamId, event, Optional.empty());
+    var result =
+      eventStore.appendToStream(
+        streamId,
+        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+        EventSerializer.serialize(event)
+      ).get();
+
+    return ETag.weak(result.getNextExpectedRevision());
   }
 
   public ETag getAndUpdate(
     Function<Entity, Object> handle,
     UUID id,
-    Optional<Long> expectedRevision
+    long expectedRevision
   ) throws ExecutionException, InterruptedException {
 
     var streamId = mapToStreamId.apply(id);
@@ -69,25 +75,10 @@ public class EntityStore<Entity> {
 
     var event = handle.apply(entity);
 
-    return appendToStream(streamId, event, expectedRevision);
-  }
-
-  private ETag appendToStream(
-    String streamId,
-    Object event,
-    Optional<Long> expectedRevision
-  ) throws ExecutionException, InterruptedException {
-    var appendOptions = AppendToStreamOptions.get();
-
-    if (!expectedRevision.isEmpty())
-      appendOptions.expectedRevision(expectedRevision.get());
-    else
-      appendOptions.expectedRevision(ExpectedRevision.NO_STREAM);
-
     var result =
       eventStore.appendToStream(
         streamId,
-        appendOptions,
+        AppendToStreamOptions.get().expectedRevision(expectedRevision),
         EventSerializer.serialize(event)
       ).get();
 

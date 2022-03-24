@@ -10,16 +10,6 @@ public record CancelShoppingCart(
   UUID shoppingCartId,
   Long expectedVersion
 ) {
-  public static CancelShoppingCart of(UUID cartId, Long expectedVersion) {
-    if (cartId == null)
-      throw new IllegalArgumentException("Cart id has to be defined");
-
-    if (expectedVersion == null)
-      throw new IllegalArgumentException("Expected version has to be provided");
-
-    return new CancelShoppingCart(cartId, expectedVersion);
-  }
-
   public static Events.ShoppingCartCanceled handle(CancelShoppingCart command, ShoppingCart shoppingCart) {
     if (shoppingCart.isClosed())
       throw new IllegalStateException("Canceling cart in '%s' status is not allowed.".formatted(shoppingCart.status()));

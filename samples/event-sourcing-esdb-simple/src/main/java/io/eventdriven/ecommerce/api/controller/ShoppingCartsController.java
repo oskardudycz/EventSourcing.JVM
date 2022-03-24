@@ -21,6 +21,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -65,7 +66,7 @@ class ShoppingCartsController {
   ) throws ExecutionException, InterruptedException, URISyntaxException {
     var cartId = UUID.randomUUID();
 
-    var command = OpenShoppingCart.of(
+    var command = new OpenShoppingCart(
       cartId,
       request.clientId()
     );
@@ -85,9 +86,9 @@ class ShoppingCartsController {
     if (request.productItem() == null)
       throw new IllegalArgumentException("Product Item has to be defined");
 
-    var command = AddProductItemToShoppingCart.of(
+    var command = new AddProductItemToShoppingCart(
       id,
-      ProductItem.of(
+      new ProductItem(
         request.productItem().productId(),
         request.productItem().quantity()
       ),
@@ -110,8 +111,8 @@ class ShoppingCartsController {
   ) throws ExecutionException, InterruptedException {
     var command = RemoveProductItemFromShoppingCart.of(
       id,
-      PricedProductItem.of(
-        ProductItem.of(
+      new PricedProductItem(
+        new ProductItem(
           productId,
           quantity
         ),
@@ -131,7 +132,7 @@ class ShoppingCartsController {
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
   ) throws ExecutionException, InterruptedException {
-    var command = ConfirmShoppingCart.of(id, ifMatch.toLong());
+    var command = new ConfirmShoppingCart(id, ifMatch.toLong());
 
     return ResponseEntity
       .ok()
@@ -144,7 +145,7 @@ class ShoppingCartsController {
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
   ) throws ExecutionException, InterruptedException {
-    var command = CancelShoppingCart.of(id, ifMatch.toLong());
+    var command = new CancelShoppingCart(id, ifMatch.toLong());
 
     return ResponseEntity
       .ok()
@@ -156,7 +157,7 @@ class ShoppingCartsController {
   public ResponseEntity<ShoppingCartDetails> get(
     @PathVariable UUID id
   ) {
-    return handleGetShoppingCartById.handle(GetShoppingCartById.of(id))
+    return handleGetShoppingCartById.handle(new GetShoppingCartById(id))
       .map(result ->
         ResponseEntity
           .ok()
@@ -168,8 +169,8 @@ class ShoppingCartsController {
 
   @GetMapping
   public List<ShoppingCartShortInfo> get(
-    @RequestParam Optional<Integer> pageNumber,
-    @RequestParam Optional<Integer> pageSize
+    @RequestParam @Nullable Integer pageNumber,
+    @RequestParam @Nullable  Integer pageSize
   ) {
     return handleGetShoppingCarts.handle(GetShoppingCarts.of(pageNumber, pageSize)).stream().toList();
   }
