@@ -1,6 +1,11 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItems;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartOpened;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemAddedToShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemRemovedFromShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartConfirmed;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartCanceled;
 
 import java.time.LocalDateTime;
 import java.util.EnumSet;
@@ -36,9 +41,9 @@ public record ShoppingCart(
     return Status.Closed.contains(status);
   }
 
-  public static ShoppingCart when(ShoppingCart current, Events.ShoppingCartEvent event) {
+  public static ShoppingCart when(ShoppingCart current, ShoppingCartEvent event) {
     return switch (event) {
-      case Events.ShoppingCartOpened shoppingCartOpened:
+      case ShoppingCartOpened shoppingCartOpened:
         yield new ShoppingCart(
           shoppingCartOpened.shoppingCartId(),
           shoppingCartOpened.clientId(),
@@ -47,7 +52,7 @@ public record ShoppingCart(
           Optional.empty(),
           Optional.empty()
         );
-      case Events.ProductItemAddedToShoppingCart productItemAddedToShoppingCart:
+      case ProductItemAddedToShoppingCart productItemAddedToShoppingCart:
         yield new ShoppingCart(
           current.id(),
           current.clientId,
@@ -56,7 +61,7 @@ public record ShoppingCart(
           Optional.empty(),
           Optional.empty()
         );
-      case Events.ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart:
+      case ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart:
         yield new ShoppingCart(
           current.id(),
           current.clientId,
@@ -65,7 +70,7 @@ public record ShoppingCart(
           Optional.empty(),
           Optional.empty()
         );
-      case Events.ShoppingCartConfirmed shoppingCartConfirmed:
+      case ShoppingCartConfirmed shoppingCartConfirmed:
         yield new ShoppingCart(
           current.id(),
           current.clientId,
@@ -74,7 +79,7 @@ public record ShoppingCart(
           Optional.of(shoppingCartConfirmed.confirmedAt()),
           Optional.empty()
         );
-      case Events.ShoppingCartCanceled shoppingCartCanceled:
+      case ShoppingCartCanceled shoppingCartCanceled:
         yield new ShoppingCart(
           current.id(),
           current.clientId,

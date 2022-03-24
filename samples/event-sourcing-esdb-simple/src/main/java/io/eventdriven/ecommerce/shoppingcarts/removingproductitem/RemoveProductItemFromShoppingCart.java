@@ -1,6 +1,6 @@
 package io.eventdriven.ecommerce.shoppingcarts.removingproductitem;
 
-import io.eventdriven.ecommerce.shoppingcarts.Events;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemRemovedFromShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 
@@ -24,7 +24,7 @@ public record RemoveProductItemFromShoppingCart(
     return new RemoveProductItemFromShoppingCart(cartId, productItem, expectedVersion);
   }
 
-  public static Events.ProductItemRemovedFromShoppingCart handle(
+  public static ProductItemRemovedFromShoppingCart handle(
     RemoveProductItemFromShoppingCart command,
     ShoppingCart shoppingCart
   ) {
@@ -33,7 +33,7 @@ public record RemoveProductItemFromShoppingCart(
 
     shoppingCart.productItems().assertThatCanRemove(command.productItem());
 
-    return new Events.ProductItemRemovedFromShoppingCart(
+    return new ProductItemRemovedFromShoppingCart(
       command.shoppingCartId,
       command.productItem()
     );
