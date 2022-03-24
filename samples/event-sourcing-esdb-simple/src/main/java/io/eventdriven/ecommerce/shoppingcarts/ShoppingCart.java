@@ -54,9 +54,9 @@ sealed public interface ShoppingCart {
     return switch (this) {
       case PendingShoppingCart pendingShoppingCart:
         yield Status.Pending;
-      case CanceledShoppingCart canceledShoppingCart:
-        yield Status.Confirmed;
       case ConfirmedShoppingCart confirmedShoppingCart:
+        yield Status.Confirmed;
+      case CanceledShoppingCart canceledShoppingCart:
         yield Status.Cancelled;
     };
   }
