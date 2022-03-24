@@ -1,4 +1,4 @@
-package io.eventdriven.ecommerce.api;
+package io.eventdriven.ecommerce;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
