@@ -8,17 +8,17 @@ import io.eventdriven.ecommerce.api.backgroundworkers.EventStoreDBSubscriptionBa
 import io.eventdriven.ecommerce.core.events.EventBus;
 import io.eventdriven.ecommerce.core.subscriptions.EventStoreDBSubscriptionCheckpointRepository;
 import io.eventdriven.ecommerce.core.subscriptions.SubscriptionCheckpointRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
 @Configuration
 class EventStoreDBConfig {
-
   @Bean
   @Scope("singleton")
-  EventStoreDBClient eventStoreDBClient() throws ParseError {
-    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
+  EventStoreDBClient eventStoreDBClient(@Value("${esdb.connectionstring}") String connectionString) throws ParseError {
+    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse(connectionString);
 
     return EventStoreDBClient.create(settings);
   }

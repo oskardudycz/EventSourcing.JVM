@@ -21,7 +21,7 @@ import org.springframework.web.context.annotation.RequestScope;
 class CommandsConfig {
   @Bean
   @RequestScope
-  CommandHandler<OpenShoppingCart> handleInitializeShoppingCart(EntityStore<ShoppingCart> store) {
+  CommandHandler<OpenShoppingCart> handleInitializeShoppingCart(EntityStore<ShoppingCart, Events.ShoppingCartEvent> store) {
     return command ->
       store.add(
         () -> OpenShoppingCart.handle(command),
@@ -32,7 +32,7 @@ class CommandsConfig {
   @Bean
   @RequestScope
   CommandHandler<AddProductItemToShoppingCart> handleAddProductItemToShoppingCart(
-    EntityStore<ShoppingCart> store,
+    EntityStore<ShoppingCart, Events.ShoppingCartEvent> store,
     ProductPriceCalculator productPriceCalculator
   ) {
     return command ->
@@ -46,7 +46,7 @@ class CommandsConfig {
 
   @Bean
   @RequestScope
-  CommandHandler<RemoveProductItemFromShoppingCart> handleRemoveProductItemFromShoppingCart(EntityStore<ShoppingCart> store) {
+  CommandHandler<RemoveProductItemFromShoppingCart> handleRemoveProductItemFromShoppingCart(EntityStore<ShoppingCart, Events.ShoppingCartEvent> store) {
     return command ->
       store.getAndUpdate(
         current -> RemoveProductItemFromShoppingCart.handle(command, current),
@@ -57,7 +57,7 @@ class CommandsConfig {
 
   @Bean
   @RequestScope
-  CommandHandler<ConfirmShoppingCart> handleConfirmShoppingCart(EntityStore<ShoppingCart> store) {
+  CommandHandler<ConfirmShoppingCart> handleConfirmShoppingCart(EntityStore<ShoppingCart, Events.ShoppingCartEvent> store) {
     return command ->
       store.getAndUpdate(
         current -> ConfirmShoppingCart.handle(command, current),
@@ -68,7 +68,7 @@ class CommandsConfig {
 
   @Bean
   @RequestScope
-  CommandHandler<CancelShoppingCart> handleCancelShoppingCart(EntityStore<ShoppingCart> store) {
+  CommandHandler<CancelShoppingCart> handleCancelShoppingCart(EntityStore<ShoppingCart, Events.ShoppingCartEvent> store) {
     return command ->
       store.getAndUpdate(
         current -> CancelShoppingCart.handle(command, current),
@@ -85,10 +85,10 @@ class CommandsConfig {
 
   @Bean
   @ApplicationScope
-  EntityStore<ShoppingCart> shoppingCartStore(EventStoreDBClient eventStore) {
+  EntityStore<ShoppingCart, Events.ShoppingCartEvent> shoppingCartStore(EventStoreDBClient eventStore) {
     return new EntityStore<>(
       eventStore,
-      (state, event) -> ShoppingCart.when(state, (Events.ShoppingCartEvent) event),
+      ShoppingCart::when,
       ShoppingCart::mapToStreamId,
       ShoppingCart::empty
     );

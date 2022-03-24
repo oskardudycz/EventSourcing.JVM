@@ -6,21 +6,22 @@ import com.eventstore.dbclient.ExpectedRevision;
 import io.eventdriven.ecommerce.core.http.ETag;
 import io.eventdriven.ecommerce.core.serialization.EventSerializer;
 
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public class EntityStore<Entity> {
+public class EntityStore<Entity, Event> {
   private final EventStoreDBClient eventStore;
-  private final BiFunction<Entity, Object, Entity> when;
+  private final BiFunction<Entity, Event, Entity> when;
   private final Function<UUID, String> mapToStreamId;
   private final Supplier<Entity> getDefault;
 
   public EntityStore(
     EventStoreDBClient eventStore,
-    BiFunction<Entity, Object, Entity> when,
+    BiFunction<Entity, Event, Entity> when,
     Function<UUID, String> mapToStreamId,
     Supplier<Entity> getDefault
   ) {
@@ -36,10 +37,13 @@ public class EntityStore<Entity> {
     var result = eventStore.readStream(streamId).get();
 
     var events = result.getEvents().stream()
-      .map(e -> EventSerializer.deserialize(e))
+      .map(EventSerializer::<Event>deserialize)
+      .filter(Optional::isPresent)
+      .map(Optional::get)
       .toList();
 
     var current = getDefault.get();
+
     for (var event : events) {
       current = when.apply(current, event);
     }
@@ -65,7 +69,7 @@ public class EntityStore<Entity> {
   }
 
   public ETag getAndUpdate(
-    Function<Entity, Object> handle,
+    Function<Entity, Event> handle,
     UUID id,
     long expectedRevision
   ) throws ExecutionException, InterruptedException {
