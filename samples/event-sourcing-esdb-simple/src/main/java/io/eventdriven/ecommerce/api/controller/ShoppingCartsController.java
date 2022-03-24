@@ -42,7 +42,7 @@ class ShoppingCartsController {
   private final QueryHandler<GetShoppingCartById, Optional<ShoppingCartDetails>> handleGetShoppingCartById;
   private final QueryHandler<GetShoppingCarts, Page<ShoppingCartShortInfo>> handleGetShoppingCarts;
 
-  public ShoppingCartsController(
+  ShoppingCartsController(
     CommandHandler<OpenShoppingCart> handleInitializeShoppingCart,
     CommandHandler<AddProductItemToShoppingCart> handleAddProductItemToShoppingCart,
     CommandHandler<RemoveProductItemFromShoppingCart> handleRemoveProductItemFromShoppingCart,
@@ -61,7 +61,7 @@ class ShoppingCartsController {
   }
 
   @PostMapping
-  public ResponseEntity openCart(
+  ResponseEntity openCart(
     @RequestBody ShoppingCartsRequests.InitializeShoppingCartRequest request
   ) throws ExecutionException, InterruptedException, URISyntaxException {
     var cartId = UUID.randomUUID();
@@ -78,7 +78,7 @@ class ShoppingCartsController {
   }
 
   @PostMapping("{id}/products")
-  public ResponseEntity addProduct(
+  ResponseEntity addProduct(
     @PathVariable UUID id,
     @RequestBody ShoppingCartsRequests.AddProductRequest request,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
@@ -102,7 +102,7 @@ class ShoppingCartsController {
   }
 
   @DeleteMapping("{id}/products/{productId}")
-  public ResponseEntity removeProduct(
+  ResponseEntity removeProduct(
     @PathVariable UUID id,
     @PathVariable UUID productId,
     @RequestParam Integer quantity,
@@ -128,7 +128,7 @@ class ShoppingCartsController {
   }
 
   @PutMapping("{id}")
-  public ResponseEntity confirmCart(
+  ResponseEntity confirmCart(
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
   ) throws ExecutionException, InterruptedException {
@@ -141,7 +141,7 @@ class ShoppingCartsController {
   }
 
   @DeleteMapping("{id}")
-  public ResponseEntity cancelCart(
+  ResponseEntity cancelCart(
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
   ) throws ExecutionException, InterruptedException {
@@ -154,7 +154,7 @@ class ShoppingCartsController {
   }
 
   @GetMapping("{id}")
-  public ResponseEntity<ShoppingCartDetails> get(
+  ResponseEntity<ShoppingCartDetails> get(
     @PathVariable UUID id
   ) {
     return handleGetShoppingCartById.handle(new GetShoppingCartById(id))
@@ -168,7 +168,7 @@ class ShoppingCartsController {
   }
 
   @GetMapping
-  public List<ShoppingCartShortInfo> get(
+  List<ShoppingCartShortInfo> get(
     @RequestParam @Nullable Integer pageNumber,
     @RequestParam @Nullable  Integer pageSize
   ) {

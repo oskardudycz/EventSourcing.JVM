@@ -3,12 +3,12 @@ package io.eventdriven.ecommerce.core.subscriptions;
 import com.eventstore.dbclient.SubscribeToAllOptions;
 import com.eventstore.dbclient.SubscriptionFilter;
 
-public record EventStoreDBSubscriptionToAllOptions(
+record EventStoreDBSubscriptionToAllOptions(
   String subscriptionId,
   boolean ignoreDeserializationErrors,
   SubscribeToAllOptions subscribeToAllOptions
 ) {
-  public static EventStoreDBSubscriptionToAllOptions getDefault() {
+  static EventStoreDBSubscriptionToAllOptions getDefault() {
     SubscriptionFilter filterOutSystemEvents = SubscriptionFilter.newBuilder()
       .withEventTypeRegularExpression("^[^\\$].*")
       .build();

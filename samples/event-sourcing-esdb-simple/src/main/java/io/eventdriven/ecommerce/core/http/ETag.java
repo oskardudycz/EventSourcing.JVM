@@ -15,10 +15,6 @@ public record ETag(String value) {
       throw new IllegalArgumentException("Not an ETag header");
   }
 
-  public static ETag strong(String value){
-    return new ETag("\"%s\"".formatted(value));
-  }
-
   public static ETag weak(Object value){
     return new ETag("W/\"%s\"".formatted(value.toString()));
   }

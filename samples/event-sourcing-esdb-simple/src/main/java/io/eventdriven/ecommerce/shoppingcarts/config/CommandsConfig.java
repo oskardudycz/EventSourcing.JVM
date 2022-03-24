@@ -18,10 +18,10 @@ import org.springframework.web.context.annotation.ApplicationScope;
 import org.springframework.web.context.annotation.RequestScope;
 
 @Configuration
-public class CommandsConfig {
+class CommandsConfig {
   @Bean
   @RequestScope
-  public CommandHandler<OpenShoppingCart> handleInitializeShoppingCart(EntityStore<ShoppingCart> store) {
+  CommandHandler<OpenShoppingCart> handleInitializeShoppingCart(EntityStore<ShoppingCart> store) {
     return command ->
       store.add(
         () -> OpenShoppingCart.handle(command),

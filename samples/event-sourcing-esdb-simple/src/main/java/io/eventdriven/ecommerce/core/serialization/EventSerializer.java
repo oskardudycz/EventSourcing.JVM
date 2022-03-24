@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public final class EventSerializer {
-  public static final Logger logger = LoggerFactory.getLogger(EventSerializer.class);
+  private static final Logger logger = LoggerFactory.getLogger(EventSerializer.class);
   public static final ObjectMapper mapper =
     new JsonMapper()
       .registerModule(new JavaTimeModule())

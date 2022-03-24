@@ -15,16 +15,16 @@ import org.springframework.web.context.annotation.RequestScope;
 import java.util.Optional;
 
 @Configuration
-public class QueriesConfig {
+class QueriesConfig {
   @Bean
   @RequestScope
-  public QueryHandler<GetShoppingCartById, Optional<ShoppingCartDetails>> handleGetById(ShoppingCartDetailsRepository repository) {
+  QueryHandler<GetShoppingCartById, Optional<ShoppingCartDetails>> handleGetById(ShoppingCartDetailsRepository repository) {
     return query -> GetShoppingCartById.handle(repository, query);
   }
 
   @Bean
   @RequestScope
-  public QueryHandler<GetShoppingCarts, Page<ShoppingCartShortInfo>> handleGetShoppingCarts(ShoppingCartShortInfoRepository repository) {
+  QueryHandler<GetShoppingCarts, Page<ShoppingCartShortInfo>> handleGetShoppingCarts(ShoppingCartShortInfoRepository repository) {
     return query -> GetShoppingCarts.handle(repository, query);
   }
 }

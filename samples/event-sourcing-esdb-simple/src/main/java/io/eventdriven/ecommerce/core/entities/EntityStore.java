@@ -31,7 +31,7 @@ public class EntityStore<Entity> {
     this.getDefault = getDefault;
   }
 
-  public Entity get(UUID id) throws ExecutionException, InterruptedException {
+  Entity get(UUID id) throws ExecutionException, InterruptedException {
     var streamId = mapToStreamId.apply(id);
     var result = eventStore.readStream(streamId).get();
 

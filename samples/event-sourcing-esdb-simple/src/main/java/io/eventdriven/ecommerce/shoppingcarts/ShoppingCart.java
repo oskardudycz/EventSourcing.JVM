@@ -21,7 +21,7 @@ public record ShoppingCart(
     Confirmed,
     Cancelled;
 
-    public static final EnumSet<Status> Closed = EnumSet.of(Confirmed, Cancelled);
+    static final EnumSet<Status> Closed = EnumSet.of(Confirmed, Cancelled);
   }
 
   public static ShoppingCart empty(){

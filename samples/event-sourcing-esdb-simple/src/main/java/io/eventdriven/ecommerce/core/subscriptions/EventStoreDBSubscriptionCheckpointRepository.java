@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
@@ -90,24 +89,4 @@ public final class EventStoreDBSubscriptionCheckpointRepository implements Subsc
   private static String getCheckpointStreamName(String subscriptionId) {
     return "checkpoint_%s".formatted(subscriptionId);
   }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (obj == this) return true;
-    if (obj == null || obj.getClass() != this.getClass()) return false;
-    var that = (EventStoreDBSubscriptionCheckpointRepository) obj;
-    return Objects.equals(this.eventStore, that.eventStore);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(eventStore);
-  }
-
-  @Override
-  public String toString() {
-    return "EventStoreDBSubscriptionCheckpointRepository[" +
-      "eventStore=" + eventStore + ']';
-  }
-
 }
