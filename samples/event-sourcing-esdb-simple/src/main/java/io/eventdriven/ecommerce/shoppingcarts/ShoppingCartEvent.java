@@ -5,15 +5,7 @@ import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public final class Events {
-
-  sealed public interface ShoppingCartEvent permits
-    ShoppingCartOpened,
-    ProductItemAddedToShoppingCart,
-    ProductItemRemovedFromShoppingCart,
-    ShoppingCartConfirmed,
-    ShoppingCartCanceled {
-  }
+public sealed interface ShoppingCartEvent {
 
   public record ShoppingCartOpened(
     UUID shoppingCartId,

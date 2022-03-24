@@ -5,8 +5,8 @@ import io.eventdriven.ecommerce.core.commands.CommandHandler;
 import io.eventdriven.ecommerce.core.entities.EntityStore;
 import io.eventdriven.ecommerce.pricing.ProductPriceCalculator;
 import io.eventdriven.ecommerce.pricing.RandomProductPriceCalculator;
-import io.eventdriven.ecommerce.shoppingcarts.Events;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.ecommerce.shoppingcarts.addingproductitem.AddProductItemToShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.canceling.CancelShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.confirming.ConfirmShoppingCart;
@@ -21,7 +21,7 @@ import org.springframework.web.context.annotation.RequestScope;
 class CommandsConfig {
   @Bean
   @RequestScope
-  CommandHandler<OpenShoppingCart> handleInitializeShoppingCart(EntityStore<ShoppingCart, Events.ShoppingCartEvent> store) {
+  CommandHandler<OpenShoppingCart> handleInitializeShoppingCart(EntityStore<ShoppingCart, ShoppingCartEvent> store) {
     return command ->
       store.add(
         () -> OpenShoppingCart.handle(command),
@@ -32,7 +32,7 @@ class CommandsConfig {
   @Bean
   @RequestScope
   CommandHandler<AddProductItemToShoppingCart> handleAddProductItemToShoppingCart(
-    EntityStore<ShoppingCart, Events.ShoppingCartEvent> store,
+    EntityStore<ShoppingCart, ShoppingCartEvent> store,
     ProductPriceCalculator productPriceCalculator
   ) {
     return command ->
@@ -46,7 +46,7 @@ class CommandsConfig {
 
   @Bean
   @RequestScope
-  CommandHandler<RemoveProductItemFromShoppingCart> handleRemoveProductItemFromShoppingCart(EntityStore<ShoppingCart, Events.ShoppingCartEvent> store) {
+  CommandHandler<RemoveProductItemFromShoppingCart> handleRemoveProductItemFromShoppingCart(EntityStore<ShoppingCart, ShoppingCartEvent> store) {
     return command ->
       store.getAndUpdate(
         current -> RemoveProductItemFromShoppingCart.handle(command, current),
@@ -57,7 +57,7 @@ class CommandsConfig {
 
   @Bean
   @RequestScope
-  CommandHandler<ConfirmShoppingCart> handleConfirmShoppingCart(EntityStore<ShoppingCart, Events.ShoppingCartEvent> store) {
+  CommandHandler<ConfirmShoppingCart> handleConfirmShoppingCart(EntityStore<ShoppingCart, ShoppingCartEvent> store) {
     return command ->
       store.getAndUpdate(
         current -> ConfirmShoppingCart.handle(command, current),
@@ -68,7 +68,7 @@ class CommandsConfig {
 
   @Bean
   @RequestScope
-  CommandHandler<CancelShoppingCart> handleCancelShoppingCart(EntityStore<ShoppingCart, Events.ShoppingCartEvent> store) {
+  CommandHandler<CancelShoppingCart> handleCancelShoppingCart(EntityStore<ShoppingCart, ShoppingCartEvent> store) {
     return command ->
       store.getAndUpdate(
         current -> CancelShoppingCart.handle(command, current),
@@ -85,7 +85,7 @@ class CommandsConfig {
 
   @Bean
   @ApplicationScope
-  EntityStore<ShoppingCart, Events.ShoppingCartEvent> shoppingCartStore(EventStoreDBClient eventStore) {
+  EntityStore<ShoppingCart, ShoppingCartEvent> shoppingCartStore(EventStoreDBClient eventStore) {
     return new EntityStore<>(
       eventStore,
       ShoppingCart::when,

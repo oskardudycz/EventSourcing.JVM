@@ -1,8 +1,8 @@
 package io.eventdriven.ecommerce.shoppingcarts.addingproductitem;
 
 import io.eventdriven.ecommerce.pricing.ProductPriceCalculator;
-import io.eventdriven.ecommerce.shoppingcarts.Events;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemAddedToShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 
 import java.util.UUID;
@@ -12,7 +12,7 @@ public record AddProductItemToShoppingCart(
   ProductItem productItem,
   Long expectedVersion
 ) {
-  public static Events.ProductItemAddedToShoppingCart handle(
+  public static ProductItemAddedToShoppingCart handle(
     ProductPriceCalculator productPriceCalculator,
     AddProductItemToShoppingCart command,
     ShoppingCart shoppingCart
@@ -24,7 +24,7 @@ public record AddProductItemToShoppingCart(
 
     shoppingCart.productItems().add(pricedProductItem);
 
-    return new Events.ProductItemAddedToShoppingCart(
+    return new ProductItemAddedToShoppingCart(
       command.shoppingCartId,
       pricedProductItem
     );
