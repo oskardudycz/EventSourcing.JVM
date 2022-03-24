@@ -12,19 +12,6 @@ public record AddProductItemToShoppingCart(
   ProductItem productItem,
   Long expectedVersion
 ) {
-  public static AddProductItemToShoppingCart of(UUID cartId, ProductItem productItem, Long expectedVersion) {
-    if (cartId == null)
-      throw new IllegalArgumentException("Cart id has to be defined");
-
-    if (productItem == null)
-      throw new IllegalArgumentException("Product item has to be defined");
-
-    if (expectedVersion == null)
-      throw new IllegalArgumentException("Expected version has to be provided");
-
-    return new AddProductItemToShoppingCart(cartId, productItem, expectedVersion);
-  }
-
   public static Events.ProductItemAddedToShoppingCart handle(
     ProductPriceCalculator productPriceCalculator,
     AddProductItemToShoppingCart command,

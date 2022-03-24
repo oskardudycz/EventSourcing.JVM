@@ -6,6 +6,11 @@ public record PricedProductItem(
   ProductItem productItem,
   double unitPrice
 ) {
+  public PricedProductItem {
+    if (unitPrice <= 0)
+      throw new IllegalArgumentException("Unit Price has to be a positive number");
+  }
+
   public UUID productId() {
     return productItem.productId();
   }
@@ -16,16 +21,6 @@ public record PricedProductItem(
 
   public double totalPrice() {
     return quantity() * unitPrice();
-  }
-
-  public static PricedProductItem of(ProductItem productItem, Double unitPrice) {
-    if (productItem == null)
-      throw new IllegalArgumentException("Product Item cannot be null");
-
-    if (unitPrice == null || unitPrice <= 0)
-      throw new IllegalArgumentException("Unit Price has to be a positive number");
-
-    return new PricedProductItem(productItem, unitPrice);
   }
 
   public boolean matchesProductAndUnitPrice(PricedProductItem pricedProductItem) {

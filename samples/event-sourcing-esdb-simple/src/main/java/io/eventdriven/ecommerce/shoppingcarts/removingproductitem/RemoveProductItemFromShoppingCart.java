@@ -31,7 +31,7 @@ public record RemoveProductItemFromShoppingCart(
     if (shoppingCart.isClosed())
       throw new IllegalStateException("Adding product item for cart in '%s' status is not allowed.".formatted(shoppingCart.status()));
 
-    shoppingCart.productItems().remove(command.productItem());
+    shoppingCart.productItems().assertThatCanRemove(command.productItem());
 
     return new Events.ProductItemRemovedFromShoppingCart(
       command.shoppingCartId,

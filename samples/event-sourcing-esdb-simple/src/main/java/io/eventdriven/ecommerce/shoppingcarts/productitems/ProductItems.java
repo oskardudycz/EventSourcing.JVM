@@ -23,18 +23,28 @@ public record ProductItems(
   public ProductItems remove(PricedProductItem productItem) {
     var clone = new ArrayList<>(items);
 
-    var currentProductItem = find(productItem);
+    var currentProductItem = assertThatCanRemove(productItem);
 
-    if (currentProductItem.isEmpty())
-      throw new IllegalStateException("Product item wasn't found");
-
-    clone.remove(currentProductItem.get());
+    clone.remove(currentProductItem);
 
     return new ProductItems(clone);
   }
 
   public Optional<PricedProductItem> find(PricedProductItem productItem) {
     return items.stream().filter(pi -> pi.matchesProductAndUnitPrice(productItem)).findAny();
+  }
+
+  public PricedProductItem assertThatCanRemove(PricedProductItem productItem) {
+
+    var currentProductItem = find(productItem);
+
+    if (currentProductItem.isEmpty())
+      throw new IllegalStateException("Product item wasn't found");
+
+    if(currentProductItem.get().quantity() < productItem.quantity())
+      throw new IllegalStateException("Not enough product items");
+
+    return currentProductItem.get();
   }
 
   public static ProductItems empty() {

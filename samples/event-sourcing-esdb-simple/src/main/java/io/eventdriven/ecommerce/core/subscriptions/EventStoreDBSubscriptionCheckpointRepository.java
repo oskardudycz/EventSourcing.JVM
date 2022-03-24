@@ -91,10 +91,6 @@ public final class EventStoreDBSubscriptionCheckpointRepository implements Subsc
     return "checkpoint_%s".formatted(subscriptionId);
   }
 
-  public EventStoreDBClient eventStore() {
-    return eventStore;
-  }
-
   @Override
   public boolean equals(Object obj) {
     if (obj == this) return true;

@@ -17,8 +17,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.context.annotation.ApplicationScope;
 import org.springframework.web.context.annotation.RequestScope;
 
-import java.util.Optional;
-
 @Configuration
 public class CommandsConfig {
   @Bean
@@ -41,7 +39,7 @@ public class CommandsConfig {
       store.getAndUpdate(
         current -> AddProductItemToShoppingCart.handle(productPriceCalculator, command, current),
         command.shoppingCartId(),
-        Optional.of(command.expectedVersion())
+        command.expectedVersion()
       );
   }
 
@@ -53,7 +51,7 @@ public class CommandsConfig {
       store.getAndUpdate(
         current -> RemoveProductItemFromShoppingCart.handle(command, current),
         command.shoppingCartId(),
-        Optional.of(command.expectedVersion())
+        command.expectedVersion()
       );
   }
 
@@ -64,7 +62,7 @@ public class CommandsConfig {
       store.getAndUpdate(
         current -> ConfirmShoppingCart.handle(command, current),
         command.shoppingCartId(),
-        Optional.of(command.expectedVersion())
+        command.expectedVersion()
       );
   }
 
@@ -75,7 +73,7 @@ public class CommandsConfig {
       store.getAndUpdate(
         current -> CancelShoppingCart.handle(command, current),
         command.shoppingCartId(),
-        Optional.of(command.expectedVersion())
+        command.expectedVersion()
       );
   }
 
