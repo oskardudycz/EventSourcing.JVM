@@ -7,7 +7,7 @@ import java.util.UUID;
 
 public final class Events {
 
-  public sealed interface ShoppingCartEvent permits
+  sealed public interface ShoppingCartEvent permits
     ShoppingCartOpened,
     ProductItemAddedToShoppingCart,
     ProductItemRemovedFromShoppingCart,

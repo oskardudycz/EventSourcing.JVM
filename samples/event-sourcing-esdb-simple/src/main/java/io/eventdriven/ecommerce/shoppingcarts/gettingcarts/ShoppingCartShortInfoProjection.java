@@ -10,13 +10,13 @@ import org.springframework.stereotype.Component;
 import java.util.UUID;
 
 @Component
-public class ShoppingCartShortInfoProjection extends JPAProjection<ShoppingCartShortInfo, UUID> {
+class ShoppingCartShortInfoProjection extends JPAProjection<ShoppingCartShortInfo, UUID> {
   protected ShoppingCartShortInfoProjection(ShoppingCartShortInfoRepository repository) {
     super(repository);
   }
 
   @EventListener
-  public void handleShoppingCartOpened(EventEnvelope<Events.ShoppingCartOpened> eventEnvelope) {
+  void handleShoppingCartOpened(EventEnvelope<Events.ShoppingCartOpened> eventEnvelope) {
     add(eventEnvelope, () ->
       new ShoppingCartShortInfo(
         eventEnvelope.data().shoppingCartId(),
@@ -31,28 +31,28 @@ public class ShoppingCartShortInfoProjection extends JPAProjection<ShoppingCartS
   }
 
   @EventListener
-  public void handleProductItemAddedToShoppingCart(EventEnvelope<Events.ProductItemAddedToShoppingCart> eventEnvelope) {
+  void handleProductItemAddedToShoppingCart(EventEnvelope<Events.ProductItemAddedToShoppingCart> eventEnvelope) {
     getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
       view -> view.increaseProducts(eventEnvelope.data().productItem())
     );
   }
 
   @EventListener
-  public void handleProductItemRemovedFromShoppingCart(EventEnvelope<Events.ProductItemRemovedFromShoppingCart> eventEnvelope) {
+  void handleProductItemRemovedFromShoppingCart(EventEnvelope<Events.ProductItemRemovedFromShoppingCart> eventEnvelope) {
     getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
       view -> view.decreaseProducts(eventEnvelope.data().productItem())
     );
   }
 
   @EventListener
-  public void handleShoppingCartConfirmed(EventEnvelope<Events.ShoppingCartConfirmed> eventEnvelope) {
+  void handleShoppingCartConfirmed(EventEnvelope<Events.ShoppingCartConfirmed> eventEnvelope) {
     getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
       view -> view.setStatus(ShoppingCart.Status.Confirmed)
     );
   }
 
   @EventListener
-  public void handleShoppingCartCanceled(EventEnvelope<Events.ShoppingCartCanceled> eventEnvelope) {
+  void handleShoppingCartCanceled(EventEnvelope<Events.ShoppingCartCanceled> eventEnvelope) {
     DeleteById(eventEnvelope.data().shoppingCartId());
   }
 }

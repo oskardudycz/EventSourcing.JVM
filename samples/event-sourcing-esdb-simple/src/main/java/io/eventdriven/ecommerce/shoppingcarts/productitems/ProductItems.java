@@ -30,7 +30,7 @@ public record ProductItems(
     return new ProductItems(clone);
   }
 
-  public Optional<PricedProductItem> find(PricedProductItem productItem) {
+  Optional<PricedProductItem> find(PricedProductItem productItem) {
     return items.stream().filter(pi -> pi.matchesProductAndUnitPrice(productItem)).findAny();
   }
 

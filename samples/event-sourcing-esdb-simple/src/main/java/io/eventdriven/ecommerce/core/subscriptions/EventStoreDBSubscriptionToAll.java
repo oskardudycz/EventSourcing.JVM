@@ -51,7 +51,7 @@ public class EventStoreDBSubscriptionToAll {
     subscribeToAll(EventStoreDBSubscriptionToAllOptions.getDefault());
   }
 
-  public void subscribeToAll(EventStoreDBSubscriptionToAllOptions subscriptionOptions) throws ExecutionException, InterruptedException {
+  void subscribeToAll(EventStoreDBSubscriptionToAllOptions subscriptionOptions) throws ExecutionException, InterruptedException {
     this.subscriptionOptions = subscriptionOptions;
 
     var checkpoint = checkpointRepository.load(this.subscriptionOptions.subscriptionId());

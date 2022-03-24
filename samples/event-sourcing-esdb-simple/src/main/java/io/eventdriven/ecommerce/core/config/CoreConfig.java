@@ -9,14 +9,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class CoreConfig {
+class CoreConfig {
   @Bean
-  public ObjectMapper defaultJSONMapper() {
+  ObjectMapper defaultJSONMapper() {
     return EventSerializer.mapper;
   }
 
   @Bean
-  public EventBus eventBus(ApplicationEventPublisher applicationEventPublisher) {
+  EventBus eventBus(ApplicationEventPublisher applicationEventPublisher) {
     return new EventForwarder(applicationEventPublisher);
   }
 }

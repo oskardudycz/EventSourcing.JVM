@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
 @Configuration
-public class EventStoreDBConfig {
+class EventStoreDBConfig {
 
   @Bean
   @Scope("singleton")
@@ -24,7 +24,7 @@ public class EventStoreDBConfig {
   }
 
   @Bean
-  public EventStoreDBSubscriptionBackgroundWorker eventStoreDBSubscriptionBackgroundWorker(
+  EventStoreDBSubscriptionBackgroundWorker eventStoreDBSubscriptionBackgroundWorker(
     EventStoreDBClient eventStore,
     SubscriptionCheckpointRepository subscriptionCheckpointRepository,
     EventBus eventBus
@@ -33,7 +33,7 @@ public class EventStoreDBConfig {
   }
 
   @Bean
-  public SubscriptionCheckpointRepository subscriptionCheckpointRepository(EventStoreDBClient eventStore) {
+  SubscriptionCheckpointRepository subscriptionCheckpointRepository(EventStoreDBClient eventStore) {
     return new EventStoreDBSubscriptionCheckpointRepository(eventStore);
   }
 }

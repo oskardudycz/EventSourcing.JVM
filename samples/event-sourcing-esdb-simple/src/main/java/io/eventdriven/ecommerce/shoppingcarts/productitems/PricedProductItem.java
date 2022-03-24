@@ -23,11 +23,11 @@ public record PricedProductItem(
     return quantity() * unitPrice();
   }
 
-  public boolean matchesProductAndUnitPrice(PricedProductItem pricedProductItem) {
+  boolean matchesProductAndUnitPrice(PricedProductItem pricedProductItem) {
     return productId() == pricedProductItem.productId() && unitPrice() == pricedProductItem.unitPrice();
   }
 
-  public PricedProductItem mergeWith(PricedProductItem productItem) {
+  PricedProductItem mergeWith(PricedProductItem productItem) {
     if (productId() != productItem.productId())
       throw new IllegalArgumentException("Product ids do not match.");
     if (unitPrice() != productItem.unitPrice())

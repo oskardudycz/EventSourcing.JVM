@@ -6,7 +6,7 @@ import javax.persistence.Id;
 import java.util.UUID;
 
 @Entity
-public class ShoppingCartDetailsProductItem {
+class ShoppingCartDetailsProductItem {
   @Id
   private UUID productId;
 
@@ -16,45 +16,45 @@ public class ShoppingCartDetailsProductItem {
   @Column(nullable = false)
   private double unitPrice;
 
-  public ShoppingCartDetailsProductItem(UUID productId, int quantity, double unitPrice) {
+  ShoppingCartDetailsProductItem(UUID productId, int quantity, double unitPrice) {
     this.productId = productId;
     this.quantity = quantity;
     this.unitPrice = unitPrice;
   }
 
-  public ShoppingCartDetailsProductItem() {
+  ShoppingCartDetailsProductItem() {
 
   }
 
-  public UUID getProductId() {
+  UUID getProductId() {
     return productId;
   }
 
-  public void setProductId(UUID productId) {
+  void setProductId(UUID productId) {
     this.productId = productId;
   }
 
-  public int getQuantity() {
+  int getQuantity() {
     return quantity;
   }
 
-  public void setQuantity(int quantity) {
+  void setQuantity(int quantity) {
     this.quantity = quantity;
   }
 
-  public void increaseQuantity(int quantity) {
+  void increaseQuantity(int quantity) {
     this.quantity += quantity;
   }
 
-  public void decreaseQuantity(int quantity) {
+  void decreaseQuantity(int quantity) {
     this.quantity -= quantity;
   }
 
-  public double getUnitPrice() {
+  double getUnitPrice() {
     return unitPrice;
   }
 
-  public void setUnitPrice(double unitPrice) {
+  void setUnitPrice(double unitPrice) {
     this.unitPrice = unitPrice;
   }
 }
