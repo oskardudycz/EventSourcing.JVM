@@ -8,85 +8,101 @@ import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartConf
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartCanceled;
 
 import java.time.LocalDateTime;
-import java.util.EnumSet;
-import java.util.Optional;
 import java.util.UUID;
 
-public record ShoppingCart(
-  UUID id,
-  UUID clientId,
-  ShoppingCart.Status status,
-  ProductItems productItems,
-  Optional<LocalDateTime> confirmedAt,
-  Optional<LocalDateTime> canceledAt
-) {
+sealed public interface ShoppingCart {
+  UUID id();
 
-  public enum Status {
+  UUID clientId();
+
+  ProductItems productItems();
+
+  record PendingShoppingCart(
+    UUID id,
+    UUID clientId,
+    ProductItems productItems
+  ) implements ShoppingCart {
+  }
+
+  record ConfirmedShoppingCart(
+    UUID id,
+    UUID clientId,
+    ProductItems productItems,
+    LocalDateTime confirmedAt
+  ) implements ShoppingCart {
+  }
+
+  record CanceledShoppingCart(
+    UUID id,
+    UUID clientId,
+    ProductItems productItems,
+    LocalDateTime canceledAt
+  ) implements ShoppingCart {
+  }
+
+  enum Status {
     Pending,
     Confirmed,
     Cancelled;
-
-    static final EnumSet<Status> Closed = EnumSet.of(Confirmed, Cancelled);
   }
 
-  public static ShoppingCart empty(){
-    return new ShoppingCart(null, null, null, null, Optional.empty(), Optional.empty());
+  default boolean isClosed() {
+    return this instanceof ConfirmedShoppingCart || this instanceof CanceledShoppingCart;
   }
 
-  public static String mapToStreamId(UUID shoppingCartId) {
+  default ShoppingCart.Status status() {
+    return switch (this) {
+      case PendingShoppingCart pendingShoppingCart:
+        yield Status.Pending;
+      case CanceledShoppingCart canceledShoppingCart:
+        yield Status.Confirmed;
+      case ConfirmedShoppingCart confirmedShoppingCart:
+        yield Status.Cancelled;
+    };
+  }
+
+  static ShoppingCart empty() {
+    return new PendingShoppingCart(null, null, null);
+  }
+
+  static String mapToStreamId(UUID shoppingCartId) {
     return "ShoppingCart-%s".formatted(shoppingCartId);
   }
 
-  public boolean isClosed() {
-    return Status.Closed.contains(status);
-  }
-
-  public static ShoppingCart when(ShoppingCart current, ShoppingCartEvent event) {
+  static ShoppingCart when(ShoppingCart current, ShoppingCartEvent
+    event) {
     return switch (event) {
       case ShoppingCartOpened shoppingCartOpened:
-        yield new ShoppingCart(
+        yield new PendingShoppingCart(
           shoppingCartOpened.shoppingCartId(),
           shoppingCartOpened.clientId(),
-          Status.Pending,
-          ProductItems.empty(),
-          Optional.empty(),
-          Optional.empty()
+          ProductItems.empty()
         );
       case ProductItemAddedToShoppingCart productItemAddedToShoppingCart:
-        yield new ShoppingCart(
+        yield new PendingShoppingCart(
           current.id(),
-          current.clientId,
-          current.status,
-          current.productItems().add(productItemAddedToShoppingCart.productItem()),
-          Optional.empty(),
-          Optional.empty()
+          current.clientId(),
+          current.productItems().add(productItemAddedToShoppingCart.productItem())
         );
       case ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart:
-        yield new ShoppingCart(
+        yield new PendingShoppingCart(
           current.id(),
-          current.clientId,
-          current.status,
-          current.productItems().remove(productItemRemovedFromShoppingCart.productItem()),
-          Optional.empty(),
-          Optional.empty()
+          current.clientId(),
+          current.productItems().remove(productItemRemovedFromShoppingCart.productItem())
         );
       case ShoppingCartConfirmed shoppingCartConfirmed:
-        yield new ShoppingCart(
+        yield new ConfirmedShoppingCart(
           current.id(),
-          current.clientId,
-          Status.Confirmed,
+          current.clientId(),
           current.productItems(),
-          Optional.of(shoppingCartConfirmed.confirmedAt()),
-          Optional.empty()
+          shoppingCartConfirmed.confirmedAt()
         );
       case ShoppingCartCanceled shoppingCartCanceled:
-        yield new ShoppingCart(
+        yield new CanceledShoppingCart(
           current.id(),
-          current.clientId,
-          Status.Confirmed,
+          current.clientId(),
           current.productItems(),
-          Optional.empty(),
-          Optional.of(shoppingCartCanceled.canceledAt())
+          shoppingCartCanceled.canceledAt()
         );
       case null:
         throw new IllegalArgumentException("Event cannot be null!");
