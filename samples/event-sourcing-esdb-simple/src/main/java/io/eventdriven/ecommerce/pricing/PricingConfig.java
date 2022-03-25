@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.context.annotation.ApplicationScope;
 
 @Configuration
-class Config {
+class PricingConfig {
   @Bean
   @ApplicationScope
   ProductPriceCalculator productPriceCalculator() {

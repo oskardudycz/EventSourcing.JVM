@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/shopping-carts")
+@RequestMapping("api/shopping-carts")
 class ShoppingCartsController {
   private final ShoppingCartService shoppingCartsService;
 
@@ -54,7 +54,7 @@ class ShoppingCartsController {
     );
 
     return ResponseEntity
-      .created(new URI("api/ShoppingCarts/%s".formatted(cartId)))
+      .created(new URI("api/shopping-carts/%s".formatted(cartId)))
       .eTag(result.value())
       .build();
   }

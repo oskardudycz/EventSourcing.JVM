@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.context.annotation.ApplicationScope;
 
 @Configuration
-class Config {
+class ShoppingCartsConfig {
   @Bean
   ShoppingCartService shoppingCartService(
     EntityStore<ShoppingCart, ShoppingCartEvent> entityStore,
