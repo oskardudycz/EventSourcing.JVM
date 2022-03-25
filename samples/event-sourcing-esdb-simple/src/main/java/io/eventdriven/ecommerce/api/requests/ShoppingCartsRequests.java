@@ -3,7 +3,7 @@ package io.eventdriven.ecommerce.api.requests;
 import java.util.UUID;
 
 public final class ShoppingCartsRequests {
-  public record InitializeShoppingCartRequest(
+  public record Open(
     UUID clientId
   ) {
   }
@@ -14,7 +14,7 @@ public final class ShoppingCartsRequests {
   ) {
   }
 
-  public record AddProductRequest(
+  public record AddProduct(
     ProductItemRequest productItem
   ) {
   }
