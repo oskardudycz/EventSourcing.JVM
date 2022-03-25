@@ -6,8 +6,8 @@ import io.eventdriven.ecommerce.core.events.EventEnvelope;
 import io.eventdriven.ecommerce.core.events.EventTypeMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Random;
+import org.springframework.retry.RetryCallback;
+import org.springframework.retry.support.RetryTemplate;
 
 public class EventStoreDBSubscriptionToAll {
   private final EventStoreDBClient eventStoreClient;
@@ -18,6 +18,11 @@ public class EventStoreDBSubscriptionToAll {
   private Subscription subscription;
   private boolean isRunning;
   private final Logger logger = LoggerFactory.getLogger(EventStoreDBSubscriptionToAll.class);
+
+  private final RetryTemplate retryTemplate = RetryTemplate.builder()
+    .infiniteRetry()
+    .exponentialBackoff(100, 2, 5000)
+    .build();
 
   private final SubscriptionListener listener = new SubscriptionListener() {
     @Override
@@ -32,7 +37,9 @@ public class EventStoreDBSubscriptionToAll {
 
     @Override
     public void onError(Subscription subscription, Throwable throwable) {
-      handleDrop(throwable);
+      logger.error("Subscription was dropped", throwable);
+
+      throw new RuntimeException(throwable);
     }
   };
 
@@ -53,28 +60,28 @@ public class EventStoreDBSubscriptionToAll {
   void subscribeToAll(EventStoreDBSubscriptionToAllOptions subscriptionOptions) {
     this.subscriptionOptions = subscriptionOptions;
 
-    var checkpoint = checkpointRepository.load(this.subscriptionOptions.subscriptionId());
-
-    if (!checkpoint.isEmpty()) {
-      this.subscriptionOptions.subscribeToAllOptions()
-        .fromPosition(new Position(checkpoint.get(), checkpoint.get()));
-    } else {
-      this.subscriptionOptions.subscribeToAllOptions()
-        .fromStart();
-    }
-
-
-    logger.info("Subscribing to all '%s'".formatted(subscriptionOptions.subscriptionId()));
-
     try {
-      subscription = eventStoreClient.subscribeToAll(
-        listener,
-        this.subscriptionOptions.subscribeToAllOptions()
-      ).get();
+      retryTemplate.execute((RetryCallback<Void, Throwable>) context -> {
+        var checkpoint = checkpointRepository.load(subscriptionOptions.subscriptionId());
 
-      isRunning = true;
+        if (!checkpoint.isEmpty()) {
+          subscriptionOptions.subscribeToAllOptions()
+            .fromPosition(new Position(checkpoint.get(), checkpoint.get()));
+        } else {
+          subscriptionOptions.subscribeToAllOptions()
+            .fromStart();
+        }
 
+        logger.info("Subscribing to all '%s'".formatted(subscriptionOptions.subscriptionId()));
+
+        subscription = eventStoreClient.subscribeToAll(
+          listener,
+          subscriptionOptions.subscribeToAllOptions()
+        ).get();
+          return null;
+      });
     } catch (Throwable e) {
+      logger.error("Error while starting subscription", e);
       throw new RuntimeException(e);
     }
   }
@@ -123,40 +130,6 @@ public class EventStoreDBSubscriptionToAll {
       this.subscriptionOptions.subscriptionId(),
       resolvedEvent.getEvent().getPosition().getCommitUnsigned()
     );
-  }
-
-  private void handleDrop(Throwable throwable) {
-    logger.error("Subscription was dropped", throwable);
-
-    resubscribe();
-  }
-
-  private void resubscribe() {
-    // You may consider adding a max resubscribe count if you want to fail process
-    // instead of retrying until database is up
-    while (true) {
-      var resubscribed = false;
-      synchronized (resubscribeLock) {
-        try {
-          subscribeToAll(subscriptionOptions);
-
-          resubscribed = true;
-        } catch (Throwable e) {
-          logger.error("Failed to resubscribe to all '%s' dropped".formatted(subscriptionOptions.subscriptionId()), e);
-        }
-      }
-
-      if (resubscribed)
-        break;
-
-      // Sleep between reconnections to not flood the database or not kill the CPU with infinite loop
-      // Randomness added to reduce the chance of multiple subscriptions trying to reconnect at the same time
-      try {
-        Thread.sleep(1000 + new Random().nextInt(1000));
-      } catch (InterruptedException e) {
-        logger.error("Failed to wait to resubscribe", e);
-      }
-    }
   }
 
   private boolean isEventWithEmptyData(ResolvedEvent resolvedEvent) {
