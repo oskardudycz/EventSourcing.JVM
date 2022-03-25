@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.*;
@@ -29,7 +30,6 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 
 @RestController
 @RequestMapping("/shopping-carts")
@@ -61,9 +61,10 @@ class ShoppingCartsController {
   }
 
   @PostMapping
+  @ResponseStatus(HttpStatus.CREATED)
   ResponseEntity openCart(
     @RequestBody ShoppingCartsRequests.InitializeShoppingCartRequest request
-  ) throws ExecutionException, InterruptedException, URISyntaxException {
+  ) throws URISyntaxException {
     var cartId = UUID.randomUUID();
 
     var command = new OpenShoppingCart(
@@ -82,7 +83,7 @@ class ShoppingCartsController {
     @PathVariable UUID id,
     @RequestBody ShoppingCartsRequests.AddProductRequest request,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
-  ) throws ExecutionException, InterruptedException {
+  ) {
     if (request.productItem() == null)
       throw new IllegalArgumentException("Product Item has to be defined");
 
@@ -102,13 +103,13 @@ class ShoppingCartsController {
   }
 
   @DeleteMapping("{id}/products/{productId}")
-  ResponseEntity removeProduct(
+  ResponseEntity<Void> removeProduct(
     @PathVariable UUID id,
     @PathVariable UUID productId,
     @RequestParam Integer quantity,
     @RequestParam Double price,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
-  ) throws ExecutionException, InterruptedException {
+  ) {
     var command = RemoveProductItemFromShoppingCart.of(
       id,
       new PricedProductItem(
@@ -128,10 +129,10 @@ class ShoppingCartsController {
   }
 
   @PutMapping("{id}")
-  ResponseEntity confirmCart(
+  ResponseEntity<Void> confirmCart(
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
-  ) throws ExecutionException, InterruptedException {
+  ) {
     var command = new ConfirmShoppingCart(id, ifMatch.toLong());
 
     return ResponseEntity
@@ -141,10 +142,10 @@ class ShoppingCartsController {
   }
 
   @DeleteMapping("{id}")
-  ResponseEntity cancelCart(
+  ResponseEntity<Void> cancelCart(
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
-  ) throws ExecutionException, InterruptedException {
+  ) {
     var command = new CancelShoppingCart(id, ifMatch.toLong());
 
     return ResponseEntity
@@ -170,7 +171,7 @@ class ShoppingCartsController {
   @GetMapping
   List<ShoppingCartShortInfo> get(
     @RequestParam @Nullable Integer pageNumber,
-    @RequestParam @Nullable  Integer pageSize
+    @RequestParam @Nullable Integer pageSize
   ) {
     return handleGetShoppingCarts.handle(GetShoppingCarts.of(pageNumber, pageSize)).stream().toList();
   }

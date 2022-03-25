@@ -1,12 +1,10 @@
-package io.eventdriven.ecommerce.shoppingcarts.config;
+package io.eventdriven.ecommerce.shoppingcarts;
 
 import com.eventstore.dbclient.EventStoreDBClient;
 import io.eventdriven.ecommerce.core.commands.CommandHandler;
 import io.eventdriven.ecommerce.core.entities.EntityStore;
 import io.eventdriven.ecommerce.pricing.ProductPriceCalculator;
 import io.eventdriven.ecommerce.pricing.RandomProductPriceCalculator;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.ecommerce.shoppingcarts.addingproductitem.AddProductItemToShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.canceling.CancelShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.confirming.ConfirmShoppingCart;

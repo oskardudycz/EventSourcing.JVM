@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
 
 public class EventStoreDBSubscriptionToAll {
   private final EventStoreDBClient eventStoreClient;
@@ -47,11 +46,11 @@ public class EventStoreDBSubscriptionToAll {
     this.eventBus = eventBus;
   }
 
-  public void subscribeToAll() throws ExecutionException, InterruptedException {
+  public void subscribeToAll() {
     subscribeToAll(EventStoreDBSubscriptionToAllOptions.getDefault());
   }
 
-  void subscribeToAll(EventStoreDBSubscriptionToAllOptions subscriptionOptions) throws ExecutionException, InterruptedException {
+  void subscribeToAll(EventStoreDBSubscriptionToAllOptions subscriptionOptions) {
     this.subscriptionOptions = subscriptionOptions;
 
     var checkpoint = checkpointRepository.load(this.subscriptionOptions.subscriptionId());
@@ -67,12 +66,17 @@ public class EventStoreDBSubscriptionToAll {
 
     logger.info("Subscribing to all '%s'".formatted(subscriptionOptions.subscriptionId()));
 
-    subscription = eventStoreClient.subscribeToAll(
-      listener,
-      this.subscriptionOptions.subscribeToAllOptions()
-    ).get();
+    try {
+      subscription = eventStoreClient.subscribeToAll(
+        listener,
+        this.subscriptionOptions.subscribeToAllOptions()
+      ).get();
 
-    isRunning = true;
+      isRunning = true;
+
+    } catch (Throwable e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public void stop() {
@@ -87,7 +91,7 @@ public class EventStoreDBSubscriptionToAll {
     return this.isRunning;
   }
 
-  private void handleEvent(ResolvedEvent resolvedEvent) throws ExecutionException, InterruptedException {
+  private void handleEvent(ResolvedEvent resolvedEvent) {
     if (isEventWithEmptyData(resolvedEvent) || isCheckpointEvent(resolvedEvent))
       return;
 

@@ -1,4 +1,4 @@
-package io.eventdriven.ecommerce.shoppingcarts.config;
+package io.eventdriven.ecommerce.shoppingcarts;
 
 import io.eventdriven.ecommerce.core.queries.QueryHandler;
 import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.GetShoppingCartById;
