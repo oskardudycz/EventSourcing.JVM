@@ -12,9 +12,7 @@ import java.util.UUID;
 
 sealed public interface ShoppingCart {
   UUID id();
-
   UUID clientId();
-
   ProductItems productItems();
 
   record PendingShoppingCart(
