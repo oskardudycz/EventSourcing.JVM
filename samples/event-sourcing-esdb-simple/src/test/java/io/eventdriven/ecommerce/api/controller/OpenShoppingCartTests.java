@@ -15,7 +15,7 @@ import static io.eventdriven.ecommerce.testing.HttpEntityUtils.toHttpEntity;
   webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class OpenShoppingCartTests extends ApiSpecification {
   public OpenShoppingCartTests() {
-    super("api/shopping-carts/");
+    super("api/shopping-carts");
   }
 
   @Test

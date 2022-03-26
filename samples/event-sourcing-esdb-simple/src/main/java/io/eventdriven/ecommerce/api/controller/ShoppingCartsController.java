@@ -149,17 +149,16 @@ class ShoppingCartsController {
 
   @GetMapping("{id}")
   ResponseEntity<ShoppingCartDetails> getById(
-    @PathVariable UUID id
+    @PathVariable UUID id,
+    @RequestHeader(name = HttpHeaders.IF_NONE_MATCH) @Parameter(in = ParameterIn.HEADER, schema = @Schema(type = "string")) @Nullable ETag ifNoneMatch
   ) {
-    return shoppingCartsService
-      .getById(new GetShoppingCartById(id))
-      .map(result ->
-        ResponseEntity
-          .ok()
-          .eTag(ETag.weak(result.getVersion()).value())
-          .body(result)
-      )
-      .orElse(ResponseEntity.notFound().build());
+    var result = shoppingCartsService
+      .getById(new GetShoppingCartById(id, ifNoneMatch));
+
+    return ResponseEntity
+      .ok()
+      .eTag(ETag.weak(result.getVersion()).value())
+      .body(result);
   }
 
   @GetMapping

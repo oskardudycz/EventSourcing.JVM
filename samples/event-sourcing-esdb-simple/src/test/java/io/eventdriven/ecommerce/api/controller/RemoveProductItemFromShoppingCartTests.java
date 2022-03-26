@@ -4,8 +4,9 @@ import io.eventdriven.ecommerce.ECommerceApplication;
 import io.eventdriven.ecommerce.api.controller.builders.ShoppingCartRestBuilder;
 import io.eventdriven.ecommerce.api.requests.ShoppingCartsRequests.ProductItemRequest;
 import io.eventdriven.ecommerce.core.http.ETag;
+import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.ShoppingCartDetails;
+import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.ShoppingCartDetailsProductItem;
 import io.eventdriven.ecommerce.testing.ApiSpecification;
-import org.junit.Ignore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -20,41 +21,41 @@ import java.util.stream.Stream;
 public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   public final UUID clientId = UUID.randomUUID();
   private UUID shoppingCartId;
-  private ProductItemRequest product;
+  private ShoppingCartDetailsProductItem product;
   private ETag eTag;
 
   public RemoveProductItemFromShoppingCartTests() {
-    super("api/shopping-carts/");
+    super("api/shopping-carts");
   }
 
   @BeforeEach
   public void openShoppingCartWithProduct() {
-    product = new ProductItemRequest(UUID.randomUUID(), 10);
-
     var result =
       ShoppingCartRestBuilder.of(restTemplate, port)
         .build(cart -> cart
           .withClientId(clientId)
-          .withProduct(product)
+          .withProduct(new ProductItemRequest(UUID.randomUUID(), 10))
         );
 
     shoppingCartId = result.id();
     eTag = result.eTag();
+
+    var getResult = GET(ETag.weak(eTag.toLong() - 1), ShoppingCartDetails.class)
+      .apply(restTemplate, result.id().toString());
+
+    product = getResult.getBody().getProductItems().get(0);
   }
 
-  @Ignore("TODO: Get product price")
   @Test
   public void removeProductItem_succeeds_forNotAllProductsAndExistingShoppingCart() {
-    // TODO: Get product price
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), 999, product.quantity()))
+    given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity() - 1))
       .when(DELETE("%s/products/".formatted(shoppingCartId), eTag))
       .then(OK);
   }
 
-  @Ignore("TODO: Get product price")
   @Test
   public void removeProductItem_succeeds_forAllProductsAndExistingShoppingCart() {
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), 999, product.quantity()))
+    given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
       .when(DELETE("%s/products/".formatted(shoppingCartId), eTag))
       .then(OK);
   }
@@ -67,11 +68,19 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       .then(BAD_REQUEST);
   }
 
+
+  @Test
+  public void removeProductItem_fails_withMethodNotAllowed_forMissingShoppingCartId() {
+    given(() -> "")
+      .when(DELETE("%s/products/".formatted(shoppingCartId), eTag))
+      .then(METHOD_NOT_ALLOWED);
+  }
+
   @Test
   public void removeProductItem_fails_withNotFound_forNotExistingShoppingCart() {
     var notExistingId = UUID.randomUUID();
 
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), 999, product.quantity()))
+    given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
       .when(DELETE("%s/products/".formatted(notExistingId), eTag))
       .then(NOT_FOUND);
   }
@@ -82,8 +91,8 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       ShoppingCartRestBuilder.of(restTemplate, port)
         .build(cart -> cart.withClientId(clientId).confirmed());
 
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), 999, product.quantity()))
-      .when(DELETE("%s/products/".formatted(shoppingCartId), eTag))
+    given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
+      .when(DELETE("%s/products/".formatted(result.id()), result.eTag()))
       .then(CONFLICT);
   }
 
@@ -93,27 +102,22 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       ShoppingCartRestBuilder.of(restTemplate, port)
         .build(builder -> builder.withClientId(clientId).canceled());
 
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), 999, product.quantity()))
-      .when(DELETE("%s/products/".formatted(shoppingCartId), eTag))
+    given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
+      .when(DELETE("%s/products/".formatted(result.id()), result.eTag()))
       .then(CONFLICT);
   }
 
-  @Ignore("TODO: Get product price")
   @Test
   public void removeProductItem_fails_withPreconditionFailed_forWrongETag() {
     var wrongETag = ETag.weak(999);
 
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), 999, product.quantity()))
+    given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
       .when(DELETE("%s/products/".formatted(shoppingCartId), wrongETag))
       .then(PRECONDITION_FAILED);
   }
 
   static Stream<String> invalidURLsProvider() {
     return Stream.of(
-      // empty url
-      "",
-      // missing productId
-      "?price=%s&quantity=%s".formatted(1, 1),
       // missing quantity
       "%s?price=%s".formatted(UUID.randomUUID(), 1),
       // missing price

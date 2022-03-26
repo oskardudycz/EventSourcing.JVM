@@ -57,6 +57,6 @@ class ShoppingCartShortInfoProjection extends JPAProjection<ShoppingCartShortInf
 
   @EventListener
   void handleShoppingCartCanceled(EventEnvelope<ShoppingCartCanceled> eventEnvelope) {
-    DeleteById(eventEnvelope.data().shoppingCartId());
+    deleteById(eventEnvelope.data().shoppingCartId());
   }
 }

@@ -15,8 +15,9 @@ import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.ShoppingCartShortInfo
 import io.eventdriven.ecommerce.shoppingcarts.opening.OpenShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.removingproductitem.RemoveProductItemFromShoppingCart;
 import org.springframework.data.domain.Page;
+import org.springframework.retry.support.RetryTemplate;
 
-import java.util.Optional;
+import javax.persistence.EntityNotFoundException;
 
 public class ShoppingCartService {
   private final EntityStore<ShoppingCart, ShoppingCartEvent> store;
@@ -74,8 +75,23 @@ public class ShoppingCartService {
     );
   }
 
-  public Optional<ShoppingCartDetails> getById(GetShoppingCartById query) {
-    return GetShoppingCartById.handle(detailsRepository, query);
+  public ShoppingCartDetails getById(GetShoppingCartById query) {
+    // example of long-polling
+    RetryTemplate retryTemplate = RetryTemplate.builder()
+      .retryOn(EntityNotFoundException.class)
+      .exponentialBackoff(100, 2, 1000)
+      .withinMillis(5000)
+      .build();
+
+    return retryTemplate.execute(context -> {
+      var result = GetShoppingCartById.handle(detailsRepository, query);
+
+      if(result.isEmpty()){
+        throw new EntityNotFoundException("Shopping cart not found");
+      }
+
+      return result.get();
+    });
   }
 
   public Page<ShoppingCartShortInfo> getShoppingCarts(GetShoppingCarts query) {

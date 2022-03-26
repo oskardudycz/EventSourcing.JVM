@@ -1,5 +1,6 @@
 package io.eventdriven.ecommerce.shoppingcarts.gettingbyid;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.eventdriven.ecommerce.core.events.EventMetadata;
 import io.eventdriven.ecommerce.core.views.VersionedView;
@@ -17,6 +18,7 @@ public class ShoppingCartDetails implements VersionedView {
   @Column(nullable = false)
   private UUID clientId;
 
+  @JsonFormat(shape = JsonFormat.Shape.STRING)
   @Column(nullable = false)
   @Enumerated(EnumType.STRING)
   private ShoppingCart.Status status;

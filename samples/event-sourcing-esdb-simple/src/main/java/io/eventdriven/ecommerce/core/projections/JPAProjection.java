@@ -53,7 +53,7 @@ public abstract class JPAProjection<View, Id> {
     repository.save(result);
   }
 
-  protected void DeleteById(Id viewId) {
+  protected void deleteById(Id viewId) {
     repository.deleteById(viewId);
   }
 

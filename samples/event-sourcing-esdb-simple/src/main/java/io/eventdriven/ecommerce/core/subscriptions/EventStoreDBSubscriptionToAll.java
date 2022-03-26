@@ -6,7 +6,6 @@ import io.eventdriven.ecommerce.core.events.EventEnvelope;
 import io.eventdriven.ecommerce.core.events.EventTypeMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.retry.RetryCallback;
 import org.springframework.retry.support.RetryTemplate;
 
 public class EventStoreDBSubscriptionToAll {
@@ -61,7 +60,7 @@ public class EventStoreDBSubscriptionToAll {
     this.subscriptionOptions = subscriptionOptions;
 
     try {
-      retryTemplate.execute((RetryCallback<Void, Throwable>) context -> {
+      retryTemplate.execute(context -> {
         var checkpoint = checkpointRepository.load(subscriptionOptions.subscriptionId());
 
         if (!checkpoint.isEmpty()) {
