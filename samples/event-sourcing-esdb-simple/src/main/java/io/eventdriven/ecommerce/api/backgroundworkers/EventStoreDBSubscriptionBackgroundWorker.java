@@ -41,7 +41,7 @@ public class EventStoreDBSubscriptionBackgroundWorker implements SmartLifecycle 
 
   @Override
   public void stop() {
-    stop(null);
+    stop(() -> {});
   }
 
   @Override
@@ -65,9 +65,6 @@ public class EventStoreDBSubscriptionBackgroundWorker implements SmartLifecycle 
 
     subscription.stop();
 
-    if (callback != null) {
-      callback.run();
-    }
+    callback.run();
   }
-
 }
