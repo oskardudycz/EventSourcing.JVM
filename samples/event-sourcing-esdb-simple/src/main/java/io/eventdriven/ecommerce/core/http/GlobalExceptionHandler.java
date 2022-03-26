@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.client.RestClientException;
 
 import javax.persistence.EntityNotFoundException;
 
@@ -34,5 +35,10 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(value = WrongExpectedVersionException.class)
   public ResponseEntity<Void> wrongExpectedVersionException(WrongExpectedVersionException ignored) {
     return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).build();
+  }
+
+  @ExceptionHandler(value = RestClientException.class)
+  public ResponseEntity<Void> wrongRestClientException(RestClientException ignored) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
   }
 }

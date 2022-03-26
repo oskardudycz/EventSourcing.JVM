@@ -14,7 +14,9 @@ repositories {
 
 dependencies {
   // Spring Boot Web
-  implementation 'org.springframework.boot:spring-boot-starter-web'
+  implementation 'org.springframework.boot:spring-boot-starter-websocket:2.6.4'
+  // Validation
+  implementation 'org.springframework.boot:spring-boot-starter-validation:2.6.4'
   // Retry policy
   implementation 'org.springframework.retry:spring-retry:1.3.2'
   // Swagger
