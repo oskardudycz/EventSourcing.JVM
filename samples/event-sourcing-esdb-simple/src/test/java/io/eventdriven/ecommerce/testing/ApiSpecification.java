@@ -37,17 +37,15 @@ public abstract class ApiSpecification {
   }
 
   // when
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> POST =
-    (api, request) -> this.restTemplate
-      .postForEntity(getApiUrl(), request, Void.class);
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> POST = POST("");
 
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> POST(String urlSuffix){
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> POST(String urlSuffix) {
     return (api, request) -> this.restTemplate
       .postForEntity(getApiUrl() + urlSuffix, request, Void.class);
   }
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> POST(String urlSuffix, ETag eTag){
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> POST(String urlSuffix, ETag eTag) {
     var headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
     headers.setIfMatch(eTag.value());
@@ -56,6 +54,36 @@ public abstract class ApiSpecification {
       .postForEntity(getApiUrl() + urlSuffix, new HttpEntity<>(request, headers), Void.class);
   }
 
+
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT(ETag eTag) {
+    return PUT("", eTag);
+  }
+
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT(String urlSuffix, ETag eTag) {
+    return PUT(urlSuffix, eTag, true);
+  }
+
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT(String urlSuffix, ETag eTag, boolean withEmptyBody) {
+    var headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    headers.setIfMatch(eTag.value());
+
+    return (api, request) -> this.restTemplate
+      .exchange(getApiUrl() + urlSuffix + (withEmptyBody? request : ""), HttpMethod.PUT, new HttpEntity<>(!withEmptyBody ? request: null, headers), Void.class);
+  }
+
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> DELETE(ETag eTag) {
+    return DELETE("", eTag);
+  }
+
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> DELETE(String urlSuffix, ETag eTag) {
+    var headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    headers.setIfMatch(eTag.value());
+
+    return (api, request) -> this.restTemplate
+      .exchange(getApiUrl() + urlSuffix + request, HttpMethod.DELETE, new HttpEntity<>(null, headers), Void.class);
+  }
 
   // then
   public Consumer<ResponseEntity> OK =
@@ -86,6 +114,9 @@ public abstract class ApiSpecification {
 
   public Consumer<ResponseEntity> PRECONDITION_FAILED =
     (response) -> assertEquals(HttpStatus.PRECONDITION_FAILED, response.getStatusCode());
+
+  public Consumer<ResponseEntity> METHOD_NOT_ALLOWED =
+    (response) -> assertEquals(HttpStatus.METHOD_NOT_ALLOWED, response.getStatusCode());
 
 
   protected class ApiSpecificationBuilder {
