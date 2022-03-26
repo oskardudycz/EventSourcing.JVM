@@ -81,6 +81,9 @@ public abstract class ApiSpecification {
   public Consumer<ResponseEntity> NOT_FOUND =
     (response) -> assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
 
+  public Consumer<ResponseEntity> CONFLICT =
+    (response) -> assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+
   public Consumer<ResponseEntity> PRECONDITION_FAILED =
     (response) -> assertEquals(HttpStatus.PRECONDITION_FAILED, response.getStatusCode());
 
