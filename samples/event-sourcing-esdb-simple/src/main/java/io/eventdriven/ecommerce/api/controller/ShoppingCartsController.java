@@ -21,13 +21,17 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.UUID;
 
+@Validated
 @RestController
 @RequestMapping("api/shopping-carts")
 class ShoppingCartsController {
@@ -42,7 +46,7 @@ class ShoppingCartsController {
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
   ResponseEntity<Void> open(
-    @RequestBody ShoppingCartsRequests.Open request
+    @Valid @RequestBody ShoppingCartsRequests.Open request
   ) throws URISyntaxException {
     var cartId = UUID.randomUUID();
 
@@ -63,7 +67,7 @@ class ShoppingCartsController {
   ResponseEntity<Void> addProduct(
     @PathVariable UUID id,
     @RequestBody ShoppingCartsRequests.AddProduct request,
-    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
+    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
     if (request.productItem() == null)
       throw new IllegalArgumentException("Product Item has to be defined");
@@ -89,9 +93,9 @@ class ShoppingCartsController {
   ResponseEntity<Void> removeProduct(
     @PathVariable UUID id,
     @PathVariable UUID productId,
-    @RequestParam Integer quantity,
-    @RequestParam Double price,
-    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
+    @RequestParam @NotNull Integer quantity,
+    @RequestParam @NotNull Double price,
+    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
     var result = shoppingCartsService.removeProductItem(
       RemoveProductItemFromShoppingCart.of(
@@ -116,7 +120,7 @@ class ShoppingCartsController {
   @PutMapping("{id}")
   ResponseEntity<Void> confirmCart(
     @PathVariable UUID id,
-    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
+    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
     var result = shoppingCartsService.confirm(
       new ConfirmShoppingCart(id, ifMatch.toLong())
@@ -131,7 +135,7 @@ class ShoppingCartsController {
   @DeleteMapping("{id}")
   ResponseEntity<Void> cancelCart(
     @PathVariable UUID id,
-    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) ETag ifMatch
+    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
     var result = shoppingCartsService.cancel(
       new CancelShoppingCart(id, ifMatch.toLong())
