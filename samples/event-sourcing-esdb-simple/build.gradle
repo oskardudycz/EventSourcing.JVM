@@ -34,6 +34,7 @@ dependencies {
   // Postgres and JPA for read models
   implementation 'org.springframework.boot:spring-boot-starter-data-jpa:2.6.4'
   implementation 'org.postgresql:postgresql:42.3.3'
+  implementation 'junit:junit:4.13.1'
 
   // Test frameworks
   testImplementation 'org.springframework.boot:spring-boot-starter-test'
