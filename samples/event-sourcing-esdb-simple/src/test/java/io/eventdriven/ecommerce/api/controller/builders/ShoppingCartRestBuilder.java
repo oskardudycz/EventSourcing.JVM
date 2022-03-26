@@ -1,10 +1,12 @@
 package io.eventdriven.ecommerce.api.controller.builders;
 
-import io.eventdriven.ecommerce.api.requests.ShoppingCartsRequests;
+import io.eventdriven.ecommerce.api.requests.ShoppingCartsRequests.*;
 import io.eventdriven.ecommerce.core.http.ETag;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -17,6 +19,7 @@ public class ShoppingCartRestBuilder {
   private UUID clientId;
   private boolean isConfirmed;
   private boolean isCanceled;
+  private List<ProductItemRequest> products = new ArrayList<>();
 
   public String getApiUrl() {
     return "http://localhost:%s/%s/".formatted(port, apiPrefix);
@@ -33,6 +36,12 @@ public class ShoppingCartRestBuilder {
 
   public ShoppingCartRestBuilder withClientId(UUID clientId) {
     this.clientId = clientId;
+
+    return this;
+  }
+
+  public ShoppingCartRestBuilder withProduct(ProductItemRequest product) {
+    this.products.add(product);
 
     return this;
   }
@@ -66,12 +75,16 @@ public class ShoppingCartRestBuilder {
       result = cancel(result);
     }
 
+    for (var product: products){
+      result = addProduct(product, result);
+    }
+
     return result;
   }
 
   private BuilderResult open() {
     var response = this.restTemplate
-      .postForEntity(getApiUrl(), new ShoppingCartsRequests.Open(clientId), Void.class);
+      .postForEntity(getApiUrl(), new Open(clientId), Void.class);
 
     assertEquals(HttpStatus.CREATED, response.getStatusCode());
 
@@ -84,10 +97,23 @@ public class ShoppingCartRestBuilder {
     assertTrue(location.startsWith(apiPrefix));
     var newId = assertDoesNotThrow(() -> UUID.fromString(location.substring(apiPrefix.length())));
 
-    var eTag = response.getHeaders().getETag();
-
-    return new BuilderResult(newId, new ETag(eTag));
+    return getResult(response, newId);
   }
+
+  private BuilderResult addProduct(ProductItemRequest product, BuilderResult result) {
+    var headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    headers.setIfMatch(result.eTag().value());
+
+    var request = new HttpEntity<>(new AddProduct(product), headers);
+
+    var response = this.restTemplate
+      .postForEntity(getApiUrl() + "%s/products".formatted(result.id()), request, Void.class);
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    return getResult(response, result.id());
+  }
+
 
   private BuilderResult confirm(BuilderResult result) {
     var headers = new HttpHeaders();
@@ -100,9 +126,7 @@ public class ShoppingCartRestBuilder {
       .exchange(getApiUrl() + result.id(), HttpMethod.PUT, request, Void.class);
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
-    var eTag = response.getHeaders().getETag();
-
-    return new BuilderResult(result.id(), new ETag(eTag));
+    return getResult(response, result.id());
   }
 
   private BuilderResult cancel(BuilderResult result) {
@@ -116,9 +140,13 @@ public class ShoppingCartRestBuilder {
       .exchange(getApiUrl() + result.id(), HttpMethod.DELETE, request, Void.class);
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
+    return getResult(response, result.id());
+  }
+
+  private BuilderResult getResult(ResponseEntity<Void> response, UUID newId) {
     var eTag = response.getHeaders().getETag();
 
-    return new BuilderResult(result.id(), new ETag(eTag));
+    return new BuilderResult(newId, new ETag(eTag));
   }
 
   public record BuilderResult(
