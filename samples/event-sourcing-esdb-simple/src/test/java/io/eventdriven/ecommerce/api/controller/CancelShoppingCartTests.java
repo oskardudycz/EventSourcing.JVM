@@ -19,7 +19,7 @@ public class CancelShoppingCartTests extends ApiSpecification {
   private ETag eTag;
 
   public CancelShoppingCartTests() {
-    super("api/shopping-carts/");
+    super("api/shopping-carts");
   }
 
   @BeforeEach

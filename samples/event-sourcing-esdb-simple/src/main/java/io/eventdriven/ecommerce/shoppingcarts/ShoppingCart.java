@@ -1,11 +1,7 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItems;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartOpened;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemAddedToShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemRemovedFromShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartConfirmed;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartCanceled;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

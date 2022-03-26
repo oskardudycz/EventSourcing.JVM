@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.http.*;
+import org.springframework.lang.Nullable;
 
 import java.util.UUID;
 import java.util.function.BiFunction;
@@ -13,7 +14,6 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 public abstract class ApiSpecification {
   protected String apiPrefix;
@@ -36,9 +36,39 @@ public abstract class ApiSpecification {
     return new ApiSpecificationBuilder(this, define);
   }
 
-  // when
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> POST = POST("");
+  ///////////////////
+  ////   WHEN    ////
+  ///////////////////
 
+  public <T> BiFunction<TestRestTemplate, Object, ResponseEntity<T>> GET(Class<T> entityClass) {
+    return GET("", entityClass);
+  }
+
+  public <T> BiFunction<TestRestTemplate, Object, ResponseEntity<T>> GET(String urlSuffix, Class<T> entityClass) {
+    return GET(urlSuffix, null, entityClass);
+  }
+
+  public <T> BiFunction<TestRestTemplate, Object, ResponseEntity<T>> GET(@Nullable ETag eTag, Class<T> entityClass) {
+    return GET("", eTag, entityClass);
+  }
+
+  public <T> BiFunction<TestRestTemplate, Object, ResponseEntity<T>> GET(String urlSuffix, @Nullable ETag eTag, Class<T> entityClass) {
+    var headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    if (eTag != null) {
+      headers.setIfNoneMatch(eTag.value());
+    }
+
+    return (api, request) -> this.restTemplate
+      .exchange(
+        getApiUrl() + urlSuffix + request,
+        HttpMethod.GET,
+        new HttpEntity<>(null, getIfNoneMatchHeader(eTag)),
+        entityClass
+      );
+  }
+
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> POST = POST("");
 
   public BiFunction<TestRestTemplate, Object, ResponseEntity> POST(String urlSuffix) {
     return (api, request) -> this.restTemplate
@@ -46,14 +76,13 @@ public abstract class ApiSpecification {
   }
 
   public BiFunction<TestRestTemplate, Object, ResponseEntity> POST(String urlSuffix, ETag eTag) {
-    var headers = new HttpHeaders();
-    headers.setContentType(MediaType.APPLICATION_JSON);
-    headers.setIfMatch(eTag.value());
-
     return (api, request) -> this.restTemplate
-      .postForEntity(getApiUrl() + urlSuffix, new HttpEntity<>(request, headers), Void.class);
+      .postForEntity(
+        getApiUrl() + urlSuffix,
+        new HttpEntity<>(request, getIfMatchHeader(eTag)),
+        Void.class
+      );
   }
-
 
   public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT(ETag eTag) {
     return PUT("", eTag);
@@ -64,12 +93,13 @@ public abstract class ApiSpecification {
   }
 
   public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT(String urlSuffix, ETag eTag, boolean withEmptyBody) {
-    var headers = new HttpHeaders();
-    headers.setContentType(MediaType.APPLICATION_JSON);
-    headers.setIfMatch(eTag.value());
-
     return (api, request) -> this.restTemplate
-      .exchange(getApiUrl() + urlSuffix + (withEmptyBody? request : ""), HttpMethod.PUT, new HttpEntity<>(!withEmptyBody ? request: null, headers), Void.class);
+      .exchange(
+        getApiUrl() + urlSuffix + (withEmptyBody ? request : ""),
+        HttpMethod.PUT,
+        new HttpEntity<>(!withEmptyBody ? request : null, getIfMatchHeader(eTag)),
+        Void.class
+      );
   }
 
   public BiFunction<TestRestTemplate, Object, ResponseEntity> DELETE(ETag eTag) {
@@ -77,21 +107,45 @@ public abstract class ApiSpecification {
   }
 
   public BiFunction<TestRestTemplate, Object, ResponseEntity> DELETE(String urlSuffix, ETag eTag) {
-    var headers = new HttpHeaders();
-    headers.setContentType(MediaType.APPLICATION_JSON);
-    headers.setIfMatch(eTag.value());
-
     return (api, request) -> this.restTemplate
-      .exchange(getApiUrl() + urlSuffix + request, HttpMethod.DELETE, new HttpEntity<>(null, headers), Void.class);
+      .exchange(
+        getApiUrl() + urlSuffix + request,
+        HttpMethod.DELETE,
+        new HttpEntity<>(null, getIfMatchHeader(eTag)),
+        Void.class
+      );
   }
 
-  // then
-  public Consumer<ResponseEntity> OK =
-    (response) -> assertEquals(HttpStatus.OK, response.getStatusCode());
+  HttpHeaders getHeaders(Consumer<HttpHeaders> consumer) {
+    var headers = new HttpHeaders();
+
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    consumer.accept(headers);
+
+    return headers;
+  }
+
+  HttpHeaders getIfMatchHeader(ETag eTag) {
+    return getHeaders(headers -> headers.setIfMatch(eTag.value()));
+  }
+
+  HttpHeaders getIfNoneMatchHeader(@Nullable ETag eTag) {
+    return getHeaders(headers -> {
+      if (eTag != null)
+        headers.setIfNoneMatch(eTag.value());
+    });
+  }
+
+
+  ///////////////////
+  ////   THEN    ////
+  ///////////////////
+
+  public Consumer<ResponseEntity> OK = assertResponseStatus(HttpStatus.OK);
 
   public Consumer<ResponseEntity> CREATED =
     response -> {
-      assertEquals(HttpStatus.CREATED, response.getStatusCode());
+      assertResponseStatus(HttpStatus.CREATED);
 
       var locationHeader = response.getHeaders().getLocation();
 
@@ -100,24 +154,27 @@ public abstract class ApiSpecification {
       var location = locationHeader.toString();
 
       assertTrue(location.startsWith(apiPrefix));
-      assertDoesNotThrow(() -> UUID.fromString(location.substring(apiPrefix.length())));
+      assertDoesNotThrow(() -> UUID.fromString(location.substring(apiPrefix.length() + 1)));
     };
 
-  public Consumer<ResponseEntity> BAD_REQUEST =
-    (response) -> assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+  public Consumer<ResponseEntity> BAD_REQUEST = assertResponseStatus(HttpStatus.BAD_REQUEST);
 
-  public Consumer<ResponseEntity> NOT_FOUND =
-    (response) -> assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+  public Consumer<ResponseEntity> NOT_FOUND = assertResponseStatus(HttpStatus.NOT_FOUND);
 
-  public Consumer<ResponseEntity> CONFLICT =
-    (response) -> assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+  public Consumer<ResponseEntity> CONFLICT = assertResponseStatus(HttpStatus.CONFLICT);
 
-  public Consumer<ResponseEntity> PRECONDITION_FAILED =
-    (response) -> assertEquals(HttpStatus.PRECONDITION_FAILED, response.getStatusCode());
+  public Consumer<ResponseEntity> PRECONDITION_FAILED = assertResponseStatus(HttpStatus.PRECONDITION_FAILED);
 
-  public Consumer<ResponseEntity> METHOD_NOT_ALLOWED =
-    (response) -> assertEquals(HttpStatus.METHOD_NOT_ALLOWED, response.getStatusCode());
+  public Consumer<ResponseEntity> METHOD_NOT_ALLOWED = assertResponseStatus(HttpStatus.METHOD_NOT_ALLOWED);
 
+  private Consumer<ResponseEntity> assertResponseStatus(HttpStatus status) {
+    return (response) -> assertEquals(status, response.getStatusCode());
+  }
+
+
+  /////////////////////
+  ////   BUILDER   ////
+  /////////////////////
 
   protected class ApiSpecificationBuilder {
     private final ApiSpecification api;

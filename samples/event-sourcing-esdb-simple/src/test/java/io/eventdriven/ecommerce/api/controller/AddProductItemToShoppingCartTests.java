@@ -28,7 +28,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
   private ETag eTag;
 
   public AddProductItemToShoppingCartTests() {
-    super("api/shopping-carts/");
+    super("api/shopping-carts");
   }
 
   @BeforeEach
