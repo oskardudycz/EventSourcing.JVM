@@ -52,16 +52,34 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
       .then(OK);
   }
 
+  @Test
+  public void addProductItem_succeeds_forValidDataAndNonEmptyExistingShoppingCart() {
+    var result =
+      ShoppingCartRestBuilder.of(restTemplate, port)
+        .build(cart -> cart
+          .withClientId(clientId)
+          .withProduct(new ProductItemRequest(UUID.randomUUID(), 10))
+        );
+
+    given(() ->
+      new AddProduct(new ProductItemRequest(
+        UUID.randomUUID(),
+        2
+      )))
+      .when(POST("%s/products".formatted(result.id()), result.eTag()))
+      .then(OK);
+  }
+
   @ParameterizedTest
   @MethodSource("invalidBodiesProvider")
-  public void addProductItem_fails_WithBadRequest_forInvalidBody(HttpEntity<String> invalidBody) {
+  public void addProductItem_fails_withBadRequest_forInvalidBody(HttpEntity<String> invalidBody) {
     given(() -> invalidBody)
       .when(POST)
       .then(BAD_REQUEST);
   }
 
   @Test
-  public void addProductItem_fails_WithNotFound_forNotExistingShoppingCart() {
+  public void addProductItem_fails_withNotFound_forNotExistingShoppingCart() {
     var notExistingId = UUID.randomUUID();
 
     given(() ->
@@ -74,10 +92,10 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
   }
 
   @Test
-  public void addProductItem_fails_WithConflict_forConfirmedShoppingCart() {
+  public void addProductItem_fails_withConflict_forConfirmedShoppingCart() {
     var result =
       ShoppingCartRestBuilder.of(restTemplate, port)
-        .build(cart -> cart.withClientId(clientId).canceled());
+        .build(cart -> cart.withClientId(clientId).confirmed());
 
     given(() ->
       new AddProduct(new ProductItemRequest(
@@ -89,7 +107,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
   }
 
   @Test
-  public void addProductItem_fails_WithConflict_forCanceledShoppingCart() {
+  public void addProductItem_fails_withConflict_forCanceledShoppingCart() {
     var result =
       ShoppingCartRestBuilder.of(restTemplate, port)
         .build(builder -> builder.withClientId(clientId).canceled());
@@ -104,7 +122,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
   }
 
   @Test
-  public void addProductItem_fails_WithPreconditionFailed_forWrongETag() {
+  public void addProductItem_fails_withPreconditionFailed_forWrongETag() {
     var wrongETag = ETag.weak(999);
 
     given(() -> new AddProduct(new ProductItemRequest(UUID.randomUUID(), 2)))

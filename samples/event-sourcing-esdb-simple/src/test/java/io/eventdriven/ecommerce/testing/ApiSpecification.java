@@ -92,6 +92,7 @@ public abstract class ApiSpecification {
     private final ApiSpecification api;
     private final Supplier<Object> given;
     private BiFunction<TestRestTemplate, Object, ResponseEntity> when;
+    private ResponseEntity response;
 
     private ApiSpecificationBuilder(ApiSpecification api, Supplier<Object> given) {
       this.api = api;
@@ -104,7 +105,7 @@ public abstract class ApiSpecification {
       return this;
     }
 
-    public <T> ApiSpecificationBuilder then(Consumer<ResponseEntity> then) {
+    public ApiSpecificationBuilder then(Consumer<ResponseEntity> then) {
       var request = given.get();
 
       var response = when.apply(api.restTemplate, request);
