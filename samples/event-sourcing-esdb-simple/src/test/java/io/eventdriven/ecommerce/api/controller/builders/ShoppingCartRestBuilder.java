@@ -3,10 +3,10 @@ package io.eventdriven.ecommerce.api.controller.builders;
 import io.eventdriven.ecommerce.api.requests.ShoppingCartsRequests;
 import io.eventdriven.ecommerce.core.http.ETag;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.*;
 
 import java.util.UUID;
-import java.util.function.Function;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -15,9 +15,11 @@ public class ShoppingCartRestBuilder {
   private final TestRestTemplate restTemplate;
   private final int port;
   private UUID clientId;
+  private boolean isConfirmed;
+  private boolean isCanceled;
 
   public String getApiUrl() {
-    return "http://localhost:%s/%s".formatted(port, apiPrefix);
+    return "http://localhost:%s/%s/".formatted(port, apiPrefix);
   }
 
   private ShoppingCartRestBuilder(TestRestTemplate restTemplate, int port) {
@@ -25,8 +27,8 @@ public class ShoppingCartRestBuilder {
     this.port = port;
   }
 
-  public static ShoppingCartRestBuilder of(TestRestTemplate restTemplate, int port, Function<ShoppingCartRestBuilder, ShoppingCartRestBuilder> with) {
-    return with.apply(new ShoppingCartRestBuilder(restTemplate, port));
+  public static ShoppingCartRestBuilder of(TestRestTemplate restTemplate, int port) {
+    return new ShoppingCartRestBuilder(restTemplate, port);
   }
 
   public ShoppingCartRestBuilder withClientId(UUID clientId) {
@@ -35,13 +37,39 @@ public class ShoppingCartRestBuilder {
     return this;
   }
 
+  public ShoppingCartRestBuilder confirmed() {
+    this.isConfirmed = true;
+
+    return this;
+  }
+
+  public ShoppingCartRestBuilder canceled() {
+    this.isCanceled = true;
+
+    return this;
+  }
+
+  public BuilderResult build(Consumer<ShoppingCartRestBuilder> with) {
+    with.accept(this);
+
+    return execute();
+  }
+
   public BuilderResult execute() {
-    BuilderResult result = openShoppingCart();
+    BuilderResult result = open();
+
+    if (isConfirmed) {
+      result = confirm(result);
+    }
+
+    if (isCanceled) {
+      result = cancel(result);
+    }
 
     return result;
   }
 
-  private BuilderResult openShoppingCart() {
+  private BuilderResult open() {
     var response = this.restTemplate
       .postForEntity(getApiUrl(), new ShoppingCartsRequests.Open(clientId), Void.class);
 
@@ -61,8 +89,41 @@ public class ShoppingCartRestBuilder {
     return new BuilderResult(newId, new ETag(eTag));
   }
 
+  private BuilderResult confirm(BuilderResult result) {
+    var headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    headers.setIfMatch(result.eTag().value());
+
+    var request = new HttpEntity<Void>(null, headers);
+
+    var response = this.restTemplate
+      .exchange(getApiUrl() + result.id(), HttpMethod.PUT, request, Void.class);
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    var eTag = response.getHeaders().getETag();
+
+    return new BuilderResult(result.id(), new ETag(eTag));
+  }
+
+  private BuilderResult cancel(BuilderResult result) {
+    var headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    headers.setIfMatch(result.eTag().value());
+
+    var request = new HttpEntity<Void>(null, headers);
+
+    var response = this.restTemplate
+      .exchange(getApiUrl() + result.id(), HttpMethod.DELETE, request, Void.class);
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    var eTag = response.getHeaders().getETag();
+
+    return new BuilderResult(result.id(), new ETag(eTag));
+  }
+
   public record BuilderResult(
     UUID id,
     ETag eTag
-  ){}
+  ) {
+  }
 }

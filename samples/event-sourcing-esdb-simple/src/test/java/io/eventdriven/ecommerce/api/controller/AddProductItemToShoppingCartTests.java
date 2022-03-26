@@ -34,11 +34,8 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
   @BeforeEach
   public void openShoppingCart() {
     var result =
-      ShoppingCartRestBuilder
-        .of(restTemplate, port, builder ->
-          builder.withClientId(clientId)
-        )
-        .execute();
+      ShoppingCartRestBuilder.of(restTemplate, port)
+        .build(cart -> cart.withClientId(clientId));
 
     shoppingCartId = result.id();
     eTag = result.eTag();
@@ -77,14 +74,40 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
   }
 
   @Test
-  public void addProductItem_fails_WithPreconditionFailed_forWrongETag() {
-    var wrongETag = ETag.weak(999);
+  public void addProductItem_fails_WithConflict_forConfirmedShoppingCart() {
+    var result =
+      ShoppingCartRestBuilder.of(restTemplate, port)
+        .build(cart -> cart.withClientId(clientId).canceled());
 
     given(() ->
       new AddProduct(new ProductItemRequest(
         UUID.randomUUID(),
         2
       )))
+      .when(POST("%s/products".formatted(result.id()), result.eTag()))
+      .then(CONFLICT);
+  }
+
+  @Test
+  public void addProductItem_fails_WithConflict_forCanceledShoppingCart() {
+    var result =
+      ShoppingCartRestBuilder.of(restTemplate, port)
+        .build(builder -> builder.withClientId(clientId).canceled());
+
+    given(() ->
+      new AddProduct(new ProductItemRequest(
+        UUID.randomUUID(),
+        2
+      )))
+      .when(POST("%s/products".formatted(result.id()), result.eTag()))
+      .then(CONFLICT);
+  }
+
+  @Test
+  public void addProductItem_fails_WithPreconditionFailed_forWrongETag() {
+    var wrongETag = ETag.weak(999);
+
+    given(() -> new AddProduct(new ProductItemRequest(UUID.randomUUID(), 2)))
       .when(POST("%s/products".formatted(shoppingCartId), wrongETag))
       .then(PRECONDITION_FAILED);
   }
@@ -104,8 +127,8 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
         toHttpEntity(new JSONObject("{ \"productId\": \"%s\", \"quantity\": %s }".formatted(UUID.randomUUID(), -1)))
       );
     } catch (JSONException e) {
-        e.printStackTrace();
-        throw new RuntimeException(e);
+      e.printStackTrace();
+      throw new RuntimeException(e);
     }
   }
 }
