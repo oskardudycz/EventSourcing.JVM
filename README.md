@@ -11,6 +11,7 @@
     - [Retrieving the current state from events](#retrieving-the-current-state-from-events)
     - [Event Store](#event-store)
   - [Videos](#videos)
+    - [Let's build the worst Event Sourcing system!](#lets-build-the-worst-event-sourcing-system)
     - [The Light and The Dark Side of the Event-Driven Design](#the-light-and-the-dark-side-of-the-event-driven-design)
     - [Conversation with Yves Lorphelin about CQRS](#conversation-with-yves-lorphelin-about-cqrs)
   - [Support](#support)
@@ -182,6 +183,10 @@ Read more in my article:
 -   📝 [What if I told you that Relational Databases are in fact Event Stores?](https://event-driven.io/en/relational_databases_are_event_stores/=event_sourcing_jvm)
 
 ## Videos
+
+### Let's build the worst Event Sourcing system!
+
+<a href="https://www.youtube.com/watch?v=Lu-skMQ-vAw" target="_blank"><img src="https://img.youtube.com/vi/Lu-skMQ-vAw/0.jpg" alt="Let's build the worst Event Sourcing system!" width="320" height="240" border="10" /></a>
 
 ### The Light and The Dark Side of the Event-Driven Design
 
