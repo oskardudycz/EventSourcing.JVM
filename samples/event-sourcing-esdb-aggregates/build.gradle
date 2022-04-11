@@ -1,0 +1,70 @@
+plugins {
+  id 'org.springframework.boot' version '2.6.4'
+  id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+  id 'java'
+}
+
+group = 'io.event-driven'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '17'
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  // Spring Boot Web
+  implementation 'org.springframework.boot:spring-boot-starter-websocket:2.6.4'
+  // Validation
+  implementation 'org.springframework.boot:spring-boot-starter-validation:2.6.4'
+  // Retry policy
+  implementation 'org.springframework.retry:spring-retry:1.3.2'
+  // Swagger
+  implementation 'org.springdoc:springdoc-openapi-ui:1.6.6'
+  // Serialisation
+  implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.2'
+
+  // Log4J logging
+  implementation 'org.springframework.boot:spring-boot-starter-log4j2:2.6.4'
+
+  // EventStoreDB client
+  implementation 'com.eventstore:db-client-java:2.0.0'
+
+
+  // Postgres and JPA for read models
+  implementation 'org.springframework.boot:spring-boot-starter-data-jpa:2.6.4'
+  implementation 'org.postgresql:postgresql:42.3.3'
+  implementation 'junit:junit:4.13.1'
+
+  // Test frameworks
+  testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
+  testImplementation 'org.junit.platform:junit-platform-launcher:1.8.2'
+  testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.13.2'
+}
+
+configurations {
+  all*.exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+  all*.exclude group: 'spring-boot-starter-test', module: 'junit'
+}
+
+tasks.named('test') {
+  useJUnitPlatform()
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs += "--enable-preview"
+}
+tasks.withType(Test) {
+  jvmArgs += "--enable-preview"
+}
+tasks.withType(JavaExec) {
+  jvmArgs += "--enable-preview"
+}
+
+test {
+  testLogging.showStandardStreams = true
+  testLogging.exceptionFormat = 'full'
+}
