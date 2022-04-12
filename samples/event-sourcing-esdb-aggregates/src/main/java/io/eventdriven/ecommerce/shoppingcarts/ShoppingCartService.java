@@ -3,17 +3,14 @@ package io.eventdriven.ecommerce.shoppingcarts;
 import io.eventdriven.ecommerce.core.aggregates.AggregateStore;
 import io.eventdriven.ecommerce.core.http.ETag;
 import io.eventdriven.ecommerce.pricing.ProductPriceCalculator;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.AddProductItemToShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.CancelShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.ConfirmShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.GetShoppingCartById;
 import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.ShoppingCartDetails;
 import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.ShoppingCartDetailsRepository;
 import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.GetShoppingCarts;
 import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.ShoppingCartShortInfo;
 import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.ShoppingCartShortInfoRepository;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.OpenShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.RemoveProductItemFromShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
+import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import org.springframework.data.domain.Page;
 import org.springframework.retry.support.RetryTemplate;
 
@@ -37,41 +34,39 @@ public class ShoppingCartService {
     this.productPriceCalculator = productPriceCalculator;
   }
 
-  public ETag open(OpenShoppingCart command) {
-    return store.add(
-      () -> ShoppingCart.open(command.shoppingCartId(), command.clientId())
-    );
+  public ETag open(UUID shoppingCartId, UUID clientId) {
+    return store.add(() -> ShoppingCart.open(shoppingCartId, clientId));
   }
 
-  public ETag addProductItem(AddProductItemToShoppingCart command) {
+  public ETag addProductItem(UUID shoppingCartId, ProductItem productItem, Long expectedVersion) {
     return store.getAndUpdate(
-      current -> current.addProductItem(productPriceCalculator, command.productItem()),
-      command.shoppingCartId(),
-      command.expectedVersion()
+      current -> current.addProductItem(productPriceCalculator, productItem),
+      shoppingCartId,
+      expectedVersion
     );
   }
 
-  public ETag removeProductItem(RemoveProductItemFromShoppingCart command) {
+  public ETag removeProductItem(UUID shoppingCartId, PricedProductItem productItem, Long expectedVersion) {
     return store.getAndUpdate(
-      current -> current.removeProductItem(command.productItem()),
-      command.shoppingCartId(),
-      command.expectedVersion()
+      current -> current.removeProductItem(productItem),
+      shoppingCartId,
+      expectedVersion
     );
   }
 
-  public ETag confirm(ConfirmShoppingCart command) {
+  public ETag confirm(UUID shoppingCartId, Long expectedVersion) {
     return store.getAndUpdate(
       current -> current.confirm(),
-      command.shoppingCartId(),
-      command.expectedVersion()
+      shoppingCartId,
+      expectedVersion
     );
   }
 
-  public ETag cancel(CancelShoppingCart command) {
+  public ETag cancel(UUID shoppingCartId, Long expectedVersion) {
     return store.getAndUpdate(
       current -> current.cancel(),
-      command.shoppingCartId(),
-      command.expectedVersion()
+      shoppingCartId,
+      expectedVersion
     );
   }
 
