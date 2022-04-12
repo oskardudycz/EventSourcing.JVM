@@ -1,7 +1,7 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
 import com.eventstore.dbclient.EventStoreDBClient;
-import io.eventdriven.ecommerce.core.entities.EntityStore;
+import io.eventdriven.ecommerce.core.aggregates.AggregateStore;
 import io.eventdriven.ecommerce.pricing.ProductPriceCalculator;
 import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.ShoppingCartDetailsRepository;
 import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.ShoppingCartShortInfoRepository;
@@ -9,11 +9,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.context.annotation.ApplicationScope;
 
+import java.util.UUID;
+
 @Configuration
 class ShoppingCartsConfig {
   @Bean
   ShoppingCartService shoppingCartService(
-    EntityStore<ShoppingCart, ShoppingCartEvent> entityStore,
+    AggregateStore<ShoppingCart, ShoppingCartEvent, UUID> entityStore,
     ShoppingCartDetailsRepository detailsRepository,
     ShoppingCartShortInfoRepository shortInfoRepository,
     ProductPriceCalculator productPriceCalculator
@@ -28,12 +30,11 @@ class ShoppingCartsConfig {
 
   @Bean
   @ApplicationScope
-  EntityStore<ShoppingCart, ShoppingCartEvent> shoppingCartStore(EventStoreDBClient eventStore) {
-    return new EntityStore<>(
+  AggregateStore<ShoppingCart, ShoppingCartEvent, UUID> shoppingCartStore(EventStoreDBClient eventStore) {
+    return new AggregateStore<>(
       eventStore,
       ShoppingCart::when,
-      ShoppingCart::mapToStreamId,
-      ShoppingCart::empty
+      ShoppingCart::mapToStreamId
     );
   }
 }

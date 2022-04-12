@@ -1,6 +1,6 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
-import io.eventdriven.ecommerce.core.entities.EntityStore;
+import io.eventdriven.ecommerce.core.aggregates.AggregateStore;
 import io.eventdriven.ecommerce.core.http.ETag;
 import io.eventdriven.ecommerce.pricing.ProductPriceCalculator;
 import io.eventdriven.ecommerce.shoppingcarts.addingproductitem.AddProductItemToShoppingCart;
@@ -18,15 +18,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.retry.support.RetryTemplate;
 
 import javax.persistence.EntityNotFoundException;
+import java.util.UUID;
 
 public class ShoppingCartService {
-  private final EntityStore<ShoppingCart, ShoppingCartEvent> store;
+  private final AggregateStore<ShoppingCart, ShoppingCartEvent, UUID> store;
   private final ShoppingCartDetailsRepository detailsRepository;
   private final ShoppingCartShortInfoRepository shortInfoRepository;
   private final ProductPriceCalculator productPriceCalculator;
 
   public ShoppingCartService(
-    EntityStore<ShoppingCart, ShoppingCartEvent> entityStore,
+    AggregateStore<ShoppingCart, ShoppingCartEvent, UUID> entityStore,
     ShoppingCartDetailsRepository detailsRepository,
     ShoppingCartShortInfoRepository shortInfoRepository,
     ProductPriceCalculator productPriceCalculator) {
@@ -38,14 +39,13 @@ public class ShoppingCartService {
 
   public ETag open(OpenShoppingCart command) {
     return store.add(
-      () -> OpenShoppingCart.handle(command),
-      command.shoppingCartId()
+      () -> ShoppingCart.open(command.shoppingCartId(), command.clientId())
     );
   }
 
   public ETag addProductItem(AddProductItemToShoppingCart command) {
     return store.getAndUpdate(
-      current -> AddProductItemToShoppingCart.handle(productPriceCalculator, command, current),
+      current -> current.addProductItem(productPriceCalculator, command.productItem()),
       command.shoppingCartId(),
       command.expectedVersion()
     );
@@ -53,7 +53,7 @@ public class ShoppingCartService {
 
   public ETag removeProductItem(RemoveProductItemFromShoppingCart command) {
     return store.getAndUpdate(
-      current -> RemoveProductItemFromShoppingCart.handle(command, current),
+      current -> current.removeProductItem(command.productItem()),
       command.shoppingCartId(),
       command.expectedVersion()
     );
@@ -61,7 +61,7 @@ public class ShoppingCartService {
 
   public ETag confirm(ConfirmShoppingCart command) {
     return store.getAndUpdate(
-      current -> ConfirmShoppingCart.handle(command, current),
+      current -> current.confirm(),
       command.shoppingCartId(),
       command.expectedVersion()
     );
@@ -69,7 +69,7 @@ public class ShoppingCartService {
 
   public ETag cancel(CancelShoppingCart command) {
     return store.getAndUpdate(
-      current -> CancelShoppingCart.handle(command, current),
+      current -> current.cancel(),
       command.shoppingCartId(),
       command.expectedVersion()
     );

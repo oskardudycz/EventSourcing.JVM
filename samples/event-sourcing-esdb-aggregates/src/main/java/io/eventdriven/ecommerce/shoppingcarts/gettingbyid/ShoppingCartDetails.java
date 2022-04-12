@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.eventdriven.ecommerce.core.events.EventMetadata;
 import io.eventdriven.ecommerce.core.views.VersionedView;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartStatus;
 
 import javax.persistence.*;
 import java.util.List;
@@ -21,7 +21,7 @@ public class ShoppingCartDetails implements VersionedView {
   @JsonFormat(shape = JsonFormat.Shape.STRING)
   @Column(nullable = false)
   @Enumerated(EnumType.STRING)
-  private ShoppingCart.Status status;
+  private ShoppingCartStatus status;
 
   @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
   @JoinColumn(name="shopping_cart_id")
@@ -38,7 +38,7 @@ public class ShoppingCartDetails implements VersionedView {
   public ShoppingCartDetails(
     UUID id,
     UUID clientId,
-    ShoppingCart.Status status,
+    ShoppingCartStatus status,
     List<ShoppingCartDetailsProductItem> productItems,
     long version,
     long lastProcessedPosition
@@ -71,11 +71,11 @@ public class ShoppingCartDetails implements VersionedView {
     this.clientId = clientId;
   }
 
-  public ShoppingCart.Status getStatus() {
+  public ShoppingCartStatus getStatus() {
     return status;
   }
 
-  public ShoppingCartDetails setStatus(ShoppingCart.Status status) {
+  public ShoppingCartDetails setStatus(ShoppingCartStatus status) {
     this.status = status;
     return this;
   }
