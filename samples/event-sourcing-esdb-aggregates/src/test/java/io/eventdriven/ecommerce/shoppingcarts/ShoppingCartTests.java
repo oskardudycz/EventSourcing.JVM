@@ -1,6 +1,5 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart.*;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemAddedToShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemRemovedFromShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartConfirmed;
@@ -54,16 +53,13 @@ public class ShoppingCartTests {
         )
       };
 
-    var shoppingCart = ShoppingCart.empty();
+    ShoppingCart shoppingCart = null;
     for (var event : events) {
       shoppingCart = ShoppingCart.when(shoppingCart, event);
     }
-
-    assertTrue(shoppingCart instanceof ConfirmedShoppingCart);
     assertEquals(shoppingCart.id(), shoppingCartId);
     assertEquals(shoppingCart.clientId(), clientId);
-    assertTrue(shoppingCart.isClosed());
-    assertEquals(Status.Confirmed, shoppingCart.status());
+    assertEquals(ShoppingCartStatus.Confirmed, shoppingCart.status());
 
     assertEquals(shoppingCart.productItems().items().stream().count(), 1);
 

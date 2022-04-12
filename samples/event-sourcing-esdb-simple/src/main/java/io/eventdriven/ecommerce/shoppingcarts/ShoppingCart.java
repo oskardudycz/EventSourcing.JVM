@@ -37,7 +37,7 @@ sealed public interface ShoppingCart {
   enum Status {
     Pending,
     Confirmed,
-    Cancelled;
+    Canceled;
   }
 
   default boolean isClosed() {
@@ -51,7 +51,7 @@ sealed public interface ShoppingCart {
       case ConfirmedShoppingCart confirmedShoppingCart:
         yield Status.Confirmed;
       case CanceledShoppingCart canceledShoppingCart:
-        yield Status.Cancelled;
+        yield Status.Canceled;
     };
   }
 

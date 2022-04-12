@@ -1,105 +1,144 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
+import io.eventdriven.ecommerce.core.aggregates.AbstractAggregate;
+import io.eventdriven.ecommerce.pricing.ProductPriceCalculator;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.*;
+import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
+import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItems;
+import org.springframework.lang.Nullable;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-sealed public interface ShoppingCart {
-  UUID id();
-  UUID clientId();
-  ProductItems productItems();
-
-  record PendingShoppingCart(
-    UUID id,
-    UUID clientId,
-    ProductItems productItems
-  ) implements ShoppingCart {
+class ShoppingCart extends AbstractAggregate<UUID> {
+  public UUID clientId() {
+    return clientId;
   }
 
-  record ConfirmedShoppingCart(
+  public ProductItems productItems() {
+    return productItems;
+  }
+
+  public ShoppingCartStatus status() {
+    return status;
+  }
+
+  private final UUID clientId;
+  private ProductItems productItems;
+  private ShoppingCartStatus status;
+
+
+  ShoppingCart(
     UUID id,
     UUID clientId,
     ProductItems productItems,
-    LocalDateTime confirmedAt
-  ) implements ShoppingCart {
+    ShoppingCartStatus status
+  ) {
+    this.id = id;
+    this.clientId = clientId;
+    this.productItems = productItems;
+    this.status = status;
   }
 
-  record CanceledShoppingCart(
-    UUID id,
-    UUID clientId,
-    ProductItems productItems,
-    LocalDateTime canceledAt
-  ) implements ShoppingCart {
+  static ShoppingCart open(UUID shoppingCartId, UUID clientId) {
+    var shoppingCart = new ShoppingCart(
+      shoppingCartId,
+      clientId,
+      ProductItems.empty(),
+      ShoppingCartStatus.Pending
+    );
+    shoppingCart.enqueue(new ShoppingCartOpened(shoppingCart.id, shoppingCart.clientId));
+
+    return shoppingCart;
   }
 
-  enum Status {
-    Pending,
-    Confirmed,
-    Cancelled;
+  void addProductItem(
+    ProductPriceCalculator productPriceCalculator,
+    ProductItem productItem
+  ) {
+    if (isClosed())
+      throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(status));
+
+    var pricedProductItem = productPriceCalculator.calculate(productItem);
+
+    productItems = productItems.add(pricedProductItem);
+
+    enqueue(new ProductItemAddedToShoppingCart(
+      id,
+      pricedProductItem
+    ));
   }
 
-  default boolean isClosed() {
-    return this instanceof ConfirmedShoppingCart || this instanceof CanceledShoppingCart;
+  public void removeProductItem(
+    PricedProductItem productItem
+  ) {
+    if (isClosed())
+      throw new IllegalStateException("Adding product item for cart in '%s' status is not allowed.".formatted(status));
+
+    productItems.assertThatCanRemove(productItem);
+
+    enqueue(new ProductItemRemovedFromShoppingCart(
+      id,
+      productItem
+    ));
   }
 
-  default ShoppingCart.Status status() {
-    return switch (this) {
-      case PendingShoppingCart pendingShoppingCart:
-        yield Status.Pending;
-      case ConfirmedShoppingCart confirmedShoppingCart:
-        yield Status.Confirmed;
-      case CanceledShoppingCart canceledShoppingCart:
-        yield Status.Cancelled;
-    };
+  public void confirm() {
+    if (isClosed())
+      throw new IllegalStateException("Confirming cart in '%s' status is not allowed.".formatted(status));
+
+    enqueue(new ShoppingCartConfirmed(
+      id,
+      LocalDateTime.now()
+    ));
   }
 
-  static ShoppingCart empty() {
-    return new PendingShoppingCart(null, null, null);
+  public void cancel() {
+    if (isClosed())
+      throw new IllegalStateException("Canceling cart in '%s' status is not allowed.".formatted(status));
+
+    enqueue(new ShoppingCartCanceled(
+      id,
+      LocalDateTime.now()
+    ));
+  }
+
+  private boolean isClosed() {
+    return this.status.isClosed();
   }
 
   static String mapToStreamId(UUID shoppingCartId) {
     return "ShoppingCart-%s".formatted(shoppingCartId);
   }
 
-  static ShoppingCart when(ShoppingCart current, ShoppingCartEvent
-    event) {
-    return switch (event) {
+  static ShoppingCart when(@Nullable ShoppingCart current, ShoppingCartEvent event) {
+    switch (event) {
       case ShoppingCartOpened shoppingCartOpened:
-        yield new PendingShoppingCart(
+        return new ShoppingCart(
           shoppingCartOpened.shoppingCartId(),
           shoppingCartOpened.clientId(),
-          ProductItems.empty()
+          ProductItems.empty(),
+          ShoppingCartStatus.Pending
         );
       case ProductItemAddedToShoppingCart productItemAddedToShoppingCart:
-        yield new PendingShoppingCart(
-          current.id(),
-          current.clientId(),
-          current.productItems().add(productItemAddedToShoppingCart.productItem())
-        );
+        current.productItems =
+          current.productItems.add(productItemAddedToShoppingCart.productItem());
+        break;
       case ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart:
-        yield new PendingShoppingCart(
-          current.id(),
-          current.clientId(),
-          current.productItems().remove(productItemRemovedFromShoppingCart.productItem())
-        );
+        current.productItems =
+          current.productItems.remove(productItemRemovedFromShoppingCart.productItem());
+        break;
       case ShoppingCartConfirmed shoppingCartConfirmed:
-        yield new ConfirmedShoppingCart(
-          current.id(),
-          current.clientId(),
-          current.productItems(),
-          shoppingCartConfirmed.confirmedAt()
-        );
+        current.status = ShoppingCartStatus.Confirmed;
+        break;
       case ShoppingCartCanceled shoppingCartCanceled:
-        yield new CanceledShoppingCart(
-          current.id(),
-          current.clientId(),
-          current.productItems(),
-          shoppingCartCanceled.canceledAt()
-        );
+        current.status = ShoppingCartStatus.Canceled;
+        break;
       case null:
         throw new IllegalArgumentException("Event cannot be null!");
-    };
+    }
+
+    return current;
   }
 }

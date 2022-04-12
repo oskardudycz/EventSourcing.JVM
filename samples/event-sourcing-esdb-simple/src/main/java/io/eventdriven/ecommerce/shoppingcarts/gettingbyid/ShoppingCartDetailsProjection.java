@@ -95,7 +95,7 @@ class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDetails, U
   @EventListener
   void handleShoppingCartCanceled(EventEnvelope<ShoppingCartCanceled> eventEnvelope) {
     getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
-      view -> view.setStatus(ShoppingCart.Status.Cancelled)
+      view -> view.setStatus(ShoppingCart.Status.Canceled)
     );
   }
 }
