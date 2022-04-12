@@ -98,7 +98,7 @@ class ShoppingCartsController {
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
     var result = shoppingCartsService.removeProductItem(
-      RemoveProductItemFromShoppingCart.of(
+      new RemoveProductItemFromShoppingCart(
         id,
         new PricedProductItem(
           new ProductItem(
