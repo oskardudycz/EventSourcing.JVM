@@ -1,4 +1,4 @@
-name: Samples - Event Sourcing with Spring Boot and EventStoreDB
+name: Samples - Event Sourcing with Spring Boot and EventStoreDB using Aggregate pattern
 
 on:
   # run it on push to the default repository branch
