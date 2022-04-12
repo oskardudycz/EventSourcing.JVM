@@ -3,17 +3,12 @@ package io.eventdriven.ecommerce.api.controller;
 import io.eventdriven.ecommerce.api.requests.ShoppingCartsRequests;
 import io.eventdriven.ecommerce.core.http.ETag;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartService;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.AddProductItemToShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.CancelShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.ConfirmShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.GetShoppingCartById;
 import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.ShoppingCartDetails;
 import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.GetShoppingCarts;
 import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.ShoppingCartShortInfo;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.OpenShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.RemoveProductItemFromShoppingCart;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -50,12 +45,7 @@ class ShoppingCartsController {
   ) throws URISyntaxException {
     var cartId = UUID.randomUUID();
 
-    var result = shoppingCartsService.open(
-      new OpenShoppingCart(
-        cartId,
-        request.clientId()
-      )
-    );
+    var result = shoppingCartsService.open(cartId,request.clientId());
 
     return ResponseEntity
       .created(new URI("api/shopping-carts/%s".formatted(cartId)))
@@ -73,14 +63,12 @@ class ShoppingCartsController {
       throw new IllegalArgumentException("Product Item has to be defined");
 
     var result = shoppingCartsService.addProductItem(
-      new AddProductItemToShoppingCart(
-        id,
-        new ProductItem(
-          request.productItem().productId(),
-          request.productItem().quantity()
-        ),
-        ifMatch.toLong()
-      )
+      id,
+      new ProductItem(
+        request.productItem().productId(),
+        request.productItem().quantity()
+      ),
+      ifMatch.toLong()
     );
 
     return ResponseEntity
@@ -98,17 +86,15 @@ class ShoppingCartsController {
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
     var result = shoppingCartsService.removeProductItem(
-      new RemoveProductItemFromShoppingCart(
-        id,
-        new PricedProductItem(
-          new ProductItem(
-            productId,
-            quantity
-          ),
-          price
+      id,
+      new PricedProductItem(
+        new ProductItem(
+          productId,
+          quantity
         ),
-        ifMatch.toLong()
-      )
+        price
+      ),
+      ifMatch.toLong()
     );
 
     return ResponseEntity
@@ -122,9 +108,7 @@ class ShoppingCartsController {
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
-    var result = shoppingCartsService.confirm(
-      new ConfirmShoppingCart(id, ifMatch.toLong())
-    );
+    var result = shoppingCartsService.confirm(id, ifMatch.toLong());
 
     return ResponseEntity
       .ok()
@@ -137,9 +121,7 @@ class ShoppingCartsController {
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
-    var result = shoppingCartsService.cancel(
-      new CancelShoppingCart(id, ifMatch.toLong())
-    );
+    var result = shoppingCartsService.cancel(id, ifMatch.toLong());
 
     return ResponseEntity
       .ok()

@@ -28,7 +28,6 @@ class ShoppingCart extends AbstractAggregate<UUID> {
   private ProductItems productItems;
   private ShoppingCartStatus status;
 
-
   ShoppingCart(
     UUID id,
     UUID clientId,
@@ -70,7 +69,7 @@ class ShoppingCart extends AbstractAggregate<UUID> {
     ));
   }
 
-  public void removeProductItem(
+  void removeProductItem(
     PricedProductItem productItem
   ) {
     if (isClosed())
@@ -84,7 +83,7 @@ class ShoppingCart extends AbstractAggregate<UUID> {
     ));
   }
 
-  public void confirm() {
+  void confirm() {
     if (isClosed())
       throw new IllegalStateException("Confirming cart in '%s' status is not allowed.".formatted(status));
 
@@ -94,7 +93,7 @@ class ShoppingCart extends AbstractAggregate<UUID> {
     ));
   }
 
-  public void cancel() {
+  void cancel() {
     if (isClosed())
       throw new IllegalStateException("Canceling cart in '%s' status is not allowed.".formatted(status));
 
