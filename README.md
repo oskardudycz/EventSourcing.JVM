@@ -198,6 +198,10 @@ Read more in my article:
 
 <a href="https://www.youtube.com/watch?v=D-3N2vQ7ADE" target="_blank"><img src="https://img.youtube.com/vi/D-3N2vQ7ADE/0.jpg" alt="Event Store Conversations: Yves Lorphelin talks to Oskar Dudycz about CQRS (EN)" width="320" height="240" border="10" /></a>
 
+### How to deal with privacy and GDPR in Event-Sourced systems
+
+<a href="https://www.youtube.com/watch?v=CI7JPFLlpBw" target="_blank"><img src="https://img.youtube.com/vi/CI7JPFLlpBw/0.jpg" alt="How to deal with privacy and GDPR in Event-Sourced systems" width="320" height="240" border="10" /></a>
+
 ## Support
 
 Feel free to [create an issue](https://github.com/oskardudycz/EventSourcing.JVM/issues/new) if you have any questions or request for more explanation or samples. I also take **Pull Requests**!
@@ -214,7 +218,7 @@ See also fully working, real-world samples of Event Sourcing and CQRS applicatio
 
 Samples are using CQRS architecture. They're sliced based on the business modules and operations. Read more about the assumptions in ["How to slice the codebase effectively?"](https://event-driven.io/en/how_to_slice_the_codebase_effectively/?utm_source=event_sourcing_jvm).
 
-### [Event Sourcing with Spring Boot and EventStoreDB](./samples/event-sourcing-esdb-simple)
+### Event Sourcing with Spring Boot and EventStoreDB
 
 #### Overview
 
@@ -229,6 +233,10 @@ The presented use case is Shopping Cart flow:
 6. After shopping cart confirmation or cancellation, the product can no longer be added or removed from the cart.
 
 Technically it's modelled as Web API written in [Spring Boot](https://spring.io/projects/spring-boot) and [Java 17](https://www.oracle.com/java/technologies/downloads/). 
+
+There are two variations of those samples:
+- [Event Sourcing with Spring Boot and EventStoreDB](./samples/event-sourcing-esdb-simple)
+- [Event Sourcing with Spring Boot and EventStoreDB using Aggregate pattern](./samples/event-sourcing-esdb-aggregates)
 
 #### Main assumptions
 - explain basics of Event Sourcing, both from the write model ([EventStoreDB](https://developers.eventstore.com/)) and read model part ([PostgreSQL](https://www.postgresql.org/) and [Spring Data JPA](https://spring.io/projects/spring-data-jpa)),

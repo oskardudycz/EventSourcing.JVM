@@ -1,4 +1,4 @@
-# Event Sourcing with Spring Boot and EventStoreDB
+# Event Sourcing with Spring Boot and EventStoreDB using Aggregate pattern
 
 Sample is showing basic Event Sourcing flow. It uses [EventStoreDB](https://developers.eventstore.com/) for event storage and [Spring Data JPA](https://spring.io/projects/spring-data-jpa) backed with [PostgreSQL](https://www.postgresql.org/) for read models. 
 
@@ -24,18 +24,18 @@ Technically it's modelled as Web API written in [Spring Boot](https://spring.io/
 ## Overview
 
 It uses:
-- pure data entities, functions and handlers,
+- Aggregate pattern for modelling the business logic,
 - Stores events from the command handler result EventStoreDB,
 - Builds read models using [Subscription to `$all`](https://developers.eventstore.com/clients/grpc/subscribing-to-streams/#subscribing-to-all).
 - Read models are stored to Postgres relational tables with [Spring Data JPA](https://spring.io/projects/spring-data-jpa).
 - App has Swagger and predefined [docker-compose](./docker-compose.yml) to run and play with samples.
 
 ## Write Model
-- Sample [ShoppingCart](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCart.java) entity and [events](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/java) represent the business workflow. All events are stored in the same file using [sealed classes](https://blogs.oracle.com/javamagazine/post/java-sealed-classes-fight-ambiguity) to be able to understand flow without jumping from one file to another. It also enables better typing support in pattern matching. `ShoppingCart` also contains [When method](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCart.java#L39) method defining how to apply events to get the entity state. It uses the Java 17 switch syntax for pattern matching.
-- Command handlers are defined as static methods in the same file as command definition. It improves ergonomy and reduces context switching as they usually change together. They are pure functions that take command and/or state and create new events based on the business logic. See sample [Adding Product Item to ShoppingCart](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/addingproductitem/AddProductItemToShoppingCart.java#L28). This example also shows that you can inject external services to handlers if needed.
+- Sample [ShoppingCart](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCart.java) aggregate and [events](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCartEvent.java) represent the business workflow. All events are stored in the same file using [sealed classes](https://blogs.oracle.com/javamagazine/post/java-sealed-classes-fight-ambiguity) to be able to understand flow without jumping from one file to another. It also enables better typing support in pattern matching. `ShoppingCart` also contains [when method](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCart.java#L113) method defining how to apply events to get the entity state. It uses the Java 17 switch syntax for pattern matching.
+- business logic is encapsulated into aggregate methods. It helps to keep the invariants and business logic in the same place. They are pure functions that take command and/or state and create new events based on the business logic. See sample [Adding Product Item to ShoppingCart](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCart.java#L55). This example also shows that you can inject external services to handlers if needed.
 - Code uses [functional interfaces](https://www.theserverside.com/blog/Coffee-Talk-Java-News-Stories-and-Opinions/Get-the-most-from-Java-Function-interface-with-this-example) in many places to introduce composability and lously coupled, testable code.
-- Added [EventStoreDB entity store](./src/main/java/io/eventdriven/ecommerce/core/aggregates/EntityStore.java) to load entity state and store event created by business logic.
-- Command and Query handlers are grouped/wrapped into application service, to have the single entry point with all possible operations, see [ShoppingCartService](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCartService.java) 
+- Added [EventStoreDB aggregate store](./src/main/java/io/eventdriven/ecommerce/core/aggregates/AggregateStore.java) to load entity state and store event created by business logic.
+- Command and query handling logic are grouped/wrapped into application service, to have the single entry point with all possible operations, see [ShoppingCartService](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCartService.java). It does not keep the additional command/query types definition as they're redundant because of the param types validation.
 - All command handling has to support [optimistic concurrency](https://event-driven.io/en/optimistic_concurrency_for_pessimistic_times/). Implemented full flow using [If-Match header](./src/main/java/io/eventdriven/ecommerce/api/controller/ShoppingCartsController.java#L87) and returning [ETag](./src/main/java/io/eventdriven/ecommerce/core/http/ETag.java). Read more details in my article [How to use ETag header for optimistic concurrency](https://event-driven.io/pl/how_to_use_etag_header_for_optimistic_concurrency/)
 
 ## Read Model
