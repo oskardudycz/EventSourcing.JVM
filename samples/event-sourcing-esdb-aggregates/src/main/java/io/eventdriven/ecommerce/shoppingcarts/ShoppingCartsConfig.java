@@ -33,8 +33,8 @@ class ShoppingCartsConfig {
   AggregateStore<ShoppingCart, ShoppingCartEvent, UUID> shoppingCartStore(EventStoreDBClient eventStore) {
     return new AggregateStore<>(
       eventStore,
-      ShoppingCart::when,
-      ShoppingCart::mapToStreamId
+      ShoppingCart::mapToStreamId,
+      ShoppingCart::empty
     );
   }
 }

@@ -53,9 +53,9 @@ public class ShoppingCartTests {
         )
       };
 
-    ShoppingCart shoppingCart = null;
+    ShoppingCart shoppingCart = ShoppingCart.empty();
     for (var event : events) {
-      shoppingCart = ShoppingCart.when(shoppingCart, event);
+      shoppingCart.when(event);
     }
     assertEquals(shoppingCart.id(), shoppingCartId);
     assertEquals(shoppingCart.clientId(), clientId);

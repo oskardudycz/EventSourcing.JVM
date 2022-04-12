@@ -8,25 +8,24 @@ import javax.persistence.EntityNotFoundException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public class AggregateStore<Entity extends AbstractAggregate<Id>, Event, Id> {
+public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, Id> {
   private final EventStoreDBClient eventStore;
-  private final BiFunction<Entity, Event, Entity> when;
   private final Function<Id, String> mapToStreamId;
+  private final Supplier<Entity> getEmpty;
 
   public AggregateStore(
     EventStoreDBClient eventStore,
-    BiFunction<Entity, Event, Entity> when,
-    Function<Id, String> mapToStreamId
+    Function<Id, String> mapToStreamId,
+    Supplier<Entity> getEmpty
   ) {
 
     this.eventStore = eventStore;
-    this.when = when;
     this.mapToStreamId = mapToStreamId;
+    this.getEmpty = getEmpty;
   }
 
   Optional<Entity> get(Id id) {
@@ -37,36 +36,20 @@ public class AggregateStore<Entity extends AbstractAggregate<Id>, Event, Id> {
     if (events.isEmpty())
       return Optional.empty();
 
-    Entity current = null;
+    var current = getEmpty.get();
 
     for (var event : events.get()) {
-      current = when.apply(current, event);
+      current.when(event);
     }
 
     return Optional.ofNullable(current);
   }
 
-  public ETag add(
-    Supplier<Entity> handle
-  ) {
-    var entity = handle.get();
-
-    var streamId = mapToStreamId.apply(entity.id());
-    var events = Arrays.stream(entity.dequeueUncommittedEvents())
-      .map(event -> EventSerializer.serialize(event));
-
-    try {
-      var result =
-        eventStore.appendToStream(
-          streamId,
-          AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
-          events.iterator()
-        ).get();
-
-      return ETag.weak(result.getNextExpectedRevision());
-    } catch (Throwable e) {
-      throw new RuntimeException(e);
-    }
+  public ETag add(Entity entity) {
+    return appendEvents(
+      entity,
+      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM)
+    );
   }
 
   public ETag getAndUpdate(
@@ -74,31 +57,14 @@ public class AggregateStore<Entity extends AbstractAggregate<Id>, Event, Id> {
     Id id,
     long expectedRevision
   ) {
-
     var streamId = mapToStreamId.apply(id);
-    var getResult = get(id);
-
-    if (getResult.isEmpty()) {
-      throw new EntityNotFoundException("Stream with id %s was not found".formatted(streamId));
-    }
-    var entity = getResult.get();
+    var entity = get(id).orElseThrow(
+      () -> new EntityNotFoundException("Stream with id %s was not found".formatted(streamId))
+    );
 
     handle.accept(entity);
 
-    var events = Arrays.stream(entity.dequeueUncommittedEvents())
-      .map(event -> EventSerializer.serialize(event));
-
-    try {
-      var result = eventStore.appendToStream(
-        streamId,
-        AppendToStreamOptions.get().expectedRevision(expectedRevision),
-        events.iterator()
-      ).get();
-
-      return ETag.weak(result.getNextExpectedRevision());
-    } catch (Throwable e) {
-      throw new RuntimeException(e);
-    }
+    return appendEvents(entity, AppendToStreamOptions.get().expectedRevision(expectedRevision));
   }
 
   private Optional<List<Event>> getEvents(String streamId) {
@@ -121,5 +87,23 @@ public class AggregateStore<Entity extends AbstractAggregate<Id>, Event, Id> {
       .toList();
 
     return Optional.of(events);
+  }
+
+  public ETag appendEvents(Entity entity, AppendToStreamOptions appendOptions) {
+    var streamId = mapToStreamId.apply(entity.id());
+    var events = Arrays.stream(entity.dequeueUncommittedEvents())
+      .map(event -> EventSerializer.serialize(event));
+
+    try {
+      var result = eventStore.appendToStream(
+        streamId,
+        appendOptions,
+        events.iterator()
+      ).get();
+
+      return ETag.weak(result.getNextExpectedRevision());
+    } catch (Throwable e) {
+      throw new RuntimeException(e);
+    }
   }
 }

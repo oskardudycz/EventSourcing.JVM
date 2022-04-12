@@ -46,11 +46,11 @@ sealed public interface ShoppingCart {
 
   default ShoppingCart.Status status() {
     return switch (this) {
-      case PendingShoppingCart pendingShoppingCart:
+      case PendingShoppingCart ignored:
         yield Status.Pending;
-      case ConfirmedShoppingCart confirmedShoppingCart:
+      case ConfirmedShoppingCart ignored:
         yield Status.Confirmed;
-      case CanceledShoppingCart canceledShoppingCart:
+      case CanceledShoppingCart ignored:
         yield Status.Canceled;
     };
   }
@@ -63,8 +63,7 @@ sealed public interface ShoppingCart {
     return "ShoppingCart-%s".formatted(shoppingCartId);
   }
 
-  static ShoppingCart when(ShoppingCart current, ShoppingCartEvent
-    event) {
+  static ShoppingCart when(ShoppingCart current, ShoppingCartEvent event) {
     return switch (event) {
       case ShoppingCartOpened shoppingCartOpened:
         yield new PendingShoppingCart(
