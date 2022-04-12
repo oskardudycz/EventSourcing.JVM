@@ -3,7 +3,7 @@ package io.eventdriven.ecommerce.core.aggregates;
 import java.util.LinkedList;
 import java.util.Queue;
 
-public abstract class AbstractAggregate<Id> {
+public abstract class AbstractAggregate<Event, Id> implements Aggregate<Id> {
   protected Id id;
   protected int version;
 
@@ -25,8 +25,11 @@ public abstract class AbstractAggregate<Id> {
     return dequeuedEvents;
   }
 
-  protected void enqueue(Object event) {
+  public abstract void when(Event event);
+
+  protected void enqueue(Event event) {
     uncommittedEvents.add(event);
+    when(event);
     version++;
   }
 }

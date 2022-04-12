@@ -6,13 +6,12 @@ import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItems;
-import org.springframework.lang.Nullable;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-class ShoppingCart extends AbstractAggregate<UUID> {
-  public UUID clientId() {
+class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
+  UUID clientId() {
     return clientId;
   }
 
@@ -20,36 +19,37 @@ class ShoppingCart extends AbstractAggregate<UUID> {
     return productItems;
   }
 
-  public ShoppingCartStatus status() {
+  ShoppingCartStatus status() {
     return status;
   }
 
-  private final UUID clientId;
+  private UUID clientId;
   private ProductItems productItems;
   private ShoppingCartStatus status;
 
+  private ShoppingCart(){
+
+  }
+
+  public static ShoppingCart empty(){
+    return new ShoppingCart();
+  }
+
   ShoppingCart(
     UUID id,
-    UUID clientId,
-    ProductItems productItems,
-    ShoppingCartStatus status
+    UUID clientId
   ) {
     this.id = id;
     this.clientId = clientId;
-    this.productItems = productItems;
-    this.status = status;
+
+    enqueue(new ShoppingCartOpened(id, clientId));
   }
 
   static ShoppingCart open(UUID shoppingCartId, UUID clientId) {
-    var shoppingCart = new ShoppingCart(
-      shoppingCartId,
-      clientId,
-      ProductItems.empty(),
-      ShoppingCartStatus.Pending
-    );
-    shoppingCart.enqueue(new ShoppingCartOpened(shoppingCart.id, shoppingCart.clientId));
-
-    return shoppingCart;
+   return new ShoppingCart(
+     shoppingCartId,
+     clientId
+   );
   }
 
   void addProductItem(
@@ -60,8 +60,6 @@ class ShoppingCart extends AbstractAggregate<UUID> {
       throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(status));
 
     var pricedProductItem = productPriceCalculator.calculate(productItem);
-
-    productItems = productItems.add(pricedProductItem);
 
     enqueue(new ProductItemAddedToShoppingCart(
       id,
@@ -111,33 +109,29 @@ class ShoppingCart extends AbstractAggregate<UUID> {
     return "ShoppingCart-%s".formatted(shoppingCartId);
   }
 
-  static ShoppingCart when(@Nullable ShoppingCart current, ShoppingCartEvent event) {
+  @Override
+  public void when(ShoppingCartEvent event) {
     switch (event) {
       case ShoppingCartOpened shoppingCartOpened:
-        return new ShoppingCart(
-          shoppingCartOpened.shoppingCartId(),
-          shoppingCartOpened.clientId(),
-          ProductItems.empty(),
-          ShoppingCartStatus.Pending
-        );
+        id = shoppingCartOpened.shoppingCartId();
+        clientId = shoppingCartOpened.clientId();
+        productItems = ProductItems.empty();
+        status = ShoppingCartStatus.Pending;
+        break;
       case ProductItemAddedToShoppingCart productItemAddedToShoppingCart:
-        current.productItems =
-          current.productItems.add(productItemAddedToShoppingCart.productItem());
+        productItems = productItems.add(productItemAddedToShoppingCart.productItem());
         break;
       case ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart:
-        current.productItems =
-          current.productItems.remove(productItemRemovedFromShoppingCart.productItem());
+        productItems = productItems.remove(productItemRemovedFromShoppingCart.productItem());
         break;
-      case ShoppingCartConfirmed shoppingCartConfirmed:
-        current.status = ShoppingCartStatus.Confirmed;
+      case ShoppingCartConfirmed ignored:
+        status = ShoppingCartStatus.Confirmed;
         break;
-      case ShoppingCartCanceled shoppingCartCanceled:
-        current.status = ShoppingCartStatus.Canceled;
+      case ShoppingCartCanceled ignored:
+        status = ShoppingCartStatus.Canceled;
         break;
       case null:
         throw new IllegalArgumentException("Event cannot be null!");
     }
-
-    return current;
   }
 }

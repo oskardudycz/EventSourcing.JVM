@@ -76,13 +76,11 @@ public class EntityStore<Entity, Event> {
   ) {
 
     var streamId = mapToStreamId.apply(id);
-    var entity = get(id);
+    var entity = get(id).orElseThrow(
+      () -> new EntityNotFoundException("Stream with id %s was not found".formatted(streamId))
+    );
 
-    if (entity.isEmpty()) {
-      throw new EntityNotFoundException("Stream with id %s was not found".formatted(streamId));
-    }
-
-    var event = handle.apply(entity.get());
+    var event = handle.apply(entity);
 
     try {
       var result = eventStore.appendToStream(

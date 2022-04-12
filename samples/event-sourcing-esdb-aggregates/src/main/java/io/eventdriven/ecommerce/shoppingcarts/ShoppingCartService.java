@@ -35,7 +35,7 @@ public class ShoppingCartService {
   }
 
   public ETag open(UUID shoppingCartId, UUID clientId) {
-    return store.add(() -> ShoppingCart.open(shoppingCartId, clientId));
+    return store.add(ShoppingCart.open(shoppingCartId, clientId));
   }
 
   public ETag addProductItem(UUID shoppingCartId, ProductItem productItem, Long expectedVersion) {
