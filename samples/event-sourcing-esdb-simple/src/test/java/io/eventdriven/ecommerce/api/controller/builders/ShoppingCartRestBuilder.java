@@ -19,7 +19,7 @@ public class ShoppingCartRestBuilder {
   private UUID clientId;
   private boolean isConfirmed;
   private boolean isCanceled;
-  private List<ProductItemRequest> products = new ArrayList<>();
+  private final List<ProductItemRequest> products = new ArrayList<>();
 
   public String getApiUrl() {
     return "http://localhost:%s/%s/".formatted(port, apiPrefix);

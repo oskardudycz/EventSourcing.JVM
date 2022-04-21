@@ -56,7 +56,7 @@ public class ShoppingCartService {
 
   public ETag confirm(UUID shoppingCartId, Long expectedVersion) {
     return store.getAndUpdate(
-      current -> current.confirm(),
+      ShoppingCart::confirm,
       shoppingCartId,
       expectedVersion
     );
@@ -64,7 +64,7 @@ public class ShoppingCartService {
 
   public ETag cancel(UUID shoppingCartId, Long expectedVersion) {
     return store.getAndUpdate(
-      current -> current.cancel(),
+      ShoppingCart::cancel,
       shoppingCartId,
       expectedVersion
     );

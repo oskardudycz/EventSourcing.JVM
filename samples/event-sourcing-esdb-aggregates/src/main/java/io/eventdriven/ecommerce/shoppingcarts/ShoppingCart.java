@@ -27,11 +27,10 @@ class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
   private ProductItems productItems;
   private ShoppingCartStatus status;
 
-  private ShoppingCart(){
-
+  private ShoppingCart() {
   }
 
-  public static ShoppingCart empty(){
+  public static ShoppingCart empty() {
     return new ShoppingCart();
   }
 
@@ -46,10 +45,10 @@ class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
   }
 
   static ShoppingCart open(UUID shoppingCartId, UUID clientId) {
-   return new ShoppingCart(
-     shoppingCartId,
-     clientId
-   );
+    return new ShoppingCart(
+      shoppingCartId,
+      clientId
+    );
   }
 
   void addProductItem(
@@ -112,26 +111,23 @@ class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
   @Override
   public void when(ShoppingCartEvent event) {
     switch (event) {
-      case ShoppingCartOpened shoppingCartOpened:
+      case ShoppingCartOpened shoppingCartOpened -> {
         id = shoppingCartOpened.shoppingCartId();
         clientId = shoppingCartOpened.clientId();
         productItems = ProductItems.empty();
         status = ShoppingCartStatus.Pending;
-        break;
-      case ProductItemAddedToShoppingCart productItemAddedToShoppingCart:
+      }
+      case ProductItemAddedToShoppingCart productItemAddedToShoppingCart ->
         productItems = productItems.add(productItemAddedToShoppingCart.productItem());
-        break;
-      case ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart:
+
+      case ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart ->
         productItems = productItems.remove(productItemRemovedFromShoppingCart.productItem());
-        break;
-      case ShoppingCartConfirmed ignored:
+
+      case ShoppingCartConfirmed ignored ->
         status = ShoppingCartStatus.Confirmed;
-        break;
-      case ShoppingCartCanceled ignored:
+
+      case ShoppingCartCanceled ignored ->
         status = ShoppingCartStatus.Canceled;
-        break;
-      case null:
-        throw new IllegalArgumentException("Event cannot be null!");
     }
   }
 }

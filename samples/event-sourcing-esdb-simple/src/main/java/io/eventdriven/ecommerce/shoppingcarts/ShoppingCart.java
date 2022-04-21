@@ -37,7 +37,7 @@ sealed public interface ShoppingCart {
   enum Status {
     Pending,
     Confirmed,
-    Canceled;
+    Canceled
   }
 
   default boolean isClosed() {
@@ -53,14 +53,6 @@ sealed public interface ShoppingCart {
       case CanceledShoppingCart ignored:
         yield Status.Canceled;
     };
-  }
-
-  static ShoppingCart empty() {
-    return new PendingShoppingCart(null, null, null);
-  }
-
-  static String mapToStreamId(UUID shoppingCartId) {
-    return "ShoppingCart-%s".formatted(shoppingCartId);
   }
 
   static ShoppingCart when(ShoppingCart current, ShoppingCartEvent event) {
@@ -100,5 +92,13 @@ sealed public interface ShoppingCart {
       case null:
         throw new IllegalArgumentException("Event cannot be null!");
     };
+  }
+
+  static ShoppingCart empty() {
+    return new PendingShoppingCart(null, null, null);
+  }
+
+  static String mapToStreamId(UUID shoppingCartId) {
+    return "ShoppingCart-%s".formatted(shoppingCartId);
   }
 }
