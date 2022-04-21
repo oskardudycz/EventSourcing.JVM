@@ -13,7 +13,6 @@ public class EventStoreDBSubscriptionToAll {
   private final SubscriptionCheckpointRepository checkpointRepository;
   private final EventBus eventBus;
   private EventStoreDBSubscriptionToAllOptions subscriptionOptions;
-  private final Object resubscribeLock = new Object();
   private Subscription subscription;
   private boolean isRunning;
   private final Logger logger = LoggerFactory.getLogger(EventStoreDBSubscriptionToAll.class);
@@ -63,7 +62,7 @@ public class EventStoreDBSubscriptionToAll {
       retryTemplate.execute(context -> {
         var checkpoint = checkpointRepository.load(subscriptionOptions.subscriptionId());
 
-        if (!checkpoint.isEmpty()) {
+        if (checkpoint.isPresent()) {
           subscriptionOptions.subscribeToAllOptions()
             .fromPosition(new Position(checkpoint.get(), checkpoint.get()));
         } else {

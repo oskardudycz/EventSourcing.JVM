@@ -92,7 +92,7 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
   public ETag appendEvents(Entity entity, AppendToStreamOptions appendOptions) {
     var streamId = mapToStreamId.apply(entity.id());
     var events = Arrays.stream(entity.dequeueUncommittedEvents())
-      .map(event -> EventSerializer.serialize(event));
+      .map(EventSerializer::serialize);
 
     try {
       var result = eventStore.appendToStream(

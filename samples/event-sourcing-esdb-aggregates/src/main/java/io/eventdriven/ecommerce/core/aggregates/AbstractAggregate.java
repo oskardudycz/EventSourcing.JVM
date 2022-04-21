@@ -7,14 +7,10 @@ public abstract class AbstractAggregate<Event, Id> implements Aggregate<Id> {
   protected Id id;
   protected int version;
 
-  private final Queue uncommittedEvents = new LinkedList<>();
+  private final Queue<Object> uncommittedEvents = new LinkedList<>();
 
   public Id id() {
     return id;
-  }
-
-  public int version() {
-    return version;
   }
 
   public Object[] dequeueUncommittedEvents() {
