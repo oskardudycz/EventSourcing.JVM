@@ -12,6 +12,12 @@ The presented use case is Shopping Cart flow:
 
 Technically it's modelled as Web API written in [Spring Boot](https://spring.io/projects/spring-boot) and [Java 17](https://www.oracle.com/java/technologies/downloads/). 
 
+## Watch the video
+
+Practical introduction to Event Sourcing with Spring Boot and EventStoreDB
+
+<a href="https://www.youtube.com/watch?v=LaUSPtwFLSg" target="_blank"><img src="https://img.youtube.com/vi/LaUSPtwFLSg/0.jpg" alt="Practical introduction to Event Sourcing with Spring Boot and EventStoreDB" width="320" height="240" border="10" /></a>
+
 ## Main assumptions
 - explain basics of Event Sourcing, both from the write model ([EventStoreDB](https://developers.eventstore.com/)) and read model part ([PostgreSQL](https://www.postgresql.org/) and [Spring Data JPA](https://spring.io/projects/spring-data-jpa)),
 - present that you can join classical approach with Event Sourcing without making a massive revolution,
