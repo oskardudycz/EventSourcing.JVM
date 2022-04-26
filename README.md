@@ -13,9 +13,11 @@ Tutorial, practical samples and other resources about Event Sourcing in JVM. See
     - [Retrieving the current state from events](#retrieving-the-current-state-from-events)
     - [Event Store](#event-store)
   - [Videos](#videos)
+    - [Practical introduction to Event Sourcing with Spring Boot and EventStoreDB](#practical-introduction-to-event-sourcing-with-spring-boot-and-eventstoredb)
     - [Let's build the worst Event Sourcing system!](#lets-build-the-worst-event-sourcing-system)
     - [The Light and The Dark Side of the Event-Driven Design](#the-light-and-the-dark-side-of-the-event-driven-design)
     - [Conversation with Yves Lorphelin about CQRS](#conversation-with-yves-lorphelin-about-cqrs)
+    - [How to deal with privacy and GDPR in Event-Sourced systems](#how-to-deal-with-privacy-and-gdpr-in-event-sourced-systems)
   - [Support](#support)
   - [Samples](#samples)
     - [Event Sourcing with Spring Boot and EventStoreDB](#event-sourcing-with-spring-boot-and-eventstoredb)
@@ -186,6 +188,10 @@ Read more in my article:
 
 ## Videos
 
+### Practical introduction to Event Sourcing with Spring Boot and EventStoreDB
+
+<a href="https://www.youtube.com/watch?v=LaUSPtwFLSg" target="_blank"><img src="https://img.youtube.com/vi/LaUSPtwFLSg/0.jpg" alt="Practical introduction to Event Sourcing with Spring Boot and EventStoreDB" width="320" height="240" border="10" /></a>
+
 ### Let's build the worst Event Sourcing system!
 
 <a href="https://www.youtube.com/watch?v=Lu-skMQ-vAw" target="_blank"><img src="https://img.youtube.com/vi/Lu-skMQ-vAw/0.jpg" alt="Let's build the worst Event Sourcing system!" width="320" height="240" border="10" /></a>
@@ -290,6 +296,7 @@ Read also more on the **Event Sourcing** and **CQRS** topics in my [blog](https:
 -   📝 [How using events helps in a teams' autonomy](https://event-driven.io/en/how_using_events_help_in_teams_autonomy/?utm_source=event_sourcing_jvm)
 -   📝 [What texting your Ex has to do with Event-Driven Design?](https://event-driven.io/en/what_texting_ex_has_to_do_with_event_driven_design/?utm_source=event_sourcing_jvm)
 -   📝 [What if I told you that Relational Databases are in fact Event Stores?](https://event-driven.io/en/relational_databases_are_event_stores/?utm_source=event_sourcing_jvm)
+-   📝 [Are Temporal Tables an alternative to Event Sourcing?](https://event-driven.io/en/temporal_tables_and_event_sourcing/?utm_source=event_sourcing_jvm)
 -   📝 [Optimistic concurrency for pessimistic times](https://event-driven.io/en/optimistic_concurrency_for_pessimistic_times/?utm_source=event_sourcing_jvm)
 -   📝 [Outbox, Inbox patterns and delivery guarantees explained](https://event-driven.io/en/outbox_inbox_patterns_and_delivery_guarantees_explained/?utm_source=event_sourcing_jvm)
 -   📝 [Saga and Process Manager - distributed processes in practice](https://event-driven.io/en/saga_process_manager_distributed_transactions/?utm_source=event_sourcing_jvm)
