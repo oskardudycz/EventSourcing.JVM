@@ -1,11 +1,11 @@
-package io.eventdriven.ecommerce.shoppingcarts;
+package io.eventdriven.eventsversioning.v1;
 
-import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
+import io.eventdriven.eventsversioning.v1.productitems.PricedProductItem;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public sealed interface ShoppingCartEvent {
+public interface ShoppingCartEvent {
 
   record ShoppingCartOpened(
     UUID shoppingCartId,

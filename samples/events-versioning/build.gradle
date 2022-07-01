@@ -1,6 +1,4 @@
 plugins {
-  id 'org.springframework.boot' version '2.7.0'
-  id 'io.spring.dependency-management' version '1.0.11.RELEASE'
   id 'java'
 }
 
@@ -13,41 +11,27 @@ repositories {
 }
 
 dependencies {
-  // Spring Boot Web
-  implementation 'org.springframework.boot:spring-boot-starter-web:2.7.0'
-  // Validation
-  implementation 'org.springframework.boot:spring-boot-starter-validation:2.7.0'
-  // Retry policy
-  implementation 'org.springframework.retry:spring-retry:1.3.3'
-  // Swagger
-  implementation "org.springdoc:springdoc-openapi-ui:1.6.9"
   // Serialisation
   implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.3'
-
-  // Log4J logging
-  implementation 'org.springframework.boot:spring-boot-starter-log4j2:2.7.0'
+  implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.13.3'
 
   // EventStoreDB client
   implementation 'com.eventstore:db-client-java:3.0.0'
 
 
   // Postgres and JPA for read models
-  implementation 'org.springframework.boot:spring-boot-starter-data-jpa:2.7.0'
-  implementation 'org.postgresql:postgresql:42.3.6'
   implementation 'junit:junit:4.13.2'
 
-  // Test frameworks
-  testImplementation 'org.springframework.boot:spring-boot-starter-test'
+  implementation 'org.slf4j:slf4j-log4j13:1.0.1'
+  implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
+  implementation 'org.apache.logging.log4j:log4j-core:2.17.2'
+  implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.17.2'
 
+  // Test frameworks
   testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
   testImplementation 'org.junit.platform:junit-platform-launcher:1.8.2'
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.13.3'
-}
-
-configurations {
-  all*.exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
-  all*.exclude group: 'spring-boot-starter-test', module: 'junit'
 }
 
 tasks.named('test') {
