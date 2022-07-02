@@ -4,18 +4,30 @@ import io.eventdriven.eventsversioning.serialization.Serializer;
 import io.eventdriven.eventsversioning.v1.ShoppingCartEvent;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class NewNotRequiredProperty {
+public class NewRequiredPropertyTests {
+  public enum ShoppingCartStatus {
+    Pending,
+    Opened,
+    Confirmed,
+    Cancelled
+  }
+
   public record ShoppingCartOpened(
     UUID shoppingCartId,
     UUID clientId,
-    // Adding new not required property
-    LocalDateTime initializedAt
-  ) { };
+    // Adding new not required property as nullable
+    ShoppingCartStatus status
+  ) {
+    public ShoppingCartOpened {
+      if (status == null) {
+        status = ShoppingCartStatus.Opened;
+      }
+    }
+  }
 
   @Test
   public void Should_BeForwardCompatible()
@@ -34,14 +46,14 @@ public class NewNotRequiredProperty {
 
     assertEquals(oldEvent.shoppingCartId(), event.shoppingCartId());
     assertEquals(oldEvent.clientId(), event.clientId());
-    assertNull(event.initializedAt());
+    assertEquals(ShoppingCartStatus.Opened, event.status());
   }
 
   @Test
   public void Should_BeBackwardCompatible()
   {
     // Given
-    var event = new ShoppingCartOpened(UUID.randomUUID(), UUID.randomUUID(), LocalDateTime.now());
+    var event = new ShoppingCartOpened(UUID.randomUUID(), UUID.randomUUID(), ShoppingCartStatus.Pending);
     var bytes = Serializer.serialize(event);
 
     // When

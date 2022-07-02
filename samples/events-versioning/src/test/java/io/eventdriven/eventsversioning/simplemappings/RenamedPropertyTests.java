@@ -1,5 +1,6 @@
 package io.eventdriven.eventsversioning.simplemappings;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.eventdriven.eventsversioning.serialization.Serializer;
 import io.eventdriven.eventsversioning.v1.ShoppingCartEvent;
 import org.junit.jupiter.api.Test;
@@ -8,25 +9,11 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class NewRequiredProperty {
-  public enum ShoppingCartStatus {
-    Pending,
-    Opened,
-    Confirmed,
-    Cancelled
-  }
-
-  public record ShoppingCartOpened(
-    UUID shoppingCartId,
-    UUID clientId,
-    // Adding new not required property as nullable
-    ShoppingCartStatus status
-  ) {
-    public ShoppingCartOpened {
-      if (status == null) {
-        status = ShoppingCartStatus.Opened;
-      }
-    }
+public class RenamedPropertyTests {
+  record ShoppingCartOpened(
+    @JsonProperty("shoppingCartId") UUID cartId,
+    UUID clientId
+  ) implements ShoppingCartEvent {
   }
 
   @Test
@@ -44,16 +31,15 @@ public class NewRequiredProperty {
 
     var event = result.get();
 
-    assertEquals(oldEvent.shoppingCartId(), event.shoppingCartId());
+    assertEquals(oldEvent.shoppingCartId(), event.cartId());
     assertEquals(oldEvent.clientId(), event.clientId());
-    assertEquals(ShoppingCartStatus.Opened, event.status());
   }
 
   @Test
   public void Should_BeBackwardCompatible()
   {
     // Given
-    var event = new ShoppingCartOpened(UUID.randomUUID(), UUID.randomUUID(), ShoppingCartStatus.Pending);
+    var event = new ShoppingCartOpened(UUID.randomUUID(), UUID.randomUUID());
     var bytes = Serializer.serialize(event);
 
     // When
@@ -64,7 +50,7 @@ public class NewRequiredProperty {
 
     var oldEvent = result.get();
 
-    assertEquals(event.shoppingCartId(), oldEvent.shoppingCartId());
+    assertEquals(event.cartId(), oldEvent.shoppingCartId());
     assertEquals(event.clientId(), oldEvent.clientId());
   }
 }
