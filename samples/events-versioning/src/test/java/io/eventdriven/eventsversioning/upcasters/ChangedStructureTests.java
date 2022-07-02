@@ -26,7 +26,7 @@ public class ChangedStructureTests {
   ) {
   }
 
-  public static ShoppingCartOpened Upcast(
+  public static ShoppingCartOpened upcast(
     ShoppingCartEvent.ShoppingCartOpened oldEvent
   ) {
     return new ShoppingCartOpened(
@@ -35,7 +35,7 @@ public class ChangedStructureTests {
     );
   }
 
-  public static ShoppingCartOpened Upcast(
+  public static ShoppingCartOpened upcast(
     byte[] oldEventJson
   ) {
     var oldEvent = Serializer.deserialize(oldEventJson);
@@ -55,7 +55,7 @@ public class ChangedStructureTests {
     var oldEvent = new ShoppingCartEvent.ShoppingCartOpened(UUID.randomUUID(), UUID.randomUUID());
 
     // When
-    var event = Upcast(oldEvent);
+    var event = upcast(oldEvent);
 
     // Then
     assertNotNull(event);
@@ -72,7 +72,7 @@ public class ChangedStructureTests {
     var oldEvent = new ShoppingCartEvent.ShoppingCartOpened(UUID.randomUUID(), UUID.randomUUID());
 
     // When
-    var event = Upcast(
+    var event = upcast(
       Serializer.serialize(oldEvent)
     );
 
