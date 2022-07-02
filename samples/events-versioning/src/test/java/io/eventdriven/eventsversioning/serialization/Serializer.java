@@ -2,6 +2,7 @@ package io.eventdriven.eventsversioning.serialization;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -24,6 +25,7 @@ public class Serializer {
     try {
       return mapper.writeValueAsBytes(event);
     } catch (JsonProcessingException e) {
+      logger.error(e, () -> "Error serializing");
       throw new RuntimeException(e);
     }
   }
@@ -39,6 +41,15 @@ public class Serializer {
     } catch (IOException e) {
       logger.warn(e, () -> "Error deserializing");
       return Optional.empty();
+    }
+  }
+
+  public static JsonNode deserialize(byte [] bytes){
+    try {
+      return mapper.readTree(bytes);
+    } catch (IOException e) {
+      logger.error(e, () -> "Error deserializing");
+      throw new RuntimeException(e);
     }
   }
 }

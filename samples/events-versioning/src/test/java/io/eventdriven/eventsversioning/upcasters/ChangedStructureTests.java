@@ -1,0 +1,87 @@
+package io.eventdriven.eventsversioning.upcasters;
+
+import io.eventdriven.eventsversioning.serialization.Serializer;
+import io.eventdriven.eventsversioning.v1.ShoppingCartEvent;
+import org.junit.jupiter.api.Test;
+
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class ChangedStructureTests {
+  public record Client(
+    UUID id,
+    String name
+  ) {
+    public Client {
+      if (name == null) {
+        name = "Unknown";
+      }
+    }
+  }
+
+  public record ShoppingCartOpened(
+    UUID shoppingCartId,
+    Client client
+  ) {
+  }
+
+  public static ShoppingCartOpened Upcast(
+    ShoppingCartEvent.ShoppingCartOpened oldEvent
+  ) {
+    return new ShoppingCartOpened(
+      oldEvent.shoppingCartId(),
+      new Client(oldEvent.clientId(), null)
+    );
+  }
+
+  public static ShoppingCartOpened Upcast(
+    byte[] oldEventJson
+  ) {
+    var oldEvent = Serializer.deserialize(oldEventJson);
+
+    return new ShoppingCartOpened(
+      UUID.fromString(oldEvent.at("/shoppingCartId").asText()),
+      new Client(
+        UUID.fromString(oldEvent.at("/clientId").asText()),
+        null
+      )
+    );
+  }
+
+  @Test
+  public void UpcastObjects_Should_BeForwardCompatible() {
+    // Given
+    var oldEvent = new ShoppingCartEvent.ShoppingCartOpened(UUID.randomUUID(), UUID.randomUUID());
+
+    // When
+    var event = Upcast(oldEvent);
+
+    // Then
+    assertNotNull(event);
+
+    assertEquals(oldEvent.shoppingCartId(), event.shoppingCartId());
+    assertNotNull(event.client());
+    assertEquals(oldEvent.clientId(), event.client().id());
+    assertEquals("Unknown", event.client().name());
+  }
+
+  @Test
+  public void UpcastJson_Should_BeForwardCompatible() {
+    // Given
+    var oldEvent = new ShoppingCartEvent.ShoppingCartOpened(UUID.randomUUID(), UUID.randomUUID());
+
+    // When
+    var event = Upcast(
+      Serializer.serialize(oldEvent)
+    );
+
+    // Then
+    assertNotNull(event);
+
+    assertEquals(oldEvent.shoppingCartId(), event.shoppingCartId());
+    assertNotNull(event.client());
+    assertEquals(oldEvent.clientId(), event.client().id());
+    assertEquals("Unknown", event.client().name());
+  }
+}
