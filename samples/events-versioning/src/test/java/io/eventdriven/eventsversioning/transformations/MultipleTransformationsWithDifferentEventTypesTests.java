@@ -12,8 +12,7 @@ import java.util.UUID;
 import java.util.function.Function;
 
 import static java.util.stream.Collectors.toMap;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class MultipleTransformationsWithDifferentEventTypesTests {
   public record Client(
