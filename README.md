@@ -25,6 +25,7 @@ Tutorial, practical samples and other resources about Event Sourcing in JVM. See
       - [Main assumptions](#main-assumptions)
       - [Prerequisites](#prerequisites)
       - [Tools used](#tools-used)
+    - [Event Versioning](#event-versioning)
   - [Articles](#articles)
   
 ## Event Sourcing
@@ -266,6 +267,21 @@ For running the Event Store examples you need to have:
 1. [EventStoreDB](https://eventstore.com) - Event Store 
 2. [PostgreSQL](https://www.postgresql.org/) - Read Models
 3. [Spring Boot](https://spring.io/projects/spring-boot) - Web Application framework
+
+### [Event Versioning](./samples/events-versioning)
+Shows how to handle basic event schema versioning scenarios using event and stream transformations (e.g. upcasting):
+- [Simple mapping](./samples/events-versioning/#simple-mapping)
+  - [New not required property](./samples/events-versioning/#new-not-required-property)
+  - [New required property](./samples/events-versioning/#new-required-property)
+  - [Renamed property](./samples/events-versioning/#renamed-property)
+- [Upcasting](./samples/events-versioning/#upcasting)
+  - [Changed Structure](./samples/events-versioning/#changed-structure)
+  - [New required property](./samples/events-versioning/#new-required-property-1)
+- [Downcasters](./samples/events-versioning/#downcasters)
+- [Events Transformations](./samples/events-versioning/#events-transformations)
+- [Stream Transformation](./samples/events-versioning/#stream-transformation)
+- [Summary](./samples/events-versioning/#summary)
+- 📝 [Simple patterns for events schema versioning](https://event-driven.io/en/simple_events_versioning_patterns/?utm_source=event_sourcing_jvm_) 
 
 ## Articles
 

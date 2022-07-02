@@ -15,7 +15,7 @@ public class NewNotRequiredPropertyTests {
     UUID clientId,
     // Adding new not required property
     LocalDateTime initializedAt
-  ) { };
+  ) { }
 
   @Test
   public void Should_BeForwardCompatible()
