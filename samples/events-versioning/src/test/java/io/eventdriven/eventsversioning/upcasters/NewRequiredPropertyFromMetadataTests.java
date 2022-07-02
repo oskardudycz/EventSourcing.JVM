@@ -6,8 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class NewRequiredPropertyFromMetadataTests {
   public record EventMetadata(
@@ -22,7 +21,7 @@ public class NewRequiredPropertyFromMetadataTests {
   ) {
   }
 
-  public static ShoppingCartOpened Upcast(
+  public static ShoppingCartOpened upcast(
     ShoppingCartEvent.ShoppingCartOpened oldEvent,
     EventMetadata eventMetadata
   ) {
@@ -33,7 +32,7 @@ public class NewRequiredPropertyFromMetadataTests {
     );
   }
 
-  public static ShoppingCartOpened Upcast(
+  public static ShoppingCartOpened upcast(
     byte[] oldEventJson,
     byte[] eventMetadataJson
   ) {
@@ -54,7 +53,7 @@ public class NewRequiredPropertyFromMetadataTests {
     var eventMetadata = new EventMetadata(UUID.randomUUID());
 
     // When
-    var event = Upcast(oldEvent, eventMetadata);
+    var event = upcast(oldEvent, eventMetadata);
 
     // Then
     assertNotNull(event);
@@ -71,7 +70,7 @@ public class NewRequiredPropertyFromMetadataTests {
     var eventMetadata = new EventMetadata(UUID.randomUUID());
 
     // When
-    var event = Upcast(
+    var event = upcast(
       Serializer.serialize(oldEvent),
       Serializer.serialize(eventMetadata)
     );
