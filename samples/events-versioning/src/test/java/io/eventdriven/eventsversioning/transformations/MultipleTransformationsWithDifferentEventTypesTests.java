@@ -138,9 +138,9 @@ public class MultipleTransformationsWithDifferentEventTypesTests {
   @Test
   public void UpcastObjects_Should_BeForwardCompatible() {
     // Given
-    final String eventTypeV1Name = "shopping_cart_initialized_v1";
-    final String eventTypeV2Name = "shopping_cart_initialized_v2";
-    final String eventTypeV3Name = "shopping_cart_initialized_v3";
+    final String eventTypeV1Name = "shopping_cart_opened_v1";
+    final String eventTypeV2Name = "shopping_cart_opened_v2";
+    final String eventTypeV3Name = "shopping_cart_opened_v3";
 
     var mapping = new EventTypeMapping()
       .register(ShoppingCartInitializedWithStatus.class,

@@ -1,14 +1,18 @@
-package io.eventdriven.eventsversioning.transformations;
+package io.eventdriven.eventsversioning.transformations.esdb;
 
+import com.eventstore.dbclient.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.eventdriven.eventsversioning.serialization.Serializer;
 import io.eventdriven.eventsversioning.v1.ShoppingCartEvent;
 import io.eventdriven.eventsversioning.v1.productitems.PricedProductItem;
 import io.eventdriven.eventsversioning.v1.productitems.ProductItem;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -24,6 +28,7 @@ public class StreamTransformationsTests {
   }
 
   public record EventMetadata(
+    @JsonProperty("$correlationId")
     UUID correlationId
   ) {
   }
@@ -165,18 +170,24 @@ public class StreamTransformationsTests {
   }
 
   public class EventTypeMapping {
-    private final Map<String, Class> mappings = new HashMap<>();
+    private final Map<String, Class> typeMap = new HashMap<>();
+    private final Map<Class, String> typeNameMap = new HashMap<>();
 
     public <Event> EventTypeMapping register(Class<Event> eventClass, String... typeNames) {
       for (var typeName : typeNames) {
-        mappings.put(typeName, eventClass);
+        typeMap.put(typeName, eventClass);
+        typeNameMap.put(eventClass, typeName);
       }
 
       return this;
     }
 
     public Class map(String eventType) {
-      return mappings.get(eventType);
+      return typeMap.get(eventType);
+    }
+
+    public String map(Class eventClass) {
+      return typeNameMap.get(eventClass);
     }
   }
 
@@ -190,7 +201,29 @@ public class StreamTransformationsTests {
         .or(() -> Serializer.deserialize(mapping().map(eventTypeName), json));
     }
 
-    public List<Optional<Object>> deserialize(List<EventData> events) {
+    public List<com.eventstore.dbclient.EventData> serialize(EventEnvelope... events) {
+      return Arrays.stream(events)
+        .map(eventEnvelope ->
+          new com.eventstore.dbclient.EventData(
+            UUID.randomUUID(),
+            mapping.map(eventEnvelope.data().getClass()),
+            "application/json",
+            Serializer.serialize(eventEnvelope.data()),
+            Serializer.serialize(eventEnvelope.metadata())
+          )
+        )
+        .toList();
+    }
+
+    public List<Optional<Object>> deserialize(ResolvedEvent... resolvedEvents) {
+      var events = Arrays.stream(resolvedEvents)
+        .map(resolvedEvent -> new EventData(
+            resolvedEvent.getEvent().getEventType(),
+            resolvedEvent.getEvent().getEventData(),
+            resolvedEvent.getEvent().getUserMetadata()
+          )
+        ).toList();
+
       return streamTransformations.transform(events).stream()
         .map(event -> deserialize(event.eventType, event.data))
         .toList();
@@ -198,14 +231,13 @@ public class StreamTransformationsTests {
   }
 
   public record EventEnvelope(
-    String type,
     Object data,
     EventMetadata metadata
   ) {
   }
 
   @Test
-  public void UpcastObjects_Should_BeForwardCompatible() {
+  public void UpcastObjects_Should_BeForwardCompatible() throws ExecutionException, InterruptedException {
     // Given
     var mapping = new EventTypeMapping()
       .register(ShoppingCartEvent.ShoppingCartOpened.class, "shopping_cart_opened_v2")
@@ -228,45 +260,40 @@ public class StreamTransformationsTests {
     var theSameCorrelationId = UUID.randomUUID();
     var productItem = new PricedProductItem(new ProductItem(UUID.randomUUID(), 1), 23.22);
 
-    var events = new ArrayList<>(List.of(
+    var events = new EventEnvelope[]{
       new EventEnvelope(
-        "shopping_cart_opened_v1",
         new ShoppingCartEvent.ShoppingCartOpened(shoppingCardId, clientId),
         new EventMetadata(theSameCorrelationId)
       ),
       new EventEnvelope(
-        "product_item_added_v1",
         new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCardId, productItem),
         new EventMetadata(theSameCorrelationId)
       ),
       new EventEnvelope(
-        "product_item_added_v1",
         new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCardId, productItem),
         new EventMetadata(theSameCorrelationId)
       ),
       new EventEnvelope(
-        "product_item_added_v1",
         new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCardId, productItem),
         new EventMetadata(UUID.randomUUID())
       ),
       new EventEnvelope(
-        "shopping_card_confirmed_v1",
         new ShoppingCartEvent.ShoppingCartConfirmed(shoppingCardId, LocalDateTime.now()),
         new EventMetadata(UUID.randomUUID())
       )
-    ));
+    };
 
-    var serialisedEvents = events.stream()
-      .map(e ->
-        new EventData(
-          e.type,
-          Serializer.serialize(e.data()),
-          Serializer.serialize(e.metadata)
-        )
-      ).toList();
+    var serialisedEvents = serializer.serialize(events);
+
+    this.eventStore.appendToStream("shopping_cart-%s".formatted(shoppingCardId), serialisedEvents.iterator()).get();
 
     // When
-    var deserializedEvents = serializer.deserialize(serialisedEvents).stream()
+    var readEvents =
+      this.eventStore.readStream("shopping_cart-%s".formatted(shoppingCardId)).get()
+        .getEvents()
+        .toArray(ResolvedEvent[]::new);
+
+    var deserializedEvents = serializer.deserialize(readEvents).stream()
       .filter(Optional::isPresent)
       .map(Optional::get)
       .toList();
@@ -275,7 +302,7 @@ public class StreamTransformationsTests {
     assertEquals(3, deserializedEvents.size());
 
     assertInstanceOf(ShoppingCartInitializedWithProducts.class, deserializedEvents.get(0));
-    var shoppingCartInitializedWithProducts = (ShoppingCartInitializedWithProducts)deserializedEvents.get(0);
+    var shoppingCartInitializedWithProducts = (ShoppingCartInitializedWithProducts) deserializedEvents.get(0);
 
     assertEquals(shoppingCardId, shoppingCartInitializedWithProducts.shoppingCartId());
     assertEquals(clientId, shoppingCartInitializedWithProducts.clientId());
@@ -285,15 +312,23 @@ public class StreamTransformationsTests {
 
 
     assertInstanceOf(ShoppingCartEvent.ProductItemAddedToShoppingCart.class, deserializedEvents.get(1));
-    var productItemAddedToShoppingCart = (ShoppingCartEvent.ProductItemAddedToShoppingCart)deserializedEvents.get(1);
+    var productItemAddedToShoppingCart = (ShoppingCartEvent.ProductItemAddedToShoppingCart) deserializedEvents.get(1);
 
     assertEquals(shoppingCardId, productItemAddedToShoppingCart.shoppingCartId());
     assertEquals(productItem, productItemAddedToShoppingCart.productItem());
 
 
     assertInstanceOf(ShoppingCartEvent.ShoppingCartConfirmed.class, deserializedEvents.get(2));
-    var shoppingCartConfirmed = (ShoppingCartEvent.ShoppingCartConfirmed)deserializedEvents.get(2);
+    var shoppingCartConfirmed = (ShoppingCartEvent.ShoppingCartConfirmed) deserializedEvents.get(2);
 
     assertEquals(shoppingCardId, shoppingCartConfirmed.shoppingCartId());
+  }
+
+  private EventStoreDBClient eventStore;
+
+  @BeforeEach
+  void beforeEach() throws ParseError {
+    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
+    this.eventStore = EventStoreDBClient.create(settings);
   }
 }

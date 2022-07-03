@@ -344,9 +344,9 @@ public class EventTypeMapping {
 and use it as
 
 ```java
-final String eventTypeV1Name = "shopping_cart_initialized_v1";
-final String eventTypeV2Name = "shopping_cart_initialized_v2";
-final String eventTypeV3Name = "shopping_cart_initialized_v3";
+final String eventTypeV1Name = "shopping_cart_opened_v1";
+final String eventTypeV2Name = "shopping_cart_opened_v2";
+final String eventTypeV3Name = "shopping_cart_opened_v3";
 
 var mapping = new EventTypeMapping()
   .register(ShoppingCartInitializedWithStatus.class,
@@ -535,20 +535,22 @@ private static EventData toShoppingCartInitializedWithProducts(
   );
 
   return new EventData(
-    "shopping_cart_initialized_v2",
+    "shopping_cart_opened_v2",
     Serializer.serialize(newEvent),
     shoppingCartInitialized.metaData
   );
 }
 ```
 
-See a full sample in [StreamTransformations.cs](./src/test/java/io/eventdriven/eventsversioning/transformations/StreamTransformationsTests.java).
+See a full sample in:
+- [StreamTransformations.cs](./src/test/java/io/eventdriven/eventsversioning/transformations/StreamTransformationsTests.java).
+- [esdb/StreamTransformations.cs](./src/test/java/io/eventdriven/eventsversioning/transformations/esdb/StreamTransformationsTests.java) showing how to apply them in practice into EventStoreDB.
 
 ## Migrations
 
 You can say that, well, those patterns are not migrations. Events will stay as they were, and you'll have to keep the old structure forever. That's quite true. Still, this is fine, as typically, you should not change the past. Having precise information, even including bugs, is a valid scenario. It allows you to get insights and see the precise history. However, pragmatically you may sometimes want to have a "clean" event log with only a new schema.
 
-It appears that composing the patterns described above can support such a case. For example, if you're running EventStoreDB or Marten, you can read/subscribe to the event stream, store events in the new stream, or even a new EventStoreDB cluster or Postgres schema. Having that, you could even rewrite the whole log and switch databases once the new one caught up.
+It appears that composing the patterns described above can support such a case. For example, if you're running EventStoreDB, you can read/subscribe to the event stream, store events in the new stream, or even a new EventStoreDB cluster. Having that, you could even rewrite the whole log and switch databases once the new one caught up.
 
 I hope that those samples will show you that you can support many versioning scenarios with basic composition techniques.
 
