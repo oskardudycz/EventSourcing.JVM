@@ -4,8 +4,12 @@ on:
   # run it on push to the default repository branch
   push:
     branches: [main]
+    paths:
+      - "samples/event-sourcing-esdb-aggregates/**"
   # run it during pull request
   pull_request:
+    paths:
+      - "samples/event-sourcing-esdb-aggregates/**"
 
 defaults:
   run:
@@ -27,7 +31,7 @@ jobs:
         uses: actions/setup-java@v2
         with:
           java-version: 17
-          distribution: 'adopt'
+          distribution: "adopt"
           cache: gradle
 
       - uses: gradle/gradle-build-action@v2
