@@ -1,4 +1,4 @@
-name: Samples - EventStoreDB Stream Metadata
+name: Samples - EventStoreDB Events Versioning
 
 on:
   # run it on push to the default repository branch

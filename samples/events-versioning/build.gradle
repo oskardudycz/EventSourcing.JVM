@@ -18,16 +18,13 @@ dependencies {
   // EventStoreDB client
   implementation 'com.eventstore:db-client-java:3.0.0'
 
-
-  // Postgres and JPA for read models
-  implementation 'junit:junit:4.13.2'
-
-  implementation 'org.slf4j:slf4j-log4j13:1.0.1'
+  // Logging
   implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
   implementation 'org.apache.logging.log4j:log4j-core:2.17.2'
   implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.17.2'
 
   // Test frameworks
+  implementation 'junit:junit:4.13.2'
   testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
   testImplementation 'org.junit.platform:junit-platform-launcher:1.8.2'
