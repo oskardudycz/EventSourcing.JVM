@@ -93,7 +93,7 @@ public record ShoppingCartOpened(
 }
 ```
 
-See full sample: [NewRequiredProperty.cs](./src/test/java/io/eventdriven/eventsversioning/simplemappings/NewRequiredPropertyTests.java).
+See full sample: [NewRequiredPropertyTests.java](./src/test/java/io/eventdriven/eventsversioning/simplemappings/NewRequiredPropertyTests.java).
 
 ### Renamed property
 
@@ -113,7 +113,7 @@ record ShoppingCartOpened(
 
 The benefit is that both old and the new structure will be backward and forward compatible. The downside of this solution is that we're still keeping the old JSON structure, so all consumers need to be aware of that and do mapping if they want to use the new structure.
 
-See full sample: [NewRequiredProperty.cs](./src/test/java/io/eventdriven/eventsversioning/simplemappings/NewRequiredPropertyTests.java).
+See full sample: [NewRequiredPropertyTests.java](./src/test/java/io/eventdriven/eventsversioning/simplemappings/NewRequiredPropertyTests.java).
 
 ## Upcasting
 
@@ -176,7 +176,7 @@ public static ShoppingCartOpened upcast(
 }
 ```
 
-See full sample: [ChangedStructure.cs](./src/test/java/io/eventdriven/eventsversioning/upcasters/ChangedStructureTests.java).
+See full sample: [ChangedStructureTests.java](./src/test/java/io/eventdriven/eventsversioning/upcasters/ChangedStructureTests.java).
 
 ### New required property
 
@@ -229,7 +229,7 @@ public static ShoppingCartOpened upcast(
 }
 ```
 
-See full sample: [NewRequiredPropertyFromMetadata.cs](./src/test/java/io/eventdriven/eventsversioning/upcasters/NewRequiredPropertyFromMetadataTests.java).
+See full sample: [NewRequiredPropertyFromMetadataTests.java](./src/test/java/io/eventdriven/eventsversioning/upcasters/NewRequiredPropertyFromMetadataTests.java).
 
 ## Downcasters
 
@@ -263,7 +263,7 @@ public static ShoppingCartEvent.ShoppingCartOpened downcast(
 }
 ```
 
-See full sample: [ChangedStructure.cs](./src/test/java/io/eventdriven/eventsversioning/upcasters/ChangedStructureTests.java).
+See full sample: [ChangedStructureTests.java](./src/test/java/io/eventdriven/eventsversioning/upcasters/ChangedStructureTests.java).
 
 ## Events Transformations
 
@@ -376,7 +376,7 @@ public record EventSerializer(
 
 The logic is simple. It'll either transform JSON through registered transformations (e.g. upcasters or downcasters) or run the regular deserialisation logic.
 
-See a full sample in [MultipleTransformationsWithDifferentEventTypes.cs](src/test/java/io/eventdriven/eventsversioning/transformations/MultipleTransformationsWithDifferentEventTypesTests.java).
+See a full sample in [MultipleTransformationsWithDifferentEventTypesTests.java](src/test/java/io/eventdriven/eventsversioning/transformations/MultipleTransformationsWithDifferentEventTypesTests.java).
 
 ## Stream Transformation
 
@@ -543,8 +543,8 @@ private static EventData toShoppingCartInitializedWithProducts(
 ```
 
 See a full sample in:
-- [StreamTransformations.cs](./src/test/java/io/eventdriven/eventsversioning/transformations/StreamTransformationsTests.java).
-- [esdb/StreamTransformations.cs](./src/test/java/io/eventdriven/eventsversioning/transformations/esdb/StreamTransformationsTests.java) showing how to apply them in practice into EventStoreDB.
+- [StreamTransformationsTests.java](./src/test/java/io/eventdriven/eventsversioning/transformations/StreamTransformationsTests.java).
+- [esdb/StreamTransformationsTests.java](./src/test/java/io/eventdriven/eventsversioning/transformations/esdb/StreamTransformationsTests.java) showing how to apply them in practice into EventStoreDB.
 
 ## Migrations
 
