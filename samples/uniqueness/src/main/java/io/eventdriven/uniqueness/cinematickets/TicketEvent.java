@@ -5,7 +5,7 @@ import java.util.UUID;
 
 public interface TicketEvent {
   record SeatReserved(
-    UUID ticketId,
+    String ticketId,
     UUID clientId,
     UUID screeningId,
     UUID seatId,
@@ -14,13 +14,13 @@ public interface TicketEvent {
   }
 
   record TicketPaid(
-    UUID ticketId,
+    String ticketId,
     LocalDateTime paidAt
   ) implements TicketEvent {
   }
 
   record SeatReservationTimedOut(
-    UUID ticketId,
+    String ticketId,
     LocalDateTime timedOutAt
   ) implements TicketEvent {
 
