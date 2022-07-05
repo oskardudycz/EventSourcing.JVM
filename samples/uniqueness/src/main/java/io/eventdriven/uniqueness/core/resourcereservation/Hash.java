@@ -7,7 +7,7 @@ public final class Hash {
    * @param string input string
    * @return hashed long value
    */
-  public static long hash(String string) {
+  public static Long hash(String string) {
     long h = 1125899906842597L; // prime
     int len = string.length();
 
