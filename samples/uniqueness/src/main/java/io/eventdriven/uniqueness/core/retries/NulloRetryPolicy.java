@@ -1,18 +1,13 @@
 package io.eventdriven.uniqueness.core.retries;
 
-import java.util.function.Consumer;
+import io.eventdriven.uniqueness.core.processing.HandlerWithAck;
+import io.eventdriven.uniqueness.core.processing.HandlerWithAckProcessor;
 
 public class NulloRetryPolicy implements RetryPolicy {
   @Override
-  public <Result> Result run(Consumer<Consumer<Result>> perform) {
-    var wrapper = new Object() {
-      Result result = null;
-    };
+  public <Result> Result run(HandlerWithAck<Result> perform) {
+    var result = HandlerWithAckProcessor.run(perform);
 
-    perform.accept(result -> {
-      wrapper.result = result;
-    });
-
-    return wrapper.result;
+    return result.orElse(null);
   }
 }

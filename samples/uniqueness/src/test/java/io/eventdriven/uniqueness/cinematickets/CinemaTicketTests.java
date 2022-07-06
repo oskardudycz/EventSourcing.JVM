@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 public class CinemaTicketTests {
   @Test
-  public void EnforcesUniqueness_WithHashedStreamId() throws ExecutionException, InterruptedException {
+  public void enforcesUniqueness_WithHashedStreamId() throws ExecutionException, InterruptedException {
     // We're assuming that there can be only a single seat reservation for specific screening.
     // We can enforce uniqueness by putting either both screeningId and seatId into a stream id
     // or use unique hash from combined values
@@ -51,7 +51,7 @@ public class CinemaTicketTests {
   }
 
   @Test
-  public void ReleaseReservation_WillAllowReservingAgain() throws ExecutionException, InterruptedException {
+  public void releaseReservation_WillAllowReservingAgain() throws ExecutionException, InterruptedException {
     var seatReservationId = "cinema_ticket-%s".formatted(
       Hash.hash("%s_%s".formatted(screeningId, seatId)).toString()
     );
