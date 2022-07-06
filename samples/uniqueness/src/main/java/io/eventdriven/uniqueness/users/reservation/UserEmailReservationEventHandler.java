@@ -14,7 +14,7 @@ public class UserEmailReservationEventHandler {
 
   public void handle(Object event) {
     switch (event) {
-      case UserRegistered initiated -> handle(initiated);
+      case UserRegistered registered -> handle(registered);
       case UserEmailChanged emailChanged -> handle(emailChanged);
       default -> {
       }
@@ -26,6 +26,7 @@ public class UserEmailReservationEventHandler {
       .ifPresent(resource -> {
         if (!resource.isConfirmed()) {
           resource.confirm(userRegistered.registeredAt());
+          repository.save(resource);
         }
       });
   }
@@ -35,6 +36,7 @@ public class UserEmailReservationEventHandler {
       .ifPresent(resource -> {
         if (!resource.isConfirmed()) {
           resource.confirm(emailChanged.changedAt());
+          repository.save(resource);
         }
       });
   }

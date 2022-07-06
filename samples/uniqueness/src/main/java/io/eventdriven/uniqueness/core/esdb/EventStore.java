@@ -33,7 +33,7 @@ public class EventStore {
         eventsToAppend.iterator()
       ).get();
 
-      return new AppendResult.Success(result.getNextExpectedRevision());
+      return new AppendResult.Success(result.getNextExpectedRevision(), result.getLogPosition());
     } catch (InterruptedException | ExecutionException e) {
       if (e.getCause() instanceof WrongExpectedVersionException wrongExpectedVersionException) {
         return new AppendResult.StreamAlreadyExists(wrongExpectedVersionException.getActualVersion());
@@ -55,7 +55,7 @@ public class EventStore {
         eventsToAppend.iterator()
       ).get();
 
-      return new AppendResult.Success(result.getNextExpectedRevision());
+      return new AppendResult.Success(result.getNextExpectedRevision(), result.getLogPosition());
     } catch (InterruptedException | ExecutionException e) {
       if (e.getCause() instanceof WrongExpectedVersionException wrongExpectedVersionException) {
         return new AppendResult.Conflict(expectedRevision, wrongExpectedVersionException.getActualVersion());
@@ -109,7 +109,7 @@ public class EventStore {
         metadata
       ).get();
 
-      return new AppendResult.Success(result.getNextExpectedRevision());
+      return new AppendResult.Success(result.getNextExpectedRevision(), result.getLogPosition());
     } catch (InterruptedException | ExecutionException e) {
       if (e.getCause() instanceof WrongExpectedVersionException wrongExpectedVersionException) {
         return new AppendResult.StreamAlreadyExists(wrongExpectedVersionException.getActualVersion());
@@ -147,7 +147,7 @@ public class EventStore {
 
   sealed public interface AppendResult {
     record Success(
-      StreamRevision nextExpectedRevision) implements AppendResult {
+      StreamRevision nextExpectedRevision, Position logPosition) implements AppendResult {
     }
 
     record StreamAlreadyExists(StreamRevision actual) implements AppendResult {

@@ -6,11 +6,11 @@ import io.eventdriven.uniqueness.core.resourcereservation.ResourceReservationHan
 import java.time.OffsetDateTime;
 
 // this could be called in the cron job to clean reserved resources
-public class ResourceReservationScavening {
+public class ResourceReservationScavenging {
   private final ResourceReservationRepository repository;
   private final ResourceReservationHandler resourceReservationHandler;
 
-  public ResourceReservationScavening(
+  public ResourceReservationScavenging(
     ResourceReservationRepository repository,
     ResourceReservationHandler resourceReservationHandler
   ) {

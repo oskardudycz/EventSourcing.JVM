@@ -76,7 +76,7 @@ public class UserEmailRegistrationTests {
 
   }
 
-  private Duration reservationLockDuration = Duration.ofMinutes(15);
+  private final Duration reservationLockDuration = Duration.ofMinutes(15);
   private EventStore eventStore;
   private UserCommandHandler userCommandHandler;
 

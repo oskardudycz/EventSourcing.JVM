@@ -33,6 +33,7 @@ dependencies {
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
   testImplementation 'org.junit.platform:junit-platform-launcher:1.8.2'
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.13.3'
+  testImplementation 'org.springframework.boot:spring-boot-starter-test:2.7.0'
 }
 
 configurations {
