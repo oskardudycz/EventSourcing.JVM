@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class UserEmailRegistrationTests {
   @Test
-  public void forNotUsedEmail_ReservationSucceeds(){
+  public void forNotUsedEmail_ReservationSucceeds() {
     var userId = UUID.randomUUID();
     var email = "%s@email.com".formatted(UUID.randomUUID().toString().replace("-", ""));
 
@@ -33,7 +33,7 @@ public class UserEmailRegistrationTests {
 
     assertInstanceOf(ReadResult.Success.class, userReadResult);
 
-    if(userReadResult instanceof ReadResult.Success success){
+    if (userReadResult instanceof ReadResult.Success success) {
       var userEvents = success.events();
       assertEquals(1, userEvents.length);
 
@@ -43,8 +43,7 @@ public class UserEmailRegistrationTests {
 
       assertEquals(userId, userRegistered.get().userId());
       assertEquals(email, userRegistered.get().email());
-    }
-    else {
+    } else {
       fail();
     }
 
@@ -53,7 +52,7 @@ public class UserEmailRegistrationTests {
 
     assertInstanceOf(ReadResult.Success.class, reservationReadResult);
 
-    if(reservationReadResult instanceof ReadResult.Success success){
+    if (reservationReadResult instanceof ReadResult.Success success) {
       var reservationEvents = success.events();
       assertEquals(2, reservationEvents.length);
 
@@ -69,8 +68,7 @@ public class UserEmailRegistrationTests {
       assertTrue(reservationConfirmed.isPresent());
 
       assertEquals(resourceKey, reservationConfirmed.get().resourceKey());
-    }
-    else {
+    } else {
       fail();
     }
 
