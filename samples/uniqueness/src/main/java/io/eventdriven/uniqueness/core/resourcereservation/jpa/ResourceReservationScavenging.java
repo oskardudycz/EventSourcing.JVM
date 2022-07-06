@@ -1,6 +1,5 @@
 package io.eventdriven.uniqueness.core.resourcereservation.jpa;
 
-import io.eventdriven.uniqueness.core.resourcereservation.Hash;
 import io.eventdriven.uniqueness.core.resourcereservation.ResourceReservationHandler;
 
 import java.time.OffsetDateTime;
@@ -22,7 +21,8 @@ public class ResourceReservationScavenging {
     var timedOutReservations = repository.getTimedOut(dateTime);
 
     for (var reservation: timedOutReservations) {
-      resourceReservationHandler.release(Hash.hash(reservation.getResourceKey()).toString());
+      resourceReservationHandler.release(reservation.getResourceKey());
+      repository.delete(reservation);
     }
   }
 }

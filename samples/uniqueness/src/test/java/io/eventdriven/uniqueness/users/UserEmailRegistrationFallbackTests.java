@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class UserEmailRegistrationFallbackTests {
   @Test
   public void reservationHappyPath_confirmsReservation() throws InterruptedException {
+    // Given
     var reservationResult = (EventStore.AppendResult.Success) eventStore.append(
       reservationStreamId,
       new ResourceReservationInitiated(resourceKey, OffsetDateTime.now(), reservationLockDuration)
@@ -51,6 +52,7 @@ public class UserEmailRegistrationFallbackTests {
       new ResourceReservationConfirmed(resourceKey, OffsetDateTime.now())
     );
 
+    // When
     SyncProcessor.runSync((ack) ->
       subscribeToAll(eventStoreDBClient, (subscription, resolvedEvent) -> {
         var position = resolvedEvent.getOriginalEvent().getPosition();
@@ -69,20 +71,24 @@ public class UserEmailRegistrationFallbackTests {
       })
     );
 
+    // Then
     var resourceReservation = repository.findById(resourceKey).orElse(null);
 
     assertNotNull(resourceReservation);
     assertEquals(resourceKey, resourceReservation.getResourceKey());
     assertEquals(ResourceReservation.Status.Confirmed, resourceReservation.getStatus());
+    assertNotNull(resourceReservation.getReservedAt());
   }
 
   @Test
   public void reservationInitiated_storesPendingLookup() throws InterruptedException {
+    // Given
     var reservationResult = (EventStore.AppendResult.Success) eventStore.append(
       reservationStreamId,
       new ResourceReservationInitiated(resourceKey, OffsetDateTime.now(), reservationLockDuration)
     );
 
+    // When
     SyncProcessor.runSync((ack) ->
       subscribeToAll(eventStoreDBClient, (subscription, resolvedEvent) -> {
         var position = resolvedEvent.getOriginalEvent().getPosition();
@@ -94,6 +100,7 @@ public class UserEmailRegistrationFallbackTests {
       })
     );
 
+    // Then
     var resourceReservation = repository.findById(resourceKey).orElse(null);
 
     assertNotNull(resourceReservation);
@@ -103,6 +110,7 @@ public class UserEmailRegistrationFallbackTests {
 
   @Test
   public void emailReservationInitiatedAndUserRegistered_eventuallyConfirmsReservation() throws InterruptedException {
+    // Given
     var reservationResult = (EventStore.AppendResult.Success) eventStore.append(
       reservationStreamId,
       new ResourceReservationInitiated(resourceKey, OffsetDateTime.now(), reservationLockDuration)
@@ -112,6 +120,7 @@ public class UserEmailRegistrationFallbackTests {
       new UserRegistered(userId, email, OffsetDateTime.now())
     );
 
+    // When
     SyncProcessor.runSync((ack) ->
       subscribeToAll(eventStoreDBClient, (subscription, resolvedEvent) -> {
         var position = resolvedEvent.getOriginalEvent().getPosition();
@@ -130,16 +139,19 @@ public class UserEmailRegistrationFallbackTests {
       })
     );
 
+    // Then
     var resourceReservation = repository.findById(resourceKey).orElse(null);
 
     assertNotNull(resourceReservation);
     assertEquals(resourceKey, resourceReservation.getResourceKey());
     assertEquals(ResourceReservation.Status.Confirmed, resourceReservation.getStatus());
+    assertNotNull(resourceReservation.getReservedAt());
   }
 
 
   @Test
   public void releasedReservation_removesLookup() throws InterruptedException {
+    // Given
     var reservationResult = (EventStore.AppendResult.Success) eventStore.append(
       reservationStreamId,
       new ResourceReservationInitiated(resourceKey, OffsetDateTime.now(), reservationLockDuration)
@@ -150,6 +162,7 @@ public class UserEmailRegistrationFallbackTests {
       new ResourceReservationReleaseInitiated(resourceKey, OffsetDateTime.now())
     );
 
+    // When
     SyncProcessor.runSync((ack) ->
       subscribeToAll(eventStoreDBClient, (subscription, resolvedEvent) -> {
         var position = resolvedEvent.getOriginalEvent().getPosition();
@@ -161,6 +174,7 @@ public class UserEmailRegistrationFallbackTests {
       })
     );
 
+    // Then
     var resourceReservation = repository.findById(resourceKey).orElse(null);
 
     assertNull(resourceReservation);
