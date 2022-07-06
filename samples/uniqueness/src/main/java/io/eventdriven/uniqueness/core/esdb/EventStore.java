@@ -3,10 +3,24 @@ package io.eventdriven.uniqueness.core.esdb;
 import com.eventstore.dbclient.*;
 import io.eventdriven.uniqueness.core.serialization.EventSerializer;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 
 public class EventStore {
+  public ReadResult read(String streamId) {
+    try {
+      var result = eventStore.readStream(streamId).get();
+
+      return new ReadResult.Success(result.getEvents().toArray(new ResolvedEvent[0]));
+    } catch (InterruptedException | ExecutionException e) {
+      if (e.getCause() instanceof StreamNotFoundException) {
+        return new ReadResult.StreamDoesNotExist();
+      }
+      return new ReadResult.UnexpectedFailure(e);
+    }
+  }
+
   public AppendResult append(String streamId, Object... events) {
     var eventsToAppend = Arrays.stream(events)
       .map(EventSerializer::serialize)
@@ -20,9 +34,11 @@ public class EventStore {
       ).get();
 
       return new AppendResult.Success(result.getNextExpectedRevision());
-    } catch (WrongExpectedVersionException e) {
-      return new AppendResult.StreamAlreadyExists();
     } catch (InterruptedException | ExecutionException e) {
+      if (e.getCause() instanceof WrongExpectedVersionException wrongExpectedVersionException) {
+        return new AppendResult.StreamAlreadyExists(wrongExpectedVersionException.getActualVersion());
+      }
+
       return new AppendResult.UnexpectedFailure(e);
     }
   }
@@ -40,9 +56,10 @@ public class EventStore {
       ).get();
 
       return new AppendResult.Success(result.getNextExpectedRevision());
-    } catch (WrongExpectedVersionException e) {
-      return new AppendResult.Conflict(expectedRevision, e.getActualVersion());
     } catch (InterruptedException | ExecutionException e) {
+      if (e.getCause() instanceof WrongExpectedVersionException wrongExpectedVersionException) {
+        return new AppendResult.Conflict(expectedRevision, wrongExpectedVersionException.getActualVersion());
+      }
       return new AppendResult.UnexpectedFailure(e);
     }
   }
@@ -55,9 +72,10 @@ public class EventStore {
       ).get();
 
       return new DeleteResult.Success();
-    } catch (WrongExpectedVersionException e) {
-      return new DeleteResult.StreamDoesNotExist();
     } catch (InterruptedException | ExecutionException e) {
+      if (e.getCause() instanceof WrongExpectedVersionException) {
+        return new DeleteResult.StreamDoesNotExist();
+      }
       return new DeleteResult.UnexpectedFailure(e);
     }
   }
@@ -70,10 +88,34 @@ public class EventStore {
       ).get();
 
       return new DeleteResult.Success();
-    } catch (WrongExpectedVersionException e) {
-      return new DeleteResult.Conflict(expectedRevision, e.getActualVersion());
     } catch (InterruptedException | ExecutionException e) {
+      if (e.getCause() instanceof WrongExpectedVersionException) {
+        return new DeleteResult.StreamDoesNotExist();
+      }
       return new DeleteResult.UnexpectedFailure(e);
+    }
+  }
+
+
+
+  public AppendResult setStreamMaxAge(String streamId, Duration duration) {
+    try {
+      var metadata = new StreamMetadata();
+      metadata.setMaxAge((int)duration.toSeconds());
+
+      var result = eventStore.setStreamMetadata(
+        streamId,
+        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+        metadata
+      ).get();
+
+      return new AppendResult.Success(result.getNextExpectedRevision());
+    } catch (InterruptedException | ExecutionException e) {
+      if (e.getCause() instanceof WrongExpectedVersionException wrongExpectedVersionException) {
+        return new AppendResult.StreamAlreadyExists(wrongExpectedVersionException.getActualVersion());
+      }
+
+      return new AppendResult.UnexpectedFailure(e);
     }
   }
 
@@ -83,12 +125,32 @@ public class EventStore {
     this.eventStore = eventStoreDBClient;
   }
 
-  sealed interface AppendResult {
+  sealed interface ReadResult {
+    record Success(
+      ResolvedEvent[] events
+    ) implements ReadResult {
+    }
+
+    record NoEventsFound() implements ReadResult {
+    }
+
+    record StreamDoesNotExist() implements ReadResult {
+    }
+
+    record UnexpectedFailure(Throwable t) implements ReadResult {
+    }
+
+    default Boolean succeeded() {
+      return this instanceof ReadResult.Success;
+    }
+  }
+
+  sealed public interface AppendResult {
     record Success(
       StreamRevision nextExpectedRevision) implements AppendResult {
     }
 
-    record StreamAlreadyExists() implements AppendResult {
+    record StreamAlreadyExists(StreamRevision actual) implements AppendResult {
     }
 
     record Conflict(StreamRevision expected,
@@ -103,7 +165,7 @@ public class EventStore {
     }
   }
 
-  sealed interface DeleteResult {
+  sealed public interface DeleteResult {
     record Success() implements DeleteResult {
     }
 
