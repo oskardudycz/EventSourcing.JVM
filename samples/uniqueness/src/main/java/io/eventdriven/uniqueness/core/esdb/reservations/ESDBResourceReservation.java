@@ -1,7 +1,8 @@
-package io.eventdriven.uniqueness.core.esdb;
+package io.eventdriven.uniqueness.core.esdb.reservations;
 
 import com.eventstore.dbclient.AppendToStreamOptions;
 import com.eventstore.dbclient.StreamRevision;
+import io.eventdriven.uniqueness.core.esdb.EventStore;
 import io.eventdriven.uniqueness.core.resourcereservation.ResourceReservation;
 import io.eventdriven.uniqueness.core.retries.RetryPolicy;
 import io.eventdriven.uniqueness.core.serialization.EventSerializer;

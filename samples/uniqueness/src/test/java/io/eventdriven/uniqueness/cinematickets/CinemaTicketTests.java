@@ -93,6 +93,7 @@ public class CinemaTicketTests {
 
                 // finish processing
                 ack.accept(true);
+                subscription.stop();
               } catch (InterruptedException | ExecutionException e) {
                 throw new RuntimeException(e);
               }
