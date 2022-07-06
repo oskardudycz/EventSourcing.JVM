@@ -2,12 +2,10 @@ package io.eventdriven.uniqueness.core.resourcereservation.jpa;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
-import javax.persistence.Column;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.Id;
+import javax.persistence.*;
 import java.time.OffsetDateTime;
 
+@Entity
 public class ResourceReservation {
   public enum Status {
     Pending,
