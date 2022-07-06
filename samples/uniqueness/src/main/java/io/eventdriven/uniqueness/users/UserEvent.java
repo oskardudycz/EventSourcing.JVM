@@ -1,22 +1,20 @@
 package io.eventdriven.uniqueness.users;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public interface UserEvent {
   record UserRegistered(
     UUID userId,
-    UUID email
+    String email,
+    OffsetDateTime registeredAt
   ) implements UserEvent {
   }
 
   record UserEmailChanged(
     UUID userId,
-    UUID newEmail
-  ) implements UserEvent {
-  }
-
-  record UserDataErasureRequested(
-    UUID userId
+    String newEmail,
+    OffsetDateTime changedAt
   ) implements UserEvent {
   }
 }
