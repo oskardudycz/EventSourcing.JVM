@@ -56,7 +56,7 @@ public record ShoppingCartOpened(
     UUID shoppingCartId,
     UUID clientId,
     // Adding new not required property
-    LocalDateTime initializedAt
+    OffsetDateTime initializedAt
   ) { }
 ```
 

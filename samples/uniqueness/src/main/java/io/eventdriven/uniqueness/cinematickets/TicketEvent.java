@@ -1,6 +1,6 @@
 package io.eventdriven.uniqueness.cinematickets;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public interface TicketEvent {
@@ -15,13 +15,13 @@ public interface TicketEvent {
 
   record TicketPaid(
     String ticketId,
-    LocalDateTime paidAt
+    OffsetDateTime paidAt
   ) implements TicketEvent {
   }
 
   record SeatReservationTimedOut(
     UUID ticketId,
-    LocalDateTime timedOutAt
+    OffsetDateTime timedOutAt
   ) implements TicketEvent {
 
   }

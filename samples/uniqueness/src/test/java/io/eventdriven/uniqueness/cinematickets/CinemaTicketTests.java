@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
@@ -55,7 +55,7 @@ public class CinemaTicketTests {
     var seatReservationId = "cinema_ticket-%s".formatted(
       Hash.hash("%s_%s".formatted(screeningId, seatId)).toString()
     );
-    var reservationTimedOut = serialize(new SeatReservationTimedOut(ticketId, LocalDateTime.now()));
+    var reservationTimedOut = serialize(new SeatReservationTimedOut(ticketId, OffsetDateTime.now()));
 
     // We're simulating reservation that timed out because of e.g. not paying for it
     var nextExpectedRevision = eventStore.appendToStream(
