@@ -1,9 +1,9 @@
 package io.eventdriven.uniqueness.core.resourcereservation;
 
-import java.util.function.Consumer;
+import io.eventdriven.uniqueness.core.processing.HandlerWithAck;
 
 public interface ResourceReservationHandler {
-  void reserve(String resourceKey, Consumer<Consumer<Boolean>> onReserved);
+  Boolean reserve(String resourceKey, HandlerWithAck<Boolean> onReserved);
 
   void release(String resourceKey);
 }

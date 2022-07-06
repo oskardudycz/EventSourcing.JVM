@@ -125,7 +125,7 @@ public class EventStore {
     this.eventStore = eventStoreDBClient;
   }
 
-  sealed interface ReadResult {
+  public sealed interface ReadResult {
     record Success(
       ResolvedEvent[] events
     ) implements ReadResult {

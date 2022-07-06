@@ -18,15 +18,13 @@ public class UserCommandHandler {
     this.eventStore = eventStore;
   }
 
-  public void registerUser(String email) {
+  public Boolean registerUser(UUID userId, String email) {
     var resourceKey = Hash.hash(email).toString();
 
-    resourceReservationHandler.reserve(resourceKey, ack -> {
-      var userId = UUID.randomUUID();
-
+    return resourceReservationHandler.reserve(resourceKey, ack -> {
       var userRegistered = new UserRegistered(userId, email, OffsetDateTime.now());
 
-      var result = eventStore.append("user-%s", userRegistered);
+      var result = eventStore.append("user-%s".formatted(userId), userRegistered);
 
       if (result.succeeded()) {
         ack.accept(true);

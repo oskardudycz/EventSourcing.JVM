@@ -3,6 +3,7 @@ package io.eventdriven.uniqueness.core.resourcereservation.esdb;
 import com.eventstore.dbclient.AppendToStreamOptions;
 import com.eventstore.dbclient.StreamRevision;
 import io.eventdriven.uniqueness.core.esdb.EventStore;
+import io.eventdriven.uniqueness.core.processing.HandlerWithAck;
 import io.eventdriven.uniqueness.core.resourcereservation.ResourceReservationHandler;
 import io.eventdriven.uniqueness.core.retries.RetryPolicy;
 import io.eventdriven.uniqueness.core.serialization.EventSerializer;
@@ -11,11 +12,11 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.util.function.Consumer;
 
 import static io.eventdriven.uniqueness.core.resourcereservation.esdb.ResourceReservationEvent.*;
+import static io.eventdriven.uniqueness.core.processing.HandlerWithAckProcessor.*;
 
-public abstract class ESDBResourceReservationHandler implements ResourceReservationHandler {
+public class ESDBResourceReservationHandler implements ResourceReservationHandler {
   private static final Logger logger = LoggerFactory.getLogger(ESDBResourceReservationHandler.class);
   private final Duration reservationLockDuration;
   private final EventStore eventStore;
@@ -32,7 +33,7 @@ public abstract class ESDBResourceReservationHandler implements ResourceReservat
   }
 
   @Override
-  public boolean reserve(String resourceKey, Consumer<Consumer<Boolean>> onReserved) {
+  public Boolean reserve(String resourceKey, HandlerWithAck<Boolean> onReserved) {
     try {
       final var reservationStreamId = streamName(resourceKey);
 
@@ -47,22 +48,21 @@ public abstract class ESDBResourceReservationHandler implements ResourceReservat
         return false;
       }
 
-      var wrapper = new Object() {
-        Boolean succeeded = false;
-      };
 
-      onReserved.accept(succeeded -> {
-        wrapper.succeeded = succeeded;
-      });
+      var succeeded = run(onReserved).orElse(false);
 
-      if (!wrapper.succeeded) {
+      if (!succeeded) {
         markReservationAsReleased(resourceKey, reservationStreamId, success.nextExpectedRevision());
         return false;
       }
 
-      confirmReservation(resourceKey, reservationStreamId, success.nextExpectedRevision());
+      var confirmationReservation = confirmReservation(
+        resourceKey,
+        reservationStreamId,
+        success.nextExpectedRevision()
+      );
 
-      return true;
+      return confirmationReservation instanceof EventStore.AppendResult.Success;
     } catch (Throwable e) {
       logger.error("Error while reserving resource");
       return false;
@@ -93,18 +93,14 @@ public abstract class ESDBResourceReservationHandler implements ResourceReservat
     });
   }
 
-  private void confirmReservation(String resourceKey, String reservationStreamId, StreamRevision expectedRevision) {
+  private EventStore.AppendResult confirmReservation(String resourceKey, String reservationStreamId, StreamRevision expectedRevision) {
     final var reservationConfirmed = new ResourceReservationConfirmed(
       resourceKey,
       OffsetDateTime.now()
     );
 
-    retryPolicy.run(ack -> {
-      var result = eventStore.append(
-        reservationStreamId,
-        AppendToStreamOptions.get().expectedRevision(expectedRevision),
-        EventSerializer.serialize(reservationConfirmed)
-      );
+    return retryPolicy.run(ack -> {
+      var result = eventStore.append( reservationStreamId, expectedRevision, reservationConfirmed);
 
       if(!(result instanceof EventStore.AppendResult.UnexpectedFailure))
         ack.accept(result);

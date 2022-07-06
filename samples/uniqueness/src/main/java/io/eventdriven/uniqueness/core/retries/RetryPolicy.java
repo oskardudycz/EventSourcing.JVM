@@ -1,7 +1,7 @@
 package io.eventdriven.uniqueness.core.retries;
 
-import java.util.function.Consumer;
+import io.eventdriven.uniqueness.core.processing.HandlerWithAck;
 
 public interface RetryPolicy {
-  <Result> Result run(Consumer<Consumer<Result>> perform);
+  <Result> Result run(HandlerWithAck<Result> perform);
 }
