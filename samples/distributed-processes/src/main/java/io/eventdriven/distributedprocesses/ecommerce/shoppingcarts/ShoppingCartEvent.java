@@ -1,11 +1,11 @@
-package io.eventdriven.distributedprocesses.shoppingcarts;
+package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts;
 
-import io.eventdriven.distributedprocesses.shoppingcarts.productitems.PricedProductItem;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
-public interface ShoppingCartEvent {
+public sealed interface ShoppingCartEvent {
 
   record ShoppingCartOpened(
     UUID shoppingCartId,
@@ -27,13 +27,15 @@ public interface ShoppingCartEvent {
 
   record ShoppingCartConfirmed(
     UUID shoppingCartId,
-    OffsetDateTime confirmedAt
+    LocalDateTime confirmedAt
   ) implements ShoppingCartEvent {
   }
 
   record ShoppingCartCanceled(
     UUID shoppingCartId,
-    OffsetDateTime canceledAt
+    LocalDateTime canceledAt
   ) implements ShoppingCartEvent {
   }
 }
+
+

@@ -2,13 +2,13 @@ package io.eventdriven.distributedprocesses.shoppingcarts;
 
 import com.eventstore.dbclient.*;
 import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
-import static io.eventdriven.distributedprocesses.shoppingcarts.ShoppingCartEvent.ShoppingCartOpened;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 public class ShoppingCartTests {
@@ -19,7 +19,7 @@ public class ShoppingCartTests {
     // We're assuming that there can be only a single shopping cart open for specific client.
     // We can enforce uniqueness by putting client id into a stream id
     var shoppingCartStreamId = "shopping_cart-%s".formatted(clientId);
-    var shoppingCartOpened = new ShoppingCartOpened(clientId, clientId);
+    var shoppingCartOpened = new ShoppingCartEvent.ShoppingCartOpened(clientId, clientId);
 
     // This one should succeed as we don't have such stream yet
     eventStore.appendToStream(
