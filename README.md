@@ -26,6 +26,7 @@ Tutorial, practical samples and other resources about Event Sourcing in JVM. See
       - [Prerequisites](#prerequisites)
       - [Tools used](#tools-used)
     - [Event Versioning](#event-versioning)
+    - [Uniqueness](#uniqueness)
   - [Articles](#articles)
   
 ## Event Sourcing
@@ -281,7 +282,15 @@ Shows how to handle basic event schema versioning scenarios using event and stre
 - [Events Transformations](./samples/events-versioning/#events-transformations)
 - [Stream Transformation](./samples/events-versioning/#stream-transformation)
 - [Summary](./samples/events-versioning/#summary)
-- 📝 [Simple patterns for events schema versioning](https://event-driven.io/en/simple_events_versioning_patterns/?utm_source=event_sourcing_jvm_) 
+- 📝 [Simple patterns for events schema versioning](https://event-driven.io/en/simple_events_versioning_patterns/?utm_source=event_sourcing_jvm) 
+
+### [Uniqueness](./samples/uniqueness/)
+Shows how to handle unique constraint checks in an event-sources system. Explains various techniques like:
+- talking to business,
+- stream id design,
+- reservation pattern.
+
+Read more in [How to ensure uniqueness in Event Sourcing](https://event-driven.io/en/uniqueness-in-event-sourcing/?utm_source=event_sourcing_jvm).
 
 ## Articles
 
