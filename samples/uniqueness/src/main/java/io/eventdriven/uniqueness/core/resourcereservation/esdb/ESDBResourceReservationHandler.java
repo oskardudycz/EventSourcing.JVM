@@ -88,7 +88,7 @@ public class ESDBResourceReservationHandler implements ResourceReservationHandle
     return retryPolicy.run(ack -> {
       var result = eventStore.append(reservationStreamId, reservationInitiated);
 
-      if(!(result instanceof EventStore.AppendResult.UnexpectedFailure))
+      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure))
         ack.accept(result);
     });
   }
@@ -100,9 +100,9 @@ public class ESDBResourceReservationHandler implements ResourceReservationHandle
     );
 
     return retryPolicy.run(ack -> {
-      var result = eventStore.append( reservationStreamId, expectedRevision, reservationConfirmed);
+      var result = eventStore.append(reservationStreamId, expectedRevision, reservationConfirmed);
 
-      if(!(result instanceof EventStore.AppendResult.UnexpectedFailure))
+      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure))
         ack.accept(result);
     });
   }
@@ -123,12 +123,12 @@ public class ESDBResourceReservationHandler implements ResourceReservationHandle
         EventSerializer.serialize(reservationReleased)
       );
 
-      if(!(result instanceof EventStore.AppendResult.UnexpectedFailure))
+      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure))
         ack.accept(result);
     });
   }
 
-  private static String streamName(String resourceKey){
+  private static String streamName(String resourceKey) {
     return "reservation-%s".formatted(resourceKey);
   }
 }

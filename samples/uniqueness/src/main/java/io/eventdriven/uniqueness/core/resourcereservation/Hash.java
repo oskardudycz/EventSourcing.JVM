@@ -3,7 +3,7 @@ package io.eventdriven.uniqueness.core.resourcereservation;
 public final class Hash {
   /**
    * Simple hash function for string with additional randomness logic.
-   * Source: https://stackoverflow.com/a/1660613/10966454
+   * <a href="https://stackoverflow.com/a/1660613/10966454">Source</a>
    * @param string input string
    * @return hashed long value
    */
