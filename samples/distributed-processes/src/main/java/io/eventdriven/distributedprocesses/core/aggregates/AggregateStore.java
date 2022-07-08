@@ -28,7 +28,7 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
     this.getEmpty = getEmpty;
   }
 
-  Optional<Entity> get(Id id) {
+  public Optional<Entity> get(Id id) {
     var streamId = mapToStreamId.apply(id);
 
     var events = getEvents(streamId);

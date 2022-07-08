@@ -6,12 +6,25 @@ import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItems;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
-class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
+public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
+  public UUID clientId() {
+    return clientId;
+  }
+
+  public PricedProductItem[] productItems() {
+    return productItems.items().toArray(new PricedProductItem[0]);
+  }
+
+  public double totalPrice() {
+    return productItems.items().stream()
+      .mapToDouble(PricedProductItem::totalPrice)
+      .sum();
+  }
   private UUID clientId;
   private ProductItems productItems;
   private ShoppingCartStatus status;
@@ -72,7 +85,7 @@ class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
 
     enqueue(new ShoppingCartConfirmed(
       id,
-      LocalDateTime.now()
+      OffsetDateTime.now()
     ));
   }
 
@@ -82,7 +95,7 @@ class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
 
     enqueue(new ShoppingCartCanceled(
       id,
-      LocalDateTime.now()
+      OffsetDateTime.now()
     ));
   }
 
