@@ -46,14 +46,14 @@ public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
 
   public void recordGuestStaysCheckoutInitiation(UUID[] initiatedCheckouts, OffsetDateTime initiatedAt) {
     if (status != CheckoutStatus.Initiated)
-      throw new RuntimeException("Cannot record guest stay if status is other than Initiated");
+      throw new IllegalStateException("Cannot record guest stay if status is other than Initiated");
 
     enqueue(new GuestCheckoutsInitiated(id(), initiatedCheckouts, initiatedAt));
   }
 
   public void recordGuestStayCheckoutCompletion(UUID completedCheckout, OffsetDateTime completedAt) {
     if (status != CheckoutStatus.Initiated)
-      throw new RuntimeException("Cannot record guest stay if status is other than Initiated");
+      throw new IllegalStateException("Cannot record guest stay if status is other than Initiated");
 
     enqueue(new GuestCheckoutCompleted(id(), completedCheckout, completedAt));
 
@@ -62,7 +62,7 @@ public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
 
   public void recordGuestStayCheckoutFailure(UUID failedCheckout, OffsetDateTime failedAt) {
     if (status != CheckoutStatus.Initiated)
-      throw new RuntimeException("Cannot record guest stay if status is other than Initiated");
+      throw new IllegalStateException("Cannot record guest stay if status is other than Initiated");
 
     enqueue(new GuestCheckoutCompleted(id(), failedCheckout, failedAt));
 

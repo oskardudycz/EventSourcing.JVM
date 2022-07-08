@@ -5,14 +5,16 @@ import java.util.UUID;
 
 public sealed interface ShipmentEvent {
   record PackageWasSent(
-    UUID packageId,
+    UUID shipmentId,
     UUID orderId,
-    ProductItem productItems,
+    ProductItem[] productItems,
     OffsetDateTime sentAt) implements ShipmentEvent {
   }
 
   record ProductWasOutOfStock(
+    UUID shipmentId,
     UUID orderId,
+    ProductItem[] productItems,
     OffsetDateTime availabilityCheckedAt) implements ShipmentEvent {
   }
 }

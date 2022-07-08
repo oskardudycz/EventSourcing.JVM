@@ -1,6 +1,7 @@
 package io.eventdriven.distributedprocesses.ecommerce.orders;
 
-import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
+import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
+import org.springframework.lang.Nullable;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -10,8 +11,17 @@ public sealed interface OrderEvent {
     UUID orderId,
     UUID clientId,
     PricedProductItem[] productItems,
-    Double totalPrice,
+    double totalPrice,
     OffsetDateTime initializedAt
+  ) implements OrderEvent {
+  }
+
+  record OrderPaymentRecorded(
+    UUID orderId,
+    UUID paymentId,
+    PricedProductItem[] productItems,
+    double amount,
+    OffsetDateTime paymentRecordedAt
   ) implements OrderEvent {
   }
 
@@ -23,6 +33,7 @@ public sealed interface OrderEvent {
 
   record OrderCancelled(
     UUID OrderId,
+    @Nullable
     UUID paymentId,
     OrderCancellationReason Reason,
     OffsetDateTime cancelledAt
