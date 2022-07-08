@@ -67,6 +67,22 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
     return appendEvents(entity, AppendToStreamOptions.get().expectedRevision(expectedRevision));
   }
 
+  public ETag getAndUpdate(
+    Consumer<Entity> handle,
+    Id id
+  ) {
+    var streamId = mapToStreamId.apply(id);
+    var entity = get(id).orElseThrow(
+      () -> new EntityNotFoundException("Stream with id %s was not found".formatted(streamId))
+    );
+
+    var expectedVersion = entity.version;
+
+    handle.accept(entity);
+
+    return appendEvents(entity, AppendToStreamOptions.get().expectedRevision(expectedVersion));
+  }
+
   private Optional<List<Event>> getEvents(String streamId) {
     ReadResult result;
     try {

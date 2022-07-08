@@ -6,7 +6,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public sealed interface GuestStayAccountEvent {
-  record OpenGuestStayAccount(
+  record GuestStayAccountOpened(
     UUID guestStayAccountId,
     OffsetDateTime openedAt
   ) implements GuestStayAccountEvent {
@@ -21,7 +21,8 @@ public sealed interface GuestStayAccountEvent {
 
   record PaymentRecorded(
     UUID guestStayAccountId,
-    double amount
+    double amount,
+    OffsetDateTime recordedAt
   ) implements GuestStayAccountEvent {
   }
 
