@@ -12,18 +12,6 @@ import java.util.UUID;
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
 class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
-  UUID clientId() {
-    return clientId;
-  }
-
-  public ProductItems productItems() {
-    return productItems;
-  }
-
-  ShoppingCartStatus status() {
-    return status;
-  }
-
   private UUID clientId;
   private ProductItems productItems;
   private ShoppingCartStatus status;
@@ -39,9 +27,6 @@ class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
     UUID id,
     UUID clientId
   ) {
-    this.id = id;
-    this.clientId = clientId;
-
     enqueue(new ShoppingCartOpened(id, clientId));
   }
 
