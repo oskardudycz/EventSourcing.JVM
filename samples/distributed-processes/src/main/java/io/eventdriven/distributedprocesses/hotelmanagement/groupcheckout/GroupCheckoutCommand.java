@@ -30,19 +30,4 @@ public sealed interface GroupCheckoutCommand {
     OffsetDateTime failedAt
   ) implements GroupCheckoutCommand {
   }
-
-  record CompleteGroupCheckout(
-    UUID groupCheckoutId,
-    UUID[] completedCheckouts,
-    UUID[] failedCheckouts
-  ) implements GroupCheckoutCommand {
-  }
-
-  record FailGroupCheckout(
-    UUID groupCheckoutId,
-    UUID[] completedCheckouts,
-    UUID[] failedCheckouts,
-    OffsetDateTime failedAt
-  ) implements GroupCheckoutCommand {
-  }
 }

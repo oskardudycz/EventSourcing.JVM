@@ -11,6 +11,8 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.eventdriven.distributedprocesses.core.commands.CommandEnvelope;
 import io.eventdriven.distributedprocesses.core.commands.CommandMetadata;
+import io.eventdriven.distributedprocesses.core.events.EventEnvelope;
+import io.eventdriven.distributedprocesses.core.events.EventMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,6 +72,31 @@ public final class EventSerializer {
         return Optional.empty();
 
       return Optional.of(result);
+    } catch (IOException e) {
+      logger.warn("Error deserializing event %s".formatted(resolvedEvent.getEvent().getEventType()), e);
+      return Optional.empty();
+    }
+  }
+
+  public static <Event> Optional<EventEnvelope<Event>> deserializeEvent(ResolvedEvent resolvedEvent) {
+    var eventClass = EventTypeMapper.toClass(resolvedEvent.getEvent().getEventType());
+
+    if (eventClass.isEmpty())
+      return Optional.empty();
+
+    return deserializeEvent(eventClass.get(), resolvedEvent);
+  }
+
+  public static <Event> Optional<EventEnvelope<Event>> deserializeEvent(Class<Event> commandClass, ResolvedEvent resolvedEvent) {
+    try {
+      var event = mapper.readValue(resolvedEvent.getEvent().getEventData(), commandClass);
+      var metadata = mapper.readValue(resolvedEvent.getEvent().getUserMetadata(), EventMetadata.class);
+
+
+      if(event == null)
+        return Optional.empty();
+
+      return Optional.of(new EventEnvelope<>(event, metadata));
     } catch (IOException e) {
       logger.warn("Error deserializing event %s".formatted(resolvedEvent.getEvent().getEventType()), e);
       return Optional.empty();

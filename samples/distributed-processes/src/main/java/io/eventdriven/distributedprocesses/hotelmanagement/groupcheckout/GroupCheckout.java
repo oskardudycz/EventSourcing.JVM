@@ -11,25 +11,15 @@ import static io.eventdriven.distributedprocesses.hotelmanagement.groupcheckout.
 import static java.util.stream.Collectors.toMap;
 
 public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
+  private enum CheckoutStatus {
+    Pending,
+    Initiated,
+    Completed,
+    Failed
+  }
+
   private Map<UUID, CheckoutStatus> guestStayCheckouts;
   private CheckoutStatus status = CheckoutStatus.Pending;
-
-  private boolean areAnyOngoingCheckouts() {
-    return guestStayCheckouts.values().stream()
-      .anyMatch(status -> status == CheckoutStatus.Initiated || status == CheckoutStatus.Pending);
-  }
-
-  private boolean areAnyFailedCheckouts() {
-    return guestStayCheckouts.values().stream()
-      .anyMatch(status -> status == CheckoutStatus.Failed);
-  }
-
-  private UUID[] checkoutsWith(CheckoutStatus status) {
-    return guestStayCheckouts.entrySet().stream()
-      .filter(entry -> entry.getValue() == status)
-      .map(Map.Entry::getKey)
-      .toArray(UUID[]::new);
-  }
 
   public static GroupCheckout initiate(
     UUID groupCheckoutId,
@@ -79,17 +69,6 @@ public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
     tryFinishCheckout(failedAt);
   }
 
-  private void tryFinishCheckout(OffsetDateTime now) {
-    if (areAnyOngoingCheckouts()) {
-      return;
-    }
-    if (areAnyFailedCheckouts()) {
-      enqueue(new GroupCheckoutFailed(id(), checkoutsWith(CheckoutStatus.Completed), checkoutsWith(CheckoutStatus.Failed), now));
-      return;
-    }
-    enqueue(new GroupCheckoutCompleted(id(), checkoutsWith(CheckoutStatus.Completed), checkoutsWith(CheckoutStatus.Failed), now));
-  }
-
   @Override
   public void when(GroupCheckoutEvent event) {
     switch (event) {
@@ -104,18 +83,42 @@ public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
           guestStayCheckouts.replace(guestStayCheckoutId, CheckoutStatus.Initiated);
         }
       }
-      case GuestCheckoutCompleted guestCheckoutCompleted -> {
+      case GuestCheckoutCompleted guestCheckoutCompleted ->
         guestStayCheckouts.replace(guestCheckoutCompleted.guestStayAccountId(), CheckoutStatus.Completed);
-      }
-      case GuestCheckoutFailed guestCheckoutFailed -> {
+      case GuestCheckoutFailed guestCheckoutFailed ->
         guestStayCheckouts.replace(guestCheckoutFailed.guestStayAccountId(), CheckoutStatus.Failed);
-      }
-      case GroupCheckoutCompleted groupCheckoutCompleted -> {
+      case GroupCheckoutCompleted groupCheckoutCompleted ->
         status = CheckoutStatus.Completed;
-      }
-      case GroupCheckoutFailed groupCheckoutFailed -> {
+      case GroupCheckoutFailed groupCheckoutFailed ->
         status = CheckoutStatus.Failed;
-      }
     }
+  }
+
+  private void tryFinishCheckout(OffsetDateTime now) {
+    if (areAnyOngoingCheckouts()) {
+      return;
+    }
+    if (areAnyFailedCheckouts()) {
+      enqueue(new GroupCheckoutFailed(id(), checkoutsWith(CheckoutStatus.Completed), checkoutsWith(CheckoutStatus.Failed), now));
+      return;
+    }
+    enqueue(new GroupCheckoutCompleted(id(), checkoutsWith(CheckoutStatus.Completed), checkoutsWith(CheckoutStatus.Failed), now));
+  }
+
+  private boolean areAnyOngoingCheckouts() {
+    return guestStayCheckouts.values().stream()
+      .anyMatch(status -> status == CheckoutStatus.Initiated || status == CheckoutStatus.Pending);
+  }
+
+  private boolean areAnyFailedCheckouts() {
+    return guestStayCheckouts.values().stream()
+      .anyMatch(status -> status == CheckoutStatus.Failed);
+  }
+
+  private UUID[] checkoutsWith(CheckoutStatus status) {
+    return guestStayCheckouts.entrySet().stream()
+      .filter(entry -> entry.getValue() == status)
+      .map(Map.Entry::getKey)
+      .toArray(UUID[]::new);
   }
 }
