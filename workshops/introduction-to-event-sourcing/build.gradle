@@ -32,7 +32,9 @@ dependencies {
 }
 
 tasks.named('test') {
-  useJUnitPlatform()
+  useJUnitPlatform {
+    excludeTags 'Exercise'
+  }
 }
 
 tasks.withType(JavaCompile) {
