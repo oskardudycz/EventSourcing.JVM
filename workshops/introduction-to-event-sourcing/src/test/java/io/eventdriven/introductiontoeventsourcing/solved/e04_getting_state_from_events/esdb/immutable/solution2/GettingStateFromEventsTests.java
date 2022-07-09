@@ -1,18 +1,23 @@
-package io.eventdriven.introductiontoeventsourcing.solved.e02_getting_state_from_events.immutable.solution2;
+package io.eventdriven.introductiontoeventsourcing.solved.e04_getting_state_from_events.esdb.immutable.solution2;
 
+import com.eventstore.dbclient.EventStoreDBClient;
+import com.eventstore.dbclient.ResolvedEvent;
+import io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.esdb.tools.EventStoreDBTest;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
-import static io.eventdriven.introductiontoeventsourcing.solved.e02_getting_state_from_events.immutable.FunctionalTools.FoldLeft.foldLeft;
-import static io.eventdriven.introductiontoeventsourcing.solved.e02_getting_state_from_events.immutable.FunctionalTools.groupingByOrdered;
-import static io.eventdriven.introductiontoeventsourcing.solved.e02_getting_state_from_events.immutable.solution2.GettingStateFromEventsTests.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e04_getting_state_from_events.esdb.immutable.FunctionalTools.FoldLeft.foldLeft;
+import static io.eventdriven.introductiontoeventsourcing.solved.e04_getting_state_from_events.esdb.immutable.FunctionalTools.groupingByOrdered;
+import static io.eventdriven.introductiontoeventsourcing.solved.e04_getting_state_from_events.esdb.immutable.solution2.GettingStateFromEventsTests.ShoppingCartEvent.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class GettingStateFromEventsTests {
+public class GettingStateFromEventsTests extends EventStoreDBTest {
   public sealed interface ShoppingCartEvent {
     record ShoppingCartOpened(
       UUID shoppingCartId,
@@ -186,16 +191,37 @@ public class GettingStateFromEventsTests {
     Canceled
   }
 
-  static ShoppingCart getShoppingCart(Object[] events) {
+  static ShoppingCart getShoppingCart(EventStoreDBClient eventStore, String streamName) {
     // 1. Add logic here
-    return Arrays.stream(events)
-      .filter(ShoppingCartEvent.class::isInstance)
-      .map(ShoppingCartEvent.class::cast)
+    return getEvents(ShoppingCartEvent.class, eventStore, streamName)
       .collect(foldLeft(ShoppingCart::empty, ShoppingCart::when));
   }
 
+  static <Event> Stream<Event> getEvents(Class<Event> eventClass, EventStoreDBClient eventStore, String streamName) {
+    // 1. Add logic here
+    try {
+      return eventStore.readStream(streamName).get()
+        .getEvents().stream()
+        .map(GettingStateFromEventsTests::deserialize)
+        .filter(eventClass::isInstance)
+        .map(eventClass::cast);
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static Object deserialize(ResolvedEvent resolvedEvent) {
+    try {
+      var eventClass = Class.forName(
+        resolvedEvent.getOriginalEvent().getEventType());
+      return mapper.readValue(resolvedEvent.getEvent().getEventData(), eventClass);
+    } catch (IOException | ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   @Test
-  public void GettingState_ForSequenceOfEvents_ShouldSucceed() {
+  public void GettingState_ForSequenceOfEvents_ShouldSucceed() throws ExecutionException, InterruptedException {
     var shoppingCartId = UUID.randomUUID();
     var clientId = UUID.randomUUID();
     var shoesId = UUID.randomUUID();
@@ -214,7 +240,11 @@ public class GettingStateFromEventsTests {
         new ShoppingCartEvent.ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
 
-    var shoppingCart = getShoppingCart(events);
+    var streamName = "shopping_cart-%s".formatted(shoppingCartId);
+
+    appendEvents(eventStore, streamName, events).get();
+
+    var shoppingCart = getShoppingCart(eventStore, streamName);
 
     assertEquals(shoppingCartId, shoppingCart.id());
     assertEquals(clientId, shoppingCart.clientId());

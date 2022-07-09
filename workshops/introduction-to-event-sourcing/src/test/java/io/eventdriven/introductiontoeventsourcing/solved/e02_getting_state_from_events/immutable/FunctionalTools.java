@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.solved.e02_getting_state_from_events.immutable.solution2;
+package io.eventdriven.introductiontoeventsourcing.solved.e02_getting_state_from_events.immutable;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
