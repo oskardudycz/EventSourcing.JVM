@@ -27,6 +27,7 @@ Tutorial, practical samples and other resources about Event Sourcing in JVM. See
       - [Tools used](#tools-used)
     - [Event Versioning](#event-versioning)
     - [Uniqueness](#uniqueness)
+    - [Distributed Processes](#distributed-processes)
   - [Articles](#articles)
   
 ## Event Sourcing
@@ -285,10 +286,21 @@ Shows how to handle basic event schema versioning scenarios using event and stre
 - 📝 [Simple patterns for events schema versioning](https://event-driven.io/en/simple_events_versioning_patterns/?utm_source=event_sourcing_jvm) 
 
 ### [Uniqueness](./samples/uniqueness/)
-Shows how to handle unique constraint checks in an event-sources system. Explains various techniques like:
+Shows how to handle unique constraint checks in an event-sources system. Explains various techniques, like:
 - talking to business,
 - stream id design,
 - reservation pattern.
+
+Read more in [How to ensure uniqueness in Event Sourcing](https://event-driven.io/en/uniqueness-in-event-sourcing/?utm_source=event_sourcing_jvm).
+
+### [Distributed Processes](./samples/distributed-processes/)
+Shows how to handle distibuted processes in Event Sourcing in practice. Explains various use cases, like:
+- batch processing,
+- saga vs process managers,
+- distributed processes in the single module and across boundaries,
+- internal vs external events,
+- compensating failures,
+- implementation of command and event bus in EventStoreDB.
 
 Read more in [How to ensure uniqueness in Event Sourcing](https://event-driven.io/en/uniqueness-in-event-sourcing/?utm_source=event_sourcing_jvm).
 
