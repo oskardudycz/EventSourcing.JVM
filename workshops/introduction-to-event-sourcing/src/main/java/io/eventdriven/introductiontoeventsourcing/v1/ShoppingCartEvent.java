@@ -2,7 +2,7 @@ package io.eventdriven.introductiontoeventsourcing.v1;
 
 import io.eventdriven.introductiontoeventsourcing.v1.productitems.PricedProductItem;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public interface ShoppingCartEvent {
@@ -27,13 +27,13 @@ public interface ShoppingCartEvent {
 
   record ShoppingCartConfirmed(
     UUID shoppingCartId,
-    LocalDateTime confirmedAt
+    OffsetDateTime confirmedAt
   ) implements ShoppingCartEvent {
   }
 
   record ShoppingCartCanceled(
     UUID shoppingCartId,
-    LocalDateTime canceledAt
+    OffsetDateTime canceledAt
   ) implements ShoppingCartEvent {
   }
 }
