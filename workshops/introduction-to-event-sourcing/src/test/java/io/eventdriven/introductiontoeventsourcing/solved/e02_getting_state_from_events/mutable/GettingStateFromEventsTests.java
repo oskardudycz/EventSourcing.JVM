@@ -1,13 +1,13 @@
-package io.eventdriven.introductiontoeventsourcing.e02_getting_state_from_events.mutable;
+package io.eventdriven.introductiontoeventsourcing.solved.e02_getting_state_from_events.mutable;
 
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e02_getting_state_from_events.mutable.GettingStateFromEventsTests.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e02_getting_state_from_events.mutable.GettingStateFromEventsTests.ShoppingCartEvent.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class GettingStateFromEventsTests {
@@ -81,6 +81,14 @@ public class GettingStateFromEventsTests {
     public void setQuantity(int quantity) {
       this.quantity = quantity;
     }
+
+    public void add(int quantity) {
+      this.quantity += quantity;
+    }
+
+    public void subtract(int quantity) {
+      this.quantity -= quantity;
+    }
   }
 
   // ENTITY
@@ -151,6 +159,66 @@ public class GettingStateFromEventsTests {
     public void setCanceledAt(OffsetDateTime canceledAt) {
       this.canceledAt = canceledAt;
     }
+
+    public void when(Object event) {
+      if (!(event instanceof ShoppingCartEvent shoppingCartEvent))
+        return;
+
+      switch (shoppingCartEvent) {
+        case ShoppingCartOpened opened -> apply(opened);
+        case ProductItemAddedToShoppingCart productItemAdded ->
+          apply(productItemAdded);
+        case ProductItemRemovedFromShoppingCart productItemRemoved ->
+          apply(productItemRemoved);
+        case ShoppingCartConfirmed confirmed -> apply(confirmed);
+        case ShoppingCartCanceled canceled -> apply(canceled);
+      }
+    }
+
+    private void apply(ShoppingCartOpened event) {
+      setId(event.shoppingCartId());
+      setClientId(event.clientId());
+      setStatus(ShoppingCartStatus.Pending);
+      setProductItems(new ArrayList<>());
+    }
+
+    private void apply(ProductItemAddedToShoppingCart event) {
+      var pricedProductItem = event.productItem();
+      var productId = pricedProductItem.productId();
+      var quantityToAdd = pricedProductItem.quantity();
+
+      productItems().stream()
+        .filter(pi -> pi.productId() == productId)
+        .findAny()
+        .ifPresentOrElse(
+          current -> current.add(quantityToAdd),
+          () -> productItems.add(pricedProductItem)
+        );
+    }
+
+    private void apply(ProductItemRemovedFromShoppingCart event) {
+      var pricedProductItem = event.productItem();
+      var productId = pricedProductItem.productId();
+      var quantityToRemove = pricedProductItem.quantity();
+
+      productItems().stream()
+        .filter(pi -> pi.productId() == productId)
+        .findAny()
+        .ifPresentOrElse(
+          current -> current.subtract(quantityToRemove),
+          () -> productItems.add(pricedProductItem)
+        );
+    }
+
+    private void apply(ShoppingCartConfirmed event) {
+      setStatus(ShoppingCartStatus.Confirmed);
+      setConfirmedAt(event.confirmedAt());
+    }
+
+    private void apply(ShoppingCartCanceled event) {
+      setStatus(ShoppingCartStatus.Canceled);
+      setConfirmedAt(event.canceledAt());
+    }
   }
 
   public enum ShoppingCartStatus {
@@ -161,10 +229,15 @@ public class GettingStateFromEventsTests {
 
   static ShoppingCart GetShoppingCart(Object[] events) {
     // 1. Add logic here
-    throw new RuntimeException("Not implemented!");
+    var shoppingCart = new ShoppingCart();
+
+    for (var event : events) {
+      shoppingCart.when(event);
+    }
+
+    return shoppingCart;
   }
 
-  @Tag("Exercise")
   @Test
   public void GettingState_ForSequenceOfEvents_ShouldSucceed() {
     var shoppingCartId = UUID.randomUUID();
@@ -177,18 +250,18 @@ public class GettingStateFromEventsTests {
 
     var events = new Object[]
       {
-        new ShoppingCartOpened(shoppingCartId, clientId),
-        new ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),
-        new ProductItemAddedToShoppingCart(shoppingCartId, tShirt),
-        new ProductItemRemovedFromShoppingCart(shoppingCartId, pairOfShoes),
-        new ShoppingCartConfirmed(shoppingCartId, OffsetDateTime.now()),
-        new ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
+        new ShoppingCartEvent.ShoppingCartOpened(shoppingCartId, clientId),
+        new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),
+        new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, tShirt),
+        new ShoppingCartEvent.ProductItemRemovedFromShoppingCart(shoppingCartId, pairOfShoes),
+        new ShoppingCartEvent.ShoppingCartConfirmed(shoppingCartId, OffsetDateTime.now()),
+        new ShoppingCartEvent.ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
 
     var shoppingCart = GetShoppingCart(events);
 
     assertEquals(shoppingCartId, shoppingCart.id());
-    assertEquals(shoppingCartId, shoppingCart.clientId());
+    assertEquals(clientId, shoppingCart.clientId());
     assertEquals(2, shoppingCart.productItems().size());
 
     assertEquals(shoesId, shoppingCart.productItems().get(0).productId());

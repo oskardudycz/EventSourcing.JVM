@@ -17,52 +17,51 @@ public class EventsDefinitionTests {
     record ShoppingCartOpened(
       UUID shoppingCartId,
       UUID clientId
-    ) implements ShoppingCartEvent{
+    ) implements ShoppingCartEvent {
     }
 
     record ProductItemAddedToShoppingCart(
       UUID shoppingCartId,
       PricedProductItem productItem
-    ) implements ShoppingCartEvent{
+    ) implements ShoppingCartEvent {
     }
 
     record ProductItemRemovedFromShoppingCart(
       UUID shoppingCartId,
       PricedProductItem productItem
-    ) implements ShoppingCartEvent{
+    ) implements ShoppingCartEvent {
     }
 
     record ShoppingCartConfirmed(
       UUID shoppingCartId,
       OffsetDateTime confirmedAt
-    ) implements ShoppingCartEvent{
+    ) implements ShoppingCartEvent {
     }
 
     record ShoppingCartCanceled(
       UUID shoppingCartId,
       OffsetDateTime canceledAt
-    ) implements ShoppingCartEvent{
+    ) implements ShoppingCartEvent {
     }
   }
 
   // VALUE OBJECTS
-  public class PricedProductItem
-  {
+  public static class PricedProductItem {
     private UUID productId;
     private double unitPrice;
     private int quantity;
 
-    public PricedProductItem(UUID productId, double unitPrice, int quantity) {
+    public PricedProductItem(UUID productId, int quantity, double unitPrice) {
       this.setProductId(productId);
       this.setUnitPrice(unitPrice);
       this.setQuantity(quantity);
     }
 
-    private double getTotalPrice(){
-      return getQuantity() * getUnitPrice();
+    private double getTotalPrice() {
+      return quantity() * unitPrice();
     }
 
-    public UUID getProductId() {
+    public UUID productId() {
       return productId;
     }
 
@@ -70,7 +69,7 @@ public class EventsDefinitionTests {
       this.productId = productId;
     }
 
-    public double getUnitPrice() {
+    public double unitPrice() {
       return unitPrice;
     }
 
@@ -78,7 +77,7 @@ public class EventsDefinitionTests {
       this.unitPrice = unitPrice;
     }
 
-    public int getQuantity() {
+    public int quantity() {
       return quantity;
     }
 
@@ -91,18 +90,15 @@ public class EventsDefinitionTests {
     UUID productId,
     int quantity,
     double unitPrice
-  )
-  {
-    public double getTotalPrice() {
+  ) {
+    public double totalPrice() {
       return quantity * unitPrice;
     }
   }
 
-// ENTITY
-
+  // ENTITY
   // regular one
-  public class ShoppingCart
-  {
+  public static class ShoppingCart {
     private UUID id;
     private UUID clientId;
     private ShoppingCartStatus status;
@@ -119,7 +115,7 @@ public class EventsDefinitionTests {
       this.canceledAt = canceledAt;
     }
 
-    public UUID getId() {
+    public UUID id() {
       return id;
     }
 
@@ -135,7 +131,7 @@ public class EventsDefinitionTests {
       this.clientId = clientId;
     }
 
-    public ShoppingCartStatus getStatus() {
+    public ShoppingCartStatus status() {
       return status;
     }
 
@@ -143,7 +139,7 @@ public class EventsDefinitionTests {
       this.status = status;
     }
 
-    public List<PricedProductItem> getProductItems() {
+    public List<PricedProductItem> productItems() {
       return productItems;
     }
 
@@ -151,7 +147,7 @@ public class EventsDefinitionTests {
       this.productItems = productItems;
     }
 
-    public OffsetDateTime getConfirmedAt() {
+    public OffsetDateTime confirmedAt() {
       return confirmedAt;
     }
 
@@ -159,7 +155,7 @@ public class EventsDefinitionTests {
       this.confirmedAt = confirmedAt;
     }
 
-    public OffsetDateTime getCanceledAt() {
+    public OffsetDateTime canceledAt() {
       return canceledAt;
     }
 
@@ -178,8 +174,7 @@ public class EventsDefinitionTests {
     OffsetDateTime canceledAt) {
   }
 
-  public enum ShoppingCartStatus
-  {
+  public enum ShoppingCartStatus {
     Pending,
     Confirmed,
     Canceled
