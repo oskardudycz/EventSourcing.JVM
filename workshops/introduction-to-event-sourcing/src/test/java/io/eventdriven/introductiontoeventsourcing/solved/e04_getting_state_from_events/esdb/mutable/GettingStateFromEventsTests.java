@@ -1,16 +1,21 @@
-package io.eventdriven.introductiontoeventsourcing.e02_getting_state_from_events.mutable;
+package io.eventdriven.introductiontoeventsourcing.solved.e04_getting_state_from_events.esdb.mutable;
 
-import org.junit.jupiter.api.Tag;
+import com.eventstore.dbclient.EventStoreDBClient;
+import com.eventstore.dbclient.ResolvedEvent;
+import io.eventdriven.introductiontoeventsourcing.solved.e04_getting_state_from_events.esdb.tools.EventStoreDBTest;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
-import static io.eventdriven.introductiontoeventsourcing.e02_getting_state_from_events.mutable.GettingStateFromEventsTests.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e04_getting_state_from_events.esdb.mutable.GettingStateFromEventsTests.ShoppingCartEvent.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class GettingStateFromEventsTests {
+public class GettingStateFromEventsTests extends EventStoreDBTest {
   public sealed interface ShoppingCartEvent {
     record ShoppingCartOpened(
       UUID shoppingCartId,
@@ -48,6 +53,8 @@ public class GettingStateFromEventsTests {
     private double unitPrice;
     private int quantity;
 
+    public PricedProductItem(){}
+
     public PricedProductItem(UUID productId, int quantity, double unitPrice) {
       this.setProductId(productId);
       this.setUnitPrice(unitPrice);
@@ -80,6 +87,14 @@ public class GettingStateFromEventsTests {
 
     public void setQuantity(int quantity) {
       this.quantity = quantity;
+    }
+
+    public void add(int quantity) {
+      this.quantity += quantity;
+    }
+
+    public void subtract(int quantity) {
+      this.quantity -= quantity;
     }
   }
 
@@ -151,6 +166,66 @@ public class GettingStateFromEventsTests {
     public void setCanceledAt(OffsetDateTime canceledAt) {
       this.canceledAt = canceledAt;
     }
+
+    public void when(Object event) {
+      if (!(event instanceof ShoppingCartEvent shoppingCartEvent))
+        return;
+
+      switch (shoppingCartEvent) {
+        case ShoppingCartOpened opened -> apply(opened);
+        case ProductItemAddedToShoppingCart productItemAdded ->
+          apply(productItemAdded);
+        case ProductItemRemovedFromShoppingCart productItemRemoved ->
+          apply(productItemRemoved);
+        case ShoppingCartConfirmed confirmed -> apply(confirmed);
+        case ShoppingCartCanceled canceled -> apply(canceled);
+      }
+    }
+
+    private void apply(ShoppingCartOpened event) {
+      setId(event.shoppingCartId());
+      setClientId(event.clientId());
+      setStatus(ShoppingCartStatus.Pending);
+      setProductItems(new ArrayList<>());
+    }
+
+    private void apply(ProductItemAddedToShoppingCart event) {
+      var pricedProductItem = event.productItem();
+      var productId = pricedProductItem.productId();
+      var quantityToAdd = pricedProductItem.quantity();
+
+      productItems().stream()
+        .filter(pi -> pi.productId().equals(productId))
+        .findAny()
+        .ifPresentOrElse(
+          current -> current.add(quantityToAdd),
+          () -> productItems.add(pricedProductItem)
+        );
+    }
+
+    private void apply(ProductItemRemovedFromShoppingCart event) {
+      var pricedProductItem = event.productItem();
+      var productId = pricedProductItem.productId();
+      var quantityToRemove = pricedProductItem.quantity();
+
+      productItems().stream()
+        .filter(pi -> pi.productId().equals(productId))
+        .findAny()
+        .ifPresentOrElse(
+          current -> current.subtract(quantityToRemove),
+          () -> productItems.add(pricedProductItem)
+        );
+    }
+
+    private void apply(ShoppingCartConfirmed event) {
+      setStatus(ShoppingCartStatus.Confirmed);
+      setConfirmedAt(event.confirmedAt());
+    }
+
+    private void apply(ShoppingCartCanceled event) {
+      setStatus(ShoppingCartStatus.Canceled);
+      setConfirmedAt(event.canceledAt());
+    }
   }
 
   public enum ShoppingCartStatus {
@@ -159,14 +234,40 @@ public class GettingStateFromEventsTests {
     Canceled
   }
 
-  static ShoppingCart getShoppingCart(Object[] events) {
+  static ShoppingCart getShoppingCart(EventStoreDBClient eventStore, String streamName) {
     // 1. Add logic here
-    throw new RuntimeException("Not implemented!");
+    try {
+      var events = eventStore.readStream(streamName).get()
+        .getEvents().stream()
+        .map(GettingStateFromEventsTests::deserialize)
+        .filter(ShoppingCartEvent.class::isInstance)
+        .map(ShoppingCartEvent.class::cast)
+        .toList();
+
+      var shoppingCart = new ShoppingCart();
+
+      for (var event : events) {
+        shoppingCart.when(event);
+      }
+
+      return shoppingCart;
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
+    }
   }
 
-  @Tag("Exercise")
+  public static Object deserialize(ResolvedEvent resolvedEvent) {
+    try {
+      var eventClass = Class.forName(
+        resolvedEvent.getOriginalEvent().getEventType());
+      return mapper.readValue(resolvedEvent.getEvent().getEventData(), eventClass);
+    } catch (IOException | ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   @Test
-  public void gettingState_ForSequenceOfEvents_ShouldSucceed() {
+  public void gettingState_ForSequenceOfEvents_ShouldSucceed() throws ExecutionException, InterruptedException {
     var shoppingCartId = UUID.randomUUID();
     var clientId = UUID.randomUUID();
     var shoesId = UUID.randomUUID();
@@ -185,7 +286,11 @@ public class GettingStateFromEventsTests {
         new ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
 
-    var shoppingCart = getShoppingCart(events);
+    var streamName = "shopping_cart-%s".formatted(shoppingCartId);
+
+    appendEvents(eventStore, streamName, events).get();
+
+    var shoppingCart = getShoppingCart(eventStore, streamName);
 
     assertEquals(shoppingCartId, shoppingCart.id());
     assertEquals(clientId, shoppingCart.clientId());

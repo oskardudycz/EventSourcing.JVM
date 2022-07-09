@@ -188,7 +188,7 @@ public class GettingStateFromEventsTests {
       var quantityToAdd = pricedProductItem.quantity();
 
       productItems().stream()
-        .filter(pi -> pi.productId() == productId)
+        .filter(pi -> pi.productId().equals(productId))
         .findAny()
         .ifPresentOrElse(
           current -> current.add(quantityToAdd),
@@ -202,7 +202,7 @@ public class GettingStateFromEventsTests {
       var quantityToRemove = pricedProductItem.quantity();
 
       productItems().stream()
-        .filter(pi -> pi.productId() == productId)
+        .filter(pi -> pi.productId().equals(productId))
         .findAny()
         .ifPresentOrElse(
           current -> current.subtract(quantityToRemove),
@@ -250,12 +250,12 @@ public class GettingStateFromEventsTests {
 
     var events = new Object[]
       {
-        new ShoppingCartEvent.ShoppingCartOpened(shoppingCartId, clientId),
-        new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),
-        new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, tShirt),
-        new ShoppingCartEvent.ProductItemRemovedFromShoppingCart(shoppingCartId, pairOfShoes),
-        new ShoppingCartEvent.ShoppingCartConfirmed(shoppingCartId, OffsetDateTime.now()),
-        new ShoppingCartEvent.ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
+        new ShoppingCartOpened(shoppingCartId, clientId),
+        new ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),
+        new ProductItemAddedToShoppingCart(shoppingCartId, tShirt),
+        new ProductItemRemovedFromShoppingCart(shoppingCartId, pairOfShoes),
+        new ShoppingCartConfirmed(shoppingCartId, OffsetDateTime.now()),
+        new ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
 
     var shoppingCart = getShoppingCart(events);

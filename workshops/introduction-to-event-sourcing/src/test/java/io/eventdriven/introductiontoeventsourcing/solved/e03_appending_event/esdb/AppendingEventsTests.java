@@ -81,7 +81,7 @@ public class AppendingEventsTests {
     try {
       return EventDataBuilder.json(
         UUID.randomUUID(),
-        event.getClass().getTypeName().replace("$", "__").replace(".", "_"),
+        event.getClass().getTypeName(),
         mapper.writeValueAsBytes(event)
       ).build();
     } catch (JsonProcessingException e) {
