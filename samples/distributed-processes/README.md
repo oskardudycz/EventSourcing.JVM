@@ -1,4 +1,11 @@
+# Distributed process with Event Sourcing
+
+- [Distributed process with Event Sourcing](#distributed-process-with-event-sourcing)
+  - [Batch operations](#batch-operations)
+  - [Cross-module processes with compensation](#cross-module-processes-with-compensation)
+
 Those samples present how you can tackle handling distributed processes in Event Sourcing. For more background, check my article [Saga and Process Manager - distributed processes in practice](https://event-driven.io/en/saga_process_manager_distributed_transactions?utm_source=event_sourcing_jvm). 
+
 Distributed processes with an event-driven approach embrace the impossibility of the two-phase commit in distributed transactions. Instead of trying to make a big transaction across modules and databases, it does a sequence of _microtransactions_. Each operation is handled by the module that's the source of truth and can make autonomous decisions. The distributed process is triggered by the event registered and published in the system, e.g. shopping cart confirmed. Then another module can subscribe to it and take it from there. It knows what should be the next operation, e.g. initiating the order process. It sends a command that is handled, and business logic creates another event. This event is the trigger for the next step of the workflow. Such _lasagne_ of event/command/event/command continues until the process is finished (with success or failure).
 
 ![lasagne](./assets/lasagne.png)
@@ -117,7 +124,7 @@ See more in [ESDBCommandBus.java](./src/main/java/io/eventdriven/distributedproc
 
 The business logic of the saga processing is delegated to aggregate. Thanks to that, we have a clear split of responsibility between coordination (saga) and business logic (aggregate). Thanks to that, the saga is lightweight and much easier to maintain than merging both into Process Manager.
 
-See the in [GroupCheckout](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/groupcheckout/GroupCheckout.java]() aggregate.
+See the in [GroupCheckout](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/groupcheckout/GroupCheckout.java) aggregate.
 
 We can check out the guest account if the balance is settled. If it's not, then it will store the failure event: 
 
@@ -284,4 +291,5 @@ Each module:
 - [orders](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/),
 - [payments](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/payments/),
 - [shipments](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/shipments/).
+
 can use dedicated event store streams to publish their external events, e.g. _'shopping_carts__external-events'_. Other modules can subscribe to those streams and take it from there. It is a similar concept to Kafka's topics.

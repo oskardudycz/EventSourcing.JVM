@@ -294,7 +294,7 @@ Shows how to handle unique constraint checks in an event-sources system. Explain
 Read more in [How to ensure uniqueness in Event Sourcing](https://event-driven.io/en/uniqueness-in-event-sourcing/?utm_source=event_sourcing_jvm).
 
 ### [Distributed Processes](./samples/distributed-processes/)
-Shows how to handle distibuted processes in Event Sourcing in practice. Explains various use cases, like:
+Shows how to handle distributed processes in Event Sourcing in practice. Explains various use cases, like:
 - batch processing,
 - saga vs process managers,
 - distributed processes in the single module and across boundaries,
