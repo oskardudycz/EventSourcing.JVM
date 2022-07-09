@@ -23,44 +23,40 @@ Read also more in my article [Introduction to Event Sourcing - Self Paced Kit](h
 
 ## Exercises
 
-1. [Events definition](./01-EventsDefinition).
-2. [Getting State from events](./02-GettingStateFromEvents).
+1. [Events definition](./src/test/java/io/eventdriven/introductiontoeventsourcing/e01_events_definition).
+2. [Getting State from events](./src/test/java/io/eventdriven/introductiontoeventsourcing/e02_getting_state_from_events).
 3. Appending Events:
-   * [Marten](./03-AppendingEvents.Marten)
-   * [EventStoreDB](./04-AppendingEvents.EventStoreDB)
+   * [EventStoreDB](./src/test/java/io/eventdriven/introductiontoeventsourcing/e03_appending_event/esdb)
+   * _**TODO**: Axon Server_:
 4. Getting State from events
-   * [Marten](./05-GettingStateFromEvents.Marten)
-   * [EventStoreDB](./06-GettingStateFromEvents.EventStoreDB)
+   * [EventStoreDB](./src/test/java/io/eventdriven/introductiontoeventsourcing/e04_getting_state_from_events)
+   * _**TODO**: Axon Server_:
 5. Business logic:
-   * [General](./07-BusinessLogic)
-   * [Marten](./08-BusinessLogic.Marten)
-   * [EventStoreDB](./09-BusinessLogic.EventStoreDB)
+   * [General](./src/test/java/io/eventdriven/introductiontoeventsourcing/e05_business_logic)
+   * [EventStoreDB](./src/test/java/io/eventdriven/introductiontoeventsourcing/e06_business_logic/esdb)
+   * _**TODO**: Axon Server_:
 6. Optimistic Concurrency:
-   * [Marten](./10-OptimisticConcurrency.Marten)
-   * [EventStoreDB](./11-OptimisticConcurrency.EventStoreDB)
+   * [EventStoreDB](./src/test/java/io/eventdriven/introductiontoeventsourcing/e07_optimistic_concurrency/esdb)
+   * _**TODO**: Axon Server_:
 7. Projections:
-   * [General](./12-Projections)
-   * [Idempotency](./13-Projections.Idempotency)
-   * [Eventual Consistency](./14-Projections.EventualConsistency)
+   * [General](./src/test/java/io/eventdriven/introductiontoeventsourcing/e08_projections_singlestream)
+   * [Idempotency](./src/test/java/io/eventdriven/introductiontoeventsourcing/e09_projections_singlestream_idempotency)
+   * [Eventual Consistency](./src/test/java/io/eventdriven/introductiontoeventsourcing/e10_projections_singlestream_eventual_consistency)
 
 ## Prerequisites
 
 1. Install git - https://git-scm.com/downloads.
 2. Clone this repository.
-3. Install .NET 6.0 - https://dotnet.microsoft.com/download/dotnet/6.0.
-4. Install Visual Studio 2022, Rider or VSCode.
+3. Install Java JDK 17 (or later) - https://www.oracle.com/java/technologies/downloads/.
+4. Install IntelliJ, Eclipse, VSCode or other preferred IDE.
 5. Install docker - https://docs.docker.com/engine/install/.
-6. Open [Exercises.sln](./Exercises.sln) solution.
+6. Open current folder as project.
 
 ## Running
 
 1. Run: `docker-compose up`.
 2. Wait until all dockers got are downloaded and running.
 3. You should automatically get:
-    - Postgres DB running for [Marten storage](https://martendb.io)
-    - PG Admin - IDE for postgres. Available at: http://localhost:5050.
-        - Login: `admin@pgadmin.org`, Password: `admin`
-        - To connect to server click right mouse on Servers, then Register Server and use host: `postgres`, user: `postgres`, password: `Password12!`
    - EventStoreDB UI: http://localhost:2113/
-4. Open, build and run [Exercises.sln](./Exercises.sln) solution.
-4. To see solved exercises, open [Solved.sln](./Solved.sln) solution.
+4. Open, build and run project
+5. Solved exercises, go to [solved subfolder](./src/test/java/io/eventdriven/introductiontoeventsourcing/solved)

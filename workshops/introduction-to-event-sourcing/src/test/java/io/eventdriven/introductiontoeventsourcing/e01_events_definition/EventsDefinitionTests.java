@@ -1,7 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e01_events_definition;
 
-import io.eventdriven.introductiontoeventsourcing.tools.Exercise;
-import org.junit.experimental.categories.Category;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -12,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class EventsDefinitionTests {
   // 1. Define your events and entity here
 
-  @Category(Exercise.class)
+  @Tag("Exercise")
   @Test
   public void AllEventTypes_ShouldBeDefined() {
     var events = new Object[]
