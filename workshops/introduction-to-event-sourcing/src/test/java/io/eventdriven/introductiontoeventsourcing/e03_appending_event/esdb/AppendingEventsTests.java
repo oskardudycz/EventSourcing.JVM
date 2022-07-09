@@ -1,15 +1,17 @@
-package io.eventdriven.introductiontoeventsourcing.e02_getting_state_from_events.immutable;
+package io.eventdriven.introductiontoeventsourcing.e03_appending_event.esdb;
 
+import com.eventstore.dbclient.*;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
-import static io.eventdriven.introductiontoeventsourcing.e02_getting_state_from_events.immutable.GettingStateFromEventsTests.ShoppingCartEvent.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static io.eventdriven.introductiontoeventsourcing.e03_appending_event.esdb.AppendingEventsTests.ShoppingCartEvent.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-public class GettingStateFromEventsTests {
+public class AppendingEventsTests {
   public sealed interface ShoppingCartEvent {
     record ShoppingCartOpened(
       UUID shoppingCartId,
@@ -52,30 +54,15 @@ public class GettingStateFromEventsTests {
     }
   }
 
-  // ENTITY
-  public record ShoppingCart(
-    UUID id,
-    UUID clientId,
-    ShoppingCartStatus status,
-    PricedProductItem[] productItems,
-    OffsetDateTime confirmedAt,
-    OffsetDateTime canceledAt) {
-  }
-
-  public enum ShoppingCartStatus {
-    Pending,
-    Confirmed,
-    Canceled
-  }
-
-  static ShoppingCart getShoppingCart(Object[] events) {
+  private CompletableFuture<WriteResult> appendEvents(EventStoreDBClient eventStore, String streamName, Object[] events)
+  {
     // 1. Add logic here
     throw new RuntimeException("Not implemented!");
   }
 
   @Tag("Exercise")
   @Test
-  public void gettingState_ForSequenceOfEvents_ShouldSucceed() {
+  public void AppendingEvents_ForSequenceOfEvents_ShouldSucceed() throws ParseError {
     var shoppingCartId = UUID.randomUUID();
     var clientId = UUID.randomUUID();
     var shoesId = UUID.randomUUID();
@@ -93,14 +80,17 @@ public class GettingStateFromEventsTests {
         new ShoppingCartConfirmed(shoppingCartId, OffsetDateTime.now()),
         new ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
+    
+    var settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
 
-    var shoppingCart = getShoppingCart(events);
+    var eventStore = EventStoreDBClient.create(settings);
 
-    assertEquals(shoppingCartId, shoppingCart.id());
-    assertEquals(clientId, shoppingCart.clientId());
-    assertEquals(2, shoppingCart.productItems().length);
+    var streamName = "shopping_cart-%s".formatted(shoppingCartId);
 
-    assertEquals(pairOfShoes, shoppingCart.productItems()[0]);
-    assertEquals(tShirt, shoppingCart.productItems()[1]);
+    var nextStreamRevision = assertDoesNotThrow(() -> {
+      var result = appendEvents(eventStore, streamName, events).get();
+      return result.getNextExpectedRevision();
+    });
+    assertEquals(nextStreamRevision.getValueUnsigned(), events.length - 1);
   }
 }
