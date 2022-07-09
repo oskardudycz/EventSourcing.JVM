@@ -13,7 +13,7 @@ public class EventsDefinitionTests {
 
   @Tag("Exercise")
   @Test
-  public void AllEventTypes_ShouldBeDefined() {
+  public void allEventTypes_ShouldBeDefined() {
     var events = new Object[]
       {
         // 2. Put your sample events here

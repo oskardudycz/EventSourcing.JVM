@@ -186,7 +186,7 @@ public class GettingStateFromEventsTests {
     Canceled
   }
 
-  static ShoppingCart GetShoppingCart(Object[] events) {
+  static ShoppingCart getShoppingCart(Object[] events) {
     // 1. Add logic here
     return Arrays.stream(events)
       .filter(ShoppingCartEvent.class::isInstance)
@@ -195,7 +195,7 @@ public class GettingStateFromEventsTests {
   }
 
   @Test
-  public void GettingState_ForSequenceOfEvents_ShouldSucceed() {
+  public void gettingState_ForSequenceOfEvents_ShouldSucceed() {
     var shoppingCartId = UUID.randomUUID();
     var clientId = UUID.randomUUID();
     var shoesId = UUID.randomUUID();
@@ -214,7 +214,7 @@ public class GettingStateFromEventsTests {
         new ShoppingCartEvent.ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
 
-    var shoppingCart = GetShoppingCart(events);
+    var shoppingCart = getShoppingCart(events);
 
     assertEquals(shoppingCartId, shoppingCart.id());
     assertEquals(clientId, shoppingCart.clientId());

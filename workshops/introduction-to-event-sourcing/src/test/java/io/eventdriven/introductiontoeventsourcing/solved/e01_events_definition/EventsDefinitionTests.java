@@ -181,7 +181,7 @@ public class EventsDefinitionTests {
   }
 
   @Test
-  public void AllEventTypes_ShouldBeDefined() {
+  public void allEventTypes_ShouldBeDefined() {
     var shoppingCartId = UUID.randomUUID();
     var clientId = UUID.randomUUID();
     var pairOfShoes = new PricedProductItem(UUID.randomUUID(), 1, 100);

@@ -9,15 +9,6 @@ import java.util.stream.Collectors;
 import static java.util.stream.Collectors.toList;
 
 public class FunctionalTools {
-
-
-  public static <T, S> Collector<T, ?, LinkedHashMap<S, List<T>>> groupingByOrdered(Function<? super T, S> selector) {
-    return Collectors.groupingBy(
-      selector,
-      LinkedHashMap::new,
-      Collectors.mapping(p -> p, toList()));
-  }
-
   public static class FoldLeft<Entity, Event> implements Collector<Event, AtomicReference<Entity>, Entity> {
     private final Supplier<Entity> getEmpty;
     private final BiFunction<Entity, Event, Entity> accumulator;
@@ -26,7 +17,6 @@ public class FunctionalTools {
       this.getEmpty = getEmpty;
       this.accumulator = accumulator;
     }
-
 
     public static <Entity, Event> FoldLeft<Entity, Event> foldLeft(
       Supplier<Entity> getEmpty,
@@ -63,5 +53,12 @@ public class FunctionalTools {
     public Set<Characteristics> characteristics() {
       return new HashSet<>();
     }
+  }
+
+  public static <T, S> Collector<T, ?, LinkedHashMap<S, List<T>>> groupingByOrdered(Function<? super T, S> selector) {
+    return Collectors.groupingBy(
+      selector,
+      LinkedHashMap::new,
+      Collectors.mapping(p -> p, toList()));
   }
 }
