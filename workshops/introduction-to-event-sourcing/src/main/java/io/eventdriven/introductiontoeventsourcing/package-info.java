@@ -1,1 +1,0 @@
-package io.eventdriven.introductiontoeventsourcing;
