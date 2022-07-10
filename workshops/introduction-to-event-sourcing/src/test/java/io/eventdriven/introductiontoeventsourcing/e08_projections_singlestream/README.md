@@ -11,6 +11,6 @@ With the [Database](./tools/Database.java) interface representing the sample dat
     - total number of products
     - confirmed and canceled shopping carts should not be visible.
 
-Add event handlers registrations in [ProjectionsTests](./ProjectionsTests.java) calling [EventStore.Subscribe](./tools/EventStore.java) method.
+Add event handlers registrations in [ProjectionsTests](./ProjectionsTests.java) calling [EventStore.subscribe](./tools/EventStore.java) method.
 
 If needed to expand existing classes definition.
