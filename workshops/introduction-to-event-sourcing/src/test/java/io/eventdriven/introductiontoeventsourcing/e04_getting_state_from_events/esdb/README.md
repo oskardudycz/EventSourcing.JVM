@@ -5,8 +5,8 @@ Having a defined structure of events and an entity representing the shopping car
 If needed you can modify the events or entity structure.
 
 There are two variations:
-- using mutable entities: [Mutable/GettingStateFromEventsTests.cs](./mutable/GettingStateFromEventsTests.java),
-- using fully immutable structures: [Immutable/Solution1/GettingStateFromEventsTests.cs](./immutable/GettingStateFromEventsTests.java).
+- using mutable entities: [Mutable/GettingStateFromEventsTests.java](./mutable/GettingStateFromEventsTests.java),
+- using fully immutable structures: [Immutable/Solution1/GettingStateFromEventsTests.java](./immutable/GettingStateFromEventsTests.java).
 
 Select your preferred approach (or both) to solve this use case. If needed you can modify entities or events.
 

@@ -194,7 +194,7 @@ public class BusinessLogic {
 
     private void apply(ShoppingCartCanceled event) {
       status = ShoppingCartStatus.Canceled;
-      confirmedAt = event.canceledAt();
+      canceledAt = event.canceledAt();
     }
   }
 

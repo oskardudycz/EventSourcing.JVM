@@ -1,23 +1,21 @@
-package io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable;
+package io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.immutable;
 
+import io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.tools.EventStoreDBTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.BusinessLogic.FakeProductPriceCalculator;
-import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.BusinessLogic.ShoppingCartCommand.*;
-import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.BusinessLogic.ShoppingCartCommandHandler;
-import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.BusinessLogicTests.ShoppingCartEvent.*;
-import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.FunctionalTools.FoldLeft.foldLeft;
-import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.FunctionalTools.groupingByOrdered;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.immutable.BusinessLogic.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.immutable.BusinessLogic.ShoppingCartCommand.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.immutable.BusinessLogicTests.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.immutable.FunctionalTools.FoldLeft.foldLeft;
+import static io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.immutable.FunctionalTools.groupingByOrdered;
+import static org.junit.jupiter.api.Assertions.*;
 
-public class BusinessLogicTests {
+public class BusinessLogicTests extends EventStoreDBTest {
   public sealed interface ShoppingCartEvent {
     record ShoppingCartOpened(
       UUID shoppingCartId,
@@ -234,55 +232,59 @@ public class BusinessLogicTests {
     var pricedPairOfShoes = new PricedProductItem(shoesId, 1, shoesPrice);
     var pricedTShirt = new PricedProductItem(tShirtId, 1, tShirtPrice);
 
-    var events = new ArrayList<ShoppingCartEvent>();
-
-
-    events.add(
-      ShoppingCartCommandHandler.decide(
-        () -> null,
-        new OpenShoppingCart(shoppingCartId, clientId),
-        ShoppingCart.empty()
-      )
-    );
-    events.add(
-      ShoppingCartCommandHandler.decide(
-        () -> FakeProductPriceCalculator.returning(shoesPrice),
-        new AddProductItemToShoppingCart(shoppingCartId, twoPairsOfShoes),
-        getShoppingCart(events.toArray())
-      )
-    );
-    events.add(
-      ShoppingCartCommandHandler.decide(
-        () -> FakeProductPriceCalculator.returning(tShirtPrice),
-        new AddProductItemToShoppingCart(shoppingCartId, tShirt),
-        getShoppingCart(events.toArray())
-      )
-    );
-    events.add(
-      ShoppingCartCommandHandler.decide(
-        () -> null,
-        new RemoveProductItemFromShoppingCart(shoppingCartId, pricedPairOfShoes),
-        getShoppingCart(events.toArray())
-      )
-    );
-    events.add(
-      ShoppingCartCommandHandler.decide(
-        () -> null,
-        new ConfirmShoppingCart(shoppingCartId),
-        getShoppingCart(events.toArray())
-      )
-    );
-    assertThrows(IllegalStateException.class,
-      () -> events.add(
-        ShoppingCartCommandHandler.decide(
-          () -> null,
-          new CancelShoppingCart(shoppingCartId),
-          getShoppingCart(events.toArray())
+    var handle =
+      EntityStore.<ShoppingCart, ShoppingCartEvent, ShoppingCartCommand>commandHandler(
+        ShoppingCartEvent.class,
+        eventStore,
+        ShoppingCart::empty,
+        "shopping_cart-%s"::formatted,
+        ShoppingCart::when,
+        (command, entity) -> ShoppingCartCommandHandler.decide(
+          () -> command instanceof AddProductItemToShoppingCart addProduct ?
+            FakeProductPriceCalculator.returning(addProduct.productItem() == twoPairsOfShoes ? shoesPrice : tShirtPrice)
+            : null,
+          command,
+          entity
         )
-      )
+      );
+
+    // Open
+    var openShoppingCart = new OpenShoppingCart(shoppingCartId, clientId);
+    handle.accept(openShoppingCart.shoppingCartId(), openShoppingCart);
+
+    // Add two pairs of shoes
+    var addTwoPairsOfShoes = new AddProductItemToShoppingCart(shoppingCartId, twoPairsOfShoes);
+    handle.accept(addTwoPairsOfShoes.shoppingCartId(), addTwoPairsOfShoes);
+
+    // Add T-Shirt
+    var addTShirt = new AddProductItemToShoppingCart(shoppingCartId, tShirt);
+    handle.accept(addTShirt.shoppingCartId(), addTShirt);
+
+    // Remove pair of shoes
+    var removePairOfShoes = new RemoveProductItemFromShoppingCart(shoppingCartId, pricedPairOfShoes);
+    handle.accept(removePairOfShoes.shoppingCartId(), removePairOfShoes);
+
+    // Confirm
+    var confirmShoppingCart = new ConfirmShoppingCart(shoppingCartId);
+    handle.accept(confirmShoppingCart.shoppingCartId(), confirmShoppingCart);
+
+    // Cancel
+    assertThrows(IllegalStateException.class, () -> {
+      var cancelShoppingCart = new CancelShoppingCart(shoppingCartId);
+      handle.accept(cancelShoppingCart.shoppingCartId(), cancelShoppingCart);
+    });
+
+    var getResult = EntityStore.get(
+      ShoppingCartEvent.class,
+      eventStore,
+      ShoppingCart::when,
+      ShoppingCart::empty,
+      "shopping_cart-%s".formatted(shoppingCartId)
     );
 
-    var shoppingCart = getShoppingCart(events.toArray());
+    assertTrue(getResult.isPresent());
+
+    var shoppingCart = getResult.get();
 
     assertEquals(shoppingCartId, shoppingCart.id());
     assertEquals(clientId, shoppingCart.clientId());

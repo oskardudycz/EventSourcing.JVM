@@ -1,23 +1,38 @@
-package io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.mutable.solution2;
+package io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.mutable;
 
 import java.time.OffsetDateTime;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
-import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.mutable.solution2.BusinessLogicTests.*;
-import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.mutable.solution2.BusinessLogicTests.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.mutable.BusinessLogicTests.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.mutable.BusinessLogicTests.ShoppingCartEvent.*;
 
 public class BusinessLogic {
-  public interface Aggregate<ShoppingCartEvent> {
-    UUID id();
+  public static abstract class Aggregate<Event> {
+    protected UUID id;
 
-    void when(ShoppingCartEvent event);
+    private final Queue<Object> uncommittedEvents = new LinkedList<>();
+
+    public UUID id() {
+      return id;
+    }
+
+    public Object[] dequeueUncommittedEvents() {
+      var dequeuedEvents = uncommittedEvents.toArray();
+
+      uncommittedEvents.clear();
+
+      return dequeuedEvents;
+    }
+
+    public abstract void when(Event event);
+
+    protected void enqueue(Event event) {
+      uncommittedEvents.add(event);
+      when(event);
+    }
   }
 
-  public static class ShoppingCart implements Aggregate<ShoppingCartEvent> {
-    private UUID id;
+  public static class ShoppingCart extends Aggregate<ShoppingCartEvent> {
     private UUID clientId;
     private ShoppingCartStatus status;
     private List<PricedProductItem> productItems;
@@ -28,21 +43,20 @@ public class BusinessLogic {
     }
 
     private ShoppingCart(
-      ShoppingCartOpened event
+      UUID id,
+      UUID clientId
     ) {
-      when(event);
+      enqueue(new ShoppingCartOpened(id, clientId));
     }
 
-    public static SimpleEntry<ShoppingCartEvent, ShoppingCart> open(UUID shoppingCartId, UUID clientId) {
-      var event = new ShoppingCartOpened(
+    public static ShoppingCart open(UUID shoppingCartId, UUID clientId) {
+      return new ShoppingCart(
         shoppingCartId,
         clientId
       );
-
-      return new SimpleEntry<>(event, new ShoppingCart(event));
     }
 
-    ProductItemAddedToShoppingCart addProduct(
+    void addProduct(
       ProductPriceCalculator productPriceCalculator,
       ProductItem productItem
     ) {
@@ -51,13 +65,13 @@ public class BusinessLogic {
 
       var pricedProductItem = productPriceCalculator.calculate(productItem);
 
-      return apply(new ProductItemAddedToShoppingCart(
+      enqueue(new ProductItemAddedToShoppingCart(
         id,
         pricedProductItem
       ));
     }
 
-    ProductItemRemovedFromShoppingCart removeProduct(
+    void removeProduct(
       PricedProductItem productItem
     ) {
       if (isClosed())
@@ -66,27 +80,27 @@ public class BusinessLogic {
       if (!hasEnough(productItem))
         throw new IllegalStateException("Not enough product items to remove");
 
-      return apply(new ProductItemRemovedFromShoppingCart(
+      enqueue(new ProductItemRemovedFromShoppingCart(
         id,
         productItem
       ));
     }
 
-    ShoppingCartConfirmed confirm() {
+    void confirm() {
       if (isClosed())
         throw new IllegalStateException("Confirming cart in '%s' status is not allowed.".formatted(status));
 
-      return apply(new ShoppingCartConfirmed(
+      enqueue(new ShoppingCartConfirmed(
         id,
         OffsetDateTime.now()
       ));
     }
 
-    ShoppingCartCanceled cancel() {
+    void cancel() {
       if (isClosed())
         throw new IllegalStateException("Canceling cart in '%s' status is not allowed.".formatted(status));
 
-      return apply(new ShoppingCartCanceled(
+      enqueue(new ShoppingCartCanceled(
         id,
         OffsetDateTime.now()
       ));
@@ -103,10 +117,6 @@ public class BusinessLogic {
         .sum();
 
       return currentQuantity >= productItem.quantity();
-    }
-
-    public UUID id() {
-      return id;
     }
 
     public UUID clientId() {
@@ -149,7 +159,7 @@ public class BusinessLogic {
       productItems = new ArrayList<>();
     }
 
-    private ProductItemAddedToShoppingCart apply(ProductItemAddedToShoppingCart event) {
+    private void apply(ProductItemAddedToShoppingCart event) {
       var pricedProductItem = event.productItem();
       var productId = pricedProductItem.productId();
       var quantityToAdd = pricedProductItem.quantity();
@@ -158,16 +168,12 @@ public class BusinessLogic {
         .filter(pi -> pi.productId().equals(productId))
         .findAny()
         .ifPresentOrElse(
-          current -> productItems.set(
-            productItems.indexOf(current),
-            new PricedProductItem(current.productId(), current.quantity() + quantityToAdd, current.unitPrice())
-          ),
+          current -> current.add(quantityToAdd),
           () -> productItems.add(pricedProductItem)
         );
-      return event;
     }
 
-    private ProductItemRemovedFromShoppingCart apply(ProductItemRemovedFromShoppingCart event) {
+    private void apply(ProductItemRemovedFromShoppingCart event) {
       var pricedProductItem = event.productItem();
       var productId = pricedProductItem.productId();
       var quantityToRemove = pricedProductItem.quantity();
@@ -176,26 +182,49 @@ public class BusinessLogic {
         .filter(pi -> pi.productId().equals(productId))
         .findAny()
         .ifPresentOrElse(
-          current -> productItems.set(
-            productItems.indexOf(current),
-            new PricedProductItem(current.productId(), current.quantity() - quantityToRemove, current.unitPrice())
-          ),
+          current -> current.subtract(quantityToRemove),
           () -> productItems.add(pricedProductItem)
         );
-
-      return event;
     }
 
-    private ShoppingCartConfirmed apply(ShoppingCartConfirmed event) {
+    private void apply(ShoppingCartConfirmed event) {
       status = ShoppingCartStatus.Confirmed;
       confirmedAt = event.confirmedAt();
-      return event;
     }
 
-    private ShoppingCartCanceled apply(ShoppingCartCanceled event) {
+    private void apply(ShoppingCartCanceled event) {
       status = ShoppingCartStatus.Canceled;
       canceledAt = event.canceledAt();
-      return event;
+    }
+  }
+
+  public sealed interface ShoppingCartCommand {
+    record OpenShoppingCart(
+      UUID shoppingCartId,
+      UUID clientId
+    ) implements ShoppingCartCommand {
+    }
+
+    record AddProductItemToShoppingCart(
+      UUID shoppingCartId,
+      ProductItem productItem
+    ) implements ShoppingCartCommand {
+    }
+
+    record RemoveProductItemFromShoppingCart(
+      UUID shoppingCartId,
+      PricedProductItem productItem
+    ) implements ShoppingCartCommand {
+    }
+
+    record ConfirmShoppingCart(
+      UUID shoppingCartId
+    ) implements ShoppingCartCommand {
+    }
+
+    record CancelShoppingCart(
+      UUID shoppingCartId
+    ) implements ShoppingCartCommand {
     }
   }
 

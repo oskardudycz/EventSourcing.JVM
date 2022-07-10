@@ -61,7 +61,7 @@ public class ShoppingCartTests {
     assertEquals(shoppingCart.clientId(), clientId);
     assertEquals(ShoppingCartStatus.Confirmed, shoppingCart.status());
 
-    assertEquals(shoppingCart.productItems().items().stream().count(), 1);
+    assertEquals((long) shoppingCart.productItems().items().size(), 1);
 
     var tShirtFromShoppingCart = shoppingCart.productItems().items().get(0);
     assertEquals(tShirt, tShirtFromShoppingCart);
