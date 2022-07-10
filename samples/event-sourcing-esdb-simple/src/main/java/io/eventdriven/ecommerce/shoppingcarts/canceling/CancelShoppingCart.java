@@ -3,7 +3,7 @@ package io.eventdriven.ecommerce.shoppingcarts.canceling;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartCanceled;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public record CancelShoppingCart(
@@ -16,7 +16,7 @@ public record CancelShoppingCart(
 
     return new ShoppingCartCanceled(
       shoppingCart.id(),
-      LocalDateTime.now()
+      OffsetDateTime.now()
     );
   }
 }

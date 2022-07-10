@@ -3,7 +3,7 @@ package io.eventdriven.ecommerce.shoppingcarts.confirming;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartConfirmed;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public record ConfirmShoppingCart(
@@ -16,7 +16,7 @@ public record ConfirmShoppingCart(
 
     return new ShoppingCartConfirmed(
       shoppingCart.id(),
-      LocalDateTime.now()
+      OffsetDateTime.now()
     );
   }
 }

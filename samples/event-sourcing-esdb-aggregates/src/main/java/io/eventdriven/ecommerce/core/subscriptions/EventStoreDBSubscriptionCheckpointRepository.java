@@ -5,7 +5,7 @@ import io.eventdriven.ecommerce.core.serialization.EventSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 public final class EventStoreDBSubscriptionCheckpointRepository implements SubscriptionCheckpointRepository {
@@ -47,7 +47,7 @@ public final class EventStoreDBSubscriptionCheckpointRepository implements Subsc
 
   public void store(String subscriptionId, long position) {
     var event = EventSerializer.serialize(
-      new CheckpointStored(subscriptionId, position, LocalDateTime.now())
+      new CheckpointStored(subscriptionId, position, OffsetDateTime.now())
     );
 
     var streamName = getCheckpointStreamName(subscriptionId);

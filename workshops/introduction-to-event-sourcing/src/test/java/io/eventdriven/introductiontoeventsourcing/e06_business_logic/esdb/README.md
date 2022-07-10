@@ -1,4 +1,4 @@
-# Exercise 09 - Business Logic with EventStoreDB
+# Exercise 06 - Business Logic with EventStoreDB
 
 Having the following shopping cart process:
 1. The customer may add a product to the shopping cart only after opening it.
@@ -13,9 +13,9 @@ Write the code that fulfils this logic. Remember that in Event Sourcing each bus
 ![events](./assets/events.jpg)
 
 There are two variations:
-1. Immutable, with functional command handlers composition and entities as anemic data model: [Immutable/BusinessLogicTests.cs](./Immutable/BusinessLogicTests.cs).
-2. Classical, mutable aggregates (rich domain model): [Mutable/BusinessLogicTests.cs](./Mutable/BusinessLogicTests.cs).
-3. Mixed approach, mutable aggregates (rich domain model), returning events from methods, using immutable DTOs: [Mixed/BusinessLogicTests.cs](./Mixed/BusinessLogicTests.cs).
+1. Immutable, with functional command handlers composition and entities as anemic data model: [Immutable/BusinessLogicTests.cs](./immutable/BusinessLogicTests.cs).
+2. Classical, mutable aggregates (rich domain model): [Mutable/BusinessLogicTests.cs](./mutable/BusinessLogicTests.cs).
+3. Mixed approach, mutable aggregates (rich domain model), returning events from methods, using immutable DTOs: [Mixed/BusinessLogicTests.cs](./mixed/BusinessLogicTests.cs).
 
 Select your preferred approach (or all) to solve this use case using EventStoreDB. Fill appropriate `EventStoreClientExtensions`
 

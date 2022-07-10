@@ -1,23 +1,22 @@
-package io.eventdriven.introductiontoeventsourcing.solved.e04_getting_state_from_events.esdb.immutable.solution2;
+package io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable;
 
-import com.eventstore.dbclient.EventStoreDBClient;
-import com.eventstore.dbclient.ResolvedEvent;
-import io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.esdb.tools.EventStoreDBTest;
+import io.eventdriven.introductiontoeventsourcing.v1.productitems.ProductItem;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
-import static io.eventdriven.introductiontoeventsourcing.solved.e04_getting_state_from_events.esdb.immutable.FunctionalTools.FoldLeft.foldLeft;
-import static io.eventdriven.introductiontoeventsourcing.solved.e04_getting_state_from_events.esdb.immutable.FunctionalTools.groupingByOrdered;
-import static io.eventdriven.introductiontoeventsourcing.solved.e04_getting_state_from_events.esdb.immutable.solution2.GettingStateFromEventsTests.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.BusinessLogic.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.BusinessLogicTests.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.FunctionalTools.FoldLeft.foldLeft;
+import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.FunctionalTools.groupingByOrdered;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class GettingStateFromEventsTests extends EventStoreDBTest {
+public class BusinessLogicTests {
   public sealed interface ShoppingCartEvent {
     record ShoppingCartOpened(
       UUID shoppingCartId,
@@ -99,6 +98,15 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
           .toArray(PricedProductItem[]::new)
       );
     }
+
+    public boolean hasEnough(PricedProductItem productItem) {
+      var currentQuantity = Arrays.stream(values)
+        .filter(pi -> pi.productId().equals(productItem.productId()))
+        .mapToInt(PricedProductItem::quantity)
+        .sum();
+
+      return currentQuantity >= productItem.quantity();
+    }
   }
 
   // ENTITY
@@ -141,6 +149,10 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
         case CanceledShoppingCart ignored:
           yield ShoppingCartStatus.Canceled;
       };
+    }
+
+    default boolean isClosed() {
+      return this instanceof ConfirmedShoppingCart || this instanceof CanceledShoppingCart;
     }
 
     static ShoppingCart when(ShoppingCart current, ShoppingCartEvent event) {
@@ -191,66 +203,79 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
     Canceled
   }
 
-  static ShoppingCart getShoppingCart(EventStoreDBClient eventStore, String streamName) {
+  static ShoppingCart getShoppingCart(Object[] events) {
     // 1. Add logic here
-    return getEvents(ShoppingCartEvent.class, eventStore, streamName)
+    return Arrays.stream(events)
+      .filter(ShoppingCartEvent.class::isInstance)
+      .map(ShoppingCartEvent.class::cast)
       .collect(foldLeft(ShoppingCart::empty, ShoppingCart::when));
   }
 
-  static <Event> Stream<Event> getEvents(Class<Event> eventClass, EventStoreDBClient eventStore, String streamName) {
-    // 1. Add logic here
-    try {
-      return eventStore.readStream(streamName).get()
-        .getEvents().stream()
-        .map(GettingStateFromEventsTests::deserialize)
-        .filter(eventClass::isInstance)
-        .map(eventClass::cast);
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public static Object deserialize(ResolvedEvent resolvedEvent) {
-    try {
-      var eventClass = Class.forName(
-        resolvedEvent.getOriginalEvent().getEventType());
-      return mapper.readValue(resolvedEvent.getEvent().getEventData(), eventClass);
-    } catch (IOException | ClassNotFoundException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   @Test
-  public void gettingState_ForSequenceOfEvents_ShouldSucceed() throws ExecutionException, InterruptedException {
+  public void gettingState_ForSequenceOfEvents_ShouldSucceed() {
     var shoppingCartId = UUID.randomUUID();
     var clientId = UUID.randomUUID();
     var shoesId = UUID.randomUUID();
     var tShirtId = UUID.randomUUID();
-    var twoPairsOfShoes = new PricedProductItem(shoesId, 2, 100);
-    var pairOfShoes = new PricedProductItem(shoesId, 1, 100);
-    var tShirt = new PricedProductItem(tShirtId, 1, 50);
 
-    var events = new Object[]
-      {
-        new ShoppingCartEvent.ShoppingCartOpened(shoppingCartId, clientId),
-        new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),
-        new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, tShirt),
-        new ShoppingCartEvent.ProductItemRemovedFromShoppingCart(shoppingCartId, pairOfShoes),
-        new ShoppingCartEvent.ShoppingCartConfirmed(shoppingCartId, OffsetDateTime.now()),
-        new ShoppingCartEvent.ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
-      };
+    var twoPairsOfShoes = new ProductItem(shoesId, 2);
+    var pairOfShoes = new ProductItem(shoesId, 1);
+    var tShirt = new ProductItem(tShirtId, 1);
 
-    var streamName = "shopping_cart-%s".formatted(shoppingCartId);
+    var shoesPrice = 100;
+    var tShirtPrice = 50;
 
-    appendEvents(eventStore, streamName, events).get();
+    var pricedPairOfShoes = new PricedProductItem(shoesId, 1, shoesPrice);
+    var pricedTShirt = new PricedProductItem(tShirtId, 1, tShirtPrice);
 
-    var shoppingCart = getShoppingCart(eventStore, streamName);
+    var events = new ArrayList<ShoppingCartEvent>();
+
+    events.add(
+      OpenShoppingCart.handle(new OpenShoppingCart(shoppingCartId, clientId))
+    );
+    events.add(
+      AddProductItemToShoppingCart.handle(
+        FakeProductPriceCalculator.returning(shoesPrice),
+        new AddProductItemToShoppingCart(shoppingCartId, twoPairsOfShoes),
+        getShoppingCart(events.toArray())
+      )
+    );
+    events.add(
+      AddProductItemToShoppingCart.handle(
+        FakeProductPriceCalculator.returning(tShirtPrice),
+        new AddProductItemToShoppingCart(shoppingCartId, tShirt),
+        getShoppingCart(events.toArray())
+      )
+    );
+    events.add(
+      RemoveProductItemFromShoppingCart.handle(
+        new RemoveProductItemFromShoppingCart(shoppingCartId, pricedPairOfShoes),
+        getShoppingCart(events.toArray())
+      )
+    );
+    events.add(
+      ConfirmShoppingCart.handle(
+        new ConfirmShoppingCart(shoppingCartId),
+        getShoppingCart(events.toArray())
+      )
+    );
+    assertThrows(IllegalStateException.class,
+      () -> events.add(
+        CancelShoppingCart.handle(
+          new CancelShoppingCart(shoppingCartId),
+          getShoppingCart(events.toArray())
+        )
+      )
+    );
+
+    var shoppingCart = getShoppingCart(events.toArray());
 
     assertEquals(shoppingCartId, shoppingCart.id());
     assertEquals(clientId, shoppingCart.clientId());
     assertEquals(2, shoppingCart.productItems().values().length);
+    assertEquals(ShoppingCartStatus.Confirmed, shoppingCart.status());
 
-    assertEquals(pairOfShoes, shoppingCart.productItems().values()[0]);
-    assertEquals(tShirt, shoppingCart.productItems().values()[1]);
+    assertEquals(pricedPairOfShoes, shoppingCart.productItems().values()[0]);
+    assertEquals(pricedTShirt, shoppingCart.productItems().values()[1]);
   }
 }

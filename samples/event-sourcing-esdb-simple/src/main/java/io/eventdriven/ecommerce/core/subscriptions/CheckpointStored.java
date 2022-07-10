@@ -1,10 +1,10 @@
 package io.eventdriven.ecommerce.core.subscriptions;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 record CheckpointStored(
   String subscriptionId,
   long position,
-  LocalDateTime checkpointedAt
+  OffsetDateTime checkpointedAt
 ) {
 }

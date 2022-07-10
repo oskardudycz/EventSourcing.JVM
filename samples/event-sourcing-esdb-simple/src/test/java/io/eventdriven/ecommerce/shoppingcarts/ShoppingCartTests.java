@@ -9,7 +9,7 @@ import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -50,7 +50,7 @@ public class ShoppingCartTests {
         ),
         new ShoppingCartConfirmed(
           shoppingCartId,
-          LocalDateTime.now()
+          OffsetDateTime.now()
         )
       };
 

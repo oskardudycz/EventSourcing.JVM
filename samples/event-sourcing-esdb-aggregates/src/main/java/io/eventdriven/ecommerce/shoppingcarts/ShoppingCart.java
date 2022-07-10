@@ -7,7 +7,7 @@ import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItems;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
@@ -38,9 +38,6 @@ class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
     UUID id,
     UUID clientId
   ) {
-    this.id = id;
-    this.clientId = clientId;
-
     enqueue(new ShoppingCartOpened(id, clientId));
   }
 
@@ -86,7 +83,7 @@ class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
 
     enqueue(new ShoppingCartConfirmed(
       id,
-      LocalDateTime.now()
+      OffsetDateTime.now()
     ));
   }
 
@@ -96,7 +93,7 @@ class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
 
     enqueue(new ShoppingCartCanceled(
       id,
-      LocalDateTime.now()
+      OffsetDateTime.now()
     ));
   }
 
