@@ -1,25 +1,19 @@
-package io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency;
+package io.eventdriven.introductiontoeventsourcing.e10_projections_singlestream_eventual_consistency;
 
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.ProjectionsTests.PricedProductItem;
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.ProjectionsTests.ShoppingCartStatus;
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.tools.Database;
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.tools.EventEnvelopeBase.EventEnvelope;
+import io.eventdriven.introductiontoeventsourcing.e10_projections_singlestream_eventual_consistency.ProjectionsTests.PricedProductItem;
+import io.eventdriven.introductiontoeventsourcing.e10_projections_singlestream_eventual_consistency.ProjectionsTests.ShoppingCartStatus;
+import io.eventdriven.introductiontoeventsourcing.e10_projections_singlestream_eventual_consistency.tools.EventEnvelopeBase.EventEnvelope;
+import io.eventdriven.introductiontoeventsourcing.e10_projections_singlestream_eventual_consistency.tools.Database;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.ProjectionsTests.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.e10_projections_singlestream_eventual_consistency.ProjectionsTests.ShoppingCartEvent.*;
 
 public class Projections {
-  public interface Versioned {
-    long getVersion();
-
-    void setVersion(long version);
-  }
-
-  public static class ShoppingCartDetails implements Versioned {
+  public static class ShoppingCartDetails {
     private UUID id;
     private UUID clientId;
     private ShoppingCartStatus status;
@@ -28,12 +22,10 @@ public class Projections {
     private OffsetDateTime canceledAt;
     private double totalAmount;
     private double totalItemsCount;
-    private long version;
 
-    public ShoppingCartDetails() {
-    }
+    public ShoppingCartDetails(){}
 
-    public ShoppingCartDetails(UUID id, UUID clientId, ShoppingCartStatus status, List<PricedProductItem> productItems, OffsetDateTime confirmedAt, OffsetDateTime canceledAt, double totalAmount, double totalItemsCount, long version) {
+    public ShoppingCartDetails(UUID id, UUID clientId, ShoppingCartStatus status, List<PricedProductItem> productItems, OffsetDateTime confirmedAt, OffsetDateTime canceledAt, double totalAmount, double totalItemsCount) {
       this.id = id;
       this.clientId = clientId;
       this.status = status;
@@ -42,7 +34,6 @@ public class Projections {
       this.canceledAt = canceledAt;
       this.totalAmount = totalAmount;
       this.totalItemsCount = totalItemsCount;
-      this.version = version;
     }
 
     public UUID getId() {
@@ -116,16 +107,6 @@ public class Projections {
     public void addTotalItemsCount(double totalItemsCount) {
       this.totalItemsCount += totalItemsCount;
     }
-
-    @Override
-    public long getVersion() {
-      return version;
-    }
-
-    @Override
-    public void setVersion(long version) {
-      this.version = version;
-    }
   }
 
   public static class ShoppingCartDetailsProjection {
@@ -137,7 +118,7 @@ public class Projections {
 
     public void handleOpened(EventEnvelope<ShoppingCartOpened> event) {
       database.store(
-        ShoppingCartDetails.class, event.data().shoppingCartId(), event.metadata().streamPosition(),
+        ShoppingCartDetails.class, event.data().shoppingCartId(),
         new ShoppingCartDetails(
           event.data().shoppingCartId(),
           event.data().clientId(),
@@ -146,13 +127,13 @@ public class Projections {
           null,
           null,
           0,
-          0,
-          event.metadata().streamPosition())
+          0
+        )
       );
     }
 
     public void handleProductAdded(EventEnvelope<ProductItemAddedToShoppingCart> event) {
-      database.getAndUpdate(ShoppingCartDetails.class, event.data().shoppingCartId(), event.metadata().streamPosition(),
+      database.getAndUpdate(ShoppingCartDetails.class, event.data().shoppingCartId(),
         item -> {
           var productItem = event.data().productItem();
 
@@ -175,7 +156,7 @@ public class Projections {
     }
 
     public void handleProductRemoved(EventEnvelope<ProductItemRemovedFromShoppingCart> event) {
-      database.getAndUpdate(ShoppingCartDetails.class, event.data().shoppingCartId(), event.metadata().streamPosition(),
+      database.getAndUpdate(ShoppingCartDetails.class, event.data().shoppingCartId(),
         item -> {
           var productItem = event.data().productItem();
 
@@ -197,7 +178,7 @@ public class Projections {
     }
 
     public void handleConfirmed(EventEnvelope<ShoppingCartConfirmed> event) {
-      database.getAndUpdate(ShoppingCartDetails.class, event.data().shoppingCartId(), event.metadata().streamPosition(),
+      database.getAndUpdate(ShoppingCartDetails.class, event.data().shoppingCartId(),
         item -> {
           item.setStatus(ShoppingCartStatus.Confirmed);
           item.setConfirmedAt(event.data().confirmedAt());
@@ -208,7 +189,7 @@ public class Projections {
 
 
     public void handleCanceled(EventEnvelope<ShoppingCartCanceled> event) {
-      database.getAndUpdate(ShoppingCartDetails.class, event.data().shoppingCartId(), event.metadata().streamPosition(),
+      database.getAndUpdate(ShoppingCartDetails.class, event.data().shoppingCartId(),
         item -> {
           item.setStatus(ShoppingCartStatus.Canceled);
           item.setCanceledAt(event.data().canceledAt());
@@ -218,22 +199,20 @@ public class Projections {
     }
   }
 
-  public static class ShoppingCartShortInfo implements Versioned {
+  public static class ShoppingCartShortInfo {
     private UUID id;
     private UUID clientId;
     private double totalAmount;
     private double totalItemsCount;
-    private long version;
 
     public ShoppingCartShortInfo() {
     }
 
-    public ShoppingCartShortInfo(UUID id, UUID clientId, double totalAmount, double totalItemsCount, long version) {
+    public ShoppingCartShortInfo(UUID id, UUID clientId, double totalAmount, double totalItemsCount) {
       this.id = id;
       this.clientId = clientId;
       this.totalAmount = totalAmount;
       this.totalItemsCount = totalItemsCount;
-      this.version = version;
     }
 
     public UUID getId() {
@@ -275,16 +254,6 @@ public class Projections {
     public void addTotalItemsCount(double totalItemsCount) {
       this.totalItemsCount += totalItemsCount;
     }
-
-    @Override
-    public long getVersion() {
-      return version;
-    }
-
-    @Override
-    public void setVersion(long version) {
-      this.version = version;
-    }
   }
 
   public static class ShoppingCartShortInfoProjection {
@@ -295,19 +264,18 @@ public class Projections {
     }
 
     public void handleOpened(EventEnvelope<ShoppingCartOpened> event) {
-      database.store(ShoppingCartShortInfo.class, event.data().shoppingCartId(), event.metadata().streamPosition(),
+      database.store(ShoppingCartShortInfo.class, event.data().shoppingCartId(),
         new ShoppingCartShortInfo(
           event.data().shoppingCartId(),
           event.data().clientId(),
           0,
-          0,
-          event.metadata().streamPosition()
+          0
         )
       );
     }
 
     public void handleProductAdded(EventEnvelope<ProductItemAddedToShoppingCart> event) {
-      database.getAndUpdate(ShoppingCartShortInfo.class, event.data().shoppingCartId(), event.metadata().streamPosition(),
+      database.getAndUpdate(ShoppingCartShortInfo.class, event.data().shoppingCartId(),
         item -> {
           var productItem = event.data().productItem();
 
@@ -319,7 +287,7 @@ public class Projections {
     }
 
     public void handleProductRemoved(EventEnvelope<ProductItemRemovedFromShoppingCart> event) {
-      database.getAndUpdate(ShoppingCartShortInfo.class, event.data().shoppingCartId(), event.metadata().streamPosition(),
+      database.getAndUpdate(ShoppingCartShortInfo.class, event.data().shoppingCartId(),
         item -> {
           var productItem = event.data().productItem();
 

@@ -1,16 +1,16 @@
-package io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency;
+package io.eventdriven.introductiontoeventsourcing.solved.e10_projections_singlestream_eventual_consistency;
 
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.ProjectionsTests.PricedProductItem;
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.ProjectionsTests.ShoppingCartStatus;
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.tools.Database;
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.tools.EventEnvelopeBase.EventEnvelope;
+import io.eventdriven.introductiontoeventsourcing.solved.e10_projections_singlestream_eventual_consistency.ProjectionsTests.PricedProductItem;
+import io.eventdriven.introductiontoeventsourcing.solved.e10_projections_singlestream_eventual_consistency.ProjectionsTests.ShoppingCartStatus;
+import io.eventdriven.introductiontoeventsourcing.solved.e10_projections_singlestream_eventual_consistency.tools.Database;
+import io.eventdriven.introductiontoeventsourcing.solved.e10_projections_singlestream_eventual_consistency.tools.EventEnvelopeBase.EventEnvelope;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.ProjectionsTests.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e10_projections_singlestream_eventual_consistency.ProjectionsTests.ShoppingCartEvent.*;
 
 public class Projections {
   public interface Versioned {
@@ -137,7 +137,7 @@ public class Projections {
 
     public void handleOpened(EventEnvelope<ShoppingCartOpened> event) {
       database.store(
-        ShoppingCartDetails.class, event.data().shoppingCartId(), event.metadata().streamPosition(),
+        ShoppingCartDetails.class, event.data().shoppingCartId(),
         new ShoppingCartDetails(
           event.data().shoppingCartId(),
           event.data().clientId(),
@@ -295,7 +295,7 @@ public class Projections {
     }
 
     public void handleOpened(EventEnvelope<ShoppingCartOpened> event) {
-      database.store(ShoppingCartShortInfo.class, event.data().shoppingCartId(), event.metadata().streamPosition(),
+      database.store(ShoppingCartShortInfo.class, event.data().shoppingCartId(),
         new ShoppingCartShortInfo(
           event.data().shoppingCartId(),
           event.data().clientId(),
