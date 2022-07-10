@@ -8,8 +8,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.Projections;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -26,7 +26,8 @@ public class Database {
       .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
       .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
-  public <T> void store(Class<T> typeClass, UUID id, Object obj) {
+  public <T extends Projections.Versioned> void store(Class<T> typeClass, UUID id, long expectedVersion, T obj) {
+    obj.setVersion(expectedVersion);
     storage.compute(getId(typeClass, id), (ignore, value) -> obj);
   }
 
@@ -49,16 +50,13 @@ public class Database {
         })));
   }
 
-  public <T> void getAndUpdate(Class<T> typeClass, UUID id, Function<T, T> update) {
-    try {
-      var item = get(typeClass, id).orElse(typeClass.getConstructor().newInstance());
+  public <T extends Projections.Versioned> void getAndUpdate(Class<T> typeClass, UUID id, long version, Function<T, T> update) {
+    var item = get(typeClass, id)
+      .orElseThrow(()-> new RuntimeException("Item with id: '%s' and expected version: %s not found!".formatted(id, version)));
 
-      store(typeClass, id, update.apply(item));
-    } catch (InstantiationException | IllegalAccessException |
-             InvocationTargetException | NoSuchMethodException e) {
-      throw new RuntimeException(e);
-    }
+    if (item.getVersion() >= version) return;
 
+    store(typeClass, id, version, update.apply(item));
   }
 
   private static <T> String getId(Class<T> typeClass, UUID id) {

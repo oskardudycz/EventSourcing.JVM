@@ -17,3 +17,8 @@ Track and implement proper idempotency handling in projection event handlers.
 
 If needed to expand existing classes definition.
 
+## Solutions
+
+Read more in my articles:
+- [Dealing with Eventual Consistency and Idempotency in MongoDB projections](https://event-driven.io/en/dealing_with_eventual_consistency_and_idempotency_in_mongodb_projections/?utm_source=event_sourcing_net_workshop)
+- [A simple trick for idempotency handling in the Elastic Search read model](https://event-driven.io/en/simple_trick_for_idempotency_handling_in_elastic_search_readm_model/?utm_source=event_sourcing_net_workshop)

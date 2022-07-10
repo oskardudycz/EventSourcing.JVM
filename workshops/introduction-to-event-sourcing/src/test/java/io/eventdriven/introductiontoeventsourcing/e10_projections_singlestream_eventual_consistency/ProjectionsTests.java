@@ -1,11 +1,12 @@
-package io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency;
+package io.eventdriven.introductiontoeventsourcing.e10_projections_singlestream_eventual_consistency;
 
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.Projections.ShoppingCartDetails;
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.Projections.ShoppingCartDetailsProjection;
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.Projections.ShoppingCartShortInfo;
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.Projections.ShoppingCartShortInfoProjection;
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.tools.Database;
-import io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.tools.EventStore;
+import io.eventdriven.introductiontoeventsourcing.e10_projections_singlestream_eventual_consistency.Projections.ShoppingCartDetails;
+import io.eventdriven.introductiontoeventsourcing.e10_projections_singlestream_eventual_consistency.Projections.ShoppingCartDetailsProjection;
+import io.eventdriven.introductiontoeventsourcing.e10_projections_singlestream_eventual_consistency.Projections.ShoppingCartShortInfo;
+import io.eventdriven.introductiontoeventsourcing.e10_projections_singlestream_eventual_consistency.Projections.ShoppingCartShortInfoProjection;
+import io.eventdriven.introductiontoeventsourcing.e10_projections_singlestream_eventual_consistency.tools.Database;
+import io.eventdriven.introductiontoeventsourcing.e10_projections_singlestream_eventual_consistency.tools.EventStore;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
@@ -68,6 +69,7 @@ public class ProjectionsTests {
     Canceled
   }
 
+  @Tag("Exercise")
   @Test
   public void GettingReadModels_ForStoredSequenceOfEvents_ShouldSucceed() {
     var shoppingCartId = UUID.randomUUID();
