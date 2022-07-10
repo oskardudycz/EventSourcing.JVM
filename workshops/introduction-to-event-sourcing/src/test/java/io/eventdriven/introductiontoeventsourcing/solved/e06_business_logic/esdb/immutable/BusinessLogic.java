@@ -1,16 +1,13 @@
-package io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable;
+package io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.immutable;
 
-import io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.BusinessLogicTests.PricedProductItem;
-import io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.BusinessLogicTests.ProductItem;
-import io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.BusinessLogicTests.ShoppingCart;
-import io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.BusinessLogicTests.ShoppingCartEvent;
+import io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.immutable.BusinessLogicTests.*;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.BusinessLogic.ShoppingCartCommand.*;
-import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.immutable.BusinessLogicTests.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.immutable.BusinessLogic.ShoppingCartCommand.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e06_business_logic.esdb.immutable.BusinessLogicTests.ShoppingCartEvent.*;
 
 public class BusinessLogic {
   public sealed interface ShoppingCartCommand {
@@ -56,8 +53,10 @@ public class BusinessLogic {
           addProductItem(getProductPriceCalculator.get(), addCommand, entity);
         case RemoveProductItemFromShoppingCart removeProductCommand ->
           removeProductItem(removeProductCommand, entity);
-        case ConfirmShoppingCart confirmCommand -> confirm(confirmCommand, entity);
-        case CancelShoppingCart cancelCommand -> cancel(cancelCommand, entity);
+        case ConfirmShoppingCart confirmCommand ->
+          confirm(confirmCommand, entity);
+        case CancelShoppingCart cancelCommand ->
+          cancel(cancelCommand, entity);
       };
     }
 
@@ -122,27 +121,22 @@ public class BusinessLogic {
     }
   }
 
-  public interface ProductPriceCalculator
-  {
+  public interface ProductPriceCalculator {
     PricedProductItem calculate(ProductItem productItems);
   }
 
-  public static class FakeProductPriceCalculator implements ProductPriceCalculator
-  {
+  public static class FakeProductPriceCalculator implements ProductPriceCalculator {
     private final double value;
 
-    private FakeProductPriceCalculator(double value)
-    {
+    private FakeProductPriceCalculator(double value) {
       this.value = value;
     }
 
-    public static FakeProductPriceCalculator returning(double value)
-    {
+    public static FakeProductPriceCalculator returning(double value) {
       return new FakeProductPriceCalculator(value);
     }
 
-    public PricedProductItem calculate(ProductItem productItem)
-    {
+    public PricedProductItem calculate(ProductItem productItem) {
       return new PricedProductItem(productItem.productId(), productItem.quantity(), value);
     }
   }

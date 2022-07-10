@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.mutable.solution2;
+package io.eventdriven.introductiontoeventsourcing.e06_business_logic.esdb.mixed;
 
 import java.time.OffsetDateTime;
 import java.util.AbstractMap.SimpleEntry;
@@ -6,8 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.mutable.solution2.BusinessLogicTests.*;
-import static io.eventdriven.introductiontoeventsourcing.solved.e05_business_logic.mutable.solution2.BusinessLogicTests.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic.esdb.mixed.BusinessLogicTests.*;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic.esdb.mixed.BusinessLogicTests.ShoppingCartEvent.*;
 
 public class BusinessLogic {
   public interface Aggregate<ShoppingCartEvent> {
@@ -24,13 +24,17 @@ public class BusinessLogic {
     private OffsetDateTime confirmedAt;
     private OffsetDateTime canceledAt;
 
-    public ShoppingCart() {
+    private ShoppingCart() {
     }
 
     private ShoppingCart(
       ShoppingCartOpened event
     ) {
       when(event);
+    }
+
+    public static ShoppingCart empty(){
+      return new ShoppingCart();
     }
 
     public static SimpleEntry<ShoppingCartEvent, ShoppingCart> open(UUID shoppingCartId, UUID clientId) {
@@ -203,6 +207,36 @@ public class BusinessLogic {
     Pending,
     Confirmed,
     Canceled
+  }
+
+  public sealed interface ShoppingCartCommand {
+    record OpenShoppingCart(
+      UUID shoppingCartId,
+      UUID clientId
+    ) implements ShoppingCartCommand {
+    }
+
+    record AddProductItemToShoppingCart(
+      UUID shoppingCartId,
+      ProductItem productItem
+    ) implements ShoppingCartCommand {
+    }
+
+    record RemoveProductItemFromShoppingCart(
+      UUID shoppingCartId,
+      PricedProductItem productItem
+    ) implements ShoppingCartCommand {
+    }
+
+    record ConfirmShoppingCart(
+      UUID shoppingCartId
+    ) implements ShoppingCartCommand {
+    }
+
+    record CancelShoppingCart(
+      UUID shoppingCartId
+    ) implements ShoppingCartCommand {
+    }
   }
 
   public interface ProductPriceCalculator {

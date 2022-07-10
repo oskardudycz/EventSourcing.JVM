@@ -1,4 +1,4 @@
-# Exercise 05 - Business Logic
+# Exercise 06 - Business Logic with EventStoreDB
 
 Having the following shopping cart process:
 1. The customer may add a product to the shopping cart only after opening it.
@@ -13,17 +13,17 @@ Write the code that fulfils this logic. Remember that in Event Sourcing each bus
 ![events](./assets/events.jpg)
 
 There are two variations:
-- using mutable entities: [Mutable/BusinessLogicTests.java](./mutable/solution1/BusinessLogicTests.java),
-- using fully immutable structures: [Immutable/BusinessLogicTests.java](./immutable/BusinessLogicTests.java).
+1. Immutable, with functional command handlers composition and entities as anemic data model: [immutable/BusinessLogicTests.java](./immutable/BusinessLogicTests.java).
+2. Classical, mutable aggregates (rich domain model): [Mutable/BusinessLogicTests.java](./mutable/BusinessLogicTests.java).
+3. Mixed approach, mutable aggregates (rich domain model), returning events from methods, using immutable DTOs: [Mixed/BusinessLogicTests.java](./mixed/BusinessLogicTests.java).
 
-Select your preferred approach (or both) to solve this use case.
+Select your preferred approach (or all) to solve this use case using EventStoreDB. Fill appropriate `EntityStore` implementation.
 
 _**Note**: If needed update entities, events or test setup structure_
 
 ## Solution
 
 1. Immutable, with functional command handlers composition and entities as anemic data model: [Immutable/BusinessLogic.java](./immutable/BusinessLogic.java). Read also more about decider pattern [Jérémie Chassaing - Functional Event Sourcing Decider](https://thinkbeforecoding.com/post/2021/12/17/functional-event-sourcing-decider)
-2. Classical, mutable aggregates (rich domain model): [Mutable/Solution1/BusinessLogic.java](./mutable/solution1/BusinessLogic.java).
-3. Mixed approach, mutable aggregates (rich domain model), returning events from methods, using immutable DTOs: [Mutable/Solution2/BusinessLogic.java](./mutable/solution1/BusinessLogic.java).
-
+2. Classical, mutable aggregates (rich domain model): [Mutable/Solution1/BusinessLogic.java](./mutable/BusinessLogic.java).
+3. Mixed approach, mutable aggregates (rich domain model), returning events from methods, using immutable DTOs: [Mutable/Solution2/BusinessLogic.java](./mixed/BusinessLogic.java).
 

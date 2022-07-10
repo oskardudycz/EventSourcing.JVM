@@ -13,11 +13,11 @@ Write the code that fulfils this logic. Remember that in Event Sourcing each bus
 ![events](./assets/events.jpg)
 
 There are two variations:
-1. Immutable, with functional command handlers composition and entities as anemic data model: [Immutable/BusinessLogicTests.cs](./immutable/BusinessLogicTests.cs).
-2. Classical, mutable aggregates (rich domain model): [Mutable/BusinessLogicTests.cs](./mutable/BusinessLogicTests.cs).
-3. Mixed approach, mutable aggregates (rich domain model), returning events from methods, using immutable DTOs: [Mixed/BusinessLogicTests.cs](./mixed/BusinessLogicTests.cs).
+1. Immutable, with functional command handlers composition and entities as anemic data model: [immutable/BusinessLogicTests.java](./immutable/BusinessLogicTests.java).
+2. Classical, mutable aggregates (rich domain model): [Mutable/BusinessLogicTests.java](./mutable/BusinessLogicTests.java).
+3. Mixed approach, mutable aggregates (rich domain model), returning events from methods, using immutable DTOs: [Mixed/BusinessLogicTests.java](./mixed/BusinessLogicTests.java).
 
-Select your preferred approach (or all) to solve this use case using EventStoreDB. Fill appropriate `EventStoreClientExtensions`
+Select your preferred approach (or all) to solve this use case using EventStoreDB. Fill appropriate `EntityStore` implementation.
 
 _**Note**: If needed update entities, events or test setup structure_
 

@@ -13,8 +13,8 @@ Write the code that fulfils this logic. Remember that in Event Sourcing each bus
 ![events](./assets/events.jpg)
 
 There are two variations:
-- using mutable entities: [Mutable/BusinessLogicTests.cs](./mutable/BusinessLogicTests.java),
-- using fully immutable structures: [Immutable/BusinessLogicTests.cs](./immutable/BusinessLogicTests.java).
+- using mutable entities: [Mutable/BusinessLogicTests.java](./mutable/BusinessLogicTests.java),
+- using fully immutable structures: [Immutable/BusinessLogicTests.java](./immutable/BusinessLogicTests.java).
 
 Select your preferred approach (or both) to solve this use case.
 
