@@ -1,7 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e08_projections_singlestream.tools;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -9,7 +8,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,8 +22,7 @@ public class Database {
       .registerModule(new JavaTimeModule())
       .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
       .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-      .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
-      .registerModule(new ParameterNamesModule(JsonCreator.Mode.PROPERTIES));
+      .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
   public <T> void store(Class<T> typeClass, UUID id, Object obj) {
     storage.compute(getId(typeClass, id), (ignore, value) -> obj);

@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.solved.e08_projections_singlestream.tools;
+package io.eventdriven.introductiontoeventsourcing.solved.e09_projections_singlestream_idempotency.tools;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
