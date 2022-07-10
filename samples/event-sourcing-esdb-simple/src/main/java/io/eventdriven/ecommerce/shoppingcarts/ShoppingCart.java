@@ -3,7 +3,7 @@ package io.eventdriven.ecommerce.shoppingcarts;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItems;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 sealed public interface ShoppingCart {
@@ -22,7 +22,7 @@ sealed public interface ShoppingCart {
     UUID id,
     UUID clientId,
     ProductItems productItems,
-    LocalDateTime confirmedAt
+    OffsetDateTime confirmedAt
   ) implements ShoppingCart {
   }
 
@@ -30,7 +30,7 @@ sealed public interface ShoppingCart {
     UUID id,
     UUID clientId,
     ProductItems productItems,
-    LocalDateTime canceledAt
+    OffsetDateTime canceledAt
   ) implements ShoppingCart {
   }
 

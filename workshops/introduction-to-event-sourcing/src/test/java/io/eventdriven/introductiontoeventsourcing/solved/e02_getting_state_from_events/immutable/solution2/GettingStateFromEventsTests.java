@@ -195,7 +195,7 @@ public class GettingStateFromEventsTests {
   }
 
   @Test
-  public void GettingState_ForSequenceOfEvents_ShouldSucceed() {
+  public void gettingState_ForSequenceOfEvents_ShouldSucceed() {
     var shoppingCartId = UUID.randomUUID();
     var clientId = UUID.randomUUID();
     var shoesId = UUID.randomUUID();
