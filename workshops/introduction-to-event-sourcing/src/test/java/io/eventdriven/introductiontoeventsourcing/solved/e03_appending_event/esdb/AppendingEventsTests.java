@@ -56,7 +56,7 @@ public class AppendingEventsTests {
     int quantity,
     double unitPrice
   ) {
-    public double totalPrice() {
+    public double totalAmount() {
       return quantity * unitPrice;
     }
   }

@@ -49,7 +49,7 @@ public class AppendingEventsTests {
     int quantity,
     double unitPrice
   ) {
-    public double totalPrice() {
+    public double totalAmount() {
       return quantity * unitPrice;
     }
   }
@@ -80,7 +80,7 @@ public class AppendingEventsTests {
         new ShoppingCartConfirmed(shoppingCartId, OffsetDateTime.now()),
         new ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
-    
+
     var settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
 
     var eventStore = EventStoreDBClient.create(settings);

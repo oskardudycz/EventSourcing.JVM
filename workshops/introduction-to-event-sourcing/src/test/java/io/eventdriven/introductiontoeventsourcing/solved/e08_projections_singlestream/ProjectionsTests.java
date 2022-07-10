@@ -1,16 +1,17 @@
-package io.eventdriven.introductiontoeventsourcing.e08_projections_singlestream;
+package io.eventdriven.introductiontoeventsourcing.solved.e08_projections_singlestream;
 
-import io.eventdriven.introductiontoeventsourcing.e08_projections_singlestream.Projections.ShoppingCartDetails;
-import io.eventdriven.introductiontoeventsourcing.e08_projections_singlestream.Projections.ShoppingCartShortInfo;
-import io.eventdriven.introductiontoeventsourcing.e08_projections_singlestream.tools.Database;
-import io.eventdriven.introductiontoeventsourcing.e08_projections_singlestream.tools.EventStore;
-import org.junit.jupiter.api.Tag;
+import io.eventdriven.introductiontoeventsourcing.solved.e08_projections_singlestream.Projections.ShoppingCartDetails;
+import io.eventdriven.introductiontoeventsourcing.solved.e08_projections_singlestream.Projections.ShoppingCartDetailsProjection;
+import io.eventdriven.introductiontoeventsourcing.solved.e08_projections_singlestream.Projections.ShoppingCartShortInfo;
+import io.eventdriven.introductiontoeventsourcing.solved.e08_projections_singlestream.Projections.ShoppingCartShortInfoProjection;
+import io.eventdriven.introductiontoeventsourcing.solved.e08_projections_singlestream.tools.Database;
+import io.eventdriven.introductiontoeventsourcing.solved.e08_projections_singlestream.tools.EventStore;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e08_projections_singlestream.ProjectionsTests.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.solved.e08_projections_singlestream.ProjectionsTests.ShoppingCartEvent.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -68,7 +69,6 @@ public class ProjectionsTests {
     Canceled
   }
 
-  @Tag("Exercise")
   @Test
   public void GettingReadModels_ForStoredSequenceOfEvents_ShouldSucceed() {
     var shoppingCartId = UUID.randomUUID();
@@ -95,8 +95,24 @@ public class ProjectionsTests {
     var database = new Database();
 
     // TODO:
-    // 1. Register here your event handlers using `eventBus.Register`.
+    // 1. Register here your event handlers using `eventStore.subscribe`.
     // 2. Store results in database.
+
+    var shoppingCartDetailsProjection = new ShoppingCartDetailsProjection(database);
+
+    eventStore.subscribe(ShoppingCartOpened.class, shoppingCartDetailsProjection::handleOpened);
+    eventStore.subscribe(ProductItemAddedToShoppingCart.class, shoppingCartDetailsProjection::handleProductAdded);
+    eventStore.subscribe(ProductItemRemovedFromShoppingCart.class, shoppingCartDetailsProjection::handleProductRemoved);
+    eventStore.subscribe(ShoppingCartConfirmed.class, shoppingCartDetailsProjection::handleConfirmed);
+    eventStore.subscribe(ShoppingCartCanceled.class, shoppingCartDetailsProjection::handleCanceled);
+
+    var shoppingCartShortInfoProjection = new ShoppingCartShortInfoProjection(database);
+
+    eventStore.subscribe(ShoppingCartOpened.class, shoppingCartShortInfoProjection::handleOpened);
+    eventStore.subscribe(ProductItemAddedToShoppingCart.class, shoppingCartShortInfoProjection::handleProductAdded);
+    eventStore.subscribe(ProductItemRemovedFromShoppingCart.class, shoppingCartShortInfoProjection::handleProductRemoved);
+    eventStore.subscribe(ShoppingCartConfirmed.class, shoppingCartShortInfoProjection::handleConfirmed);
+    eventStore.subscribe(ShoppingCartCanceled.class, shoppingCartShortInfoProjection::handleCanceled);
 
     // first confirmed
     eventStore.append(shoppingCartId, new ShoppingCartOpened(shoppingCartId, clientId));

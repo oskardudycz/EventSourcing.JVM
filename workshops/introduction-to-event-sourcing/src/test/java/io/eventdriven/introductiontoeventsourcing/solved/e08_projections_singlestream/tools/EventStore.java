@@ -1,10 +1,10 @@
-package io.eventdriven.introductiontoeventsourcing.e08_projections_singlestream.tools;
+package io.eventdriven.introductiontoeventsourcing.solved.e08_projections_singlestream.tools;
 
 import java.util.*;
 import java.util.function.Consumer;
 
-import static io.eventdriven.introductiontoeventsourcing.e08_projections_singlestream.tools.EventEnvelopeBase.EventEnvelope;
-import static io.eventdriven.introductiontoeventsourcing.e08_projections_singlestream.tools.EventEnvelopeBase.EventMetadata;
+import static io.eventdriven.introductiontoeventsourcing.solved.e08_projections_singlestream.tools.EventEnvelopeBase.EventEnvelope;
+import static io.eventdriven.introductiontoeventsourcing.solved.e08_projections_singlestream.tools.EventEnvelopeBase.EventMetadata;
 
 public class EventStore {
   private final Map<String, List<Consumer<EventEnvelopeBase>>> handlers = new HashMap<>();

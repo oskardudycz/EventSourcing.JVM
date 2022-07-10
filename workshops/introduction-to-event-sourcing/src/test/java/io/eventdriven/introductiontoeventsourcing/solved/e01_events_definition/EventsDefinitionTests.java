@@ -59,7 +59,7 @@ public class EventsDefinitionTests {
       this.setQuantity(quantity);
     }
 
-    private double getTotalPrice() {
+    private double gettotalAmount() {
       return quantity() * unitPrice();
     }
 
@@ -93,7 +93,7 @@ public class EventsDefinitionTests {
     int quantity,
     double unitPrice
   ) {
-    public double totalPrice() {
+    public double totalAmount() {
       return quantity * unitPrice;
     }
   }

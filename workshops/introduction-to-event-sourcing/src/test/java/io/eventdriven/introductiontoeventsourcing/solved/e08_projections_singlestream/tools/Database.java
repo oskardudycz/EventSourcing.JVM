@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.e08_projections_singlestream.tools;
+package io.eventdriven.introductiontoeventsourcing.solved.e08_projections_singlestream.tools;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -11,10 +11,12 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 
 public class Database {
   private final Map<String, Object> storage = new HashMap<>();
@@ -48,6 +50,18 @@ public class Database {
             throw new RuntimeException(e);
           }
         })));
+  }
+
+  public <T> void getAndUpdate(Class<T> typeClass, UUID id, Function<T, T> update) {
+    try {
+      var item = get(typeClass, id).orElse(typeClass.getConstructor().newInstance());
+
+      store(typeClass, id, update.apply(item));
+    } catch (InstantiationException | IllegalAccessException |
+             InvocationTargetException | NoSuchMethodException e) {
+      throw new RuntimeException(e);
+    }
+
   }
 
   private static <T> String getId(Class<T> typeClass, UUID id) {

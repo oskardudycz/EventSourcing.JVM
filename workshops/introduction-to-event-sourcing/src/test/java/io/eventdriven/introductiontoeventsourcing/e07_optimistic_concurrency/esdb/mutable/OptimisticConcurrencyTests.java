@@ -62,7 +62,7 @@ public class OptimisticConcurrencyTests extends EventStoreDBTest {
       this.setQuantity(quantity);
     }
 
-    private double totalPrice() {
+    private double totalAmount() {
       return quantity() * unitPrice();
     }
 

@@ -179,12 +179,11 @@ public class BusinessLogic {
       productItems.stream()
         .filter(pi -> pi.productId().equals(productId))
         .findAny()
-        .ifPresentOrElse(
+        .ifPresent(
           current -> productItems.set(
             productItems.indexOf(current),
             new PricedProductItem(current.productId(), current.quantity() - quantityToRemove, current.unitPrice())
-          ),
-          () -> productItems.add(pricedProductItem)
+          )
         );
 
       return event;
