@@ -19,29 +19,29 @@ The emphasis will be on a pragmatic understanding of architectures and applying 
 
 You can do the workshop as a self-paced kit. That should give you a good foundation for starting your journey with Event Sourcing and learning tools like Marten and EventStoreDB. If you'd like to get full coverage with all nuances of the private workshop, feel free to contact me via [email](mailto:oskar.dudycz@gmail.com).
 
-Read also more in my article [Introduction to Event Sourcing - Self Paced Kit](https://event-driven.io/en/introduction_to_event_sourcing/?utm_source=event_sourcing_net).
+Read also more in my article [Introduction to Event Sourcing - Self Paced Kit](https://event-driven.io/en/introduction_to_event_sourcing/?utm_source=event_sourcing_jvm).
 
 ## Exercises
 
-1. [Events definition](./src/test/java/io/eventdriven/introductiontoeventsourcing/e01_events_definition).
-2. [Getting State from events](./src/test/java/io/eventdriven/introductiontoeventsourcing/e02_getting_state_from_events).
+1. [Events definition](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e01_events_definition).
+2. [Getting State from events](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e02_getting_state_from_events).
 3. Appending Events:
-   * [EventStoreDB](./src/test/java/io/eventdriven/introductiontoeventsourcing/e03_appending_event/esdb)
+   * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e03_appending_event/esdb)
    * _**TODO**: Axon Server_:
 4. Getting State from events
-   * [EventStoreDB](./src/test/java/io/eventdriven/introductiontoeventsourcing/e04_getting_state_from_events)
+   * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e04_getting_state_from_events)
    * _**TODO**: Axon Server_:
 5. Business logic:
-   * [General](./src/test/java/io/eventdriven/introductiontoeventsourcing/e05_business_logic)
-   * [EventStoreDB](./src/test/java/io/eventdriven/introductiontoeventsourcing/e06_business_logic/esdb)
+   * [General](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e05_business_logic)
+   * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e06_business_logic/esdb)
    * _**TODO**: Axon Server_:
 6. Optimistic Concurrency:
-   * [EventStoreDB](./src/test/java/io/eventdriven/introductiontoeventsourcing/e07_optimistic_concurrency/esdb)
+   * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e07_optimistic_concurrency/esdb)
    * _**TODO**: Axon Server_:
 7. Projections:
-   * [General](./src/test/java/io/eventdriven/introductiontoeventsourcing/e08_projections_singlestream)
-   * [Idempotency](./src/test/java/io/eventdriven/introductiontoeventsourcing/e09_projections_singlestream_idempotency)
-   * [Eventual Consistency](./src/test/java/io/eventdriven/introductiontoeventsourcing/e10_projections_singlestream_eventual_consistency)
+   * [General](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e08_projections_singlestream)
+   * [Idempotency](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e09_projections_singlestream_idempotency)
+   * [Eventual Consistency](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e10_projections_singlestream_eventual_consistency)
 
 ## Prerequisites
 
@@ -50,7 +50,7 @@ Read also more in my article [Introduction to Event Sourcing - Self Paced Kit](h
 3. Install Java JDK 17 (or later) - https://www.oracle.com/java/technologies/downloads/.
 4. Install IntelliJ, Eclipse, VSCode or other preferred IDE.
 5. Install docker - https://docs.docker.com/engine/install/.
-6. Open current folder as project.
+6. Open [exercises](./exercises/) folder as project.
 
 ## Running
 
@@ -59,4 +59,4 @@ Read also more in my article [Introduction to Event Sourcing - Self Paced Kit](h
 3. You should automatically get:
    - EventStoreDB UI: http://localhost:2113/
 4. Open, build and run project
-5. Solved exercises, go to [solved subfolder](./src/test/java/io/eventdriven/introductiontoeventsourcing/solved)
+5. To see solved exercises, open [solved.sln](./solved/)  folder as project.
