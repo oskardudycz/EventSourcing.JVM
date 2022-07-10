@@ -56,7 +56,7 @@ public class BusinessLogicTests {
       this.setQuantity(quantity);
     }
 
-    private double totalPrice() {
+    private double totalAmount() {
       return quantity() * unitPrice();
     }
 

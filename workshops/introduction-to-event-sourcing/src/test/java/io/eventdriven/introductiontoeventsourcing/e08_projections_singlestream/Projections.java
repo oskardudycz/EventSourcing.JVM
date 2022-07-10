@@ -4,7 +4,6 @@ import io.eventdriven.introductiontoeventsourcing.e08_projections_singlestream.P
 import io.eventdriven.introductiontoeventsourcing.e08_projections_singlestream.ProjectionsTests.ShoppingCartStatus;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,13 +12,26 @@ public class Projections {
     private UUID id;
     private UUID clientId;
     private ShoppingCartStatus status;
-    private List<PricedProductItem> productItems =new ArrayList<>();
+    private List<PricedProductItem> productItems;
     private OffsetDateTime confirmedAt;
     private OffsetDateTime canceledAt;
-    private double totalPrice;
+    private double totalAmount;
     private double totalItemsCount;
 
-    public UUID id() {
+    public ShoppingCartDetails(){}
+
+    public ShoppingCartDetails(UUID id, UUID clientId, ShoppingCartStatus status, List<PricedProductItem> productItems, OffsetDateTime confirmedAt, OffsetDateTime canceledAt, double totalAmount, double totalItemsCount) {
+      this.id = id;
+      this.clientId = clientId;
+      this.status = status;
+      this.productItems = productItems;
+      this.confirmedAt = confirmedAt;
+      this.canceledAt = canceledAt;
+      this.totalAmount = totalAmount;
+      this.totalItemsCount = totalItemsCount;
+    }
+
+    public UUID getId() {
       return id;
     }
 
@@ -27,7 +39,7 @@ public class Projections {
       this.id = id;
     }
 
-    public UUID clientId() {
+    public UUID getClientId() {
       return clientId;
     }
 
@@ -35,7 +47,7 @@ public class Projections {
       this.clientId = clientId;
     }
 
-    public ShoppingCartStatus status() {
+    public ShoppingCartStatus getStatus() {
       return status;
     }
 
@@ -43,7 +55,7 @@ public class Projections {
       this.status = status;
     }
 
-    public List<PricedProductItem> productItems() {
+    public List<PricedProductItem> getProductItems() {
       return productItems;
     }
 
@@ -51,7 +63,7 @@ public class Projections {
       this.productItems = productItems;
     }
 
-    public OffsetDateTime confirmedAt() {
+    public OffsetDateTime getConfirmedAt() {
       return confirmedAt;
     }
 
@@ -59,7 +71,7 @@ public class Projections {
       this.confirmedAt = confirmedAt;
     }
 
-    public OffsetDateTime canceledAt() {
+    public OffsetDateTime getCanceledAt() {
       return canceledAt;
     }
 
@@ -67,15 +79,15 @@ public class Projections {
       this.canceledAt = canceledAt;
     }
 
-    public double totalPrice() {
-      return totalPrice;
+    public double getTotalAmount() {
+      return totalAmount;
     }
 
-    public void setTotalPrice(double totalPrice) {
-      this.totalPrice = totalPrice;
+    public void setTotalAmount(double totalAmount) {
+      this.totalAmount = totalAmount;
     }
 
-    public double totalItemsCount() {
+    public double getTotalItemsCount() {
       return totalItemsCount;
     }
 
@@ -87,10 +99,20 @@ public class Projections {
   public static class ShoppingCartShortInfo {
     private UUID id;
     private UUID clientId;
-    private double totalPrice;
+    private double totalAmount;
     private double totalItemsCount;
 
-    public UUID id() {
+    public ShoppingCartShortInfo() {
+    }
+
+    public ShoppingCartShortInfo(UUID id, UUID clientId, double totalAmount, double totalItemsCount) {
+      this.id = id;
+      this.clientId = clientId;
+      this.totalAmount = totalAmount;
+      this.totalItemsCount = totalItemsCount;
+    }
+
+    public UUID getId() {
       return id;
     }
 
@@ -98,7 +120,7 @@ public class Projections {
       this.id = id;
     }
 
-    public UUID clientId() {
+    public UUID getClientId() {
       return clientId;
     }
 
@@ -106,15 +128,15 @@ public class Projections {
       this.clientId = clientId;
     }
 
-    public double totalPrice() {
-      return totalPrice;
+    public double getTotalAmount() {
+      return totalAmount;
     }
 
-    public void setTotalPrice(double totalPrice) {
-      this.totalPrice = totalPrice;
+    public void setTotalAmount(double totalAmount) {
+      this.totalAmount = totalAmount;
     }
 
-    public double totalItemsCount() {
+    public double getTotalItemsCount() {
       return totalItemsCount;
     }
 

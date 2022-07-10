@@ -54,7 +54,7 @@ public class BusinessLogicTests extends EventStoreDBTest {
     int quantity,
     double unitPrice
   ) {
-    public double totalPrice() {
+    public double totalAmount() {
       return quantity * unitPrice;
     }
   }

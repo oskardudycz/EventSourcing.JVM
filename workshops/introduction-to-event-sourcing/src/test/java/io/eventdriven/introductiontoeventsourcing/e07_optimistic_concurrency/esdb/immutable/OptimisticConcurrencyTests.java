@@ -57,7 +57,7 @@ public class OptimisticConcurrencyTests extends EventStoreDBTest {
     int quantity,
     double unitPrice
   ) {
-    public double totalPrice() {
+    public double totalAmount() {
       return quantity * unitPrice;
     }
   }
