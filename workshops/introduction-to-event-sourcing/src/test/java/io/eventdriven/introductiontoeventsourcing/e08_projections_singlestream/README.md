@@ -1,6 +1,6 @@
-# Exercise 12 - Projections
+# Exercise 08 - Projections
 
-With the [Database](./Tools/Database.java) interface representing the sample database, implement the following projections:
+With the [Database](./tools/Database.java) interface representing the sample database, implement the following projections:
 
 1. Detailed view of the shopping cart:
     - total amount of products in the basket,
@@ -11,6 +11,6 @@ With the [Database](./Tools/Database.java) interface representing the sample dat
     - total number of products
     - confirmed and canceled shopping carts should not be visible.
 
-Add event handlers registrations in [ProjectionsTests](ProjectionsTests.java) calling [EventBus.Register](./Tools/EventBus.java) method.
+Add event handlers registrations in [ProjectionsTests](./ProjectionsTests.java) calling [EventStore.Subscribe](./tools/EventStore.java) method.
 
-If needed expand existing classes definition.
+If needed to expand existing classes definition.
