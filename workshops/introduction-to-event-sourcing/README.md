@@ -1,5 +1,7 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/oskar_at_net?style=social)](https://twitter.com/oskar_at_net) [![Github Sponsors](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&link=https://github.com/sponsors/oskardudycz/)](https://github.com/sponsors/oskardudycz/) [![blog](https://img.shields.io/badge/blog-event--driven.io-brightgreen)](https://event-driven.io/?utm_source=event_sourcing_jvm) [![blog](https://img.shields.io/badge/%F0%9F%9A%80-Architecture%20Weekly-important)](https://www.architecture-weekly.com/?utm_source=event_sourcing_jvm) 
 
+![Github Actions](https://github.com/oskardudycz/EventSourcing.JVM/actions/workflows/workshops_introduction-to-event-sourcing-exercises.yml/badge.svg?branch=main) ![Github Actions](https://github.com/oskardudycz/EventSourcing.JVM/actions/workflows/workshops_introduction-to-event-sourcing-solved.yml/badge.svg?branch=main) 
+
 # Introduction to Event Sourcing Workshop
 
 Event Sourcing is perceived as a complex pattern. Some believe that it's like Nessie, everyone's heard about it, but rarely seen it. In fact, Event Sourcing is a pretty practical and straightforward concept. It helps build predictable applications closer to business. Nowadays, storage is cheap, and information is priceless. In Event Sourcing, no data is lost. 
@@ -29,17 +31,17 @@ Read also more in my article [Introduction to Event Sourcing - Self Paced Kit](h
 2. [Getting State from events](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e02_getting_state_from_events).
 3. Appending Events:
    * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e03_appending_event/esdb)
-   * _**TODO**: Axon Server_:
+   * _TODO: Axon Server_
 4. Getting State from events
    * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e04_getting_state_from_events)
-   * _**TODO**: Axon Server_:
+   * _TODO: Axon Server_
 5. Business logic:
    * [General](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e05_business_logic)
    * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e06_business_logic/esdb)
-   * _**TODO**: Axon Server_:
+   * _TODO: Axon Server_
 6. Optimistic Concurrency:
    * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e07_optimistic_concurrency/esdb)
-   * _**TODO**: Axon Server_:
+   * _TODO: Axon Server_
 7. Projections:
    * [General](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e08_projections_singlestream)
    * [Idempotency](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e09_projections_singlestream_idempotency)
