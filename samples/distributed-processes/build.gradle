@@ -16,7 +16,7 @@ dependencies {
   implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.13.3'
 
   // EventStoreDB client
-  implementation 'com.eventstore:db-client-java:3.0.0'
+  implementation 'com.eventstore:db-client-java:3.0.1'
 
   // Logging
   implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
