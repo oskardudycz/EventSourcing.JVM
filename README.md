@@ -19,6 +19,8 @@ Tutorial, practical samples and other resources about Event Sourcing in JVM. See
     - [Conversation with Yves Lorphelin about CQRS](#conversation-with-yves-lorphelin-about-cqrs)
     - [How to deal with privacy and GDPR in Event-Sourced systems](#how-to-deal-with-privacy-and-gdpr-in-event-sourced-systems)
   - [Support](#support)
+  - [Introduction to Event Sourcing self-paced kit](#introduction-to-event-sourcing-self-paced-kit)
+    - [Exercises](#exercises)
   - [Samples](#samples)
     - [Event Sourcing with Spring Boot and EventStoreDB](#event-sourcing-with-spring-boot-and-eventstoredb)
       - [Overview](#overview)
@@ -220,6 +222,52 @@ Feel free to [create an issue](https://github.com/oskardudycz/EventSourcing.JVM/
 👉 [Github Sponsors](https://github.com/sponsors/oskardudycz) 
 
 ⭐ Star on GitHub or sharing with your friends will also help!
+
+## [Introduction to Event Sourcing self-paced kit](./workshops/introduction-to-event-sourcing/)
+
+Event Sourcing is perceived as a complex pattern. Some believe that it's like Nessie, everyone's heard about it, but rarely seen it. In fact, Event Sourcing is a pretty practical and straightforward concept. It helps build predictable applications closer to business. Nowadays, storage is cheap, and information is priceless. In Event Sourcing, no data is lost. 
+
+The workshop aims to build the knowledge of the general concept and its related patterns for the participants. The acquired knowledge will allow for the conscious design of architectural solutions and the analysis of associated risks. 
+
+The emphasis will be on a pragmatic understanding of architectures and applying it in practice using Marten and EventStoreDB.
+
+1. Introduction to Event-Driven Architectures. Differences from the classical approach are foundations and terminology (event, event streams, command, query).
+2. What is Event Sourcing, and how is it different from Event Streaming. Advantages and disadvantages.
+3. Write model, data consistency guarantees on examples from Marten and EventStoreDB.
+4. Various ways of handling business logic: Aggregates, Command Handlers, functional approach.
+5. Projections, best practices and concerns for building read models from events on the examples from Marten and EventStoreDB.
+6. Challenges in Event Sourcing and EDA: deliverability guarantees, sequence of event handling, idempotency, etc.
+8. Saga, Choreography, Process Manager,  distributed processes in practice.
+7. Event Sourcing in the context of application architecture, integration with other approaches (CQRS, microservices, messaging, etc.).
+8. Good and bad practices in event modelling.
+9. Event Sourcing on production, evolution, events' schema versioning, etc.
+
+You can do the workshop as a self-paced kit. That should give you a good foundation for starting your journey with Event Sourcing and learning tools like Marten and EventStoreDB. If you'd like to get full coverage with all nuances of the private workshop, feel free to contact me via [email](mailto:oskar.dudycz@gmail.com).
+
+Read also more in my article [Introduction to Event Sourcing - Self Paced Kit](https://event-driven.io/en/introduction_to_event_sourcing/?utm_source=event_sourcing_jvm).
+
+### Exercises
+
+1. [Events definition](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e01_events_definition).
+2. [Getting State from events](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e02_getting_state_from_events).
+3. Appending Events:
+   * [EventStoreDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e03_appending_event/esdb)
+   * _**TODO**: Axon Server_:
+4. Getting State from events
+   * [EventStoreDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e04_getting_state_from_events)
+   * _**TODO**: Axon Server_:
+5. Business logic:
+   * [General](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e05_business_logic)
+   * [EventStoreDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e06_business_logic/esdb)
+   * _**TODO**: Axon Server_:
+6. Optimistic Concurrency:
+   * [EventStoreDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e07_optimistic_concurrency/esdb)
+   * _**TODO**: Axon Server_:
+7. Projections:
+   * [General](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e08_projections_singlestream)
+   * [Idempotency](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e09_projections_singlestream_idempotency)
+   * [Eventual Consistency](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e10_projections_singlestream_eventual_consistency)
+
 
 ## Samples
 
