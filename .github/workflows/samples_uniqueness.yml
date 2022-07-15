@@ -1,4 +1,4 @@
-name: Samples - EventStoreDB Events Versioning
+name: Samples - Uniqueness in Event Sourcing
 
 on:
   # run it on push to the default repository branch

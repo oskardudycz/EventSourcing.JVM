@@ -53,7 +53,7 @@ class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
     ProductItem productItem
   ) {
     if (isClosed())
-      throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(status));
+      throw new IllegalStateException("Adding product item for cart in '%s' status is not allowed.".formatted(status));
 
     var pricedProductItem = productPriceCalculator.calculate(productItem);
 
@@ -67,7 +67,7 @@ class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
     PricedProductItem productItem
   ) {
     if (isClosed())
-      throw new IllegalStateException("Adding product item for cart in '%s' status is not allowed.".formatted(status));
+      throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(status));
 
     productItems.assertThatCanRemove(productItem);
 
