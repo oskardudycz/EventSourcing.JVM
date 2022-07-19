@@ -48,6 +48,7 @@ public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, U
   public void checkout(@Nullable UUID groupCheckoutId, OffsetDateTime now) {
     if (status != Status.Open || balance != 0) {
       enqueue(new GuestAccountCheckoutFailed(id(), groupCheckoutId, OffsetDateTime.now()));
+      return;
     }
     enqueue(new GuestAccountCheckoutCompleted(id(), groupCheckoutId, now));
   }

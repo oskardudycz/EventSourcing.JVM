@@ -90,6 +90,6 @@ public final class EventStoreDBSubscriptionCheckpointRepository implements Subsc
   }
 
   private static String getCheckpointStreamName(String subscriptionId) {
-    return "checkpoint_%s".formatted(subscriptionId);
+    return "checkpoint-%s".formatted(subscriptionId);
   }
 }

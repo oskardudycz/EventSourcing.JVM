@@ -48,7 +48,6 @@ public class ESDBResourceReservationHandler implements ResourceReservationHandle
         return false;
       }
 
-
       var succeeded = run(onReserved).orElse(false);
 
       if (!succeeded) {

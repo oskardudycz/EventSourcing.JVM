@@ -5,7 +5,7 @@ import java.util.Queue;
 
 public abstract class AbstractAggregate<Event, Id> implements Aggregate<Id> {
   protected Id id;
-  protected int version;
+  protected int version = -1;
 
   private final Queue<Object> uncommittedEvents = new LinkedList<>();
 
