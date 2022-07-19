@@ -121,7 +121,7 @@ public class GettingStateFromEventsTests {
                 )
                 : pi
               )
-              .filter(pi -> pi.quantity > 0)
+              .filter(pi -> pi.quantity() > 0)
               .toArray(PricedProductItem[]::new),
             shoppingCart.confirmedAt(),
             shoppingCart.canceledAt()

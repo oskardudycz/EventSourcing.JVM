@@ -100,7 +100,7 @@ public class BusinessLogicTests {
             )
             : pi
           )
-          .filter(pi -> pi.quantity > 0)
+          .filter(pi -> pi.quantity() > 0)
           .toArray(PricedProductItem[]::new)
       );
     }

@@ -75,12 +75,12 @@ public class BusinessLogic {
       if (shoppingCart.isClosed())
         throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(shoppingCart.status()));
 
-      var pricedProductItem = productPriceCalculator.calculate(command.productItem);
+      var pricedProductItem = productPriceCalculator.calculate(command.productItem());
 
       shoppingCart.productItems().add(pricedProductItem);
 
       return new ProductItemAddedToShoppingCart(
-        command.shoppingCartId,
+        command.shoppingCartId(),
         pricedProductItem
       );
     }
