@@ -98,7 +98,7 @@ public class BusinessLogicTests extends EventStoreDBTest {
             )
             : pi
           )
-          .filter(pi -> pi.quantity > 0)
+          .filter(pi -> pi.quantity() > 0)
           .toArray(PricedProductItem[]::new)
       );
     }
