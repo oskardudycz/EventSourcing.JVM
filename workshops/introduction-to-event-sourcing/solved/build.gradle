@@ -18,10 +18,20 @@ dependencies {
   // EventStoreDB client
   implementation 'com.eventstore:db-client-java:3.0.1'
 
+  // Occurrent
+  implementation 'org.occurrent:application-service-blocking:0.14.4'
+  implementation 'org.occurrent:cloudevent-converter-jackson:0.14.4'
+  implementation 'org.occurrent:eventstore-inmemory:0.14.4'
+  implementation 'org.occurrent:query-dsl-blocking:0.14.4'
+  implementation 'org.occurrent:command-composition:0.14.4'
+
   // Logging
   implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
   implementation 'org.apache.logging.log4j:log4j-core:2.17.2'
   implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.17.2'
+
+  // Stream
+  implementation 'one.util:streamex:0.8.1'
 
   // Test frameworks
   implementation 'junit:junit:4.13.2'
@@ -29,6 +39,7 @@ dependencies {
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
   testImplementation 'org.junit.platform:junit-platform-launcher:1.8.2'
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.13.3'
+  testImplementation 'org.assertj:assertj-core:3.23.1'
 }
 
 tasks.named('test') {
