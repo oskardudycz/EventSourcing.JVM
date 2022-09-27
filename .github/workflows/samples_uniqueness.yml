@@ -20,6 +20,11 @@ jobs:
     name: Build and test
     runs-on: ubuntu-latest
 
+    strategy:
+      # define the test matrix
+      matrix:
+        java-version: [17, 18]
+
     steps:
       - name: Check Out Repo
         uses: actions/checkout@v2
@@ -27,10 +32,10 @@ jobs:
       - name: Start containers
         run: docker-compose up -d
 
-      - name: Set up JDK 17
+      - name: Set up JDK ${{ matrix.java-version }}
         uses: actions/setup-java@v2
         with:
-          java-version: 17
+          java-version: ${{ matrix.java-version }}
           distribution: "adopt"
           cache: gradle
 
