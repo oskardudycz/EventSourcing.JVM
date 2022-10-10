@@ -53,7 +53,7 @@ public class CreateStreamsTableTests {
     }
 
     /**
-     * Verifies if Stream table has Id column of type Guid
+     * Verifies if Stream table has Id column of type UUID
      */
     @Test
     public void StreamsTable_ShouldHave_IdColumn() {
@@ -63,7 +63,7 @@ public class CreateStreamsTableTests {
 
         assertTrue(idColumn.isPresent());
         assertEquals(idColumnName, idColumn.get().getName());
-        assertEquals(guidType, idColumn.get().getType());
+        assertEquals(uuidType, idColumn.get().getType());
     }
 
     /**
@@ -77,7 +77,7 @@ public class CreateStreamsTableTests {
 
         assertTrue(typeColumn.isPresent());
         assertEquals(typeColumnName, typeColumn.get().getName());
-        assertEquals(stringType, typeColumn.get().getType());
+        assertEquals(textType, typeColumn.get().getType());
     }
 
     /**
@@ -91,6 +91,6 @@ public class CreateStreamsTableTests {
 
         assertTrue(versionColumn.isPresent());
         assertEquals(versionColumnName, versionColumn.get().getName());
-        assertEquals(longType, versionColumn.get().getType());
+        assertEquals(bigintType, versionColumn.get().getType());
     }
 }

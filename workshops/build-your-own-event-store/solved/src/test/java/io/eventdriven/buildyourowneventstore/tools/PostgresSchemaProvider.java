@@ -1,12 +1,37 @@
 package io.eventdriven.buildyourowneventstore.tools;
 
 import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.*;
+
 public class PostgresSchemaProvider {
+
+    public PostgresSchemaProvider(Connection dbConnection) {
+        this.dbConnection = dbConnection;
+    }
+
+    /**
+     * Returns schema information about specific table
+     *
+     * @param tableName table name
+     * @return
+     */
+    public Optional<Table> getTable(String tableName) {
+        var columns =
+            querySql(
+                dbConnection,
+                getTableColumnsSql,
+                st -> setStringParam(st, 1, tableName),
+                rs -> new Column(
+                    getString(rs, "name"),
+                    getString(rs, "type")
+                )
+            );
+        return !columns.isEmpty() ? Optional.of(new Table(tableName, columns)) : Optional.empty();
+    }
+
     private final Connection dbConnection;
 
     private final String getTableColumnsSql =
@@ -21,36 +46,6 @@ public class PostgresSchemaProvider {
 
     private final String functionExistsSql =
         "select exists(select * from pg_proc where proname = ?);";
-
-    public PostgresSchemaProvider(Connection dbConnection) {
-        this.dbConnection = dbConnection;
-    }
-
-    /**
-     * Returns schema information about specific table
-     *
-     * @param tableName table name
-     * @return
-     */
-    public Optional<Table> getTable(String tableName) {
-        try (var st = dbConnection.prepareStatement(getTableColumnsSql)) {
-            st.setString(1, tableName);
-            var columns = new ArrayList<Column>();
-            try (var rs = st.executeQuery()) {
-                while (rs.next()) {
-                    columns.add(
-                        new Column(
-                            rs.getString("name"),
-                            rs.getString("type")
-                        )
-                    );
-                }
-            }
-            return !columns.isEmpty() ? Optional.of(new Table(tableName, columns)) : Optional.empty();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     /**
      * Describes basic information about database table
@@ -85,11 +80,11 @@ public class PostgresSchemaProvider {
      * Describes basic information about database column
      */
     public class Column {
-        public static final String guidType = "uuid";
-        public static final String longType = "bigint";
-        public static final String stringType = "text";
-        public static final String jsonType = "jsonb";
-        public static final String dateTimeType = "timestamp with time zone";
+        public static final String uuidType = "uuid";
+        public static final String bigintType = "bigint";
+        public static final String textType = "text";
+        public static final String jsonbType = "jsonb";
+        public static final String timestampWithTimeZone = "timestamp with time zone";
 
         /**
          * Column Name
