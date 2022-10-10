@@ -32,6 +32,21 @@ public class PostgresSchemaProvider {
         return !columns.isEmpty() ? Optional.of(new Table(tableName, columns)) : Optional.empty();
     }
 
+    /**
+     * Checks if function does exist
+     *
+     * @param functionName function name
+     * @return
+     */
+    public boolean functionExists(String functionName) {
+        return querySingleSql(
+            dbConnection,
+            functionExistsSql,
+            setStringParam(functionName),
+            rs -> getBoolean(rs, "exist")
+        );
+    }
+
     private final Connection dbConnection;
 
     private final String getTableColumnsSql =
@@ -45,7 +60,7 @@ public class PostgresSchemaProvider {
             """;
 
     private final String functionExistsSql =
-        "select exists(select * from pg_proc where proname = ?);";
+        "select exists(select * from pg_proc where proname = ?) AS exist;";
 
     /**
      * Describes basic information about database table

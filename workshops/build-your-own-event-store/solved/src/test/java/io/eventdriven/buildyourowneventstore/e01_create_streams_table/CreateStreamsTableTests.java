@@ -1,45 +1,18 @@
 package io.eventdriven.buildyourowneventstore.e01_create_streams_table;
 
-import io.eventdriven.buildyourowneventstore.PgEventStore;
-import io.eventdriven.buildyourowneventstore.tools.PostgresDbConnectionProvider;
-import io.eventdriven.buildyourowneventstore.tools.PostgresSchemaProvider;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import io.eventdriven.buildyourowneventstore.tools.PostgresTest;
 import org.junit.jupiter.api.Test;
-
-import java.sql.Connection;
-import java.sql.SQLException;
 
 import static io.eventdriven.buildyourowneventstore.tools.PostgresSchemaProvider.Column.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class CreateStreamsTableTests {
-    private static Connection dbConnection;
-    private static PostgresSchemaProvider schemaProvider;
-
+public class CreateStreamsTableTests extends PostgresTest {
     private final String streamsTableName = "streams";
 
     private final String idColumnName = "id";
     private final String typeColumnName = "type";
     private final String versionColumnName = "version";
-
-    @BeforeAll
-    public static void setup() {
-        dbConnection = PostgresDbConnectionProvider.getFreshDbConnection();
-        schemaProvider = new PostgresSchemaProvider(dbConnection);
-
-        // Create Event Store
-        var eventStore = new PgEventStore(dbConnection);
-
-        // Initialize Event Store
-        eventStore.Init();
-    }
-
-    @AfterAll
-    public static void tearDown() throws SQLException {
-        dbConnection.close();
-    }
 
     /**
      * Verifies if Stream table was created
