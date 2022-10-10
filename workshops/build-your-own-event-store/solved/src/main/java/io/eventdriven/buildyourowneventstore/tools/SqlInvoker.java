@@ -1,7 +1,9 @@
 package io.eventdriven.buildyourowneventstore.tools;
 
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -108,6 +110,19 @@ public final class SqlInvoker {
             }
 
             ps.setLong(index, value);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void setLocalDateTime(PreparedStatement ps, int index, LocalDateTime value) {
+        try {
+            if (value == null) {
+                ps.setNull(index, Types.TIMESTAMP_WITH_TIMEZONE);
+                return;
+            }
+
+            ps.setTimestamp(index, java.sql.Timestamp.valueOf(value));
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
