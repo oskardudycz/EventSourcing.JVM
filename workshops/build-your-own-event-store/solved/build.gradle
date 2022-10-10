@@ -1,0 +1,52 @@
+plugins {
+  id 'java'
+}
+
+group = 'io.event-driven'
+version = '0.0.1-SNAPSHOT'
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  // Serialisation
+  implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.4'
+  implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.13.4'
+
+  // EventStoreDB client
+  implementation 'com.eventstore:db-client-java:3.0.1'
+
+  // Logging
+  implementation 'org.apache.logging.log4j:log4j-api:2.19.0'
+  implementation 'org.apache.logging.log4j:log4j-core:2.19.0'
+  implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
+
+  // Test frameworks
+  implementation 'junit:junit:4.13.2'
+  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.0'
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.9.0'
+  testImplementation 'org.junit.platform:junit-platform-launcher:1.9.0'
+  testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.13.4'
+}
+
+tasks.named('test') {
+  useJUnitPlatform {
+    excludeTags 'Exercise'
+  }
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs += "--enable-preview"
+}
+tasks.withType(Test) {
+  jvmArgs += "--enable-preview"
+}
+tasks.withType(JavaExec) {
+  jvmArgs += "--enable-preview"
+}
+
+test {
+  testLogging.showStandardStreams = true
+  testLogging.exceptionFormat = 'full'
+}
