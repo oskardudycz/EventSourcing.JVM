@@ -2,6 +2,7 @@ package io.eventdriven.buildyourowneventstore;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,13 +44,53 @@ public class PgEventStore implements EventStore {
                         setStringParam(ps, 5, streamClass.getTypeName());
                         setLong(ps, 6, expectedVersion);
                     },
-                    rs -> getBoolean(rs,"succeeded")
+                    rs -> getBoolean(rs, "succeeded")
                 );
 
                 if (!succeeded)
                     throw new IllegalStateException("Expected version did not match the stream version!");
             }
         });
+    }
+
+    @Override
+    public List<Object> getEvents(
+        UUID streamId,
+        Long atStreamVersion,
+        LocalDateTime atTimestamp
+    ) {
+        var atStreamCondition = atStreamVersion != null ? "AND version <= ?" : "";
+        var atTimestampCondition = atTimestamp != null ? "AND created <= ?" : "";
+
+        var getStreamSql = """
+            SELECT id, data, stream_id, type, version, created
+            FROM events
+            WHERE stream_id = ?::uuid
+            """
+            + atStreamCondition
+            + atTimestampCondition
+            + "ORDER BY version";
+
+        return querySql(
+            dbConnection,
+            getStreamSql,
+            ps -> {
+                var index = 1;
+                setStringParam(ps, index++, streamId.toString());
+                if(atStreamVersion != null)
+                    setLong(ps, index++, atStreamVersion);
+                if(atTimestamp != null)
+                    setLocalDateTime(ps, index, atTimestamp);
+            },
+            rs -> {
+                var eventTypeName = getString(rs,"type");
+                return deserialize(
+                    EventTypeMapper.toClass(eventTypeName).get(),
+                    eventTypeName,
+                    getString(rs,"data")
+                ).get();
+            }
+        );
     }
 
     private final Connection dbConnection;

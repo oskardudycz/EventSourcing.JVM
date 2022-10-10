@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static bankaccounts.BankAccount.Events.*;
 import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.*;
@@ -58,5 +59,8 @@ public class CreateAppendFunctionTests extends PostgresTest {
             rs -> getBoolean(rs,"exist")
         );
         assertTrue(wasEventAppended);
+
+        var readEvent = eventStore.getEvents(bankAccountId).get(0);
+        assertEquals(event, readEvent);
     }
 }
