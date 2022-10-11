@@ -22,7 +22,7 @@ public class PostgresTest {
         eventStore = new PgEventStore(dbConnection);
 
         // Initialize Event Store
-        eventStore.Init();
+        eventStore.init();
     }
 
     @AfterAll
