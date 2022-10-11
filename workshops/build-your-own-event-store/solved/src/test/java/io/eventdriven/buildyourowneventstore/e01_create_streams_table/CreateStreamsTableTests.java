@@ -18,7 +18,7 @@ public class CreateStreamsTableTests extends PostgresTest {
      * Verifies if Stream table was created
      */
     @Test
-    public void StreamsTable_ShouldBeCreated() {
+    public void streamsTable_ShouldBeCreated() {
         var streamsTable = schemaProvider.getTable(streamsTableName);
 
         assertTrue(streamsTable.isPresent());
@@ -26,10 +26,10 @@ public class CreateStreamsTableTests extends PostgresTest {
     }
 
     /**
-     * Verifies if Stream table has Id column of type UUID
+     * Verifies if Stream table has id column of type UUID
      */
     @Test
-    public void StreamsTable_ShouldHave_IdColumn() {
+    public void streamsTable_ShouldHave_IdColumn() {
         var idColumn = schemaProvider
             .getTable(streamsTableName)
             .flatMap(table -> table.getColumn(idColumnName));
@@ -43,7 +43,7 @@ public class CreateStreamsTableTests extends PostgresTest {
      * Verifies if Stream table has Type column of type String
      */
     @Test
-    public void StreamsTable_ShouldHave_TypeColumn_WithStringType() {
+    public void streamsTable_ShouldHave_TypeColumn_WithStringType() {
         var typeColumn = schemaProvider
             .getTable(streamsTableName)
             .flatMap(table -> table.getColumn(typeColumnName));
@@ -57,7 +57,7 @@ public class CreateStreamsTableTests extends PostgresTest {
      * Verifies if Stream table has Version column of type Long
      */
     @Test
-    public void StreamsTable_ShouldHave_VersionColumn_WithLongType() {
+    public void streamsTable_ShouldHave_VersionColumn_WithLongType() {
         var versionColumn = schemaProvider
             .getTable(streamsTableName)
             .flatMap(table -> table.getColumn(versionColumnName));

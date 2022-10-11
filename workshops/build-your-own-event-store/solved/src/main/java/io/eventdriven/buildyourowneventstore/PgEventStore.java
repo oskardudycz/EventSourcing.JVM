@@ -16,7 +16,7 @@ public class PgEventStore implements EventStore {
     }
 
     @Override
-    public void Init() {
+    public void init() {
         exectuteSql(dbConnection, createStreamsTableSql);
         exectuteSql(dbConnection, createEventsTableSql);
         exectuteSql(dbConnection, createAppendFunctionSql);

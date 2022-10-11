@@ -21,7 +21,7 @@ public class CreateEventsTableTests extends PostgresTest {
      * Verifies if Stream table was created
      */
     @Test
-    public void EventsTable_ShouldBeCreated() {
+    public void eventsTable_ShouldBeCreated() {
         var eventsTable = schemaProvider.getTable(EventsTableName);
 
         assertTrue(eventsTable.isPresent());
@@ -29,10 +29,10 @@ public class CreateEventsTableTests extends PostgresTest {
     }
 
     /**
-     * Verifies if Stream table has Id column of type UUID
+     * Verifies if Stream table has id column of type UUID
      */
     @Test
-    public void EventsTable_ShouldHave_IdColumn() {
+    public void eventsTable_ShouldHave_IdColumn() {
         var idColumn = schemaProvider
             .getTable(EventsTableName)
             .flatMap(table -> table.getColumn(idColumnName));
@@ -43,10 +43,10 @@ public class CreateEventsTableTests extends PostgresTest {
     }
 
     /**
-     * Verifies if Stream table has Stream Id column of type UUID
+     * Verifies if Stream table has Stream id column of type UUID
      */
     @Test
-    public void EventsTable_ShouldHave_StreamIdColumn() {
+    public void eventsTable_ShouldHave_StreamIdColumn() {
         var streamIdColumn = schemaProvider
             .getTable(EventsTableName)
             .flatMap(table -> table.getColumn(streamIdColumnName));
@@ -60,7 +60,7 @@ public class CreateEventsTableTests extends PostgresTest {
      * Verifies if Stream table has data column of type JSONB
      */
     @Test
-    public void EventsTable_ShouldHave_DataColumn() {
+    public void eventsTable_ShouldHave_DataColumn() {
         var dataColumn = schemaProvider
             .getTable(EventsTableName)
             .flatMap(table -> table.getColumn(dataColumnName));
@@ -74,7 +74,7 @@ public class CreateEventsTableTests extends PostgresTest {
      * Verifies if Stream table has Type column of type String
      */
     @Test
-    public void EventsTable_ShouldHave_TypeColumn_WithStringType() {
+    public void eventsTable_ShouldHave_TypeColumn_WithStringType() {
         var typeColumn = schemaProvider
             .getTable(EventsTableName)
             .flatMap(table -> table.getColumn(typeColumnName));
@@ -88,7 +88,7 @@ public class CreateEventsTableTests extends PostgresTest {
      * Verifies if Stream table has Version column of type bigint
      */
     @Test
-    public void EventsTable_ShouldHave_VersionColumn_WithLongType() {
+    public void eventsTable_ShouldHave_VersionColumn_WithLongType() {
         var versionColumn = schemaProvider
             .getTable(EventsTableName)
             .flatMap(table -> table.getColumn(versionColumnName));
@@ -102,7 +102,7 @@ public class CreateEventsTableTests extends PostgresTest {
      * Verifies if Stream table has Version column of type Timestamp with time zone
      */
     @Test
-    public void EventsTable_ShouldHave_CreatedColumn_WithLongType() {
+    public void eventsTable_ShouldHave_CreatedColumn_WithLongType() {
         var createdColumn = schemaProvider
             .getTable(EventsTableName)
             .flatMap(table -> table.getColumn(createdColumnName));
