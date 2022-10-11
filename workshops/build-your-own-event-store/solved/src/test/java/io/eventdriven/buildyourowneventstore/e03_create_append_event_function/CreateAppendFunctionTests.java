@@ -7,10 +7,9 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static bankaccounts.BankAccount.Event.*;
+import static bankaccounts.BankAccount.Event.BankAccountOpened;
 import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CreateAppendFunctionTests extends PostgresTest {
     private final String appendEventFunctionName = "append_event";

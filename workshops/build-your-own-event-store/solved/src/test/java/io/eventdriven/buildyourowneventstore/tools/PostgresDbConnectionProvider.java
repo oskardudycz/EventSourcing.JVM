@@ -11,13 +11,13 @@ public final class PostgresDbConnectionProvider {
             .getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
             .getCallerClass()
             .getName()
-            .replaceAll(".", "_");
+            .replace(".", "_");
 
         // each test will have its own schema name to run have data isolation and not interfere other tests
         Connection connection = null;
         try {
             connection = DriverManager.getConnection(
-                Settings.connectionString,
+                Settings.connectionString + "?currentSchema=%s".formatted(testClassName),
                 Settings.userName,
                 Settings.password
             );

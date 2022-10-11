@@ -69,7 +69,7 @@ public class PgEventStore implements EventStore {
             """
             + atStreamCondition
             + atTimestampCondition
-            + "ORDER BY version";
+            + " ORDER BY version";
 
         return querySql(
             dbConnection,
@@ -139,30 +139,7 @@ public class PgEventStore implements EventStore {
 
                 -- if stream doesn't exist - create new one with version 0
                 IF stream_version IS NULL THEN
-                    stream_version := 0;
-
-                    INSERT INTO streams
-                        (id, type, version)
-                    VALUES
-                        (stream_id, stream_type, stream_version);
-                END IF;
-
-                -- append event
-                INSERT INTO events
-                    (id, data, stream_id, type, version)
-                VALUES
-                    (id, data::jsonb, stream_id, type, stream_version);
-
-                -- get stream version
-                SELECT
-                    version INTO stream_version
-                FROM streams as s
-                WHERE
-                    s.id = stream_id FOR UPDATE;
-
-                -- if stream doesn't exist - create new one with version 0
-                IF stream_version IS NULL THEN
-                    stream_version := 0;
+                    stream_version := -1;
 
                     INSERT INTO streams
                         (id, type, version)
@@ -177,6 +154,12 @@ public class PgEventStore implements EventStore {
 
                 -- increment event_version
                 stream_version := stream_version + 1;
+
+                -- append event
+                INSERT INTO events
+                    (id, data, stream_id, type, version)
+                VALUES
+                    (id, data::jsonb, stream_id, type, stream_version);
 
                 -- update stream version
                 UPDATE streams as s

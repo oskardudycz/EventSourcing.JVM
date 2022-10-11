@@ -1,4 +1,4 @@
-package io.eventdriven.buildyourowneventstore.e05_stream_aggregation;
+package io.eventdriven.buildyourowneventstore.e06_time_travelling;
 
 import bankaccounts.BankAccount;
 import io.eventdriven.buildyourowneventstore.tools.PostgresTest;
@@ -8,13 +8,12 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static bankaccounts.BankAccount.Event.*;
-import static bankaccounts.BankAccountService.*;
+import static bankaccounts.BankAccountService.getBankAccount;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class StreamAggregationTests extends PostgresTest {
+public class TimeTravellingTests extends PostgresTest {
     @Test
-    public void aggregateStream_ShouldReturnObjectWithStateBasedOnEvents() {
+    public void aggregateStream_ShouldReturnSpecifiedVersionOfTheStream() {
         var bankAccountId = UUID.randomUUID();
         var accountNumber = "PL61 1090 1014 0000 0712 1981 2874";
         var clientId = UUID.randomUUID();
@@ -43,12 +42,28 @@ public class StreamAggregationTests extends PostgresTest {
             bankAccountCreated, depositRecorded, cashWithdrawn
         );
 
-        var bankAccount = getBankAccount(eventStore, bankAccountId);
+        var aggregateAtVersion1 =
+            getBankAccount(eventStore, bankAccountId, 0L, null).get();
 
-        assertTrue(bankAccount.isPresent());
         assertEquals(
-            new BankAccount(bankAccountId, BankAccount.BankAccountStatus.Opened, 50, 2),
-            bankAccount.get()
+            new BankAccount(bankAccountId, BankAccount.BankAccountStatus.Opened, 0, 0),
+            aggregateAtVersion1
+        );
+
+        var aggregateAtVersion2 =
+            getBankAccount(eventStore, bankAccountId, 1L, null).get();
+
+        assertEquals(
+            new BankAccount(bankAccountId, BankAccount.BankAccountStatus.Opened, depositRecorded.amount(), 1),
+            aggregateAtVersion2
+        );
+
+        var aggregateAtVersion3 =
+            getBankAccount(eventStore, bankAccountId, 2L, null).get();
+
+        assertEquals(
+            new BankAccount(bankAccountId, BankAccount.BankAccountStatus.Opened, depositRecorded.amount() - cashWithdrawn.amount(), 2),
+            aggregateAtVersion3
         );
     }
 }

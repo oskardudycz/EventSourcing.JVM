@@ -20,7 +20,7 @@ public class EventStoreMethodsTests extends PostgresTest {
         var accountNumber = "PL61 1090 1014 0000 0712 1981 2874";
         var clientId = UUID.randomUUID();
         var currencyISOCOde = "PLN";
-        var version = 1;
+        var version = 0;
 
         var bankAccountCreated = new BankAccountOpened(
             bankAccountId,
