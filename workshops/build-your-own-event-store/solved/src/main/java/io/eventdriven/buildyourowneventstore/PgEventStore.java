@@ -23,8 +23,8 @@ public class PgEventStore implements EventStore {
     }
 
     @Override
-    public <TStream> void appendEvents(
-        Class<TStream> streamClass,
+    public <Stream> void appendEvents(
+        Class<Stream> streamClass,
         UUID streamId,
         Long expectedVersion,
         Object... events
