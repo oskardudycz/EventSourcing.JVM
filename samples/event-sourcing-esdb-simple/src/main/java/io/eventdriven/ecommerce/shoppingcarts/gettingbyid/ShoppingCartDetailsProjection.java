@@ -8,6 +8,7 @@ import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemRemov
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartConfirmed;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartCanceled;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartStatus;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -28,7 +29,7 @@ class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDetails, U
       return new ShoppingCartDetails(
         event.shoppingCartId(),
         event.clientId(),
-        ShoppingCart.Status.Pending,
+        ShoppingCartStatus.Pending,
         new ArrayList<>(),
         eventEnvelope.metadata().streamPosition(),
         eventEnvelope.metadata().logPosition()
@@ -88,14 +89,14 @@ class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDetails, U
   @EventListener
   void handleShoppingCartConfirmed(EventEnvelope<ShoppingCartConfirmed> eventEnvelope) {
     getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
-      view -> view.setStatus(ShoppingCart.Status.Confirmed)
+      view -> view.setStatus(ShoppingCartStatus.Confirmed)
     );
   }
 
   @EventListener
   void handleShoppingCartCanceled(EventEnvelope<ShoppingCartCanceled> eventEnvelope) {
     getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
-      view -> view.setStatus(ShoppingCart.Status.Canceled)
+      view -> view.setStatus(ShoppingCartStatus.Canceled)
     );
   }
 }

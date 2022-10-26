@@ -6,6 +6,7 @@ import java.time.OffsetDateTime;
 
 import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.*;
+import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCart.*;
 
 public class ShoppingCartDecider {
   private final ProductPriceCalculator productPriceCalculator;
@@ -17,7 +18,7 @@ public class ShoppingCartDecider {
   public ShoppingCartEvent handle(ShoppingCartCommand command, ShoppingCart shoppingCart) {
     return switch (command) {
       case OpenShoppingCart openShoppingCart:
-        yield handle(openShoppingCart);
+        yield handle(shoppingCart, openShoppingCart);
       case AddProductItemToShoppingCart addProductItemToShoppingCart:
         yield handle(productPriceCalculator, addProductItemToShoppingCart, shoppingCart);
       case RemoveProductItemFromShoppingCart removeProductItemFromShoppingCart:
@@ -29,7 +30,10 @@ public class ShoppingCartDecider {
     };
   }
 
-  private ShoppingCartOpened handle(OpenShoppingCart command) {
+  private ShoppingCartOpened handle(ShoppingCart shoppingCart, OpenShoppingCart command) {
+    if (!(shoppingCart instanceof Initial))
+      throw new IllegalStateException("Opening shopping cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
+
     return new ShoppingCartOpened(
       command.shoppingCartId(),
       command.clientId()
@@ -41,12 +45,12 @@ public class ShoppingCartDecider {
     AddProductItemToShoppingCart command,
     ShoppingCart shoppingCart
   ) {
-    if (shoppingCart.isClosed())
-      throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(shoppingCart.status()));
+    if (!(shoppingCart instanceof Pending pendingShoppingCart))
+      throw new IllegalStateException("Adding product item to cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
     var pricedProductItem = productPriceCalculator.calculate(command.productItem());
 
-    shoppingCart.productItems().add(pricedProductItem);
+    pendingShoppingCart.productItems().add(pricedProductItem);
 
     return new ProductItemAddedToShoppingCart(
       command.shoppingCartId(),
@@ -58,10 +62,10 @@ public class ShoppingCartDecider {
     RemoveProductItemFromShoppingCart command,
     ShoppingCart shoppingCart
   ) {
-    if (shoppingCart.isClosed())
-      throw new IllegalStateException("Adding product item for cart in '%s' status is not allowed.".formatted(shoppingCart.status()));
+    if (!(shoppingCart instanceof Pending pendingShoppingCart))
+      throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
-    shoppingCart.productItems().assertThatCanRemove(command.productItem());
+    pendingShoppingCart.productItems().assertThatCanRemove(command.productItem());
 
     return new ProductItemRemovedFromShoppingCart(
       command.shoppingCartId(),
@@ -70,21 +74,21 @@ public class ShoppingCartDecider {
   }
 
   private ShoppingCartConfirmed handle(ConfirmShoppingCart command, ShoppingCart shoppingCart) {
-    if (shoppingCart.isClosed())
-      throw new IllegalStateException("Confirming cart in '%s' status is not allowed.".formatted(shoppingCart.status()));
+    if (!(shoppingCart instanceof Pending pendingShoppingCart))
+      throw new IllegalStateException("Confirming shopping cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
     return new ShoppingCartConfirmed(
-      shoppingCart.id(),
+      pendingShoppingCart.id(),
       OffsetDateTime.now()
     );
   }
 
   private ShoppingCartCanceled handle(CancelShoppingCart command, ShoppingCart shoppingCart) {
-    if (shoppingCart.isClosed())
-      throw new IllegalStateException("Canceling cart in '%s' status is not allowed.".formatted(shoppingCart.status()));
+    if (!(shoppingCart instanceof Pending pendingShoppingCart))
+      throw new IllegalStateException("Canceling shopping cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
     return new ShoppingCartCanceled(
-      shoppingCart.id(),
+      pendingShoppingCart.id(),
       OffsetDateTime.now()
     );
   }

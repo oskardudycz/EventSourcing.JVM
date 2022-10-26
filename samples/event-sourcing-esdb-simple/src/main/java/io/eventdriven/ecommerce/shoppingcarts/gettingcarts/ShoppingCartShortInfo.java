@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.eventdriven.ecommerce.core.events.EventMetadata;
 import io.eventdriven.ecommerce.core.views.VersionedView;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartStatus;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 
 import javax.persistence.*;
@@ -19,7 +20,7 @@ public class ShoppingCartShortInfo implements VersionedView {
 
   @Column(nullable = false)
   @Enumerated(EnumType.STRING)
-  private ShoppingCart.Status status;
+  private ShoppingCartStatus status;
 
   @Column(nullable = false)
   private int totalItemsCount;
@@ -38,7 +39,7 @@ public class ShoppingCartShortInfo implements VersionedView {
   public ShoppingCartShortInfo(
     UUID id,
     UUID clientId,
-    ShoppingCart.Status status,
+    ShoppingCartStatus status,
     int totalItemsCount,
     double totalPrice,
     long version,
@@ -73,11 +74,11 @@ public class ShoppingCartShortInfo implements VersionedView {
     this.clientId = clientId;
   }
 
-  public ShoppingCart.Status getStatus() {
+  public ShoppingCartStatus getStatus() {
     return status;
   }
 
-  public ShoppingCartShortInfo setStatus(ShoppingCart.Status status) {
+  public ShoppingCartShortInfo setStatus(ShoppingCartStatus status) {
     this.status = status;
     return this;
   }

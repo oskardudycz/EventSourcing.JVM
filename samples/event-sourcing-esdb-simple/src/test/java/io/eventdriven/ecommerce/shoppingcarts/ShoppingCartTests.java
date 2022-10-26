@@ -59,15 +59,15 @@ public class ShoppingCartTests {
       shoppingCart = ShoppingCart.when(shoppingCart, event);
     }
 
-    assertTrue(shoppingCart instanceof ConfirmedShoppingCart);
-    assertEquals(shoppingCart.id(), shoppingCartId);
-    assertEquals(shoppingCart.clientId(), clientId);
-    assertTrue(shoppingCart.isClosed());
-    assertEquals(Status.Confirmed, shoppingCart.status());
+    assertTrue(shoppingCart instanceof Confirmed);
+    var confirmedShoppingCart = (Confirmed) shoppingCart;
+    assertEquals(confirmedShoppingCart.id(), shoppingCartId);
+    assertEquals(confirmedShoppingCart.clientId(), clientId);
+    assertTrue(confirmedShoppingCart.isClosed());
 
-    assertEquals(shoppingCart.productItems().items().stream().count(), 1);
+    assertEquals(confirmedShoppingCart.productItems().items().stream().count(), 1);
 
-    var tShirtFromShoppingCart = shoppingCart.productItems().items().get(0);
+    var tShirtFromShoppingCart = confirmedShoppingCart.productItems().items().get(0);
     assertEquals(tShirt, tShirtFromShoppingCart);
   }
 }
