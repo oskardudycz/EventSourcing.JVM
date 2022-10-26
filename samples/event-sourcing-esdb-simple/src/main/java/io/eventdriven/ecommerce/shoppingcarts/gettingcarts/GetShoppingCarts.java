@@ -1,8 +1,9 @@
 package io.eventdriven.ecommerce.shoppingcarts.gettingcarts;
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.lang.Nullable;
+
+import java.util.List;
 
 public record GetShoppingCarts(
   int pageNumber,
@@ -24,12 +25,14 @@ public record GetShoppingCarts(
     );
   }
 
-  public static Page<ShoppingCartShortInfo> handle(
+  public static List<ShoppingCartShortInfo> handle(
     ShoppingCartShortInfoRepository repository,
     GetShoppingCarts query
   ) {
-    return repository.findAll(
-      PageRequest.of(query.pageNumber(), query.pageSize())
-    );
+    return repository
+      .findAll(
+        PageRequest.of(query.pageNumber(), query.pageSize())
+      )
+      .stream().toList();
   }
 }

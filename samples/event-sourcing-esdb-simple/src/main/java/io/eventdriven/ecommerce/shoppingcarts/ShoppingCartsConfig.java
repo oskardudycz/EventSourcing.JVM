@@ -34,16 +34,5 @@ class ShoppingCartsConfig {
       ShoppingCart::empty
     );
   }
-
-  @Bean
-  ShoppingCartQueryService shoppingCartQueryService(
-    ShoppingCartDetailsRepository detailsRepository,
-    ShoppingCartShortInfoRepository shortInfoRepository
-  ) {
-    return new ShoppingCartQueryService(
-      detailsRepository,
-      shortInfoRepository
-    );
-  }
 }
 
