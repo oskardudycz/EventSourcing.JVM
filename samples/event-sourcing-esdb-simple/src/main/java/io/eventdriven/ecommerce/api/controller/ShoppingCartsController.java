@@ -1,19 +1,15 @@
 package io.eventdriven.ecommerce.api.controller;
 
 import io.eventdriven.ecommerce.api.requests.ShoppingCartsRequests;
+import io.eventdriven.ecommerce.core.entities.CommandHandler;
 import io.eventdriven.ecommerce.core.http.ETag;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartService;
-import io.eventdriven.ecommerce.shoppingcarts.addingproductitem.AddProductItemToShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.canceling.CancelShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.confirming.ConfirmShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.*;
 import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.GetShoppingCartById;
 import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.ShoppingCartDetails;
 import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.GetShoppingCarts;
 import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.ShoppingCartShortInfo;
-import io.eventdriven.ecommerce.shoppingcarts.opening.OpenShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
-import io.eventdriven.ecommerce.shoppingcarts.removingproductitem.RemoveProductItemFromShoppingCart;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -31,16 +27,23 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.UUID;
 
+import static com.eventstore.dbclient.ExpectedRevision.NO_STREAM;
+import static com.eventstore.dbclient.ExpectedRevision.expectedRevision;
+import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.*;
+
 @Validated
 @RestController
 @RequestMapping("api/shopping-carts")
 class ShoppingCartsController {
-  private final ShoppingCartService shoppingCartsService;
+  private final CommandHandler<ShoppingCart, ShoppingCartCommand, ShoppingCartEvent> store;
+  private final ShoppingCartQueryService queryService;
 
   ShoppingCartsController(
-    ShoppingCartService shoppingCartsService
+    CommandHandler<ShoppingCart, ShoppingCartCommand, ShoppingCartEvent> store,
+    ShoppingCartQueryService queryService
   ) {
-    this.shoppingCartsService = shoppingCartsService;
+    this.store = store;
+    this.queryService = queryService;
   }
 
   @PostMapping
@@ -50,11 +53,13 @@ class ShoppingCartsController {
   ) throws URISyntaxException {
     var cartId = UUID.randomUUID();
 
-    var result = shoppingCartsService.open(
+    var result = store.handle(
+      cartId,
       new OpenShoppingCart(
         cartId,
         request.clientId()
-      )
+      ),
+      NO_STREAM
     );
 
     return ResponseEntity
@@ -72,15 +77,16 @@ class ShoppingCartsController {
     if (request.productItem() == null)
       throw new IllegalArgumentException("Product Item has to be defined");
 
-    var result = shoppingCartsService.addProductItem(
+    var result = store.handle(
+      id,
       new AddProductItemToShoppingCart(
         id,
         new ProductItem(
           request.productItem().productId(),
           request.productItem().quantity()
-        ),
-        ifMatch.toLong()
-      )
+        )
+      ),
+      expectedRevision(ifMatch.toLong())
     );
 
     return ResponseEntity
@@ -97,7 +103,8 @@ class ShoppingCartsController {
     @RequestParam @NotNull Double price,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
-    var result = shoppingCartsService.removeProductItem(
+    var result = store.handle(
+      id,
       new RemoveProductItemFromShoppingCart(
         id,
         new PricedProductItem(
@@ -106,9 +113,9 @@ class ShoppingCartsController {
             quantity
           ),
           price
-        ),
-        ifMatch.toLong()
-      )
+        )
+      ),
+      expectedRevision(ifMatch.toLong())
     );
 
     return ResponseEntity
@@ -122,8 +129,10 @@ class ShoppingCartsController {
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
-    var result = shoppingCartsService.confirm(
-      new ConfirmShoppingCart(id, ifMatch.toLong())
+    var result = store.handle(
+      id,
+      new ConfirmShoppingCart(id),
+      expectedRevision(ifMatch.toLong())
     );
 
     return ResponseEntity
@@ -137,8 +146,10 @@ class ShoppingCartsController {
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
-    var result = shoppingCartsService.cancel(
-      new CancelShoppingCart(id, ifMatch.toLong())
+    var result = store.handle(
+      id,
+      new CancelShoppingCart(id),
+      expectedRevision(ifMatch.toLong())
     );
 
     return ResponseEntity
@@ -152,7 +163,7 @@ class ShoppingCartsController {
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_NONE_MATCH) @Parameter(in = ParameterIn.HEADER, schema = @Schema(type = "string")) @Nullable ETag ifNoneMatch
   ) {
-    var result = shoppingCartsService
+    var result = queryService
       .getById(new GetShoppingCartById(id, ifNoneMatch));
 
     return ResponseEntity
@@ -166,7 +177,7 @@ class ShoppingCartsController {
     @RequestParam @Nullable Integer pageNumber,
     @RequestParam @Nullable Integer pageSize
   ) {
-    return shoppingCartsService
+    return queryService
       .getShoppingCarts(GetShoppingCarts.of(pageNumber, pageSize))
       .stream()
       .toList();
