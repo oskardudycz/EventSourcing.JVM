@@ -7,18 +7,17 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 sealed public interface ShoppingCart {
-  UUID id();
-  UUID clientId();
-  ProductItems productItems();
+  record Initial() implements ShoppingCart {
+  }
 
-  record PendingShoppingCart(
+  record Pending(
     UUID id,
     UUID clientId,
     ProductItems productItems
   ) implements ShoppingCart {
   }
 
-  record ConfirmedShoppingCart(
+  record Confirmed(
     UUID id,
     UUID clientId,
     ProductItems productItems,
@@ -26,7 +25,7 @@ sealed public interface ShoppingCart {
   ) implements ShoppingCart {
   }
 
-  record CanceledShoppingCart(
+  record Canceled(
     UUID id,
     UUID clientId,
     ProductItems productItems,
@@ -34,68 +33,71 @@ sealed public interface ShoppingCart {
   ) implements ShoppingCart {
   }
 
-  enum Status {
-    Pending,
-    Confirmed,
-    Canceled
-  }
-
   default boolean isClosed() {
-    return this instanceof ConfirmedShoppingCart || this instanceof CanceledShoppingCart;
-  }
-
-  default ShoppingCart.Status status() {
-    return switch (this) {
-      case PendingShoppingCart ignored:
-        yield Status.Pending;
-      case ConfirmedShoppingCart ignored:
-        yield Status.Confirmed;
-      case CanceledShoppingCart ignored:
-        yield Status.Canceled;
-    };
+    return this instanceof Confirmed || this instanceof Canceled;
   }
 
   static ShoppingCart when(ShoppingCart current, ShoppingCartEvent event) {
     return switch (event) {
-      case ShoppingCartOpened shoppingCartOpened:
-        yield new PendingShoppingCart(
+      case ShoppingCartOpened shoppingCartOpened: {
+        if (!(current instanceof Initial))
+          yield current;
+
+        yield new Pending(
           shoppingCartOpened.shoppingCartId(),
           shoppingCartOpened.clientId(),
           ProductItems.empty()
         );
-      case ProductItemAddedToShoppingCart productItemAddedToShoppingCart:
-        yield new PendingShoppingCart(
-          current.id(),
-          current.clientId(),
-          current.productItems().add(productItemAddedToShoppingCart.productItem())
+      }
+      case ProductItemAddedToShoppingCart productItemAddedToShoppingCart: {
+        if (!(current instanceof Pending pending))
+          yield current;
+
+        yield new Pending(
+          pending.id(),
+          pending.clientId(),
+          pending.productItems().add(productItemAddedToShoppingCart.productItem())
         );
-      case ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart:
-        yield new PendingShoppingCart(
-          current.id(),
-          current.clientId(),
-          current.productItems().remove(productItemRemovedFromShoppingCart.productItem())
+      }
+      case ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart: {
+        if (!(current instanceof Pending pending))
+          yield current;
+
+        yield new Pending(
+          pending.id(),
+          pending.clientId(),
+          pending.productItems().remove(productItemRemovedFromShoppingCart.productItem())
         );
-      case ShoppingCartConfirmed shoppingCartConfirmed:
-        yield new ConfirmedShoppingCart(
-          current.id(),
-          current.clientId(),
-          current.productItems(),
+      }
+      case ShoppingCartConfirmed shoppingCartConfirmed: {
+        if (!(current instanceof Pending pending))
+          yield current;
+
+        yield new Confirmed(
+          pending.id(),
+          pending.clientId(),
+          pending.productItems(),
           shoppingCartConfirmed.confirmedAt()
         );
-      case ShoppingCartCanceled shoppingCartCanceled:
-        yield new CanceledShoppingCart(
-          current.id(),
-          current.clientId(),
-          current.productItems(),
+      }
+      case ShoppingCartCanceled shoppingCartCanceled: {
+        if (!(current instanceof Pending pending))
+          yield current;
+
+        yield new Canceled(
+          pending.id(),
+          pending.clientId(),
+          pending.productItems(),
           shoppingCartCanceled.canceledAt()
         );
+      }
       case null:
         throw new IllegalArgumentException("Event cannot be null!");
     };
   }
 
   static ShoppingCart empty() {
-    return new PendingShoppingCart(null, null, null);
+    return new Initial();
   }
 
   static String mapToStreamId(UUID shoppingCartId) {

@@ -4,6 +4,7 @@ import com.eventstore.dbclient.*;
 import io.eventdriven.ecommerce.core.http.ETag;
 import io.eventdriven.ecommerce.core.serialization.EventSerializer;
 
+import javax.persistence.EntityNotFoundException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,9 +40,12 @@ public class CommandHandler<Entity, Command, Event> {
     ExpectedRevision expectedRevision
   ) {
     var streamId = mapToStreamId.apply(id);
-    var entity = get(id).orElse(getDefault.get());
+    var entity = get(id);
 
-    var event = handle.apply(command, entity);
+    if(entity.isEmpty() && !expectedRevision.equals(ExpectedRevision.NO_STREAM))
+      throw new EntityNotFoundException();
+
+    var event = handle.apply(command, entity.orElse(getDefault.get()));
 
     try {
       var result = eventStore.appendToStream(
