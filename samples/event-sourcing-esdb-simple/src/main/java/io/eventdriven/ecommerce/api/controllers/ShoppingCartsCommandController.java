@@ -1,13 +1,9 @@
-package io.eventdriven.ecommerce.api.controller;
+package io.eventdriven.ecommerce.api.controllers;
 
 import io.eventdriven.ecommerce.api.requests.ShoppingCartsRequests;
 import io.eventdriven.ecommerce.core.entities.CommandHandler;
 import io.eventdriven.ecommerce.core.http.ETag;
 import io.eventdriven.ecommerce.shoppingcarts.*;
-import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.GetShoppingCartById;
-import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.ShoppingCartDetails;
-import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.GetShoppingCarts;
-import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.ShoppingCartShortInfo;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,7 +12,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.lang.Nullable;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,7 +19,6 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.List;
 import java.util.UUID;
 
 import static com.eventstore.dbclient.ExpectedRevision.NO_STREAM;
@@ -34,16 +28,13 @@ import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.*;
 @Validated
 @RestController
 @RequestMapping("api/shopping-carts")
-class ShoppingCartsController {
+class ShoppingCartsCommandController {
   private final CommandHandler<ShoppingCart, ShoppingCartCommand, ShoppingCartEvent> store;
-  private final ShoppingCartQueryService queryService;
 
-  ShoppingCartsController(
-    CommandHandler<ShoppingCart, ShoppingCartCommand, ShoppingCartEvent> store,
-    ShoppingCartQueryService queryService
+  ShoppingCartsCommandController(
+    CommandHandler<ShoppingCart, ShoppingCartCommand, ShoppingCartEvent> store
   ) {
     this.store = store;
-    this.queryService = queryService;
   }
 
   @PostMapping
@@ -156,30 +147,5 @@ class ShoppingCartsController {
       .ok()
       .eTag(result.value())
       .build();
-  }
-
-  @GetMapping("{id}")
-  ResponseEntity<ShoppingCartDetails> getById(
-    @PathVariable UUID id,
-    @RequestHeader(name = HttpHeaders.IF_NONE_MATCH) @Parameter(in = ParameterIn.HEADER, schema = @Schema(type = "string")) @Nullable ETag ifNoneMatch
-  ) {
-    var result = queryService
-      .getById(new GetShoppingCartById(id, ifNoneMatch));
-
-    return ResponseEntity
-      .ok()
-      .eTag(ETag.weak(result.getVersion()).value())
-      .body(result);
-  }
-
-  @GetMapping
-  List<ShoppingCartShortInfo> get(
-    @RequestParam @Nullable Integer pageNumber,
-    @RequestParam @Nullable Integer pageSize
-  ) {
-    return queryService
-      .getShoppingCarts(GetShoppingCarts.of(pageNumber, pageSize))
-      .stream()
-      .toList();
   }
 }
