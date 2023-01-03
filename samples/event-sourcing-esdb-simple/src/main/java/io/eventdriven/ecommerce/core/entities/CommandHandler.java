@@ -54,7 +54,7 @@ public class CommandHandler<Entity, Command, Event> {
         EventSerializer.serialize(event)
       ).get();
 
-      return ETag.weak(result.getNextExpectedRevision());
+      return toETag(result.getNextExpectedRevision());
     } catch (Throwable e) {
       throw new RuntimeException(e);
     }
@@ -97,5 +97,13 @@ public class CommandHandler<Entity, Command, Event> {
       .toList();
 
     return Optional.of(events);
+  }
+
+  //This ugly hack is needed as ESDB Java client from v4 doesn't allow to access or serialise version in an elegant manner
+  private ETag toETag(ExpectedRevision nextExpectedRevision) throws NoSuchFieldException, IllegalAccessException {
+    var field = nextExpectedRevision.getClass().getDeclaredField("version");
+    field.setAccessible(true);
+
+    return ETag.weak(field.get(nextExpectedRevision));
   }
 }

@@ -42,7 +42,6 @@ class ShoppingCartsQueryController {
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_NONE_MATCH) @Parameter(in = ParameterIn.HEADER, schema = @Schema(type = "string")) @Nullable ETag ifNoneMatch
   ) {
-
     var result = handle(detailsRepository, new GetShoppingCartById(id, ifNoneMatch));
 
     return ResponseEntity

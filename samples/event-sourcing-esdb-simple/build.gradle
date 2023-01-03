@@ -19,7 +19,7 @@ dependencies {
   // Retry policy
   implementation 'org.springframework.retry:spring-retry:2.0.0'
   // Swagger
-  implementation 'org.springdoc:springdoc-openapi-ui:1.6.14'
+  implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.0.2'
   // Serialisation
   implementation 'com.fasterxml.jackson.core:jackson-databind:2.14.0'
 

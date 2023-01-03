@@ -48,7 +48,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
         UUID.randomUUID(),
         2
       )))
-      .when(POST("%s/products".formatted(shoppingCartId), eTag))
+      .when(POST("/%s/products".formatted(shoppingCartId), eTag))
       .then(OK);
   }
 
@@ -66,7 +66,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
         UUID.randomUUID(),
         2
       )))
-      .when(POST("%s/products".formatted(result.id()), result.eTag()))
+      .when(POST("/%s/products".formatted(result.id()), result.eTag()))
       .then(OK);
   }
 
@@ -87,7 +87,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
         UUID.randomUUID(),
         2
       )))
-      .when(POST("%s/products".formatted(notExistingId), eTag))
+      .when(POST("/%s/products".formatted(notExistingId), eTag))
       .then(NOT_FOUND);
   }
 
@@ -102,7 +102,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
         UUID.randomUUID(),
         2
       )))
-      .when(POST("%s/products".formatted(result.id()), result.eTag()))
+      .when(POST("/%s/products".formatted(result.id()), result.eTag()))
       .then(CONFLICT);
   }
 
@@ -117,7 +117,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
         UUID.randomUUID(),
         2
       )))
-      .when(POST("%s/products".formatted(result.id()), result.eTag()))
+      .when(POST("/%s/products".formatted(result.id()), result.eTag()))
       .then(CONFLICT);
   }
 
@@ -126,7 +126,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
     var wrongETag = ETag.weak(999);
 
     given(() -> new AddProduct(new ProductItemRequest(UUID.randomUUID(), 2)))
-      .when(POST("%s/products".formatted(shoppingCartId), wrongETag))
+      .when(POST("/%s/products".formatted(shoppingCartId), wrongETag))
       .then(PRECONDITION_FAILED);
   }
 

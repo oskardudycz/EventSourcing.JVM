@@ -101,9 +101,17 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
         events.iterator()
       ).get();
 
-      return ETag.weak(result.getNextExpectedRevision());
+      return toETag(result.getNextExpectedRevision());
     } catch (Throwable e) {
       throw new RuntimeException(e);
     }
+  }
+
+  //This ugly hack is needed as ESDB Java client from v4 doesn't allow to access or serialise version in an elegant manner
+  private ETag toETag(ExpectedRevision nextExpectedRevision) throws NoSuchFieldException, IllegalAccessException {
+    var field = nextExpectedRevision.getClass().getDeclaredField("version");
+    field.setAccessible(true);
+
+    return ETag.weak(field.get(nextExpectedRevision));
   }
 }
