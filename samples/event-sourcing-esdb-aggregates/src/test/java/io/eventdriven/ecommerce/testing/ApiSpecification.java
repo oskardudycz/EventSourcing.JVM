@@ -1,5 +1,6 @@
 package io.eventdriven.ecommerce.testing;
 
+
 import io.eventdriven.ecommerce.core.http.ETag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -28,7 +29,7 @@ public abstract class ApiSpecification {
   }
 
   public String getApiUrl() {
-    return "http://localhost:%s/%s/".formatted(port, apiPrefix);
+    return "http://localhost:%s/%s".formatted(port, apiPrefix);
   }
 
   public ApiSpecificationBuilder given(Supplier<Object> define) {
@@ -60,7 +61,7 @@ public abstract class ApiSpecification {
 
     return (api, request) -> this.restTemplate
       .exchange(
-        getApiUrl() + urlSuffix + request,
+        getApiUrl() + urlSuffix + (request != "" ? "/%s".formatted(request) : request),
         HttpMethod.GET,
         new HttpEntity<>(null, getIfNoneMatchHeader(eTag)),
         entityClass
@@ -94,7 +95,7 @@ public abstract class ApiSpecification {
   public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT(String urlSuffix, ETag eTag, boolean withEmptyBody) {
     return (api, request) -> this.restTemplate
       .exchange(
-        getApiUrl() + urlSuffix + (withEmptyBody ? request : ""),
+        getApiUrl() + urlSuffix + (withEmptyBody ? "/%s".formatted(request) : ""),
         HttpMethod.PUT,
         new HttpEntity<>(!withEmptyBody ? request : null, getIfMatchHeader(eTag)),
         Void.class
@@ -108,7 +109,7 @@ public abstract class ApiSpecification {
   public BiFunction<TestRestTemplate, Object, ResponseEntity> DELETE(String urlSuffix, ETag eTag) {
     return (api, request) -> this.restTemplate
       .exchange(
-        getApiUrl() + urlSuffix + request,
+        getApiUrl() + urlSuffix + (request != "" ? "/%s".formatted(request) : request),
         HttpMethod.DELETE,
         new HttpEntity<>(null, getIfMatchHeader(eTag)),
         Void.class
@@ -144,7 +145,7 @@ public abstract class ApiSpecification {
 
   public Consumer<ResponseEntity> CREATED =
     response -> {
-      assertResponseStatus(HttpStatus.CREATED);
+      assertResponseStatus(HttpStatus.CREATED).accept(response);
 
       var locationHeader = response.getHeaders().getLocation();
 

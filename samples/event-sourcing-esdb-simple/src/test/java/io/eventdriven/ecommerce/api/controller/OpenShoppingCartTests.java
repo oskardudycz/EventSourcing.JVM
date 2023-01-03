@@ -7,6 +7,7 @@ import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.util.ArrayList;
 import java.util.UUID;
 
 import static io.eventdriven.ecommerce.testing.HttpEntityUtils.toHttpEntity;

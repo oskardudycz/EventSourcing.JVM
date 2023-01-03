@@ -54,10 +54,10 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
   }
 
   @Test
-  public void confirm_fails_withMethodNotAllowed_forMissingShoppingCartId() {
+  public void confirm_fails_withNotFound_forMissingShoppingCartId() {
     given(() -> "")
       .when(PUT(eTag))
-      .then(METHOD_NOT_ALLOWED);
+      .then(NOT_FOUND);
   }
 
   @Test

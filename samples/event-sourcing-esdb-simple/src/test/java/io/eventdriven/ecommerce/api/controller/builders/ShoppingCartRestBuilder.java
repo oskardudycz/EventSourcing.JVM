@@ -13,7 +13,7 @@ import java.util.function.Consumer;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class ShoppingCartRestBuilder {
-  private final String apiPrefix = "api/shopping-carts/";
+  private final String apiPrefix = "api/shopping-carts";
   private final TestRestTemplate restTemplate;
   private final int port;
   private UUID clientId;
@@ -22,7 +22,7 @@ public class ShoppingCartRestBuilder {
   private final List<ProductItemRequest> products = new ArrayList<>();
 
   public String getApiUrl() {
-    return "http://localhost:%s/%s/".formatted(port, apiPrefix);
+    return "http://localhost:%s/%s".formatted(port, apiPrefix);
   }
 
   private ShoppingCartRestBuilder(TestRestTemplate restTemplate, int port) {
@@ -95,7 +95,7 @@ public class ShoppingCartRestBuilder {
     var location = locationHeader.toString();
 
     assertTrue(location.startsWith(apiPrefix));
-    var newId = assertDoesNotThrow(() -> UUID.fromString(location.substring(apiPrefix.length())));
+    var newId = assertDoesNotThrow(() -> UUID.fromString(location.substring(apiPrefix.length() + 1)));
 
     return getResult(response, newId);
   }
@@ -108,7 +108,7 @@ public class ShoppingCartRestBuilder {
     var request = new HttpEntity<>(new AddProduct(product), headers);
 
     var response = this.restTemplate
-      .postForEntity(getApiUrl() + "%s/products".formatted(result.id()), request, Void.class);
+      .postForEntity(getApiUrl() + "/%s/products".formatted(result.id()), request, Void.class);
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
     return getResult(response, result.id());
@@ -123,7 +123,7 @@ public class ShoppingCartRestBuilder {
     var request = new HttpEntity<Void>(null, headers);
 
     var response = this.restTemplate
-      .exchange(getApiUrl() + result.id(), HttpMethod.PUT, request, Void.class);
+      .exchange("%s/%s".formatted(getApiUrl(), result.id()), HttpMethod.PUT, request, Void.class);
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
     return getResult(response, result.id());
@@ -137,7 +137,7 @@ public class ShoppingCartRestBuilder {
     var request = new HttpEntity<Void>(null, headers);
 
     var response = this.restTemplate
-      .exchange(getApiUrl() + result.id(), HttpMethod.DELETE, request, Void.class);
+      .exchange("%s/%s".formatted(getApiUrl(), result.id()), HttpMethod.DELETE, request, Void.class);
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
     return getResult(response, result.id());

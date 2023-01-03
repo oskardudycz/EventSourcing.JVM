@@ -49,14 +49,14 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   @Test
   public void removeProductItem_succeeds_forNotAllProductsAndExistingShoppingCart() {
     given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity() - 1))
-      .when(DELETE("%s/products/".formatted(shoppingCartId), eTag))
+      .when(DELETE("/%s/products".formatted(shoppingCartId), eTag))
       .then(OK);
   }
 
   @Test
   public void removeProductItem_succeeds_forAllProductsAndExistingShoppingCart() {
     given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
-      .when(DELETE("%s/products/".formatted(shoppingCartId), eTag))
+      .when(DELETE("/%s/products".formatted(shoppingCartId), eTag))
       .then(OK);
   }
 
@@ -64,7 +64,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   @MethodSource("invalidURLsProvider")
   public void removeProductItem_fails_withBadRequest_forInvalidURL(String invalidURL) {
     given(() -> invalidURL)
-      .when(DELETE("%s/products/".formatted(shoppingCartId), eTag))
+      .when(DELETE("/%s/products".formatted(shoppingCartId), eTag))
       .then(BAD_REQUEST);
   }
 
@@ -72,7 +72,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   @Test
   public void removeProductItem_fails_withMethodNotAllowed_forMissingShoppingCartId() {
     given(() -> "")
-      .when(DELETE("%s/products/".formatted(shoppingCartId), eTag))
+      .when(DELETE("/%s/products".formatted(shoppingCartId), eTag))
       .then(METHOD_NOT_ALLOWED);
   }
 
@@ -81,7 +81,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
     var notExistingId = UUID.randomUUID();
 
     given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
-      .when(DELETE("%s/products/".formatted(notExistingId), eTag))
+      .when(DELETE("/%s/products".formatted(notExistingId), eTag))
       .then(NOT_FOUND);
   }
 
@@ -92,7 +92,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
         .build(cart -> cart.withClientId(clientId).confirmed());
 
     given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
-      .when(DELETE("%s/products/".formatted(result.id()), result.eTag()))
+      .when(DELETE("/%s/products".formatted(result.id()), result.eTag()))
       .then(CONFLICT);
   }
 
@@ -103,7 +103,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
         .build(builder -> builder.withClientId(clientId).canceled());
 
     given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
-      .when(DELETE("%s/products/".formatted(result.id()), result.eTag()))
+      .when(DELETE("/%s/products".formatted(result.id()), result.eTag()))
       .then(CONFLICT);
   }
 
@@ -112,7 +112,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
     var wrongETag = ETag.weak(999);
 
     given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
-      .when(DELETE("%s/products/".formatted(shoppingCartId), wrongETag))
+      .when(DELETE("/%s/products".formatted(shoppingCartId), wrongETag))
       .then(PRECONDITION_FAILED);
   }
 
