@@ -15,7 +15,7 @@ public class StreamMetadataTests {
     private EventStoreDBClient eventStore;
 
     @BeforeEach
-    void beforeEach() throws ParseError {
+    void beforeEach() throws ConnectionStringParsingException {
         EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
         this.eventStore = EventStoreDBClient.create(settings);
     }
@@ -55,7 +55,7 @@ public class StreamMetadataTests {
         ///////////////////////////////////////////////////////////////////////////////////
         this.eventStore.appendToStream(streamName, orderInitiated, orderPaid).get();
 
-        var result = this.eventStore.readStream(streamName).get().getEvents();
+        var result = this.eventStore.readStream(streamName, ReadStreamOptions.get()).get().getEvents();
         // we should get both of them
         Assertions.assertEquals(2, result.size());
         Assertions.assertEquals(orderInitiated.getEventId(), result.get(0).getEvent().getEventId());
@@ -66,7 +66,7 @@ public class StreamMetadataTests {
         ///////////////////////////////////////////////////////////////////////////////////
         this.eventStore.appendToStream(streamName, orderShipped).get();
 
-        result = this.eventStore.readStream(streamName).get().getEvents();
+        result = this.eventStore.readStream(streamName, ReadStreamOptions.get()).get().getEvents();
         Assertions.assertEquals(2, result.size());
         Assertions.assertEquals(orderPaid.getEventId(), result.get(0).getEvent().getEventId());
         Assertions.assertEquals(orderShipped.getEventId(), result.get(1).getEvent().getEventId());
@@ -76,7 +76,7 @@ public class StreamMetadataTests {
         ///////////////////////////////////////////////////////////////////////////////////
         this.eventStore.appendToStream(streamName, orderClosed).get();
 
-        result = this.eventStore.readStream(streamName).get().getEvents();
+        result = this.eventStore.readStream(streamName, ReadStreamOptions.get()).get().getEvents();
         Assertions.assertEquals(2, result.size());
         Assertions.assertEquals(orderShipped.getEventId(), result.get(0).getEvent().getEventId());
         Assertions.assertEquals(orderClosed.getEventId(), result.get(1).getEvent().getEventId());
@@ -110,7 +110,7 @@ public class StreamMetadataTests {
         ///////////////////////////////////////////////////////////////////////////////////
         this.eventStore.appendToStream(streamName, orderInitiated, orderPaid).get();
 
-        var result = this.eventStore.readStream(streamName).get().getEvents();
+        var result = this.eventStore.readStream(streamName, ReadStreamOptions.get()).get().getEvents();
         // we should get both of them
         Assertions.assertEquals(2, result.size());
         Assertions.assertEquals(orderInitiated.getEventId(), result.get(0).getEvent().getEventId());
@@ -122,7 +122,7 @@ public class StreamMetadataTests {
 
         Thread.sleep(3000);
 
-        result = this.eventStore.readStream(streamName).get().getEvents();
+        result = this.eventStore.readStream(streamName, ReadStreamOptions.get()).get().getEvents();
         Assertions.assertEquals(0, result.size());
     }
 
@@ -153,7 +153,7 @@ public class StreamMetadataTests {
         ///////////////////////////////////////////////////////////////////////////////////
         this.eventStore.appendToStream(streamName, orderInitiated, orderPaid, orderShipped, orderClosed).get();
 
-        var result = this.eventStore.readStream(streamName).get().getEvents();
+        var result = this.eventStore.readStream(streamName, ReadStreamOptions.get()).get().getEvents();
         // we should get both of them
         Assertions.assertEquals(4, result.size());
         Assertions.assertEquals(orderInitiated.getEventId(), result.get(0).getEvent().getEventId());
@@ -173,7 +173,7 @@ public class StreamMetadataTests {
         // 3. Let's read events again, we should not see initiated and paid events
         ///////////////////////////////////////////////////////////////////////////////////
 
-        result = this.eventStore.readStream(streamName).get().getEvents();
+        result = this.eventStore.readStream(streamName, ReadStreamOptions.get()).get().getEvents();
         Assertions.assertEquals(2, result.size());
         Assertions.assertEquals(orderShipped.getEventId(), result.get(0).getEvent().getEventId());
         Assertions.assertEquals(orderClosed.getEventId(), result.get(1).getEvent().getEventId());

@@ -2,7 +2,7 @@ package io.eventdriven.uniqueness.core.resourcereservation.jpa;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 
 @Entity

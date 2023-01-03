@@ -1,9 +1,9 @@
 package io.eventdriven.uniqueness.users;
 
+import com.eventstore.dbclient.ConnectionStringParsingException;
 import com.eventstore.dbclient.EventStoreDBClient;
 import com.eventstore.dbclient.EventStoreDBClientSettings;
 import com.eventstore.dbclient.EventStoreDBConnectionString;
-import com.eventstore.dbclient.ParseError;
 import io.eventdriven.uniqueness.core.async.SyncProcessor;
 import io.eventdriven.uniqueness.core.esdb.EventStore;
 import io.eventdriven.uniqueness.core.resourcereservation.Hash;
@@ -195,7 +195,7 @@ public class UserEmailRegistrationFallbackTests {
   private String reservationStreamId;
 
   @BeforeEach
-  void beforeEach() throws ParseError {
+  void beforeEach() throws ConnectionStringParsingException {
     EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
     eventStoreDBClient = EventStoreDBClient.create(settings);
     eventStore = new EventStore(eventStoreDBClient);

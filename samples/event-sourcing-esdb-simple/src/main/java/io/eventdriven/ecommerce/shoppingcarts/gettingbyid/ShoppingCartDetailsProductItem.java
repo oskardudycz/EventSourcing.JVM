@@ -1,8 +1,6 @@
 package io.eventdriven.ecommerce.shoppingcarts.gettingbyid;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
+import jakarta.persistence.*;
 import java.util.UUID;
 
 @Entity

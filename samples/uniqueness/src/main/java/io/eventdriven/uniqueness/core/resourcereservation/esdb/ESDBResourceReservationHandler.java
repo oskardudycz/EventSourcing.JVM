@@ -1,7 +1,7 @@
 package io.eventdriven.uniqueness.core.resourcereservation.esdb;
 
 import com.eventstore.dbclient.AppendToStreamOptions;
-import com.eventstore.dbclient.StreamRevision;
+import com.eventstore.dbclient.ExpectedRevision;
 import io.eventdriven.uniqueness.core.esdb.EventStore;
 import io.eventdriven.uniqueness.core.processing.HandlerWithAck;
 import io.eventdriven.uniqueness.core.resourcereservation.ResourceReservationHandler;
@@ -92,7 +92,7 @@ public class ESDBResourceReservationHandler implements ResourceReservationHandle
     });
   }
 
-  private EventStore.AppendResult confirmReservation(String resourceKey, String reservationStreamId, StreamRevision expectedRevision) {
+  private EventStore.AppendResult confirmReservation(String resourceKey, String reservationStreamId, ExpectedRevision expectedRevision) {
     final var reservationConfirmed = new ResourceReservationConfirmed(
       resourceKey,
       OffsetDateTime.now()
@@ -106,7 +106,7 @@ public class ESDBResourceReservationHandler implements ResourceReservationHandle
     });
   }
 
-  private void markReservationAsReleased(String resourceKey, String reservationStreamId, StreamRevision expectedRevision) {
+  private void markReservationAsReleased(String resourceKey, String reservationStreamId, ExpectedRevision expectedRevision) {
     // We're marking reservation as to be released instead of deleting stream.
     // That's needed as if we'd delete stream here, then we wouldn't get event notification through subscriptions.
     // Because of that we wouldn't be able to clear the lookup for timed out reservations.

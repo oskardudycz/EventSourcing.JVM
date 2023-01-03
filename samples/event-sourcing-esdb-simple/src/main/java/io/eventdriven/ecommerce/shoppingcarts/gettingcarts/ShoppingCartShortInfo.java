@@ -3,11 +3,10 @@ package io.eventdriven.ecommerce.shoppingcarts.gettingcarts;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.eventdriven.ecommerce.core.events.EventMetadata;
 import io.eventdriven.ecommerce.core.views.VersionedView;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartStatus;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
+import jakarta.persistence.*;
 
-import javax.persistence.*;
 import java.util.UUID;
 
 @Entity

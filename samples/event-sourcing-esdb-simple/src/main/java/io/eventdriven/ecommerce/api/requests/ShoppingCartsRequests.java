@@ -2,7 +2,7 @@ package io.eventdriven.ecommerce.api.requests;
 
 import org.springframework.validation.annotation.Validated;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 
 public final class ShoppingCartsRequests {

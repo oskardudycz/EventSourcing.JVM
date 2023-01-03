@@ -3,8 +3,8 @@ package io.eventdriven.ecommerce.core.entities;
 import com.eventstore.dbclient.*;
 import io.eventdriven.ecommerce.core.http.ETag;
 import io.eventdriven.ecommerce.core.serialization.EventSerializer;
+import jakarta.persistence.EntityNotFoundException;
 
-import javax.persistence.EntityNotFoundException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,7 +42,7 @@ public class CommandHandler<Entity, Command, Event> {
     var streamId = mapToStreamId.apply(id);
     var entity = get(id);
 
-    if(entity.isEmpty() && !expectedRevision.equals(ExpectedRevision.NO_STREAM))
+    if(entity.isEmpty() && !expectedRevision.equals(ExpectedRevision.noStream()))
       throw new EntityNotFoundException();
 
     var event = handle.apply(command, entity.orElse(getDefault.get()));
@@ -80,7 +80,7 @@ public class CommandHandler<Entity, Command, Event> {
   private Optional<List<Event>> getEvents(String streamId) {
     ReadResult result;
     try {
-      result = eventStore.readStream(streamId).get();
+      result = eventStore.readStream(streamId, ReadStreamOptions.get()).get();
     } catch (Throwable e) {
       Throwable innerException = e.getCause();
 

@@ -204,13 +204,13 @@ public class StreamTransformationsTests {
     public List<com.eventstore.dbclient.EventData> serialize(EventEnvelope... events) {
       return Arrays.stream(events)
         .map(eventEnvelope ->
-          new com.eventstore.dbclient.EventData(
-            UUID.randomUUID(),
-            mapping.map(eventEnvelope.data().getClass()),
-            "application/json",
-            Serializer.serialize(eventEnvelope.data()),
-            Serializer.serialize(eventEnvelope.metadata())
-          )
+          EventDataBuilder
+            .json(
+              mapping.map(eventEnvelope.data().getClass()),
+              Serializer.serialize(eventEnvelope.data())
+            )
+            .metadataAsBytes(Serializer.serialize(eventEnvelope.metadata()))
+            .build()
         )
         .toList();
     }
@@ -289,7 +289,7 @@ public class StreamTransformationsTests {
 
     // When
     var readEvents =
-      this.eventStore.readStream("shopping_cart-%s".formatted(shoppingCardId)).get()
+      this.eventStore.readStream("shopping_cart-%s".formatted(shoppingCardId), ReadStreamOptions.get()).get()
         .getEvents()
         .toArray(ResolvedEvent[]::new);
 
@@ -327,7 +327,7 @@ public class StreamTransformationsTests {
   private EventStoreDBClient eventStore;
 
   @BeforeEach
-  void beforeEach() throws ParseError {
+  void beforeEach() throws ConnectionStringParsingException {
     EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
     this.eventStore = EventStoreDBClient.create(settings);
   }

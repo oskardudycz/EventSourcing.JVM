@@ -4,7 +4,7 @@ import com.eventstore.dbclient.*;
 import io.eventdriven.ecommerce.core.http.ETag;
 import io.eventdriven.ecommerce.core.serialization.EventSerializer;
 
-import javax.persistence.EntityNotFoundException;
+import jakarta.persistence.EntityNotFoundException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -48,7 +48,7 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
   public ETag add(Entity entity) {
     return appendEvents(
       entity,
-      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM)
+      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream())
     );
   }
 
@@ -70,7 +70,7 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
   private Optional<List<Event>> getEvents(String streamId) {
     ReadResult result;
     try {
-      result = eventStore.readStream(streamId).get();
+      result = eventStore.readStream(streamId, ReadStreamOptions.get()).get();
     } catch (Throwable e) {
       Throwable innerException = e.getCause();
 

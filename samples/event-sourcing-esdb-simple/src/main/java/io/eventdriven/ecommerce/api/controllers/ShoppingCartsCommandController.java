@@ -15,13 +15,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.UUID;
 
-import static com.eventstore.dbclient.ExpectedRevision.NO_STREAM;
+import static com.eventstore.dbclient.ExpectedRevision.noStream;
 import static com.eventstore.dbclient.ExpectedRevision.expectedRevision;
 import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.*;
 
@@ -50,7 +50,7 @@ class ShoppingCartsCommandController {
         cartId,
         request.clientId()
       ),
-      NO_STREAM
+      noStream()
     );
 
     return ResponseEntity

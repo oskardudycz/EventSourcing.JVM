@@ -1,8 +1,8 @@
 package io.eventdriven.shoppingcarts;
 
+import com.eventstore.dbclient.ConnectionStringParsingException;
 import com.eventstore.dbclient.EventStoreDBClient;
 import com.eventstore.dbclient.EventStoreDBConnectionString;
-import com.eventstore.dbclient.ParseError;
 import io.eventdriven.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.shoppingcarts.productitems.ProductItem;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,7 +26,7 @@ public class ShoppingCartTests {
   private EventStoreDBClient eventStore;
 
   @BeforeEach
-  void beforeEach() throws ParseError {
+  void beforeEach() throws ConnectionStringParsingException {
     var settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
     this.eventStore = EventStoreDBClient.create(settings);
   }

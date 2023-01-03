@@ -10,7 +10,7 @@ import java.util.concurrent.ExecutionException;
 public class EventStore {
   public ReadResult read(String streamId) {
     try {
-      var result = eventStore.readStream(streamId).get();
+      var result = eventStore.readStream(streamId, ReadStreamOptions.get()).get();
 
       return new ReadResult.Success(result.getEvents().toArray(new ResolvedEvent[0]));
     } catch (InterruptedException | ExecutionException e) {
@@ -29,7 +29,7 @@ public class EventStore {
     try {
       var result = eventStore.appendToStream(
         streamId,
-        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
         eventsToAppend.iterator()
       ).get();
 
@@ -43,7 +43,7 @@ public class EventStore {
     }
   }
 
-  public AppendResult append(String streamId, StreamRevision expectedRevision, Object... events) {
+  public AppendResult append(String streamId, ExpectedRevision expectedRevision, Object... events) {
     try {
       var eventsToAppend = Arrays.stream(events)
         .map(EventSerializer::serialize)
@@ -68,7 +68,7 @@ public class EventStore {
     try {
       eventStore.deleteStream(
         streamId,
-        DeleteStreamOptions.get().expectedRevision(ExpectedRevision.STREAM_EXISTS)
+        DeleteStreamOptions.get().expectedRevision(ExpectedRevision.streamExists())
       ).get();
 
       return new DeleteResult.Success();
@@ -80,7 +80,7 @@ public class EventStore {
     }
   }
 
-  public DeleteResult deleteStream(String streamId, StreamRevision expectedRevision) {
+  public DeleteResult deleteStream(String streamId, ExpectedRevision expectedRevision) {
     try {
       eventStore.deleteStream(
         streamId,
@@ -105,7 +105,7 @@ public class EventStore {
 
       var result = eventStore.setStreamMetadata(
         streamId,
-        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
         metadata
       ).get();
 
@@ -147,14 +147,14 @@ public class EventStore {
 
   sealed public interface AppendResult {
     record Success(
-      StreamRevision nextExpectedRevision, Position logPosition) implements AppendResult {
+      ExpectedRevision nextExpectedRevision, Position logPosition) implements AppendResult {
     }
 
-    record StreamAlreadyExists(StreamRevision actual) implements AppendResult {
+    record StreamAlreadyExists(ExpectedRevision actual) implements AppendResult {
     }
 
-    record Conflict(StreamRevision expected,
-                    StreamRevision actual) implements AppendResult {
+    record Conflict(ExpectedRevision expected,
+                    ExpectedRevision actual) implements AppendResult {
     }
 
     record UnexpectedFailure(Throwable t) implements AppendResult {
@@ -172,8 +172,8 @@ public class EventStore {
     record StreamDoesNotExist() implements DeleteResult {
     }
 
-    record Conflict(StreamRevision expected,
-                    StreamRevision actual) implements DeleteResult {
+    record Conflict(ExpectedRevision expected,
+                    ExpectedRevision actual) implements DeleteResult {
     }
 
     record UnexpectedFailure(Throwable t) implements DeleteResult {

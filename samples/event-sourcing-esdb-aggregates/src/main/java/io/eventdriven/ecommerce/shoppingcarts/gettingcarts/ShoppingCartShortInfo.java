@@ -6,7 +6,7 @@ import io.eventdriven.ecommerce.core.views.VersionedView;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartStatus;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.UUID;
 
 @Entity
