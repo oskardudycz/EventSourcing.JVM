@@ -14,7 +14,7 @@ import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import org.springframework.data.domain.Page;
 import org.springframework.retry.support.RetryTemplate;
 
-import javax.persistence.EntityNotFoundException;
+import jakarta.persistence.EntityNotFoundException;
 import java.util.UUID;
 
 public class ShoppingCartService {

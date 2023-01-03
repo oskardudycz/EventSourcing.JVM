@@ -1,6 +1,6 @@
 plugins {
-  id 'org.springframework.boot' version '2.7.0'
-  id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+  id 'org.springframework.boot' version '3.0.1'
+  id 'io.spring.dependency-management' version '1.1.0'
   id 'java'
 }
 
@@ -13,35 +13,35 @@ repositories {
 
 dependencies {
   // Spring Boot Web
-  implementation 'org.springframework.boot:spring-boot-starter-web:2.7.3'
+  implementation 'org.springframework.boot:spring-boot-starter-web:3.0.1'
   // Validation
-  implementation 'org.springframework.boot:spring-boot-starter-validation:2.7.3'
+  implementation 'org.springframework.boot:spring-boot-starter-validation:3.0.1'
   // Retry policy
-  implementation 'org.springframework.retry:spring-retry:1.3.3'
+  implementation 'org.springframework.retry:spring-retry:2.0.0'
   // Swagger
-  implementation "org.springdoc:springdoc-openapi-ui:1.6.11"
+  implementation "org.springdoc:springdoc-openapi-ui:1.6.14"
   // Serialisation
-  implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.4'
+  implementation 'com.fasterxml.jackson.core:jackson-databind:2.14.0'
 
   // Log4J logging
-  implementation 'org.springframework.boot:spring-boot-starter-log4j2:2.7.3'
+  implementation 'org.springframework.boot:spring-boot-starter-log4j2:3.0.1'
 
   // EventStoreDB client
-  implementation 'com.eventstore:db-client-java:3.0.1'
+  implementation 'com.eventstore:db-client-java:4.0.0'
 
 
   // Postgres and JPA for read models
-  implementation 'org.springframework.boot:spring-boot-starter-data-jpa:2.7.3'
-  implementation 'org.postgresql:postgresql:42.5.0'
+  implementation 'org.springframework.boot:spring-boot-starter-data-jpa:3.0.1'
+  implementation 'org.postgresql:postgresql:42.5.1'
   implementation 'junit:junit:4.13.2'
 
   // Test frameworks
-  testImplementation 'org.springframework.boot:spring-boot-starter-test'
+  testImplementation 'org.springframework.boot:spring-boot-starter-test:3.0.1'
 
-  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.0'
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.9.0'
-  testImplementation 'org.junit.platform:junit-platform-launcher:1.9.0'
-  testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.13.4'
+  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.1'
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.9.1'
+  testImplementation 'org.junit.platform:junit-platform-launcher:1.9.1'
+  testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.14.0'
 }
 
 configurations {

@@ -56,7 +56,7 @@ public final class EventStoreDBSubscriptionCheckpointRepository implements Subsc
       // store new checkpoint expecting stream to exist
       eventStore.appendToStream(
         streamName,
-        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.STREAM_EXISTS),
+        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.streamExists()),
         event
       ).get();
     } catch (Throwable e) {
@@ -73,14 +73,14 @@ public final class EventStoreDBSubscriptionCheckpointRepository implements Subsc
       try {
         eventStore.setStreamMetadata(
           streamName,
-          AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+          AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
           keepOnlyLastEvent
         ).get();
 
         // append event again expecting stream to not exist
         eventStore.appendToStream(
           streamName,
-          AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+          AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
           event
         ).get();
       } catch (Exception exception) {

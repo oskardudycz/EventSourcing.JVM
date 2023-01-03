@@ -30,7 +30,7 @@ public class CinemaTicketTests {
     // This one should succeed as we don't have such stream yet
     eventStore.appendToStream(
       seatReservationId,
-      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
       serialize(new SeatReserved(ticketId, clientId, screeningId, seatId, price))
     ).get();
 
@@ -42,7 +42,7 @@ public class CinemaTicketTests {
 
       eventStore.appendToStream(
         seatReservationId,
-        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
         serialize(new SeatReserved(otherTicketId, otherClientId, screeningId, seatId, price))
       ).get();
     } catch (ExecutionException exception) {
@@ -60,7 +60,7 @@ public class CinemaTicketTests {
     // We're simulating reservation that timed out because of e.g. not paying for it
     var nextExpectedRevision = eventStore.appendToStream(
       seatReservationId,
-      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
       serialize(new SeatReserved(ticketId, clientId, screeningId, seatId, price)),
       reservationTimedOut
     ).get().getNextExpectedRevision();
@@ -74,7 +74,7 @@ public class CinemaTicketTests {
           // We'll use subscription, as we want to be sure that we'll release the reservation.
           // We'll subscribe only for the reservationTimedOut event, as it triggers release
           var filterReservationTimedOut = SubscribeToAllOptions.get()
-            .filter(SubscriptionFilter.newBuilder().withEventTypePrefix(reservationTimedOut.getEventType()).build());
+            .filter(SubscriptionFilter.newBuilder().addEventTypePrefix(reservationTimedOut.getEventType()).build());
           eventStore.subscribeToAll(new SubscriptionListener() {
             @Override
             public void onEvent(Subscription subscription, ResolvedEvent resolvedEvent) {
@@ -88,7 +88,7 @@ public class CinemaTicketTests {
                 // that marks where previous reservation has finished
                 eventStore.deleteStream(
                   seatReservationId,
-                  DeleteStreamOptions.get().expectedRevision(nextExpectedRevision).softDelete()
+                  DeleteStreamOptions.get().expectedRevision(nextExpectedRevision)
                 ).get();
 
                 // finish processing
@@ -111,7 +111,7 @@ public class CinemaTicketTests {
 
     eventStore.appendToStream(
       seatReservationId,
-      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
       serialize(new SeatReserved(otherTicketId, otherClientId, screeningId, seatId, price))
     ).get();
   }
@@ -126,7 +126,7 @@ public class CinemaTicketTests {
   private double price = 123;
 
   @BeforeEach
-  void beforeEach() throws ParseError {
+  void beforeEach() throws ConnectionStringParsingException {
     EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
     this.eventStore = EventStoreDBClient.create(settings);
 

@@ -42,13 +42,12 @@ public final class EventSerializer {
 
   public static <Command> EventData serialize(CommandEnvelope<Command> commandEnvelope) {
     try {
-      return new EventData(
-        UUID.randomUUID(),
-        EventTypeMapper.toName(commandEnvelope.getClass()),
-        "application/json",
-        mapper.writeValueAsBytes(commandEnvelope.data()),
-        mapper.writeValueAsBytes(commandEnvelope.metadata())
-      );
+      return EventDataBuilder.json(
+          EventTypeMapper.toName(commandEnvelope.getClass()),
+          mapper.writeValueAsBytes(commandEnvelope.data())
+        )
+        .metadataAsBytes(mapper.writeValueAsBytes(commandEnvelope.metadata()))
+        .build();
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
@@ -93,7 +92,7 @@ public final class EventSerializer {
       var metadata = mapper.readValue(resolvedEvent.getEvent().getUserMetadata(), EventMetadata.class);
 
 
-      if(event == null)
+      if (event == null)
         return Optional.empty();
 
       return Optional.of(new EventEnvelope<>(event, metadata));
@@ -118,7 +117,7 @@ public final class EventSerializer {
       var metadata = mapper.readValue(resolvedEvent.getEvent().getUserMetadata(), CommandMetadata.class);
 
 
-      if(event == null)
+      if (event == null)
         return Optional.empty();
 
       return Optional.of(new CommandEnvelope<>(event, metadata));

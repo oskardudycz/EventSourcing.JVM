@@ -5,7 +5,7 @@ import io.eventdriven.ecommerce.core.http.ETag;
 import org.springframework.lang.Nullable;
 import org.springframework.retry.support.RetryTemplate;
 
-import javax.persistence.EntityNotFoundException;
+import jakarta.persistence.EntityNotFoundException;
 import java.util.UUID;
 
 public record GetShoppingCartById(

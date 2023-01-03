@@ -24,7 +24,7 @@ public class ShoppingCartTests {
     // This one should succeed as we don't have such stream yet
     eventStore.appendToStream(
       shoppingCartStreamId,
-      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
       EventSerializer.serialize(shoppingCartOpened)
     ).get();
 
@@ -32,7 +32,7 @@ public class ShoppingCartTests {
     try {
       eventStore.appendToStream(
         shoppingCartStreamId,
-        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
         EventSerializer.serialize(shoppingCartOpened)
       ).get();
     } catch (ExecutionException exception) {
@@ -43,7 +43,7 @@ public class ShoppingCartTests {
   private EventStoreDBClient eventStore;
 
   @BeforeEach
-  void beforeEach() throws ParseError {
+  void beforeEach() throws ConnectionStringParsingException {
     EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
     this.eventStore = EventStoreDBClient.create(settings);
   }
