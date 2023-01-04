@@ -1,6 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.esdb.immutable.solution2;
 
 import com.eventstore.dbclient.EventStoreDBClient;
+import com.eventstore.dbclient.ReadStreamOptions;
 import com.eventstore.dbclient.ResolvedEvent;
 import io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.esdb.tools.EventStoreDBTest;
 import org.junit.jupiter.api.Test;
@@ -200,7 +201,7 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
   static <Event> Stream<Event> getEvents(Class<Event> eventClass, EventStoreDBClient eventStore, String streamName) {
     // 1. Add logic here
     try {
-      return eventStore.readStream(streamName).get()
+      return eventStore.readStream(streamName, ReadStreamOptions.get()).get()
         .getEvents().stream()
         .map(GettingStateFromEventsTests::deserialize)
         .filter(eventClass::isInstance)

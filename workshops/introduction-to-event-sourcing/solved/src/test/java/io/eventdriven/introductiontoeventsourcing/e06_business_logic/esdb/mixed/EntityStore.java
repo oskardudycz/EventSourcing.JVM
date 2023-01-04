@@ -1,9 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e06_business_logic.esdb.mixed;
 
-import com.eventstore.dbclient.EventData;
-import com.eventstore.dbclient.EventDataBuilder;
-import com.eventstore.dbclient.EventStoreDBClient;
-import com.eventstore.dbclient.ResolvedEvent;
+import com.eventstore.dbclient.*;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -51,7 +48,7 @@ public class EntityStore<Entity extends Aggregate<Event>, Event, Command> {
 
   public Entity get(UUID id) {
     try {
-      var events = eventStore.readStream(toStreamId.apply(id)).get()
+      var events = eventStore.readStream(toStreamId.apply(id), ReadStreamOptions.get()).get()
         .getEvents().stream()
         .map(EntityStore::deserialize)
         .filter(eventClass::isInstance)

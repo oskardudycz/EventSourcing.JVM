@@ -90,7 +90,7 @@ public class AppendingEventsTests {
   }
 
   @Test
-  public void AppendingEvents_ForSequenceOfEvents_ShouldSucceed() throws ParseError {
+  public void AppendingEvents_ForSequenceOfEvents_ShouldSucceed() throws ConnectionStringParsingException {
     var shoppingCartId = UUID.randomUUID();
     var clientId = UUID.randomUUID();
     var shoesId = UUID.randomUUID();
@@ -119,6 +119,6 @@ public class AppendingEventsTests {
       var result = appendEvents(eventStore, streamName, events).get();
       return result.getNextExpectedRevision();
     });
-    assertEquals(nextStreamRevision.getValueUnsigned(), events.length - 1);
+    assertEquals(nextStreamRevision, ExpectedRevision.expectedRevision(events.length - 1));
   }
 }

@@ -48,7 +48,7 @@ public class EntityStore<Entity extends Aggregate<Event>, Event, Command> {
 
   public Entity get(UUID id) {
     try {
-      var events = eventStore.readStream(toStreamId.apply(id)).get()
+      var events = eventStore.readStream(toStreamId.apply(id), ReadStreamOptions.get()).get()
         .getEvents().stream()
         .map(EntityStore::deserialize)
         .filter(eventClass::isInstance)
@@ -68,7 +68,7 @@ public class EntityStore<Entity extends Aggregate<Event>, Event, Command> {
   }
 
   public <C extends Command> void add(UUID id, Event event) {
-    store(id, event, ExpectedRevision.NO_STREAM);
+    store(id, event, ExpectedRevision.noStream());
   }
 
   public <C extends Command> void getAndUpdate(
