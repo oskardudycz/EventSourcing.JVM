@@ -73,7 +73,7 @@ public final class EventStoreDBSubscriptionCheckpointRepository implements Subsc
       try {
         eventStore.setStreamMetadata(
           streamName,
-          AppendToStreamOptions.get().expectedRevision(ExpectedRevision.streamExists()),
+          AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
           keepOnlyLastEvent
         ).get();
 
