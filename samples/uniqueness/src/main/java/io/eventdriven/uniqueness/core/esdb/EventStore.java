@@ -68,7 +68,7 @@ public class EventStore {
     try {
       eventStore.deleteStream(
         streamId,
-        DeleteStreamOptions.get().expectedRevision(ExpectedRevision.noStream())
+        DeleteStreamOptions.get().expectedRevision(ExpectedRevision.streamExists())
       ).get();
 
       return new DeleteResult.Success();

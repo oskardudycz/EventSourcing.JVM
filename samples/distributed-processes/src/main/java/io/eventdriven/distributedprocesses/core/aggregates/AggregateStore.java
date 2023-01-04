@@ -3,8 +3,8 @@ package io.eventdriven.distributedprocesses.core.aggregates;
 import com.eventstore.dbclient.*;
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
+import jakarta.persistence.EntityNotFoundException;
 
-import javax.persistence.EntityNotFoundException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;

@@ -38,7 +38,7 @@ public final class EntityStore {
   ) {
     try {
       return Optional.of(
-        eventStore.readStream(streamName).get()
+        eventStore.readStream(streamName, ReadStreamOptions.get()).get()
           .getEvents().stream()
           .map(EntityStore::deserialize)
           .filter(eventClass::isInstance)
@@ -77,7 +77,7 @@ public final class EntityStore {
           eventStore,
           streamName,
           handle.apply(command, getEmpty.get()),
-          ExpectedRevision.NO_STREAM
+          ExpectedRevision.noStream()
         )
       );
   }

@@ -26,7 +26,7 @@ public abstract class EventStoreDBTest {
       .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);;
 
   @BeforeEach
-  void beforeEach() throws ParseError {
+  void beforeEach() throws ConnectionStringParsingException {
     EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
     eventStore = EventStoreDBClient.create(settings);
   }
