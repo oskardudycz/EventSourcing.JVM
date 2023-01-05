@@ -1,4 +1,4 @@
-package io.eventdriven.distributedprocesses.hotelmanagement.groupcheckout;
+package io.eventdriven.distributedprocesses.hotelmanagement.saga.groupcheckout;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -36,7 +36,6 @@ public sealed interface GroupCheckoutEvent {
   record GroupCheckoutCompleted(
     UUID groupCheckoutId,
     UUID[] completedCheckouts,
-    UUID[] failedCheckouts,
     OffsetDateTime completedAt
   ) implements GroupCheckoutEvent {
   }

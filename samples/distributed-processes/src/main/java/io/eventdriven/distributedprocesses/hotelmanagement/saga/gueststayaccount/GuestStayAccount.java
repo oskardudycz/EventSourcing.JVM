@@ -1,4 +1,4 @@
-package io.eventdriven.distributedprocesses.hotelmanagement.gueststayaccount;
+package io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
 import org.springframework.lang.Nullable;
@@ -6,7 +6,7 @@ import org.springframework.lang.Nullable;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import static io.eventdriven.distributedprocesses.hotelmanagement.gueststayaccount.GuestStayAccountEvent.*;
+import static io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountEvent.*;
 
 public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, UUID> {
   private enum Status {
@@ -28,7 +28,7 @@ public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, U
     UUID guestStayAccountId,
     OffsetDateTime openedAt
   ) {
-    enqueue(new GuestStayAccountOpened(guestStayAccountId, openedAt));
+    enqueue(new GuestCheckedIn(guestStayAccountId, openedAt));
   }
 
   public void recordCharge(double amount, OffsetDateTime now) {
@@ -47,16 +47,16 @@ public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, U
 
   public void checkout(@Nullable UUID groupCheckoutId, OffsetDateTime now) {
     if (status != Status.Open || balance != 0) {
-      enqueue(new GuestAccountCheckoutFailed(id(), groupCheckoutId, OffsetDateTime.now()));
+      enqueue(new GuestCheckoutFailed(id(), groupCheckoutId, OffsetDateTime.now()));
       return;
     }
-    enqueue(new GuestAccountCheckoutCompleted(id(), groupCheckoutId, now));
+    enqueue(new GuestCheckedOut(id(), groupCheckoutId, now));
   }
 
   @Override
   public void when(GuestStayAccountEvent event) {
     switch (event) {
-      case GuestStayAccountOpened opened -> {
+      case GuestCheckedIn opened -> {
         id = opened.guestStayAccountId();
         balance = 0;
         status = Status.Open;
@@ -65,9 +65,9 @@ public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, U
         balance -= chargeRecorded.amount();
       case PaymentRecorded paymentRecorded ->
         balance += paymentRecorded.amount();
-      case GuestAccountCheckoutCompleted checkoutCompleted ->
+      case GuestCheckedOut checkoutCompleted ->
         status = Status.Checkout;
-      case GuestAccountCheckoutFailed ignored -> {
+      case GuestCheckoutFailed ignored -> {
       }
     }
   }

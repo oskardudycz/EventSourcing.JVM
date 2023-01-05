@@ -1,4 +1,4 @@
-package io.eventdriven.distributedprocesses.hotelmanagement.groupcheckout;
+package io.eventdriven.distributedprocesses.hotelmanagement.saga.groupcheckout;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
