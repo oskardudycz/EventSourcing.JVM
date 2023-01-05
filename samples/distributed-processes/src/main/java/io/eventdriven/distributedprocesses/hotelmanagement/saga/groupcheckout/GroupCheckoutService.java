@@ -1,4 +1,4 @@
-package io.eventdriven.distributedprocesses.hotelmanagement.groupcheckout;
+package io.eventdriven.distributedprocesses.hotelmanagement.saga.groupcheckout;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
 import io.eventdriven.distributedprocesses.core.http.ETag;
@@ -6,7 +6,7 @@ import io.eventdriven.distributedprocesses.core.http.ETag;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import static io.eventdriven.distributedprocesses.hotelmanagement.groupcheckout.GroupCheckoutCommand.*;
+import static io.eventdriven.distributedprocesses.hotelmanagement.saga.groupcheckout.GroupCheckoutCommand.*;
 
 public class GroupCheckoutService {
   private final AggregateStore<GroupCheckout, GroupCheckoutEvent, UUID> store;

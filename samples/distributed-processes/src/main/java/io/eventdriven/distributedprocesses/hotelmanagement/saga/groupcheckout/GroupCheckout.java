@@ -1,4 +1,4 @@
-package io.eventdriven.distributedprocesses.hotelmanagement.groupcheckout;
+package io.eventdriven.distributedprocesses.hotelmanagement.saga.groupcheckout;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
 
@@ -7,7 +7,6 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
 
-import static io.eventdriven.distributedprocesses.hotelmanagement.groupcheckout.GroupCheckoutEvent.*;
 import static java.util.stream.Collectors.toMap;
 
 public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
@@ -41,21 +40,21 @@ public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
     UUID[] guestStayAccountIds,
     OffsetDateTime initiatedAt
   ) {
-    enqueue(new GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStayAccountIds, initiatedAt));
+    enqueue(new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStayAccountIds, initiatedAt));
   }
 
   public void recordGuestStaysCheckoutInitiation(UUID[] initiatedCheckouts, OffsetDateTime initiatedAt) {
     if (status != CheckoutStatus.Initiated)
       throw new IllegalStateException("Cannot record guest stay if status is other than Initiated");
 
-    enqueue(new GuestCheckoutsInitiated(id(), initiatedCheckouts, initiatedAt));
+    enqueue(new GroupCheckoutEvent.GuestCheckoutsInitiated(id(), initiatedCheckouts, initiatedAt));
   }
 
   public void recordGuestStayCheckoutCompletion(UUID completedCheckout, OffsetDateTime completedAt) {
     if (status != CheckoutStatus.Initiated)
       throw new IllegalStateException("Cannot record guest stay if status is other than Initiated");
 
-    enqueue(new GuestCheckoutCompleted(id(), completedCheckout, completedAt));
+    enqueue(new GroupCheckoutEvent.GuestCheckoutCompleted(id(), completedCheckout, completedAt));
 
     tryFinishCheckout(completedAt);
   }
@@ -64,7 +63,7 @@ public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
     if (status != CheckoutStatus.Initiated)
       throw new IllegalStateException("Cannot record guest stay if status is other than Initiated");
 
-    enqueue(new GuestCheckoutCompleted(id(), failedCheckout, failedAt));
+    enqueue(new GroupCheckoutEvent.GuestCheckoutCompleted(id(), failedCheckout, failedAt));
 
     tryFinishCheckout(failedAt);
   }
@@ -72,24 +71,24 @@ public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
   @Override
   public void when(GroupCheckoutEvent event) {
     switch (event) {
-      case GroupCheckoutInitiated checkoutInitiated -> {
+      case GroupCheckoutEvent.GroupCheckoutInitiated checkoutInitiated -> {
         id = checkoutInitiated.groupCheckoutId();
         guestStayCheckouts = Arrays.stream(checkoutInitiated.guestStayAccountIds())
           .collect(toMap(key -> key, value -> CheckoutStatus.Pending));
         status = CheckoutStatus.Pending;
       }
-      case GuestCheckoutsInitiated guestCheckoutInitiated -> {
+      case GroupCheckoutEvent.GuestCheckoutsInitiated guestCheckoutInitiated -> {
         for (var guestStayCheckoutId : guestCheckoutInitiated.guestStayAccountIds()) {
           guestStayCheckouts.replace(guestStayCheckoutId, CheckoutStatus.Initiated);
         }
       }
-      case GuestCheckoutCompleted guestCheckoutCompleted ->
+      case GroupCheckoutEvent.GuestCheckoutCompleted guestCheckoutCompleted ->
         guestStayCheckouts.replace(guestCheckoutCompleted.guestStayAccountId(), CheckoutStatus.Completed);
-      case GuestCheckoutFailed guestCheckoutFailed ->
+      case GroupCheckoutEvent.GuestCheckoutFailed guestCheckoutFailed ->
         guestStayCheckouts.replace(guestCheckoutFailed.guestStayAccountId(), CheckoutStatus.Failed);
-      case GroupCheckoutCompleted groupCheckoutCompleted ->
+      case GroupCheckoutEvent.GroupCheckoutCompleted groupCheckoutCompleted ->
         status = CheckoutStatus.Completed;
-      case GroupCheckoutFailed groupCheckoutFailed ->
+      case GroupCheckoutEvent.GroupCheckoutFailed groupCheckoutFailed ->
         status = CheckoutStatus.Failed;
     }
   }
@@ -99,10 +98,10 @@ public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
       return;
     }
     if (areAnyFailedCheckouts()) {
-      enqueue(new GroupCheckoutFailed(id(), checkoutsWith(CheckoutStatus.Completed), checkoutsWith(CheckoutStatus.Failed), now));
+      enqueue(new GroupCheckoutEvent.GroupCheckoutFailed(id(), checkoutsWith(CheckoutStatus.Completed), checkoutsWith(CheckoutStatus.Failed), now));
       return;
     }
-    enqueue(new GroupCheckoutCompleted(id(), checkoutsWith(CheckoutStatus.Completed), checkoutsWith(CheckoutStatus.Failed), now));
+    enqueue(new GroupCheckoutEvent.GroupCheckoutCompleted(id(), checkoutsWith(CheckoutStatus.Completed), now));
   }
 
   private boolean areAnyOngoingCheckouts() {

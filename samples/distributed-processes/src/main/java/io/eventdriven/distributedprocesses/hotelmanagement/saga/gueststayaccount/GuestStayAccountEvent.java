@@ -1,4 +1,4 @@
-package io.eventdriven.distributedprocesses.hotelmanagement.gueststayaccount;
+package io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount;
 
 import org.springframework.lang.Nullable;
 
@@ -6,7 +6,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public sealed interface GuestStayAccountEvent {
-  record GuestStayAccountOpened(
+  record GuestCheckedIn(
     UUID guestStayAccountId,
     OffsetDateTime openedAt
   ) implements GuestStayAccountEvent {
@@ -26,7 +26,7 @@ public sealed interface GuestStayAccountEvent {
   ) implements GuestStayAccountEvent {
   }
 
-  record GuestAccountCheckoutCompleted(
+  record GuestCheckedOut(
     UUID guestStayAccountId,
     @Nullable
     UUID groupCheckoutId,
@@ -34,7 +34,7 @@ public sealed interface GuestStayAccountEvent {
   ) implements GuestStayAccountEvent {
   }
 
-  record GuestAccountCheckoutFailed(
+  record GuestCheckoutFailed(
     UUID guestStayAccountId,
     @Nullable
     UUID groupCheckoutId,

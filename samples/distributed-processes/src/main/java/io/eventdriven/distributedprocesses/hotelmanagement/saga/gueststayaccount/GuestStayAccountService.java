@@ -1,13 +1,13 @@
-package io.eventdriven.distributedprocesses.hotelmanagement.gueststayaccount;
+package io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
 import io.eventdriven.distributedprocesses.core.events.EventBus;
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.core.retries.RetryPolicy;
-import io.eventdriven.distributedprocesses.hotelmanagement.gueststayaccount.GuestStayAccountCommand.CheckoutGuestAccount;
-import io.eventdriven.distributedprocesses.hotelmanagement.gueststayaccount.GuestStayAccountCommand.OpenGuestStayAccount;
-import io.eventdriven.distributedprocesses.hotelmanagement.gueststayaccount.GuestStayAccountCommand.RecordCharge;
-import io.eventdriven.distributedprocesses.hotelmanagement.gueststayaccount.GuestStayAccountCommand.RecordPayment;
+import io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountCommand.CheckOutGuest;
+import io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountCommand.CheckInGuest;
+import io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountCommand.RecordCharge;
+import io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountCommand.RecordPayment;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -27,7 +27,7 @@ public class GuestStayAccountService {
     this.retryPolicy = retryPolicy;
   }
 
-  public ETag handle(OpenGuestStayAccount command) {
+  public ETag handle(CheckInGuest command) {
     return store.add(
       GuestStayAccount.open(
         command.guestStayAccountId(),
@@ -56,7 +56,7 @@ public class GuestStayAccountService {
     );
   }
 
-  public ETag handle(CheckoutGuestAccount command) {
+  public ETag handle(CheckOutGuest command) {
     return retryPolicy.run(ack -> {
       var result = store.getAndUpdate(
         current -> current.checkout(

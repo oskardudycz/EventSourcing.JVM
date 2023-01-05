@@ -1,11 +1,11 @@
-package io.eventdriven.distributedprocesses.hotelmanagement.gueststayaccount;
+package io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount;
 
 import org.springframework.lang.Nullable;
 
 import java.util.UUID;
 
 public sealed interface GuestStayAccountCommand {
-  record OpenGuestStayAccount(
+  record CheckInGuest(
     UUID guestStayAccountId
   ) implements GuestStayAccountCommand {
   }
@@ -22,7 +22,7 @@ public sealed interface GuestStayAccountCommand {
   ) implements GuestStayAccountCommand {
   }
 
-  record CheckoutGuestAccount(
+  record CheckOutGuest(
     UUID guestStayAccountId,
     @Nullable
     UUID groupCheckoutId
