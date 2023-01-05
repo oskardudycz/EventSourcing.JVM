@@ -1,24 +1,26 @@
 package io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount;
 
-import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
-import org.springframework.lang.Nullable;
-
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountEvent.*;
 
-public record GuestStayAccount(
-  UUID id,
-  Status status,
-  double balance
-) {
-  public enum Status {
-    Open,
-    Checkout
+public interface GuestStayAccount {
+  record Initial() implements GuestStayAccount {
   }
 
-//  public static GuestStayAccount open(UUID guestStayAccountId, OffsetDateTime openedAt) {
+  record CheckedIn(
+    UUID id,
+    double balance
+  ) implements GuestStayAccount {
+  }
+
+  record CheckedOut(
+    UUID id,
+    double balance
+  ) implements GuestStayAccount {
+  }
+
+//  public static GuestStayAccount checkIn(UUID guestStayAccountId, OffsetDateTime openedAt) {
 //    return new GuestStayAccount(
 //      guestStayAccountId,
 //      openedAt
@@ -53,23 +55,53 @@ public record GuestStayAccount(
 //    }
 //    enqueue(new GuestCheckedOut(id(), groupCheckoutId, now));
 //  }
-//
-//  @Override
-//  public void when(GuestStayAccountEvent event) {
-//    switch (event) {
-//      case GuestCheckedIn opened -> {
-//        id = opened.guestStayAccountId();
-//        balance = 0;
-//        status = Status.Open;
-//      }
-//      case ChargeRecorded chargeRecorded ->
-//        balance -= chargeRecorded.amount();
-//      case PaymentRecorded paymentRecorded ->
-//        balance += paymentRecorded.amount();
-//      case GuestCheckedOut checkoutCompleted ->
-//        status = Status.Checkout;
-//      case GuestCheckoutFailed ignored -> {
-//      }
-//    }
-//  }
+
+  static GuestStayAccount evolve(GuestStayAccount current, GuestStayAccountEvent event) {
+    return switch (event) {
+      case GuestCheckedIn opened: {
+        if (!(current instanceof Initial))
+          yield current;
+
+        yield new CheckedIn(
+          opened.guestStayAccountId(),
+          0
+        );
+      }
+      case ChargeRecorded chargeRecorded: {
+        if (!(current instanceof CheckedIn checkedIn))
+          yield current;
+
+        yield new CheckedIn(
+          checkedIn.id(),
+          checkedIn.balance() - chargeRecorded.amount()
+        );
+      }
+      case PaymentRecorded paymentRecorded: {
+        if (!(current instanceof CheckedIn checkedIn))
+          yield current;
+
+        yield new CheckedIn(
+          checkedIn.id(),
+          checkedIn.balance() + paymentRecorded.amount()
+        );
+      }
+      case GuestCheckedOut ignored: {
+        if (!(current instanceof CheckedIn checkedIn))
+          yield current;
+
+        yield new CheckedOut(
+          checkedIn.id(),
+          checkedIn.balance()
+        );
+      }
+      case GuestCheckoutFailed ignored: {
+      }
+      case null:
+        throw new IllegalArgumentException("Event cannot be null!");
+    };
+  }
+
+  static GuestStayAccount empty() {
+    return new Initial();
+  }
 }

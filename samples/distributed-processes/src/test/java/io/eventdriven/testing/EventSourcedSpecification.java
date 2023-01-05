@@ -1,9 +1,12 @@
 package io.eventdriven.testing;
 
+import java.util.Arrays;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public abstract class EventSourcedSpecification<Entity, Event> {
   private final Supplier<Entity> getDefault;
@@ -12,6 +15,10 @@ public abstract class EventSourcedSpecification<Entity, Event> {
   protected EventSourcedSpecification(Supplier<Entity> getDefault, BiFunction<Entity, Event, Entity> evolve) {
     this.getDefault = getDefault;
     this.evolve = evolve;
+  }
+
+  public EventSourcedSpecificationBuilder<Entity, Event> given() {
+    return new EventSourcedSpecificationBuilder(this, () -> new Object[0]);
   }
 
   public EventSourcedSpecificationBuilder<Entity, Event> given(Supplier<Event[]> getEvents) {
@@ -49,6 +56,15 @@ public abstract class EventSourcedSpecification<Entity, Event> {
       then.accept(newEvents);
 
       return this;
+    }
+
+    public EventSourcedSpecificationBuilder<Entity, Event> then(Event... expectedEvents) {
+      return then(events -> {
+        assertEquals(expectedEvents.length, events.length);
+        for (var i = 0; i < events.length; i++) {
+          assertEquals(expectedEvents[i], events[i]);
+        }
+      });
     }
   }
 }

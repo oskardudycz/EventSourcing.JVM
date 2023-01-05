@@ -2,11 +2,13 @@ package io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccoun
 
 import org.springframework.lang.Nullable;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public sealed interface GuestStayAccountCommand {
   record CheckInGuest(
-    UUID guestStayAccountId
+    UUID guestStayAccountId,
+    OffsetDateTime now
   ) implements GuestStayAccountCommand {
   }
 
