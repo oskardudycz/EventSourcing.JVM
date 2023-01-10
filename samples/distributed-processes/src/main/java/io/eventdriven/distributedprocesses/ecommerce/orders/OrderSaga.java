@@ -24,7 +24,7 @@ public class OrderSaga {
 
   // Happy path
   public void on(ShoppingCartFinalized event) {
-    commandBus.send(
+    commandBus.schedule(
       new OrderCommand.InitializeOrder(
         event.cartId(),
         event.clientId(),
@@ -35,7 +35,7 @@ public class OrderSaga {
   }
 
   public void on(OrderInitialized event) {
-    commandBus.send(
+    commandBus.schedule(
       new PaymentCommand.RequestPayment(
         UUID.randomUUID(),
         event.orderId(), event.totalPrice()
@@ -44,7 +44,7 @@ public class OrderSaga {
   }
 
   public void on(PaymentExternalEvent.PaymentFinalized event) {
-    commandBus.send(
+    commandBus.schedule(
       new RecordOrderPayment(
         event.orderId(),
         event.paymentId(),
@@ -54,7 +54,7 @@ public class OrderSaga {
   }
 
   public void on(OrderPaymentRecorded event) {
-    commandBus.send(
+    commandBus.schedule(
       new ShipmentCommand.SendPackage(
         event.orderId(),
         Arrays.stream(event.productItems())
@@ -65,7 +65,7 @@ public class OrderSaga {
   }
 
   public void on(ShipmentEvent.PackageWasSent event) {
-    commandBus.send(
+    commandBus.schedule(
       new CompleteOrder(
         event.orderId()
       )
@@ -74,7 +74,7 @@ public class OrderSaga {
 
   // Compensation
   public void on(ShipmentEvent.ProductWasOutOfStock event) {
-    commandBus.send(
+    commandBus.schedule(
       new CancelOrder(
         event.orderId(),
         OrderCancellationReason.ProductWasOutOfStock
@@ -86,7 +86,7 @@ public class OrderSaga {
     if (event.paymentId() == null) {
       return;
     }
-    commandBus.send(
+    commandBus.schedule(
       new PaymentCommand.DiscardPayment(
         event.paymentId(),
         DiscardReason.OrderCancelled

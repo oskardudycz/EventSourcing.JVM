@@ -17,11 +17,11 @@ public class GroupCheckoutSaga {
 
   public void on(GroupCheckoutInitiated groupCheckoutInitiated) {
     for (var guestAccountId : groupCheckoutInitiated.guestStayAccountIds()) {
-      commandBus.send(
+      commandBus.schedule(
         new GuestStayAccountCommand.CheckOutGuest(guestAccountId, groupCheckoutInitiated.groupCheckoutId(), groupCheckoutInitiated.initiatedAt())
       );
     }
-    commandBus.send(
+    commandBus.schedule(
       new RecordGuestCheckoutsInitiation(
         groupCheckoutInitiated.groupCheckoutId(),
         groupCheckoutInitiated.guestStayAccountIds(),
@@ -34,7 +34,7 @@ public class GroupCheckoutSaga {
     if (guestCheckoutCompleted.groupCheckoutId() == null)
       return;
 
-    commandBus.send(
+    commandBus.schedule(
       new RecordGuestCheckoutCompletion(
         guestCheckoutCompleted.groupCheckoutId(),
         guestCheckoutCompleted.guestStayAccountId(),
@@ -47,7 +47,7 @@ public class GroupCheckoutSaga {
     if (guestCheckoutFailed.groupCheckoutId() == null)
       return;
 
-    commandBus.send(
+    commandBus.schedule(
       new RecordGuestCheckoutFailure(
         guestCheckoutFailed.groupCheckoutId(),
         guestCheckoutFailed.guestStayAccountId(),
