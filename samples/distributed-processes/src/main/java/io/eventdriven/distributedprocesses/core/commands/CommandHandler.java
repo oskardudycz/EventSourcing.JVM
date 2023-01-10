@@ -1,4 +1,4 @@
-package io.eventdriven.distributedprocesses.core.entities;
+package io.eventdriven.distributedprocesses.core.commands;
 
 import com.eventstore.dbclient.*;
 import io.eventdriven.distributedprocesses.core.http.ETag;

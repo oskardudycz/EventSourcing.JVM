@@ -1,13 +1,6 @@
 package io.eventdriven.distributedprocesses.hotelmanagement.saga.groupcheckout;
 
-import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
-import io.eventdriven.distributedprocesses.core.entities.CommandHandler;
-import io.eventdriven.distributedprocesses.core.http.ETag;
-
-import java.time.OffsetDateTime;
-import java.util.UUID;
-
-import static io.eventdriven.distributedprocesses.hotelmanagement.saga.groupcheckout.GroupCheckoutCommand.*;
+import io.eventdriven.distributedprocesses.core.commands.CommandHandler;
 
 public class GroupCheckoutService {
   private final CommandHandler<GroupCheckout, GroupCheckoutCommand, GroupCheckoutEvent> commandHandler;

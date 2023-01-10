@@ -3,38 +3,47 @@ package io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccoun
 import static io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccount.*;
 import static io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountEvent.*;
 import static io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountCommand.*;
+import static io.eventdriven.distributedprocesses.core.collections.CollectionsExtensions.*;
 
 public final class GuestStayAccountDecider {
-  public static GuestStayAccountEvent handle(GuestStayAccountCommand command, GuestStayAccount state) {
+  public static GuestStayAccountEvent[] handle(GuestStayAccountCommand command, GuestStayAccount state) {
     return switch (command) {
       case CheckInGuest checkIn: {
         if (!(state instanceof Initial initial))
           throw new IllegalStateException("Guest already checked in");
 
-        yield handle(checkIn, initial);
+        yield toArray(
+          handle(checkIn, initial)
+        );
       }
       case RecordCharge recordCharge: {
         if (!(state instanceof CheckedIn checkedIn))
           throw new IllegalStateException("Guest is not checked in");
 
-        yield handle(recordCharge, checkedIn);
+        yield toArray(
+          handle(recordCharge, checkedIn)
+        );
       }
       case RecordPayment recordPayment: {
         if (!(state instanceof CheckedIn checkedIn))
           throw new IllegalStateException("Guest is not checked in");
 
-        yield handle(recordPayment, checkedIn);
+        yield toArray(
+          handle(recordPayment, checkedIn)
+        );
       }
       case CheckOutGuest checkOut: {
         if (!(state instanceof CheckedIn checkedIn))
-          yield new GuestCheckoutFailed(
-            checkOut.guestStayAccountId(),
-            GuestCheckoutFailed.Reason.InvalidState,
-            checkOut.groupCheckoutId(),
-            checkOut.now()
+          yield toArray(
+            new GuestCheckoutFailed(
+              checkOut.guestStayAccountId(),
+              GuestCheckoutFailed.Reason.InvalidState,
+              checkOut.groupCheckoutId(),
+              checkOut.now()
+            )
           );
 
-        yield handle(checkOut, checkedIn);
+        yield toArray(handle(checkOut, checkedIn));
       }
     };
   }
