@@ -34,21 +34,35 @@ public class EntityStore<Entity, Event> {
     this.getEmpty = getEmpty;
   }
 
-  public ETag getAndUpdate(
+  public Optional<ETag> getAndUpdate(
     Function<Entity, Event[]> handle,
     UUID id
+  ) {
+    return getAndUpdate(handle, id, null);
+  }
+
+  public Optional<ETag> getAndUpdate(
+    Function<Entity, Event[]> handle,
+    UUID id,
+    ETag eTag
   ) {
     var streamId = mapToStreamId.apply(id);
     var getResult = get(streamId);
 
-    var state = getResult instanceof Success<Entity> success?
+    var state = getResult instanceof Success<Entity> success ?
       success.result : getEmpty.get();
-    var expectedRevision = getResult instanceof Success<Entity> success?
-      ExpectedRevision.expectedRevision(success.revision) : ExpectedRevision.noStream();
+    var expectedRevision =
+      eTag != null ?
+        ExpectedRevision.expectedRevision(eTag.toLong()) :
+        getResult instanceof Success<Entity> success ?
+          ExpectedRevision.expectedRevision(success.revision) : ExpectedRevision.noStream();
 
     var events = handle.apply(state);
 
-    return appendEvents(streamId, events, expectedRevision);
+    if (events.length == 0)
+      return Optional.empty();
+
+    return Optional.of(appendEvents(streamId, events, expectedRevision));
   }
 
   private GetEntityResult<Entity> get(String streamId) {
@@ -118,7 +132,8 @@ public class EntityStore<Entity, Event> {
     record NotFound<Entity>() implements GetEntityResult<Entity> {
     }
 
-    record Success<Entity>(Entity result, long revision) implements GetEntityResult<Entity> {
+    record Success<Entity>(Entity result,
+                           long revision) implements GetEntityResult<Entity> {
     }
 
     static <Entity> NotFound<Entity> notFound() {

@@ -4,6 +4,10 @@ import io.eventdriven.distributedprocesses.core.commands.CommandBus;
 import io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountEvent;
 import io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountCommand;
 
+
+import static io.eventdriven.distributedprocesses.hotelmanagement.saga.groupcheckout.GroupCheckoutEvent.*;
+import static io.eventdriven.distributedprocesses.hotelmanagement.saga.groupcheckout.GroupCheckoutCommand.*;
+
 public class GroupCheckoutSaga {
   private final CommandBus commandBus;
 
@@ -11,14 +15,18 @@ public class GroupCheckoutSaga {
     this.commandBus = commandBus;
   }
 
-  public void on(GroupCheckoutEvent.GroupCheckoutInitiated groupCheckoutInitiated) {
+  public void on(GroupCheckoutInitiated groupCheckoutInitiated) {
     for (var guestAccountId : groupCheckoutInitiated.guestStayAccountIds()) {
       commandBus.send(
         new GuestStayAccountCommand.CheckOutGuest(guestAccountId, groupCheckoutInitiated.groupCheckoutId(), groupCheckoutInitiated.initiatedAt())
       );
     }
     commandBus.send(
-      new GroupCheckoutCommand.RecordGuestStayInitiation(groupCheckoutInitiated.groupCheckoutId(), groupCheckoutInitiated.guestStayAccountIds())
+      new RecordGuestCheckoutsInitiation(
+        groupCheckoutInitiated.groupCheckoutId(),
+        groupCheckoutInitiated.guestStayAccountIds(),
+        groupCheckoutInitiated.initiatedAt()
+      )
     );
   }
 
@@ -27,7 +35,7 @@ public class GroupCheckoutSaga {
       return;
 
     commandBus.send(
-      new GroupCheckoutCommand.RecordGuestCheckoutCompletion(
+      new RecordGuestCheckoutCompletion(
         guestCheckoutCompleted.groupCheckoutId(),
         guestCheckoutCompleted.guestStayAccountId(),
         guestCheckoutCompleted.completedAt()
@@ -40,7 +48,7 @@ public class GroupCheckoutSaga {
       return;
 
     commandBus.send(
-      new GroupCheckoutCommand.RecordGuestCheckoutFailure(
+      new RecordGuestCheckoutFailure(
         guestCheckoutFailed.groupCheckoutId(),
         guestCheckoutFailed.guestStayAccountId(),
         guestCheckoutFailed.failedAt()

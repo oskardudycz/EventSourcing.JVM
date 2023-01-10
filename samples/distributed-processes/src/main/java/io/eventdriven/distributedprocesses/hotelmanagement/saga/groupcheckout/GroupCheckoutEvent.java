@@ -12,7 +12,7 @@ public sealed interface GroupCheckoutEvent {
   ) implements GroupCheckoutEvent {
   }
 
-  record GuestCheckoutsInitiated(
+  record GuestCheckoutsStarted(
     UUID groupCheckoutId,
     UUID[] guestStayAccountIds,
     OffsetDateTime initiatedAt
