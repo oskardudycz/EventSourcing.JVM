@@ -36,9 +36,15 @@ public sealed interface GuestStayAccountEvent {
 
   record GuestCheckoutFailed(
     UUID guestStayAccountId,
+    Reason reason,
     @Nullable
     UUID groupCheckoutId,
     OffsetDateTime failedAt
   ) implements GuestStayAccountEvent {
+    public enum Reason
+    {
+      InvalidState,
+      BalanceNotSettled
+    }
   }
 }

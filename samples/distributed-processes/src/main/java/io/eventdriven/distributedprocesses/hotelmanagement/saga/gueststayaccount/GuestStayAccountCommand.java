@@ -14,20 +14,23 @@ public sealed interface GuestStayAccountCommand {
 
   record RecordCharge(
     UUID guestStayAccountId,
-    double amount
+    double amount,
+    OffsetDateTime now
   ) implements GuestStayAccountCommand {
   }
 
   record RecordPayment(
     UUID guestStayAccountId,
-    double amount
+    double amount,
+    OffsetDateTime now
   ) implements GuestStayAccountCommand {
   }
 
   record CheckOutGuest(
     UUID guestStayAccountId,
     @Nullable
-    UUID groupCheckoutId
+    UUID groupCheckoutId,
+    OffsetDateTime now
   ) implements GuestStayAccountCommand {
   }
 }
