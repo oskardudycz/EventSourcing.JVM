@@ -31,27 +31,7 @@ public sealed interface GroupCheckout {
     Completed,
     Failed
   }
-}
-//
-//  public void recordGuestStayCheckoutCompletion(UUID completedCheckout, OffsetDateTime completedAt) {
-//    if (status != CheckoutStatus.Initiated)
-//      throw new IllegalStateException("Cannot record guest stay if status is other than Initiated");
-//
-//    enqueue(new GroupCheckoutEvent.GuestCheckoutCompleted(id(), completedCheckout, completedAt));
-//
-//    tryFinishCheckout(completedAt);
-//  }
-//
-//  public void recordGuestStayCheckoutFailure(UUID failedCheckout, OffsetDateTime failedAt) {
-//    if (status != CheckoutStatus.Initiated)
-//      throw new IllegalStateException("Cannot record guest stay if status is other than Initiated");
-//
-//    enqueue(new GroupCheckoutEvent.GuestCheckoutCompleted(id(), failedCheckout, failedAt));
-//
-//    tryFinishCheckout(failedAt);
-//  }
-//
-//  @Override
+
 //  public void when(GroupCheckoutEvent event) {
 //    switch (event) {
 //      case GroupCheckoutEvent.GroupCheckoutInitiated checkoutInitiated -> {
@@ -75,32 +55,4 @@ public sealed interface GroupCheckout {
 //        status = CheckoutStatus.Failed;
 //    }
 //  }
-//
-//  private void tryFinishCheckout(OffsetDateTime now) {
-//    if (areAnyOngoingCheckouts()) {
-//      return;
-//    }
-//    if (areAnyFailedCheckouts()) {
-//      enqueue(new GroupCheckoutEvent.GroupCheckoutFailed(id(), checkoutsWith(CheckoutStatus.Completed), checkoutsWith(CheckoutStatus.Failed), now));
-//      return;
-//    }
-//    enqueue(new GroupCheckoutEvent.GroupCheckoutCompleted(id(), checkoutsWith(CheckoutStatus.Completed), now));
-//  }
-//
-//  private boolean areAnyOngoingCheckouts() {
-//    return guestStayCheckouts.values().stream()
-//      .anyMatch(status -> status == CheckoutStatus.Initiated || status == CheckoutStatus.Pending);
-//  }
-//
-//  private boolean areAnyFailedCheckouts() {
-//    return guestStayCheckouts.values().stream()
-//      .anyMatch(status -> status == CheckoutStatus.Failed);
-//  }
-//
-//  private UUID[] checkoutsWith(CheckoutStatus status) {
-//    return guestStayCheckouts.entrySet().stream()
-//      .filter(entry -> entry.getValue() == status)
-//      .map(Map.Entry::getKey)
-//      .toArray(UUID[]::new);
-//  }
-// }
+}

@@ -33,7 +33,7 @@ public class ESDBCommandBus implements CommandBus {
   }
 
   @Override
-  public <Command> EventStore.AppendResult send(Command command) {
+  public <Command> EventStore.AppendResult schedule(Command command) {
     return retryPolicy.run(ack -> {
       var result = eventStore.append(
         commandStreamId,
