@@ -4,7 +4,7 @@ import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountEvent.*;
 
-public interface GuestStayAccount {
+public sealed interface GuestStayAccount {
   record Initial() implements GuestStayAccount {
   }
 

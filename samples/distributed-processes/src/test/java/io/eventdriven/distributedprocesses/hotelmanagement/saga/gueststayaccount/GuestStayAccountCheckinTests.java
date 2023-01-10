@@ -1,5 +1,6 @@
 package io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount;
 
+import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.testing.EventSourcedSpecification;
 import org.junit.jupiter.api.Test;
 
@@ -14,15 +15,16 @@ import static io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststay
 public class GuestStayAccountCheckinTests extends EventSourcedSpecification<GuestStayAccount, GuestStayAccountEvent> {
   private final OffsetDateTime now = OffsetDateTime.now();
   private final UUID guestStayAccountId = UUID.randomUUID();
+
   protected GuestStayAccountCheckinTests() {
     super(GuestStayAccount::empty, GuestStayAccount::evolve);
   }
 
   @Test
-  public void givenNonExistingGuestStayAccount_WhenCheckIn_ThenSucceeds(){
+  public void givenNonExistingGuestStayAccount_WhenCheckIn_ThenSucceeds() {
     given()
       .when(current -> array(
-        handle(new CheckInGuest(guestStayAccountId,now), current)
+        handle(new CheckInGuest(guestStayAccountId, ETag.weak(1), now), current)
       ))
       .then(
         new GuestCheckedIn(guestStayAccountId, now)

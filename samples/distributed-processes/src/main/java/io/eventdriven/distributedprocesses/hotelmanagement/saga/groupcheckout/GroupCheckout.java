@@ -1,55 +1,37 @@
 package io.eventdriven.distributedprocesses.hotelmanagement.saga.groupcheckout;
 
-import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
-
-import java.time.OffsetDateTime;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
 
 import static java.util.stream.Collectors.toMap;
 
-public record GroupCheckout(
-  UUID id,
-  Map<UUID, CheckoutStatus> guestStayCheckouts,
-  CheckoutStatus status
-) {
-  public enum CheckoutStatus {
-    Pending,
+public sealed interface GroupCheckout {
+  record Initial() implements GroupCheckout {
+  }
+
+  record InProgress(
+    UUID id,
+    Map<UUID, CheckoutStatus> guestStayCheckouts
+  ) implements GroupCheckout {
+  }
+
+  record Completed(
+    UUID id
+  ) implements GroupCheckout {
+  }
+
+  record Failed(
+    UUID id
+  ) implements GroupCheckout {
+  }
+
+  enum CheckoutStatus {
     Initiated,
+    InProgress,
     Completed,
     Failed
   }
-
-//  public static GroupCheckout initiate(
-//    UUID groupCheckoutId,
-//    UUID clerkId,
-//    UUID[] guestStayAccountIds,
-//    OffsetDateTime initiatedAt
-//  ) {
-//    return new GroupCheckout(
-//      groupCheckoutId,
-//      clerkId,
-//      guestStayAccountIds,
-//      initiatedAt
-//    );
-//  }
-
-//  private GroupCheckout(
-//    UUID groupCheckoutId,
-//    UUID clerkId,
-//    UUID[] guestStayAccountIds,
-//    OffsetDateTime initiatedAt
-//  ) {
-//    enqueue(new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStayAccountIds, initiatedAt));
-//  }
-//
-//  public void recordGuestStaysCheckoutInitiation(UUID[] initiatedCheckouts, OffsetDateTime initiatedAt) {
-//    if (status != CheckoutStatus.Initiated)
-//      throw new IllegalStateException("Cannot record guest stay if status is other than Initiated");
-//
-//    enqueue(new GroupCheckoutEvent.GuestCheckoutsInitiated(id(), initiatedCheckouts, initiatedAt));
-//  }
+}
 //
 //  public void recordGuestStayCheckoutCompletion(UUID completedCheckout, OffsetDateTime completedAt) {
 //    if (status != CheckoutStatus.Initiated)
@@ -121,4 +103,4 @@ public record GroupCheckout(
 //      .map(Map.Entry::getKey)
 //      .toArray(UUID[]::new);
 //  }
-}
+// }

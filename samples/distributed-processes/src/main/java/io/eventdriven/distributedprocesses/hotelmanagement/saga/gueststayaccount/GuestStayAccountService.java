@@ -5,6 +5,7 @@ import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.core.retries.RetryPolicy;
 import io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountCommand.*;
 
+import java.util.Optional;
 import java.util.UUID;
 
 public class GuestStayAccountService {
@@ -20,25 +21,28 @@ public class GuestStayAccountService {
   }
 
   public ETag handle(CheckInGuest command) {
-    return handle(command.guestStayAccountId(), command);
+    return handle(command.guestStayAccountId(), command)
+      .orElseThrow(() -> new IllegalStateException("Invalid state"));
   }
 
   public ETag handle(RecordCharge command) {
-    return handle(command.guestStayAccountId(), command);
+    return handle(command.guestStayAccountId(), command)
+      .orElseThrow(() -> new IllegalStateException("Invalid state"));
   }
 
   public ETag handle(RecordPayment command) {
-    return handle(command.guestStayAccountId(), command);
+    return handle(command.guestStayAccountId(), command)
+      .orElseThrow(() -> new IllegalStateException("Invalid state"));
   }
 
-  public ETag handle(CheckOutGuest command) {
+  public Optional<ETag> handle(CheckOutGuest command) {
     return retryPolicy.run(ack -> {
       var result = handle(command.guestStayAccountId(), command);
       ack.accept(result);
     });
   }
 
-  private ETag handle(UUID id, GuestStayAccountCommand command) {
+  private Optional<ETag> handle(UUID id, GuestStayAccountCommand command) {
     return store.getAndUpdate(
       (state) -> GuestStayAccountDecider.handle(command, state),
       id

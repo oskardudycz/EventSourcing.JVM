@@ -7,13 +7,15 @@ public sealed interface GroupCheckoutCommand {
   record InitiateGroupCheckout(
     UUID groupCheckoutId,
     UUID clerkId,
-    UUID[] guestStayAccountIds
+    UUID[] guestStayAccountIds,
+    OffsetDateTime now
   ) implements GroupCheckoutCommand {
   }
 
-  record RecordGuestStayInitiation(
+  record RecordGuestCheckoutsInitiation(
     UUID groupCheckoutId,
-    UUID[] guestStayAccountIds
+    UUID[] guestStayAccountIds,
+    OffsetDateTime now
   ) implements GroupCheckoutCommand {
   }
 
