@@ -1,9 +1,13 @@
 package io.eventdriven.distributedprocesses.hotelmanagement.saga.groupcheckout;
 
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import static io.eventdriven.distributedprocesses.core.collections.CollectionsExtensions.valueIs;
 import static java.util.stream.Collectors.toMap;
+import static io.eventdriven.distributedprocesses.hotelmanagement.saga.groupcheckout.GroupCheckoutEvent.*;
 
 public sealed interface GroupCheckout {
   record Initial() implements GroupCheckout {
@@ -32,27 +36,80 @@ public sealed interface GroupCheckout {
     Failed
   }
 
-//  public void when(GroupCheckoutEvent event) {
-//    switch (event) {
-//      case GroupCheckoutEvent.GroupCheckoutInitiated checkoutInitiated -> {
-//        id = checkoutInitiated.groupCheckoutId();
-//        guestStayCheckouts = Arrays.stream(checkoutInitiated.guestStayAccountIds())
-//          .collect(toMap(key -> key, value -> CheckoutStatus.Pending));
-//        status = CheckoutStatus.Pending;
-//      }
-//      case GroupCheckoutEvent.GuestCheckoutsInitiated guestCheckoutInitiated -> {
-//        for (var guestStayCheckoutId : guestCheckoutInitiated.guestStayAccountIds()) {
-//          guestStayCheckouts.replace(guestStayCheckoutId, CheckoutStatus.Initiated);
-//        }
-//      }
-//      case GroupCheckoutEvent.GuestCheckoutCompleted guestCheckoutCompleted ->
-//        guestStayCheckouts.replace(guestCheckoutCompleted.guestStayAccountId(), CheckoutStatus.Completed);
-//      case GroupCheckoutEvent.GuestCheckoutFailed guestCheckoutFailed ->
-//        guestStayCheckouts.replace(guestCheckoutFailed.guestStayAccountId(), CheckoutStatus.Failed);
-//      case GroupCheckoutEvent.GroupCheckoutCompleted groupCheckoutCompleted ->
-//        status = CheckoutStatus.Completed;
-//      case GroupCheckoutEvent.GroupCheckoutFailed groupCheckoutFailed ->
-//        status = CheckoutStatus.Failed;
-//    }
-//  }
+  static GroupCheckout evolve(GroupCheckout current, GroupCheckoutEvent event) {
+    return switch (event) {
+      case GroupCheckoutInitiated initiated: {
+        if (!(current instanceof Initial))
+          yield current;
+
+        yield new InProgress(
+          initiated.groupCheckoutId(),
+          Arrays.stream(initiated.guestStayAccountIds())
+            .collect(toMap(key -> key, value -> CheckoutStatus.Initiated))
+        );
+      }
+      case GuestCheckoutsStarted checkoutsStarted: {
+        if (!(current instanceof InProgress inProgress))
+          yield current;
+
+        var guestStayCheckouts = new HashMap<>(inProgress.guestStayCheckouts);
+
+        for (var guestStayAccountId : checkoutsStarted.guestStayAccountIds()) {
+          if (valueIs(guestStayCheckouts, guestStayAccountId, CheckoutStatus.Initiated))
+            guestStayCheckouts.replace(guestStayAccountId, CheckoutStatus.InProgress);
+        }
+
+        yield new InProgress(
+          inProgress.id(),
+          guestStayCheckouts
+        );
+      }
+      case GuestCheckoutCompleted checkoutCompleted: {
+        if (!(current instanceof InProgress inProgress))
+          yield current;
+
+        var guestStayCheckouts = new HashMap<>(inProgress.guestStayCheckouts);
+        var guestStayAccountId = checkoutCompleted.guestStayAccountId();
+
+        if (valueIs(guestStayCheckouts, guestStayAccountId, CheckoutStatus.Initiated, CheckoutStatus.InProgress))
+          guestStayCheckouts.replace(guestStayAccountId, CheckoutStatus.Completed);
+
+        yield new InProgress(
+          inProgress.id(),
+          guestStayCheckouts
+        );
+      }
+      case GuestCheckoutFailed guestCheckoutFailed: {
+        if (!(current instanceof InProgress inProgress))
+          yield current;
+
+        var guestStayCheckouts = new HashMap<>(inProgress.guestStayCheckouts);
+        var guestStayAccountId = guestCheckoutFailed.guestStayAccountId();
+
+        if (valueIs(guestStayCheckouts, guestStayAccountId, CheckoutStatus.Initiated, CheckoutStatus.InProgress))
+          guestStayCheckouts.replace(guestStayAccountId, CheckoutStatus.Failed);
+
+        yield new InProgress(
+          inProgress.id(),
+          guestStayCheckouts
+        );
+      }
+      case GroupCheckoutCompleted ignore: {
+        if (!(current instanceof InProgress inProgress))
+          yield current;
+
+        yield new Completed(
+          inProgress.id()
+        );
+      }
+      case GroupCheckoutFailed ignore: {
+        if (!(current instanceof InProgress inProgress))
+          yield current;
+
+        yield new Failed(
+          inProgress.id()
+        );
+      }
+    };
+  }
 }
