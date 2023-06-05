@@ -47,6 +47,7 @@ tasks.withType(JavaExec) {
 }
 
 test {
+  useJUnitPlatform()
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
 }
