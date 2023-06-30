@@ -197,6 +197,10 @@ Read more in my article:
 
 <a href="https://www.youtube.com/watch?v=LaUSPtwFLSg" target="_blank"><img src="https://img.youtube.com/vi/LaUSPtwFLSg/0.jpg" alt="Practical introduction to Event Sourcing with Spring Boot and EventStoreDB" width="320" height="240" border="10" /></a>
 
+### Facts and Myths about CQRS
+
+<a href="https://www.youtube.com/watch?v=9COWKz1E32w" target="_blank"><img src="https://img.youtube.com/vi/9COWKz1E32w/0.jpg" alt="Facts and Myths about CQRS" width="640" height="480" border="10" /></a>
+
 ### Let's build the worst Event Sourcing system!
 
 <a href="https://www.youtube.com/watch?v=Lu-skMQ-vAw" target="_blank"><img src="https://img.youtube.com/vi/Lu-skMQ-vAw/0.jpg" alt="Let's build the worst Event Sourcing system!" width="320" height="240" border="10" /></a>
