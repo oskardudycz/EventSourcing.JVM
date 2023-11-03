@@ -6,7 +6,6 @@ import io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.OrderComp
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.OrderInitialized;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.OrderPaymentRecorded;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
-
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -29,44 +28,29 @@ public class Order extends AbstractAggregate<OrderEvent, UUID> {
   private UUID paymentId;
 
   public static Order initialize(
-    UUID orderId,
-    UUID clientId,
-    PricedProductItem[] productItems,
-    double totalPrice,
-    OffsetDateTime now
-  ) {
-    return new Order(
-      orderId,
-      clientId,
-      productItems,
-      totalPrice,
-      now
-    );
+      UUID orderId,
+      UUID clientId,
+      PricedProductItem[] productItems,
+      double totalPrice,
+      OffsetDateTime now) {
+    return new Order(orderId, clientId, productItems, totalPrice, now);
   }
 
-  private Order(UUID id, UUID clientId, PricedProductItem[] productItems, double totalPrice, OffsetDateTime now) {
-    enqueue(new OrderInitialized(
-      id,
-      clientId,
-      productItems,
-      totalPrice,
-      now
-    ));
+  private Order(
+      UUID id,
+      UUID clientId,
+      PricedProductItem[] productItems,
+      double totalPrice,
+      OffsetDateTime now) {
+    enqueue(new OrderInitialized(id, clientId, productItems, totalPrice, now));
   }
 
   public void recordPayment(UUID paymentId, OffsetDateTime recordedAt) {
-    enqueue(new OrderPaymentRecorded(
-      id,
-      paymentId,
-      productItems,
-      totalPrice,
-      recordedAt
-    ));
+    enqueue(new OrderPaymentRecorded(id, paymentId, productItems, totalPrice, recordedAt));
   }
 
   public void complete(OffsetDateTime now) {
-    if (status != Status.Paid)
-      throw new IllegalStateException("Cannot complete a not paid order.");
+    if (status != Status.Paid) throw new IllegalStateException("Cannot complete a not paid order.");
 
     enqueue(new OrderCompleted(id, now));
   }

@@ -1,12 +1,11 @@
 package io.eventdriven.distributedprocesses.hotelmanagement.processmanager.gueststayaccount;
 
-import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
-import org.springframework.lang.Nullable;
+import static io.eventdriven.distributedprocesses.hotelmanagement.processmanager.gueststayaccount.GuestStayAccountEvent.*;
 
+import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
-
-import static io.eventdriven.distributedprocesses.hotelmanagement.processmanager.gueststayaccount.GuestStayAccountEvent.*;
+import org.springframework.lang.Nullable;
 
 public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, UUID> {
   private enum Status {
@@ -18,16 +17,10 @@ public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, U
   private double balance;
 
   public static GuestStayAccount open(UUID guestStayAccountId, OffsetDateTime openedAt) {
-    return new GuestStayAccount(
-      guestStayAccountId,
-      openedAt
-    );
+    return new GuestStayAccount(guestStayAccountId, openedAt);
   }
 
-  private GuestStayAccount(
-    UUID guestStayAccountId,
-    OffsetDateTime openedAt
-  ) {
+  private GuestStayAccount(UUID guestStayAccountId, OffsetDateTime openedAt) {
     enqueue(new GuestCheckedIn(guestStayAccountId, openedAt));
   }
 
@@ -47,13 +40,13 @@ public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, U
 
   public void checkout(@Nullable UUID groupCheckoutId, OffsetDateTime now) {
     if (status != Status.Open || balance != 0) {
-      enqueue(
-        new GuestCheckoutFailed(id(),
-          balance != 0 ? GuestCheckoutFailed.Reason.BalanceNotSettled : GuestCheckoutFailed.Reason.InvalidState,
+      enqueue(new GuestCheckoutFailed(
+          id(),
+          balance != 0
+              ? GuestCheckoutFailed.Reason.BalanceNotSettled
+              : GuestCheckoutFailed.Reason.InvalidState,
           groupCheckoutId,
-          OffsetDateTime.now()
-        )
-      );
+          OffsetDateTime.now()));
       return;
     }
     enqueue(new GuestCheckedOut(id(), groupCheckoutId, now));
@@ -68,13 +61,9 @@ public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, U
         status = Status.Open;
       }
       case ChargeRecorded chargeRecorded -> balance -= chargeRecorded.amount();
-      case PaymentRecorded paymentRecorded ->
-        balance += paymentRecorded.amount();
-      case GuestCheckedOut ignored ->
-        status = Status.Checkout;
-      case GuestCheckoutFailed ignored -> {
-      }
+      case PaymentRecorded paymentRecorded -> balance += paymentRecorded.amount();
+      case GuestCheckedOut ignored -> status = Status.Checkout;
+      case GuestCheckoutFailed ignored -> {}
     }
   }
 }
-

@@ -1,15 +1,14 @@
 package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts;
 
+import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
+
 import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItems;
-
 import java.time.OffsetDateTime;
 import java.util.UUID;
-
-import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
 public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
   public UUID clientId() {
@@ -22,81 +21,62 @@ public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
 
   public double totalPrice() {
     return productItems.items().stream()
-      .mapToDouble(PricedProductItem::totalPrice)
-      .sum();
+        .mapToDouble(PricedProductItem::totalPrice)
+        .sum();
   }
+
   private UUID clientId;
   private ProductItems productItems;
   private ShoppingCartStatus status;
 
-  private ShoppingCart() {
-  }
+  private ShoppingCart() {}
 
   public static ShoppingCart empty() {
     return new ShoppingCart();
   }
 
-  ShoppingCart(
-    UUID id,
-    UUID clientId
-  ) {
+  ShoppingCart(UUID id, UUID clientId) {
     enqueue(new ShoppingCartOpened(id, clientId));
   }
 
   static ShoppingCart open(UUID shoppingCartId, UUID clientId) {
-    return new ShoppingCart(
-      shoppingCartId,
-      clientId
-    );
+    return new ShoppingCart(shoppingCartId, clientId);
   }
 
-  void addProductItem(
-    ProductPriceCalculator productPriceCalculator,
-    ProductItem productItem
-  ) {
+  void addProductItem(ProductPriceCalculator productPriceCalculator, ProductItem productItem) {
     if (isClosed())
-      throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(status));
+      throw new IllegalStateException(
+          "Removing product item for cart in '%s' status is not allowed.".formatted(status));
 
     var pricedProductItem = productPriceCalculator.calculate(productItem);
 
-    enqueue(new ProductItemAddedToShoppingCart(
-      id,
-      pricedProductItem
-    ));
+    enqueue(new ProductItemAddedToShoppingCart(id, pricedProductItem));
   }
 
-  void removeProductItem(
-    PricedProductItem productItem
-  ) {
+  void removeProductItem(PricedProductItem productItem) {
     if (isClosed())
-      throw new IllegalStateException("Adding product item for cart in '%s' status is not allowed.".formatted(status));
+      throw new IllegalStateException(
+          "Adding product item for cart in '%s' status is not allowed.".formatted(status));
 
     productItems.assertThatCanRemove(productItem);
 
-    enqueue(new ProductItemRemovedFromShoppingCart(
-      id,
-      productItem
-    ));
+    enqueue(new ProductItemRemovedFromShoppingCart(id, productItem));
   }
 
   void confirm() {
     if (isClosed())
-      throw new IllegalStateException("Confirming cart in '%s' status is not allowed.".formatted(status));
+      throw new IllegalStateException(
+          "Confirming cart in '%s' status is not allowed.".formatted(status));
 
-    enqueue(new ShoppingCartConfirmed(
-      id,
-      OffsetDateTime.now()
-    ));
+    enqueue(new ShoppingCartConfirmed(id, OffsetDateTime.now()));
   }
 
   void cancel() {
     if (isClosed())
-      throw new IllegalStateException("Canceling cart in '%s' status is not allowed.".formatted(status));
+      throw new IllegalStateException(
+          "Canceling cart in '%s' status is not allowed.".formatted(status));
 
-    enqueue(new ShoppingCartCanceled(
-      id,
-      OffsetDateTime.now()
-    ));
+    enqueue(new ShoppingCartCanceled(id, OffsetDateTime.now()));
   }
 
   private boolean isClosed() {
@@ -116,17 +96,15 @@ public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
         productItems = ProductItems.empty();
         status = ShoppingCartStatus.Pending;
       }
-      case ProductItemAddedToShoppingCart productItemAddedToShoppingCart ->
-        productItems = productItems.add(productItemAddedToShoppingCart.productItem());
+      case ProductItemAddedToShoppingCart productItemAddedToShoppingCart -> productItems =
+          productItems.add(productItemAddedToShoppingCart.productItem());
 
-      case ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart ->
-        productItems = productItems.remove(productItemRemovedFromShoppingCart.productItem());
+      case ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart -> productItems =
+          productItems.remove(productItemRemovedFromShoppingCart.productItem());
 
-      case ShoppingCartConfirmed ignored ->
-        status = ShoppingCartStatus.Confirmed;
+      case ShoppingCartConfirmed ignored -> status = ShoppingCartStatus.Confirmed;
 
-      case ShoppingCartCanceled ignored ->
-        status = ShoppingCartStatus.Canceled;
+      case ShoppingCartCanceled ignored -> status = ShoppingCartStatus.Canceled;
     }
   }
 }

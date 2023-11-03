@@ -1,14 +1,13 @@
 package io.eventdriven.distributedprocesses.core.events;
 
+import static io.eventdriven.distributedprocesses.core.esdb.subscriptions.ESDBSubscription.subscribeToStream;
+import static io.eventdriven.distributedprocesses.core.serialization.EventSerializer.deserializeEvent;
+
 import com.eventstore.dbclient.EventStoreDBClient;
 import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.retries.RetryPolicy;
-
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-
-import static io.eventdriven.distributedprocesses.core.esdb.subscriptions.ESDBSubscription.subscribeToStream;
-import static io.eventdriven.distributedprocesses.core.serialization.EventSerializer.deserializeEvent;
 
 public class ESDBEventBus implements EventBus {
   private static final String EventStreamId = "_events-all";
@@ -19,12 +18,11 @@ public class ESDBEventBus implements EventBus {
   private final Supplier<String> currentCausationId;
 
   public ESDBEventBus(
-    EventStoreDBClient eventStoreDBClient,
-    EventStore eventStore,
-    RetryPolicy retryPolicy,
-    Supplier<String> currentCorrelationId,
-    Supplier<String> currentCausationId
-  ) {
+      EventStoreDBClient eventStoreDBClient,
+      EventStore eventStore,
+      RetryPolicy retryPolicy,
+      Supplier<String> currentCorrelationId,
+      Supplier<String> currentCausationId) {
     this.eventStoreDBClient = eventStoreDBClient;
     this.eventStore = eventStore;
     this.retryPolicy = retryPolicy;
@@ -36,12 +34,11 @@ public class ESDBEventBus implements EventBus {
   public <Event> EventStore.AppendResult publish(Event event) {
     return retryPolicy.run(ack -> {
       var result = eventStore.append(
-        EventStreamId,
-        new EventEnvelope<>(event, new EventMetadata(currentCorrelationId.get(), currentCausationId.get()))
-      );
+          EventStreamId,
+          new EventEnvelope<>(
+              event, new EventMetadata(currentCorrelationId.get(), currentCausationId.get())));
 
-      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure))
-        ack.accept(result);
+      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure)) ack.accept(result);
     });
   }
 
