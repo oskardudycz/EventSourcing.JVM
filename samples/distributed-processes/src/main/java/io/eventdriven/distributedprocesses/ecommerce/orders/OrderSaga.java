@@ -23,9 +23,8 @@ public class OrderSaga {
 
   // Happy path
   public void on(ShoppingCartFinalized event) {
-    commandBus.schedule(
-        new OrderCommand.InitializeOrder(
-            event.cartId(), event.clientId(), event.productItems(), event.totalPrice()));
+    commandBus.schedule(new OrderCommand.InitializeOrder(
+        event.cartId(), event.clientId(), event.productItems(), event.totalPrice()));
   }
 
   public void on(OrderInitialized event) {
@@ -39,12 +38,11 @@ public class OrderSaga {
   }
 
   public void on(OrderPaymentRecorded event) {
-    commandBus.schedule(
-        new ShipmentCommand.SendPackage(
-            event.orderId(),
-            Arrays.stream(event.productItems())
-                .map(pi -> new ProductItem(pi.productId(), pi.quantity()))
-                .toArray(ProductItem[]::new)));
+    commandBus.schedule(new ShipmentCommand.SendPackage(
+        event.orderId(),
+        Arrays.stream(event.productItems())
+            .map(pi -> new ProductItem(pi.productId(), pi.quantity()))
+            .toArray(ProductItem[]::new)));
   }
 
   public void on(ShipmentEvent.PackageWasSent event) {

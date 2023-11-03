@@ -21,11 +21,10 @@ import org.slf4j.LoggerFactory;
 
 public final class EventSerializer {
   private static final Logger logger = LoggerFactory.getLogger(EventSerializer.class);
-  public static final ObjectMapper mapper =
-      new JsonMapper()
-          .registerModule(new JavaTimeModule())
-          .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-          .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+  public static final ObjectMapper mapper = new JsonMapper()
+      .registerModule(new JavaTimeModule())
+      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+      .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
   public static EventData serialize(Object event) {
     try {

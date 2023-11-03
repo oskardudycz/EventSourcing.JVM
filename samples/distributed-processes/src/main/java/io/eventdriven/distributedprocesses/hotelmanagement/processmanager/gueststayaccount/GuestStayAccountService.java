@@ -39,13 +39,11 @@ public class GuestStayAccountService {
   }
 
   public ETag handle(CheckOutGuest command) {
-    return retryPolicy.run(
-        ack -> {
-          var result =
-              store.getAndUpdate(
-                  current -> current.checkout(command.guestStayAccountId(), OffsetDateTime.now()),
-                  command.guestStayAccountId());
-          ack.accept(result);
-        });
+    return retryPolicy.run(ack -> {
+      var result = store.getAndUpdate(
+          current -> current.checkout(command.guestStayAccountId(), OffsetDateTime.now()),
+          command.guestStayAccountId());
+      ack.accept(result);
+    });
   }
 }

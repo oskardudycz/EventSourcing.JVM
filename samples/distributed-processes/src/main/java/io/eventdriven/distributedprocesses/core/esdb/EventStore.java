@@ -24,13 +24,12 @@ public class EventStore {
     var eventsToAppend = Arrays.stream(events).map(EventSerializer::serialize).toList();
 
     try {
-      var result =
-          eventStore
-              .appendToStream(
-                  streamId,
-                  AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
-                  eventsToAppend.iterator())
-              .get();
+      var result = eventStore
+          .appendToStream(
+              streamId,
+              AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
+              eventsToAppend.iterator())
+          .get();
 
       return new AppendResult.Success(result.getNextExpectedRevision(), result.getLogPosition());
     } catch (InterruptedException | ExecutionException e) {
@@ -47,13 +46,12 @@ public class EventStore {
     try {
       var eventsToAppend = Arrays.stream(events).map(EventSerializer::serialize).toList();
 
-      var result =
-          eventStore
-              .appendToStream(
-                  streamId,
-                  AppendToStreamOptions.get().expectedRevision(expectedRevision),
-                  eventsToAppend.iterator())
-              .get();
+      var result = eventStore
+          .appendToStream(
+              streamId,
+              AppendToStreamOptions.get().expectedRevision(expectedRevision),
+              eventsToAppend.iterator())
+          .get();
 
       return new AppendResult.Success(result.getNextExpectedRevision(), result.getLogPosition());
     } catch (InterruptedException | ExecutionException e) {
@@ -101,13 +99,12 @@ public class EventStore {
       var metadata = new StreamMetadata();
       metadata.setMaxAge((int) duration.toSeconds());
 
-      var result =
-          eventStore
-              .setStreamMetadata(
-                  streamId,
-                  AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
-                  metadata)
-              .get();
+      var result = eventStore
+          .setStreamMetadata(
+              streamId,
+              AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
+              metadata)
+          .get();
 
       return new AppendResult.Success(result.getNextExpectedRevision(), result.getLogPosition());
     } catch (InterruptedException | ExecutionException e) {

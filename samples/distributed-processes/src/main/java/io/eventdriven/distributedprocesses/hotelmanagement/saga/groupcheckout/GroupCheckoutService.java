@@ -32,20 +32,17 @@ public class GroupCheckoutService {
   }
 
   public Optional<ETag> handle(RecordGuestCheckoutFailure command) {
-    return retryPolicy.run(
-        ack -> {
-          var result = handle(command.groupCheckoutId(), command);
-          ack.accept(result);
-        });
+    return retryPolicy.run(ack -> {
+      var result = handle(command.groupCheckoutId(), command);
+      ack.accept(result);
+    });
   }
 
   private Optional<ETag> handle(UUID id, GroupCheckoutCommand command) {
-    return retryPolicy.run(
-        ack -> {
-          var result =
-              store.getAndUpdate(
-                  (state) -> GroupCheckoutDecider.handle(command, state).orElse(toArray()), id);
-          ack.accept(result);
-        });
+    return retryPolicy.run(ack -> {
+      var result = store.getAndUpdate(
+          (state) -> GroupCheckoutDecider.handle(command, state).orElse(toArray()), id);
+      ack.accept(result);
+    });
   }
 }

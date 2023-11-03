@@ -29,7 +29,9 @@ public record ProductItems(List<PricedProductItem> items) {
   }
 
   Optional<PricedProductItem> find(PricedProductItem productItem) {
-    return items.stream().filter(pi -> pi.matchesProductAndUnitPrice(productItem)).findAny();
+    return items.stream()
+        .filter(pi -> pi.matchesProductAndUnitPrice(productItem))
+        .findAny();
   }
 
   public PricedProductItem assertThatCanRemove(PricedProductItem productItem) {

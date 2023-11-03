@@ -44,11 +44,8 @@ public class GroupCheckoutProcessManager extends AbstractProcessManager<UUID> {
 
   public void on(GroupCheckoutInitiated checkoutInitiated) {
     for (var guestAccountId : checkoutInitiated.guestStayAccountIds()) {
-      schedule(
-          new CheckOutGuest(
-              guestAccountId,
-              checkoutInitiated.groupCheckoutId(),
-              checkoutInitiated.initiatedAt()));
+      schedule(new CheckOutGuest(
+          guestAccountId, checkoutInitiated.groupCheckoutId(), checkoutInitiated.initiatedAt()));
     }
 
     for (var guestStayAccountId : checkoutInitiated.guestStayAccountIds()) {

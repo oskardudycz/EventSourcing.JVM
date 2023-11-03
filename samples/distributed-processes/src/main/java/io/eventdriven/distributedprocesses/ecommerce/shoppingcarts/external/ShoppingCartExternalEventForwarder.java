@@ -19,22 +19,18 @@ public class ShoppingCartExternalEventForwarder {
   }
 
   public void on(ShoppingCartConfirmed event) {
-    var cart =
-        store
-            .get(event.shoppingCartId())
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "Cannot enrich event, as shopping cart with id '%s' was not found"
-                            .formatted(event.shoppingCartId())));
+    var cart = store
+        .get(event.shoppingCartId())
+        .orElseThrow(() -> new IllegalStateException(
+            "Cannot enrich event, as shopping cart with id '%s' was not found"
+                .formatted(event.shoppingCartId())));
 
-    var externalEvent =
-        new ShoppingCartFinalized(
-            event.shoppingCartId(),
-            cart.clientId(),
-            cart.productItems(),
-            cart.totalPrice(),
-            event.confirmedAt());
+    var externalEvent = new ShoppingCartFinalized(
+        event.shoppingCartId(),
+        cart.clientId(),
+        cart.productItems(),
+        cart.totalPrice(),
+        event.confirmedAt());
 
     eventBus.publish(externalEvent);
   }

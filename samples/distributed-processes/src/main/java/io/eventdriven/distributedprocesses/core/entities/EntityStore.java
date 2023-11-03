@@ -40,12 +40,11 @@ public class EntityStore<Entity, Event> {
     var getResult = get(streamId);
 
     var state = getResult instanceof Success<Entity> success ? success.result : getEmpty.get();
-    var expectedRevision =
-        eTag != null
-            ? ExpectedRevision.expectedRevision(eTag.toLong())
-            : getResult instanceof Success<Entity> success
-                ? ExpectedRevision.expectedRevision(success.revision)
-                : ExpectedRevision.noStream();
+    var expectedRevision = eTag != null
+        ? ExpectedRevision.expectedRevision(eTag.toLong())
+        : getResult instanceof Success<Entity> success
+            ? ExpectedRevision.expectedRevision(success.revision)
+            : ExpectedRevision.noStream();
 
     var events = handle.apply(state);
 
@@ -86,15 +85,15 @@ public class EntityStore<Entity, Event> {
 
     var resultEvents = result.getEvents().stream();
 
-    var events =
-        resultEvents
-            .map(EventSerializer::<Event>deserialize)
-            .filter(Optional::isPresent)
-            .map(Optional::get)
-            .toList();
+    var events = resultEvents
+        .map(EventSerializer::<Event>deserialize)
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .toList();
 
-    var lastEventRevision =
-        resultEvents.reduce((first, second) -> second).map(e -> e.getOriginalEvent().getRevision());
+    var lastEventRevision = resultEvents
+        .reduce((first, second) -> second)
+        .map(e -> e.getOriginalEvent().getRevision());
 
     return Pair.of(Optional.of(events), lastEventRevision);
   }
@@ -103,13 +102,12 @@ public class EntityStore<Entity, Event> {
     var eventsToAppend = Arrays.stream(events).map(EventSerializer::serialize);
 
     try {
-      var result =
-          eventStore
-              .appendToStream(
-                  streamId,
-                  AppendToStreamOptions.get().expectedRevision(expectedRevision),
-                  eventsToAppend.iterator())
-              .get();
+      var result = eventStore
+          .appendToStream(
+              streamId,
+              AppendToStreamOptions.get().expectedRevision(expectedRevision),
+              eventsToAppend.iterator())
+          .get();
 
       return ETag.weak(result.getNextExpectedRevision());
     } catch (Throwable e) {

@@ -33,11 +33,10 @@ public class GroupCheckoutService {
 
   public void on(GroupCheckoutInitiated groupCheckoutInitiated) {
     for (var guestAccountId : groupCheckoutInitiated.guestStayAccountIds()) {
-      commandBus.schedule(
-          new CheckOutGuest(
-              guestAccountId,
-              groupCheckoutInitiated.groupCheckoutId(),
-              groupCheckoutInitiated.initiatedAt()));
+      commandBus.schedule(new CheckOutGuest(
+          guestAccountId,
+          groupCheckoutInitiated.groupCheckoutId(),
+          groupCheckoutInitiated.initiatedAt()));
     }
 
     handle(
@@ -71,12 +70,10 @@ public class GroupCheckoutService {
   }
 
   private Optional<ETag> handle(UUID id, GroupCheckoutCommand command) {
-    return retryPolicy.run(
-        ack -> {
-          var result =
-              store.getAndUpdate(
-                  (state) -> GroupCheckoutDecider.handle(command, state).orElse(toArray()), id);
-          ack.accept(result);
-        });
+    return retryPolicy.run(ack -> {
+      var result = store.getAndUpdate(
+          (state) -> GroupCheckoutDecider.handle(command, state).orElse(toArray()), id);
+      ack.accept(result);
+    });
   }
 }

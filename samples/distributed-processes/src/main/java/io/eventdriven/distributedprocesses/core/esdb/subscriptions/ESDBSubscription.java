@@ -42,14 +42,12 @@ public final class ESDBSubscription {
       // It doesn't have error handling, retries and resubscribes.
       // For the full solution, check main samples.
       return eventStore
-          .subscribeToStream(
-              streamId,
-              new SubscriptionListener() {
-                @Override
-                public void onEvent(Subscription subscription, ResolvedEvent resolvedEvent) {
-                  handle.accept(subscription, resolvedEvent);
-                }
-              })
+          .subscribeToStream(streamId, new SubscriptionListener() {
+            @Override
+            public void onEvent(Subscription subscription, ResolvedEvent resolvedEvent) {
+              handle.accept(subscription, resolvedEvent);
+            }
+          })
           .get();
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException(e);

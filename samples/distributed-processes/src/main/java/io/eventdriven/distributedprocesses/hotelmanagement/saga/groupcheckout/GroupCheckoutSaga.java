@@ -16,36 +16,32 @@ public class GroupCheckoutSaga {
 
   public void on(GroupCheckoutInitiated groupCheckoutInitiated) {
     for (var guestAccountId : groupCheckoutInitiated.guestStayAccountIds()) {
-      commandBus.schedule(
-          new GuestStayAccountCommand.CheckOutGuest(
-              guestAccountId,
-              groupCheckoutInitiated.groupCheckoutId(),
-              groupCheckoutInitiated.initiatedAt()));
+      commandBus.schedule(new GuestStayAccountCommand.CheckOutGuest(
+          guestAccountId,
+          groupCheckoutInitiated.groupCheckoutId(),
+          groupCheckoutInitiated.initiatedAt()));
     }
-    commandBus.schedule(
-        new RecordGuestCheckoutsInitiation(
-            groupCheckoutInitiated.groupCheckoutId(),
-            groupCheckoutInitiated.guestStayAccountIds(),
-            groupCheckoutInitiated.initiatedAt()));
+    commandBus.schedule(new RecordGuestCheckoutsInitiation(
+        groupCheckoutInitiated.groupCheckoutId(),
+        groupCheckoutInitiated.guestStayAccountIds(),
+        groupCheckoutInitiated.initiatedAt()));
   }
 
   public void on(GuestStayAccountEvent.GuestCheckedOut guestCheckoutCompleted) {
     if (guestCheckoutCompleted.groupCheckoutId() == null) return;
 
-    commandBus.schedule(
-        new RecordGuestCheckoutCompletion(
-            guestCheckoutCompleted.groupCheckoutId(),
-            guestCheckoutCompleted.guestStayAccountId(),
-            guestCheckoutCompleted.completedAt()));
+    commandBus.schedule(new RecordGuestCheckoutCompletion(
+        guestCheckoutCompleted.groupCheckoutId(),
+        guestCheckoutCompleted.guestStayAccountId(),
+        guestCheckoutCompleted.completedAt()));
   }
 
   public void on(GuestStayAccountEvent.GuestCheckoutFailed guestCheckoutFailed) {
     if (guestCheckoutFailed.groupCheckoutId() == null) return;
 
-    commandBus.schedule(
-        new RecordGuestCheckoutFailure(
-            guestCheckoutFailed.groupCheckoutId(),
-            guestCheckoutFailed.guestStayAccountId(),
-            guestCheckoutFailed.failedAt()));
+    commandBus.schedule(new RecordGuestCheckoutFailure(
+        guestCheckoutFailed.groupCheckoutId(),
+        guestCheckoutFailed.guestStayAccountId(),
+        guestCheckoutFailed.failedAt()));
   }
 }

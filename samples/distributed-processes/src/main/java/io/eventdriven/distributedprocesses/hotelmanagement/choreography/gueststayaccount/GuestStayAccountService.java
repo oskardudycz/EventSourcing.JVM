@@ -36,11 +36,10 @@ public class GuestStayAccountService {
   }
 
   public Optional<ETag> handle(CheckOutGuest command) {
-    return retryPolicy.run(
-        ack -> {
-          var result = handle(command.guestStayAccountId(), command);
-          ack.accept(result);
-        });
+    return retryPolicy.run(ack -> {
+      var result = handle(command.guestStayAccountId(), command);
+      ack.accept(result);
+    });
   }
 
   private Optional<ETag> handle(UUID id, GuestStayAccountCommand command) {

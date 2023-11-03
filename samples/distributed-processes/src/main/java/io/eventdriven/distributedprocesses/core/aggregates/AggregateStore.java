@@ -49,12 +49,9 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
 
   public ETag getAndUpdate(Consumer<Entity> handle, Id id, long expectedRevision) {
     var streamId = mapToStreamId.apply(id);
-    var entity =
-        get(id)
-            .orElseThrow(
-                () ->
-                    new EntityNotFoundException(
-                        "Stream with id %s was not found".formatted(streamId)));
+    var entity = get(id)
+        .orElseThrow(() ->
+            new EntityNotFoundException("Stream with id %s was not found".formatted(streamId)));
 
     handle.accept(entity);
 
@@ -63,12 +60,9 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
 
   public ETag getAndUpdate(Consumer<Entity> handle, Id id) {
     var streamId = mapToStreamId.apply(id);
-    var entity =
-        get(id)
-            .orElseThrow(
-                () ->
-                    new EntityNotFoundException(
-                        "Stream with id %s was not found".formatted(streamId)));
+    var entity = get(id)
+        .orElseThrow(() ->
+            new EntityNotFoundException("Stream with id %s was not found".formatted(streamId)));
 
     var expectedVersion = entity.version;
 
@@ -90,12 +84,11 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
       throw new RuntimeException(e);
     }
 
-    var events =
-        result.getEvents().stream()
-            .map(EventSerializer::<Event>deserialize)
-            .filter(Optional::isPresent)
-            .map(Optional::get)
-            .toList();
+    var events = result.getEvents().stream()
+        .map(EventSerializer::<Event>deserialize)
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .toList();
 
     return Optional.of(events);
   }
@@ -105,7 +98,8 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
     var events = Arrays.stream(entity.dequeueUncommittedEvents()).map(EventSerializer::serialize);
 
     try {
-      var result = eventStore.appendToStream(streamId, appendOptions, events.iterator()).get();
+      var result =
+          eventStore.appendToStream(streamId, appendOptions, events.iterator()).get();
 
       return ETag.weak(result.getNextExpectedRevision());
     } catch (Throwable e) {

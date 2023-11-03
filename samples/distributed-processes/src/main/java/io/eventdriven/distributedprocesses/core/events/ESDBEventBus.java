@@ -32,34 +32,28 @@ public class ESDBEventBus implements EventBus {
 
   @Override
   public <Event> EventStore.AppendResult publish(Event event) {
-    return retryPolicy.run(
-        ack -> {
-          var result =
-              eventStore.append(
-                  EventStreamId,
-                  new EventEnvelope<>(
-                      event,
-                      new EventMetadata(currentCorrelationId.get(), currentCausationId.get())));
+    return retryPolicy.run(ack -> {
+      var result = eventStore.append(
+          EventStreamId,
+          new EventEnvelope<>(
+              event, new EventMetadata(currentCorrelationId.get(), currentCausationId.get())));
 
-          if (!(result instanceof EventStore.AppendResult.UnexpectedFailure)) ack.accept(result);
-        });
+      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure)) ack.accept(result);
+    });
   }
 
   @Override
   public final void subscribe(Consumer<EventEnvelope<Object>>... handlers) {
-    subscribeToStream(
-        eventStoreDBClient,
-        EventStreamId,
-        (subscription, resolvedEvent) -> {
-          var eventEnvelope = deserializeEvent(resolvedEvent);
+    subscribeToStream(eventStoreDBClient, EventStreamId, (subscription, resolvedEvent) -> {
+      var eventEnvelope = deserializeEvent(resolvedEvent);
 
-          if (eventEnvelope.isEmpty()) {
-            return;
-          }
+      if (eventEnvelope.isEmpty()) {
+        return;
+      }
 
-          for (var handler : handlers) {
-            handler.accept(eventEnvelope.get());
-          }
-        });
+      for (var handler : handlers) {
+        handler.accept(eventEnvelope.get());
+      }
+    });
   }
 }

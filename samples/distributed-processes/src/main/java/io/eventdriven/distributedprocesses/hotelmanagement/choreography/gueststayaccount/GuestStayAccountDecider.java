@@ -10,39 +10,34 @@ public final class GuestStayAccountDecider {
   public static GuestStayAccountEvent[] handle(
       GuestStayAccountCommand command, GuestStayAccount state) {
     return switch (command) {
-      case CheckInGuest checkIn:
-        {
-          if (!(state instanceof Initial initial))
-            throw new IllegalStateException("Guest already checked in");
+      case CheckInGuest checkIn: {
+        if (!(state instanceof Initial initial))
+          throw new IllegalStateException("Guest already checked in");
 
-          yield toArray(handle(checkIn, initial));
-        }
-      case RecordCharge recordCharge:
-        {
-          if (!(state instanceof CheckedIn checkedIn))
-            throw new IllegalStateException("Guest is not checked in");
+        yield toArray(handle(checkIn, initial));
+      }
+      case RecordCharge recordCharge: {
+        if (!(state instanceof CheckedIn checkedIn))
+          throw new IllegalStateException("Guest is not checked in");
 
-          yield toArray(handle(recordCharge, checkedIn));
-        }
-      case RecordPayment recordPayment:
-        {
-          if (!(state instanceof CheckedIn checkedIn))
-            throw new IllegalStateException("Guest is not checked in");
+        yield toArray(handle(recordCharge, checkedIn));
+      }
+      case RecordPayment recordPayment: {
+        if (!(state instanceof CheckedIn checkedIn))
+          throw new IllegalStateException("Guest is not checked in");
 
-          yield toArray(handle(recordPayment, checkedIn));
-        }
-      case CheckOutGuest checkOut:
-        {
-          if (!(state instanceof CheckedIn checkedIn))
-            yield toArray(
-                new GuestCheckoutFailed(
-                    checkOut.guestStayAccountId(),
-                    GuestCheckoutFailed.Reason.InvalidState,
-                    checkOut.groupCheckoutId(),
-                    checkOut.now()));
+        yield toArray(handle(recordPayment, checkedIn));
+      }
+      case CheckOutGuest checkOut: {
+        if (!(state instanceof CheckedIn checkedIn))
+          yield toArray(new GuestCheckoutFailed(
+              checkOut.guestStayAccountId(),
+              GuestCheckoutFailed.Reason.InvalidState,
+              checkOut.groupCheckoutId(),
+              checkOut.now()));
 
-          yield toArray(handle(checkOut, checkedIn));
-        }
+        yield toArray(handle(checkOut, checkedIn));
+      }
     };
   }
 

@@ -20,7 +20,9 @@ public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
   }
 
   public double totalPrice() {
-    return productItems.items().stream().mapToDouble(PricedProductItem::totalPrice).sum();
+    return productItems.items().stream()
+        .mapToDouble(PricedProductItem::totalPrice)
+        .sum();
   }
 
   private UUID clientId;

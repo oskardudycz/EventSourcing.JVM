@@ -23,9 +23,8 @@ public class GuestStayAccountCheckinTests
   @Test
   public void givenNonExistingGuestStayAccount_WhenCheckIn_ThenSucceeds() {
     given()
-        .when(
-            current ->
-                array(handle(new CheckInGuest(guestStayAccountId, ETag.weak(1), now), current)))
+        .when(current ->
+            array(handle(new CheckInGuest(guestStayAccountId, ETag.weak(1), now), current)))
         .then(new GuestCheckedIn(guestStayAccountId, now));
   }
 }

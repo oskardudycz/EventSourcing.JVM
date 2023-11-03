@@ -60,13 +60,12 @@ public abstract class EventSourcedSpecification<Entity, Event> {
     }
 
     public EventSourcedSpecificationBuilder<Entity, Event> then(Event... expectedEvents) {
-      return then(
-          events -> {
-            assertEquals(expectedEvents.length, events.length);
-            for (var i = 0; i < events.length; i++) {
-              assertEquals(expectedEvents[i], events[i]);
-            }
-          });
+      return then(events -> {
+        assertEquals(expectedEvents.length, events.length);
+        for (var i = 0; i < events.length; i++) {
+          assertEquals(expectedEvents[i], events[i]);
+        }
+      });
     }
   }
 }

@@ -16,14 +16,12 @@ public final class EventTypeMapper {
   }
 
   public static Optional<Class> toClass(String eventTypeName) {
-    return Instance.typeMap.computeIfAbsent(
-        eventTypeName,
-        c -> {
-          try {
-            return Optional.of(Class.forName(eventTypeName.replace("__", "$").replace("_", ".")));
-          } catch (ClassNotFoundException e) {
-            return Optional.empty();
-          }
-        });
+    return Instance.typeMap.computeIfAbsent(eventTypeName, c -> {
+      try {
+        return Optional.of(Class.forName(eventTypeName.replace("__", "$").replace("_", ".")));
+      } catch (ClassNotFoundException e) {
+        return Optional.empty();
+      }
+    });
   }
 }

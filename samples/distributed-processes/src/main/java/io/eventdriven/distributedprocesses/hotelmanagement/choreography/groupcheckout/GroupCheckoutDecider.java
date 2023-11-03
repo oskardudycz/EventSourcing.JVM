@@ -14,30 +14,26 @@ public final class GroupCheckoutDecider {
   public static Optional<GroupCheckoutEvent[]> handle(
       GroupCheckoutCommand command, GroupCheckout state) {
     return switch (command) {
-      case InitiateGroupCheckout initiate:
-        {
-          if (!(state instanceof Initial initial)) yield Optional.empty();
+      case InitiateGroupCheckout initiate: {
+        if (!(state instanceof Initial initial)) yield Optional.empty();
 
-          yield Optional.of(toArray(handle(initiate, initial)));
-        }
-      case RecordGuestCheckoutsInitiation recordGuestStayInitiation:
-        {
-          if (!(state instanceof InProgress inProgress)) yield Optional.empty();
+        yield Optional.of(toArray(handle(initiate, initial)));
+      }
+      case RecordGuestCheckoutsInitiation recordGuestStayInitiation: {
+        if (!(state instanceof InProgress inProgress)) yield Optional.empty();
 
-          yield Optional.of(toArray(handle(recordGuestStayInitiation, inProgress)));
-        }
-      case RecordGuestCheckoutCompletion recordGuestCheckoutCompletion:
-        {
-          if (!(state instanceof InProgress inProgress)) yield Optional.empty();
+        yield Optional.of(toArray(handle(recordGuestStayInitiation, inProgress)));
+      }
+      case RecordGuestCheckoutCompletion recordGuestCheckoutCompletion: {
+        if (!(state instanceof InProgress inProgress)) yield Optional.empty();
 
-          yield Optional.of(handle(recordGuestCheckoutCompletion, inProgress));
-        }
-      case RecordGuestCheckoutFailure checkOut:
-        {
-          if (!(state instanceof InProgress inProgress)) yield Optional.empty();
+        yield Optional.of(handle(recordGuestCheckoutCompletion, inProgress));
+      }
+      case RecordGuestCheckoutFailure checkOut: {
+        if (!(state instanceof InProgress inProgress)) yield Optional.empty();
 
-          yield Optional.of(handle(checkOut, inProgress));
-        }
+        yield Optional.of(handle(checkOut, inProgress));
+      }
     };
   }
 
@@ -54,9 +50,8 @@ public final class GroupCheckoutDecider {
 
   private static GroupCheckoutEvent[] handle(
       RecordGuestCheckoutCompletion command, InProgress state) {
-    var guestCheckoutCompleted =
-        new GuestCheckoutCompleted(
-            command.groupCheckoutId(), command.guestStayAccountId(), command.completedAt());
+    var guestCheckoutCompleted = new GuestCheckoutCompleted(
+        command.groupCheckoutId(), command.guestStayAccountId(), command.completedAt());
 
     return tryFinishCheckout(state, command.completedAt())
         .map(finished -> toArray(guestCheckoutCompleted, finished))
@@ -64,9 +59,8 @@ public final class GroupCheckoutDecider {
   }
 
   private static GroupCheckoutEvent[] handle(RecordGuestCheckoutFailure command, InProgress state) {
-    var guestCheckoutFailed =
-        new GuestCheckoutFailed(
-            command.groupCheckoutId(), command.guestStayAccountId(), command.failedAt());
+    var guestCheckoutFailed = new GuestCheckoutFailed(
+        command.groupCheckoutId(), command.guestStayAccountId(), command.failedAt());
 
     return tryFinishCheckout(state, command.failedAt())
         .map(finished -> toArray(guestCheckoutFailed, finished))

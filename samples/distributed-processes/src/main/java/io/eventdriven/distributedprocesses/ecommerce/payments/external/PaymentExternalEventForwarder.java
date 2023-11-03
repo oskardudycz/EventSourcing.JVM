@@ -20,60 +20,48 @@ public class PaymentExternalEventForwarder {
   }
 
   public void on(PaymentCompleted event) {
-    var payment =
-        store
-            .get(event.paymentId())
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "Cannot enrich event, as payment with id '%s' was not found"
-                            .formatted(event.paymentId())));
+    var payment = store
+        .get(event.paymentId())
+        .orElseThrow(() ->
+            new IllegalStateException("Cannot enrich event, as payment with id '%s' was not found"
+                .formatted(event.paymentId())));
 
-    var externalEvent =
-        new PaymentFinalized(
-            payment.orderId(), event.paymentId(), payment.amount(), event.completedAt());
+    var externalEvent = new PaymentFinalized(
+        payment.orderId(), event.paymentId(), payment.amount(), event.completedAt());
 
     eventBus.publish(externalEvent);
   }
 
   public void on(PaymentDiscarded event) {
-    var payment =
-        store
-            .get(event.paymentId())
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "Cannot enrich event, as payment with id '%s' was not found"
-                            .formatted(event.paymentId())));
+    var payment = store
+        .get(event.paymentId())
+        .orElseThrow(() ->
+            new IllegalStateException("Cannot enrich event, as payment with id '%s' was not found"
+                .formatted(event.paymentId())));
 
-    var externalEvent =
-        new PaymentFailed(
-            payment.orderId(),
-            event.paymentId(),
-            payment.amount(),
-            event.discardedAt(),
-            PaymentFailed.Reason.Discarded);
+    var externalEvent = new PaymentFailed(
+        payment.orderId(),
+        event.paymentId(),
+        payment.amount(),
+        event.discardedAt(),
+        PaymentFailed.Reason.Discarded);
 
     eventBus.publish(externalEvent);
   }
 
   public void on(PaymentTimedOut event) {
-    var payment =
-        store
-            .get(event.paymentId())
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "Cannot enrich event, as payment with id '%s' was not found"
-                            .formatted(event.paymentId())));
+    var payment = store
+        .get(event.paymentId())
+        .orElseThrow(() ->
+            new IllegalStateException("Cannot enrich event, as payment with id '%s' was not found"
+                .formatted(event.paymentId())));
 
-    var externalEvent =
-        new PaymentFailed(
-            payment.orderId(),
-            event.paymentId(),
-            payment.amount(),
-            event.timedOutAt(),
-            PaymentFailed.Reason.TimedOut);
+    var externalEvent = new PaymentFailed(
+        payment.orderId(),
+        event.paymentId(),
+        payment.amount(),
+        event.timedOutAt(),
+        PaymentFailed.Reason.TimedOut);
 
     eventBus.publish(externalEvent);
   }

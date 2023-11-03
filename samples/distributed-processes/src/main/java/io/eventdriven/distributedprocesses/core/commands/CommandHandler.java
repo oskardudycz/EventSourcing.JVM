@@ -42,13 +42,12 @@ public class CommandHandler<Entity, Command, Event> {
     var event = handle.apply(command, entity.orElse(getDefault.get()));
 
     try {
-      var result =
-          eventStore
-              .appendToStream(
-                  streamId,
-                  AppendToStreamOptions.get().expectedRevision(expectedRevision),
-                  EventSerializer.serialize(event))
-              .get();
+      var result = eventStore
+          .appendToStream(
+              streamId,
+              AppendToStreamOptions.get().expectedRevision(expectedRevision),
+              EventSerializer.serialize(event))
+          .get();
 
       return toETag(result.getNextExpectedRevision());
     } catch (Throwable e) {
@@ -85,12 +84,11 @@ public class CommandHandler<Entity, Command, Event> {
       throw new RuntimeException(e);
     }
 
-    var events =
-        result.getEvents().stream()
-            .map(EventSerializer::<Event>deserialize)
-            .filter(Optional::isPresent)
-            .map(Optional::get)
-            .toList();
+    var events = result.getEvents().stream()
+        .map(EventSerializer::<Event>deserialize)
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .toList();
 
     return Optional.of(events);
   }
