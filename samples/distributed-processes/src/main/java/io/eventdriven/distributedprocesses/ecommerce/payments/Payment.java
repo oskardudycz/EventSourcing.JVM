@@ -1,11 +1,10 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments;
 
-import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
+import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
 
+import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
-
-import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
 
 public class Payment extends AbstractAggregate<PaymentEvent, UUID> {
   public UUID orderId() {
@@ -36,21 +35,24 @@ public class Payment extends AbstractAggregate<PaymentEvent, UUID> {
 
   public void complete(OffsetDateTime now) {
     if (status != Status.Pending)
-      throw new IllegalStateException("Completing payment in '%s' status is not allowed.".formatted(status));
+      throw new IllegalStateException(
+          "Completing payment in '%s' status is not allowed.".formatted(status));
 
     enqueue(new PaymentCompleted(id(), now));
   }
 
   public void discard(DiscardReason discardReason, OffsetDateTime now) {
     if (status != Status.Pending)
-      throw new IllegalStateException("Discarding payment in '{%s}' status is not allowed.".formatted(status));
+      throw new IllegalStateException(
+          "Discarding payment in '{%s}' status is not allowed.".formatted(status));
 
     enqueue(new PaymentDiscarded(id(), discardReason, now));
   }
 
   public void timeOut(OffsetDateTime now) {
     if (status != Status.Pending)
-      throw new IllegalStateException("Discarding payment in '{%s}' status is not allowed.".formatted(status));
+      throw new IllegalStateException(
+          "Discarding payment in '{%s}' status is not allowed.".formatted(status));
 
     var event = new PaymentTimedOut(id(), now);
 

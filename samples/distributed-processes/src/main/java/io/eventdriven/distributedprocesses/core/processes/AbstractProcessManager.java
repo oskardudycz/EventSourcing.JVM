@@ -14,7 +14,7 @@ public abstract class AbstractProcessManager<Id> implements ProcessManager<Id> {
   }
 
   public void incrementVersion() {
-     version++;
+    version++;
   }
 
   public Object[] pollScheduledCommands() {

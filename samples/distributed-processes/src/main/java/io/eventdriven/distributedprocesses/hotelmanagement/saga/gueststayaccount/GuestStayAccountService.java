@@ -4,7 +4,6 @@ import io.eventdriven.distributedprocesses.core.entities.EntityStore;
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.core.retries.RetryPolicy;
 import io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountCommand.*;
-
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,39 +12,35 @@ public class GuestStayAccountService {
   private RetryPolicy retryPolicy;
 
   public GuestStayAccountService(
-    EntityStore<GuestStayAccount, GuestStayAccountEvent> store,
-    RetryPolicy retryPolicy
-  ) {
+      EntityStore<GuestStayAccount, GuestStayAccountEvent> store, RetryPolicy retryPolicy) {
     this.store = store;
     this.retryPolicy = retryPolicy;
   }
 
   public ETag handle(CheckInGuest command) {
     return handle(command.guestStayAccountId(), command)
-      .orElseThrow(() -> new IllegalStateException("Invalid state"));
+        .orElseThrow(() -> new IllegalStateException("Invalid state"));
   }
 
   public ETag handle(RecordCharge command) {
     return handle(command.guestStayAccountId(), command)
-      .orElseThrow(() -> new IllegalStateException("Invalid state"));
+        .orElseThrow(() -> new IllegalStateException("Invalid state"));
   }
 
   public ETag handle(RecordPayment command) {
     return handle(command.guestStayAccountId(), command)
-      .orElseThrow(() -> new IllegalStateException("Invalid state"));
+        .orElseThrow(() -> new IllegalStateException("Invalid state"));
   }
 
   public Optional<ETag> handle(CheckOutGuest command) {
-    return retryPolicy.run(ack -> {
-      var result = handle(command.guestStayAccountId(), command);
-      ack.accept(result);
-    });
+    return retryPolicy.run(
+        ack -> {
+          var result = handle(command.guestStayAccountId(), command);
+          ack.accept(result);
+        });
   }
 
   private Optional<ETag> handle(UUID id, GuestStayAccountCommand command) {
-    return store.getAndUpdate(
-      (state) -> GuestStayAccountDecider.handle(command, state),
-      id
-    );
+    return store.getAndUpdate((state) -> GuestStayAccountDecider.handle(command, state), id);
   }
 }

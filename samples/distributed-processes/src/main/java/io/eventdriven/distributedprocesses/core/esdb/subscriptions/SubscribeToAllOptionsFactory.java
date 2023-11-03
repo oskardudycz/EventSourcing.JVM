@@ -7,6 +7,9 @@ import io.eventdriven.distributedprocesses.core.serialization.EventTypeMapper;
 public final class SubscribeToAllOptionsFactory {
   public static <EventType> SubscribeToAllOptions filterByType(Class<EventType> eventType) {
     return SubscribeToAllOptions.get()
-      .filter(SubscriptionFilter.newBuilder().addStreamNamePrefix(EventTypeMapper.toName(eventType)).build());
+        .filter(
+            SubscriptionFilter.newBuilder()
+                .addStreamNamePrefix(EventTypeMapper.toName(eventType))
+                .build());
   }
 }

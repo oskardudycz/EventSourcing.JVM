@@ -1,7 +1,6 @@
 package io.eventdriven.distributedprocesses.core.http;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-
 import java.util.regex.Pattern;
 
 public record ETag(String value) {
@@ -11,11 +10,10 @@ public record ETag(String value) {
   public ETag {
     var regexMatcher = ETagPattern.matcher(value);
 
-    if(!regexMatcher.find())
-      throw new IllegalArgumentException("Not an ETag header");
+    if (!regexMatcher.find()) throw new IllegalArgumentException("Not an ETag header");
   }
 
-  public static ETag weak(Object value){
+  public static ETag weak(Object value) {
     return new ETag("W/\"%s\"".formatted(value.toString()));
   }
 

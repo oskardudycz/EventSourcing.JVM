@@ -1,18 +1,18 @@
 package io.eventdriven.testing;
 
-import java.util.Arrays;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 public abstract class EventSourcedSpecification<Entity, Event> {
   private final Supplier<Entity> getDefault;
   private final BiFunction<Entity, Event, Entity> evolve;
 
-  protected EventSourcedSpecification(Supplier<Entity> getDefault, BiFunction<Entity, Event, Entity> evolve) {
+  protected EventSourcedSpecification(
+      Supplier<Entity> getDefault, BiFunction<Entity, Event, Entity> evolve) {
     this.getDefault = getDefault;
     this.evolve = evolve;
   }
@@ -31,7 +31,8 @@ public abstract class EventSourcedSpecification<Entity, Event> {
     private final Supplier<Event[]> getEvents;
     private Function<Entity, Event[]> handle;
 
-    public EventSourcedSpecificationBuilder(EventSourcedSpecification<Entity, Event> specification, Supplier<Event[]> getEvents) {
+    public EventSourcedSpecificationBuilder(
+        EventSourcedSpecification<Entity, Event> specification, Supplier<Event[]> getEvents) {
       this.specification = specification;
       this.getEvents = getEvents;
     }
@@ -59,12 +60,13 @@ public abstract class EventSourcedSpecification<Entity, Event> {
     }
 
     public EventSourcedSpecificationBuilder<Entity, Event> then(Event... expectedEvents) {
-      return then(events -> {
-        assertEquals(expectedEvents.length, events.length);
-        for (var i = 0; i < events.length; i++) {
-          assertEquals(expectedEvents[i], events[i]);
-        }
-      });
+      return then(
+          events -> {
+            assertEquals(expectedEvents.length, events.length);
+            for (var i = 0; i < events.length; i++) {
+              assertEquals(expectedEvents[i], events[i]);
+            }
+          });
     }
   }
 }

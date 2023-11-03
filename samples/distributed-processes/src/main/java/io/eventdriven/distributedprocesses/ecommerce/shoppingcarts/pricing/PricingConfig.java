@@ -10,4 +10,3 @@ class PricingConfig {
     return new RandomProductPriceCalculator();
   }
 }
-

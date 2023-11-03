@@ -2,10 +2,7 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems
 
 import java.util.UUID;
 
-public record PricedProductItem(
-  ProductItem productItem,
-  double unitPrice
-) {
+public record PricedProductItem(ProductItem productItem, double unitPrice) {
   public PricedProductItem {
     if (unitPrice <= 0)
       throw new IllegalArgumentException("Unit Price has to be a positive number");
@@ -24,7 +21,8 @@ public record PricedProductItem(
   }
 
   boolean matchesProductAndUnitPrice(PricedProductItem pricedProductItem) {
-    return productId().equals(pricedProductItem.productId()) && unitPrice() == pricedProductItem.unitPrice();
+    return productId().equals(pricedProductItem.productId())
+        && unitPrice() == pricedProductItem.unitPrice();
   }
 
   PricedProductItem mergeWith(PricedProductItem productItem) {
@@ -34,8 +32,6 @@ public record PricedProductItem(
       throw new IllegalArgumentException("Product unit prices do not match.");
 
     return new PricedProductItem(
-      new ProductItem(productId(), productItem.quantity() + productItem.quantity()),
-      unitPrice()
-    );
+        new ProductItem(productId(), productItem.quantity() + productItem.quantity()), unitPrice());
   }
 }

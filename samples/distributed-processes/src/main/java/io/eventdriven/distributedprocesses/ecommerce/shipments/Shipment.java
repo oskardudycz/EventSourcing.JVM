@@ -1,14 +1,13 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments;
 
-import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
+import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent.PackageWasSent;
+import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent.ProductWasOutOfStock;
 
+import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.function.Function;
-
-import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent.PackageWasSent;
-import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent.ProductWasOutOfStock;
 
 public class Shipment extends AbstractAggregate<ShipmentEvent, UUID> {
   enum Status {
@@ -20,7 +19,12 @@ public class Shipment extends AbstractAggregate<ShipmentEvent, UUID> {
   private ProductItem[] productItems;
   private Status status;
 
-  public Shipment(Function<ProductItem, Boolean> isProductAvailable, UUID shipmentId, UUID orderId, ProductItem[] productItems, OffsetDateTime now) {
+  public Shipment(
+      Function<ProductItem, Boolean> isProductAvailable,
+      UUID shipmentId,
+      UUID orderId,
+      ProductItem[] productItems,
+      OffsetDateTime now) {
     if (!Arrays.stream(productItems).allMatch(isProductAvailable::apply)) {
       enqueue(new ProductWasOutOfStock(shipmentId, orderId, productItems, now));
       return;

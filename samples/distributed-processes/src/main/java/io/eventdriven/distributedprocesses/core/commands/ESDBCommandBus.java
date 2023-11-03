@@ -1,14 +1,13 @@
 package io.eventdriven.distributedprocesses.core.commands;
 
+import static io.eventdriven.distributedprocesses.core.esdb.subscriptions.ESDBSubscription.subscribeToStream;
+import static io.eventdriven.distributedprocesses.core.serialization.EventSerializer.deserializeCommand;
+
 import com.eventstore.dbclient.EventStoreDBClient;
 import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.retries.RetryPolicy;
-
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-
-import static io.eventdriven.distributedprocesses.core.esdb.subscriptions.ESDBSubscription.subscribeToStream;
-import static io.eventdriven.distributedprocesses.core.serialization.EventSerializer.deserializeCommand;
 
 public class ESDBCommandBus implements CommandBus {
   private static final String commandStreamId = "_commands-all";
@@ -19,12 +18,11 @@ public class ESDBCommandBus implements CommandBus {
   private final Supplier<String> currentCausationId;
 
   public ESDBCommandBus(
-    EventStoreDBClient eventStoreDBClient,
-    EventStore eventStore,
-    RetryPolicy retryPolicy,
-    Supplier<String> currentCorrelationId,
-    Supplier<String> currentCausationId
-  ) {
+      EventStoreDBClient eventStoreDBClient,
+      EventStore eventStore,
+      RetryPolicy retryPolicy,
+      Supplier<String> currentCorrelationId,
+      Supplier<String> currentCausationId) {
     this.eventStoreDBClient = eventStoreDBClient;
     this.eventStore = eventStore;
     this.retryPolicy = retryPolicy;
@@ -34,29 +32,34 @@ public class ESDBCommandBus implements CommandBus {
 
   @Override
   public <Command> EventStore.AppendResult schedule(Command command) {
-    return retryPolicy.run(ack -> {
-      var result = eventStore.append(
-        commandStreamId,
-        new CommandEnvelope<>(command, new CommandMetadata(currentCorrelationId.get(), currentCausationId.get()))
-      );
+    return retryPolicy.run(
+        ack -> {
+          var result =
+              eventStore.append(
+                  commandStreamId,
+                  new CommandEnvelope<>(
+                      command,
+                      new CommandMetadata(currentCorrelationId.get(), currentCausationId.get())));
 
-      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure))
-        ack.accept(result);
-    });
+          if (!(result instanceof EventStore.AppendResult.UnexpectedFailure)) ack.accept(result);
+        });
   }
 
   @Override
   public void subscribe(Consumer<CommandEnvelope<Object>>... handlers) {
-    subscribeToStream(eventStoreDBClient, commandStreamId, (subscription, resolvedEvent) -> {
-      var commandEnvelope = deserializeCommand(resolvedEvent);
+    subscribeToStream(
+        eventStoreDBClient,
+        commandStreamId,
+        (subscription, resolvedEvent) -> {
+          var commandEnvelope = deserializeCommand(resolvedEvent);
 
-      if (commandEnvelope.isEmpty()) {
-        return;
-      }
+          if (commandEnvelope.isEmpty()) {
+            return;
+          }
 
-      for (var handler : handlers) {
-        handler.accept(commandEnvelope.get());
-      }
-    });
+          for (var handler : handlers) {
+            handler.accept(commandEnvelope.get());
+          }
+        });
   }
 }

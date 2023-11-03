@@ -4,7 +4,6 @@ import com.eventstore.dbclient.*;
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
 import jakarta.persistence.EntityNotFoundException;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,12 +19,11 @@ public class CommandHandler<Entity, Command, Event> {
   private final BiFunction<Command, Entity, Event> handle;
 
   public CommandHandler(
-    EventStoreDBClient eventStore,
-    BiFunction<Entity, Event, Entity> when,
-    BiFunction<Command, Entity, Event> handle,
-    Function<UUID, String> mapToStreamId,
-    Supplier<Entity> getDefault
-  ) {
+      EventStoreDBClient eventStore,
+      BiFunction<Entity, Event, Entity> when,
+      BiFunction<Command, Entity, Event> handle,
+      Function<UUID, String> mapToStreamId,
+      Supplier<Entity> getDefault) {
 
     this.eventStore = eventStore;
     this.when = when;
@@ -34,25 +32,23 @@ public class CommandHandler<Entity, Command, Event> {
     this.getDefault = getDefault;
   }
 
-  public ETag handle(
-    UUID id,
-    Command command,
-    ExpectedRevision expectedRevision
-  ) {
+  public ETag handle(UUID id, Command command, ExpectedRevision expectedRevision) {
     var streamId = mapToStreamId.apply(id);
     var entity = get(id);
 
-    if(entity.isEmpty() && !expectedRevision.equals(ExpectedRevision.noStream()))
+    if (entity.isEmpty() && !expectedRevision.equals(ExpectedRevision.noStream()))
       throw new EntityNotFoundException();
 
     var event = handle.apply(command, entity.orElse(getDefault.get()));
 
     try {
-      var result = eventStore.appendToStream(
-        streamId,
-        AppendToStreamOptions.get().expectedRevision(expectedRevision),
-        EventSerializer.serialize(event)
-      ).get();
+      var result =
+          eventStore
+              .appendToStream(
+                  streamId,
+                  AppendToStreamOptions.get().expectedRevision(expectedRevision),
+                  EventSerializer.serialize(event))
+              .get();
 
       return toETag(result.getNextExpectedRevision());
     } catch (Throwable e) {
@@ -65,8 +61,7 @@ public class CommandHandler<Entity, Command, Event> {
 
     var events = getEvents(streamId);
 
-    if (events.isEmpty())
-      return Optional.empty();
+    if (events.isEmpty()) return Optional.empty();
 
     var current = getDefault.get();
 
@@ -90,17 +85,20 @@ public class CommandHandler<Entity, Command, Event> {
       throw new RuntimeException(e);
     }
 
-    var events = result.getEvents().stream()
-      .map(EventSerializer::<Event>deserialize)
-      .filter(Optional::isPresent)
-      .map(Optional::get)
-      .toList();
+    var events =
+        result.getEvents().stream()
+            .map(EventSerializer::<Event>deserialize)
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .toList();
 
     return Optional.of(events);
   }
 
-  //This ugly hack is needed as ESDB Java client from v4 doesn't allow to access or serialise version in an elegant manner
-  private ETag toETag(ExpectedRevision nextExpectedRevision) throws NoSuchFieldException, IllegalAccessException {
+  // This ugly hack is needed as ESDB Java client from v4 doesn't allow to access or serialise
+  // version in an elegant manner
+  private ETag toETag(ExpectedRevision nextExpectedRevision)
+      throws NoSuchFieldException, IllegalAccessException {
     var field = nextExpectedRevision.getClass().getDeclaredField("version");
     field.setAccessible(true);
 

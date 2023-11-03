@@ -5,7 +5,6 @@ import io.eventdriven.distributedprocesses.core.events.EventBus;
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.core.retries.RetryPolicy;
 import io.eventdriven.distributedprocesses.hotelmanagement.processmanager.gueststayaccount.GuestStayAccountCommand.*;
-
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -15,55 +14,38 @@ public class GuestStayAccountService {
   private final RetryPolicy retryPolicy;
 
   public GuestStayAccountService(
-    AggregateStore<GuestStayAccount, GuestStayAccountEvent, UUID> store,
-    EventBus eventBus,
-    RetryPolicy retryPolicy
-  ) {
+      AggregateStore<GuestStayAccount, GuestStayAccountEvent, UUID> store,
+      EventBus eventBus,
+      RetryPolicy retryPolicy) {
     this.store = store;
     this.eventBus = eventBus;
     this.retryPolicy = retryPolicy;
   }
 
   public ETag handle(CheckInGuest command) {
-    return store.add(
-      GuestStayAccount.open(
-        command.guestStayAccountId(),
-        OffsetDateTime.now()
-      )
-    );
+    return store.add(GuestStayAccount.open(command.guestStayAccountId(), OffsetDateTime.now()));
   }
 
   public ETag handle(RecordCharge command) {
     return store.getAndUpdate(
-      current -> current.recordCharge(
-        command.amount(),
-        OffsetDateTime.now()
-      ),
-      command.guestStayAccountId()
-    );
+        current -> current.recordCharge(command.amount(), OffsetDateTime.now()),
+        command.guestStayAccountId());
   }
 
   public ETag handle(RecordPayment command) {
     return store.getAndUpdate(
-      current -> current.recordPayment(
-        command.amount(),
-        OffsetDateTime.now()
-      ),
-      command.guestStayAccountId()
-    );
+        current -> current.recordPayment(command.amount(), OffsetDateTime.now()),
+        command.guestStayAccountId());
   }
 
   public ETag handle(CheckOutGuest command) {
-    return retryPolicy.run(ack -> {
-      var result = store.getAndUpdate(
-        current -> current.checkout(
-          command.guestStayAccountId(),
-          OffsetDateTime.now()
-        ),
-        command.guestStayAccountId()
-      );
-      ack.accept(result);
-    });
+    return retryPolicy.run(
+        ack -> {
+          var result =
+              store.getAndUpdate(
+                  current -> current.checkout(command.guestStayAccountId(), OffsetDateTime.now()),
+                  command.guestStayAccountId());
+          ack.accept(result);
+        });
   }
 }
-

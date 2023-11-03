@@ -31,8 +31,6 @@ public final class CollectionsExtensions {
   public static <K, V> boolean valueIs(Map<K, V> map, K key, V... values) {
     var existingValue = map.get(key);
 
-    return Arrays.stream(values)
-      .filter(v -> v == existingValue)
-      .findAny().isPresent();
+    return Arrays.stream(values).filter(v -> v == existingValue).findAny().isPresent();
   }
 }
