@@ -9,21 +9,16 @@ import org.springframework.web.context.annotation.ApplicationScope;
 
 @Configuration
 class ShoppingCartsConfig {
-  @Bean
-  ShoppingCartDecider shoppingCartDecider() {
-    return new ShoppingCartDecider();
-  }
 
   @Bean
   @ApplicationScope
   CommandHandler<ShoppingCart, ShoppingCartCommand, ShoppingCartEvent> shoppingCartStore(
-    EventStoreDBClient eventStore,
-    ShoppingCartDecider decider
+    EventStoreDBClient eventStore
   ) {
     return new CommandHandler<>(
       eventStore,
       ShoppingCart::evolve,
-      decider::handle,
+      ShoppingCartDecider::handle,
       ShoppingCart::mapToStreamId,
       ShoppingCart::empty
     );

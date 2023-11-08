@@ -14,15 +14,6 @@ public class ProductItems {
   public int size() {
     return items.size();
   }
-  public boolean has(UUID productId) {
-    return items.containsKey(productId);
-  }
-
-  public Optional<Integer> get(UUID productId) {
-    return items.containsKey(productId) ?
-      Optional.of(items.get(productId))
-      : Optional.empty();
-  }
 
   public ProductItems with(PricedProductItem productItem) {
     var clone = new HashMap<>(items);
@@ -52,6 +43,16 @@ public class ProductItems {
     var currentCount = items.getOrDefault(productItem.productId(), 0);
 
     return currentCount - productItem.quantity() >= 0;
+  }
+
+  public boolean has(UUID productId) {
+    return items.containsKey(productId);
+  }
+
+  public Optional<Integer> get(UUID productId) {
+    return items.containsKey(productId) ?
+      Optional.of(items.get(productId))
+      : Optional.empty();
   }
 
   public static ProductItems empty() {

@@ -52,7 +52,7 @@ class ShoppingCartsCommandController {
 
     var result = store.handle(
       cartId,
-      new OpenShoppingCart(request.clientId()),
+      new Open(request.clientId()),
       noStream()
     );
 
@@ -80,7 +80,7 @@ class ShoppingCartsCommandController {
 
     var result = store.handle(
       id,
-      new AddProductItemToShoppingCart(productItem),
+      new AddProductItem(productItem),
       expectedRevision(ifMatch.toLong())
     );
 
@@ -109,7 +109,7 @@ class ShoppingCartsCommandController {
 
     var result = store.handle(
       id,
-      new RemoveProductItemFromShoppingCart(productItem),
+      new RemoveProductItem(productItem),
       expectedRevision(ifMatch.toLong())
     );
 
@@ -126,7 +126,7 @@ class ShoppingCartsCommandController {
   ) {
     var result = store.handle(
       id,
-      new ConfirmShoppingCart(),
+      new Confirm(),
       expectedRevision(ifMatch.toLong())
     );
 
@@ -143,7 +143,7 @@ class ShoppingCartsCommandController {
   ) {
     var result = store.handle(
       id,
-      new CancelShoppingCart(),
+      new Cancel(),
       expectedRevision(ifMatch.toLong())
     );
 
