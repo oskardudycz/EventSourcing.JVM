@@ -1,8 +1,8 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemAddedToShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemRemovedFromShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartOpened;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemAdded;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemRemoved;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.Opened;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import org.junit.jupiter.api.Test;
@@ -15,7 +15,6 @@ public class ShoppingCartTests {
   @Test
   void aggregationWorks() {
     var clientId = UUID.randomUUID();
-    var shoppingCartId = UUID.randomUUID();
 
     var shoes = new PricedProductItem(
       new ProductItem(UUID.randomUUID(), 1),
@@ -29,16 +28,16 @@ public class ShoppingCartTests {
 
     var events = new ShoppingCartEvent[]
       {
-        new ShoppingCartOpened(
+        new Opened(
           clientId
         ),
-        new ProductItemAddedToShoppingCart(
+        new ProductItemAdded(
           shoes
         ),
-        new ProductItemAddedToShoppingCart(
+        new ProductItemAdded(
           tShirt
         ),
-        new ProductItemRemovedFromShoppingCart(
+        new ProductItemRemoved(
           shoes
         ),
       };

@@ -26,28 +26,28 @@ public class ShoppingCartDecider {
     };
   }
 
-  private ShoppingCartOpened handle(ShoppingCart shoppingCart, OpenShoppingCart command) {
+  private Opened handle(ShoppingCart shoppingCart, OpenShoppingCart command) {
     if (!(shoppingCart instanceof Empty))
       throw new IllegalStateException("Opening shopping cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
-    return new ShoppingCartOpened(
+    return new Opened(
       command.clientId()
     );
   }
 
-  private ProductItemAddedToShoppingCart handle(
+  private ProductItemAdded handle(
     AddProductItemToShoppingCart command,
     ShoppingCart shoppingCart
   ) {
     if (!(shoppingCart instanceof Pending))
       throw new IllegalStateException("Adding product item to cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
-    return new ProductItemAddedToShoppingCart(
+    return new ProductItemAdded(
       command.productItem()
     );
   }
 
-  private ProductItemRemovedFromShoppingCart handle(
+  private ProductItemRemoved handle(
     RemoveProductItemFromShoppingCart command,
     ShoppingCart shoppingCart
   ) {
@@ -57,25 +57,25 @@ public class ShoppingCartDecider {
     if (!pendingShoppingCart.productItems().canRemove(command.productItem()))
       throw new IllegalStateException("Not enough product items.");
 
-    return new ProductItemRemovedFromShoppingCart(
+    return new ProductItemRemoved(
       command.productItem()
     );
   }
 
-  private ShoppingCartConfirmed handle(ConfirmShoppingCart command, ShoppingCart shoppingCart) {
+  private Confirmed handle(ConfirmShoppingCart command, ShoppingCart shoppingCart) {
     if (!(shoppingCart instanceof Pending))
       throw new IllegalStateException("Confirming shopping cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
-    return new ShoppingCartConfirmed(
+    return new Confirmed(
       OffsetDateTime.now()
     );
   }
 
-  private ShoppingCartCanceled handle(CancelShoppingCart command, ShoppingCart shoppingCart) {
+  private Canceled handle(CancelShoppingCart command, ShoppingCart shoppingCart) {
     if (!(shoppingCart instanceof Pending))
       throw new IllegalStateException("Canceling shopping cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
-    return new ShoppingCartCanceled(
+    return new Canceled(
       OffsetDateTime.now()
     );
   }

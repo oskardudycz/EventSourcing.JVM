@@ -2,12 +2,11 @@ package io.eventdriven.ecommerce.shoppingcarts.gettingbyid;
 
 import io.eventdriven.ecommerce.core.events.EventEnvelope;
 import io.eventdriven.ecommerce.core.projections.JPAProjection;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartOpened;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemAddedToShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemRemovedFromShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartConfirmed;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartCanceled;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.Opened;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemAdded;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemRemoved;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.Confirmed;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.Canceled;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartStatus;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -22,7 +21,7 @@ class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDetails, U
   }
 
   @EventListener
-  void handleShoppingCartOpened(EventEnvelope<ShoppingCartOpened> eventEnvelope) {
+  void handleShoppingCartOpened(EventEnvelope<Opened> eventEnvelope) {
     add(eventEnvelope, () -> {
       var event = eventEnvelope.data();
 
@@ -38,7 +37,7 @@ class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDetails, U
   }
 
   @EventListener
-  void handleProductItemAddedToShoppingCart(EventEnvelope<ProductItemAddedToShoppingCart> eventEnvelope) {
+  void handleProductItemAddedToShoppingCart(EventEnvelope<ProductItemAdded> eventEnvelope) {
     getAndUpdate(UUID.fromString(eventEnvelope.metadata().streamId()), eventEnvelope, view -> {
       var event = eventEnvelope.data();
 
@@ -64,7 +63,7 @@ class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDetails, U
   }
 
   @EventListener
-  void handleProductItemRemovedFromShoppingCart(EventEnvelope<ProductItemRemovedFromShoppingCart> eventEnvelope) {
+  void handleProductItemRemovedFromShoppingCart(EventEnvelope<ProductItemRemoved> eventEnvelope) {
     getAndUpdate(UUID.fromString(eventEnvelope.metadata().streamId()), eventEnvelope, view -> {
       var productItem = eventEnvelope.data().productItem();
       var existingProductItem = view.getProductItems().stream()
@@ -87,14 +86,14 @@ class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDetails, U
   }
 
   @EventListener
-  void handleShoppingCartConfirmed(EventEnvelope<ShoppingCartConfirmed> eventEnvelope) {
+  void handleShoppingCartConfirmed(EventEnvelope<Confirmed> eventEnvelope) {
     getAndUpdate(UUID.fromString(eventEnvelope.metadata().streamId()), eventEnvelope,
       view -> view.setStatus(ShoppingCartStatus.Confirmed)
     );
   }
 
   @EventListener
-  void handleShoppingCartCanceled(EventEnvelope<ShoppingCartCanceled> eventEnvelope) {
+  void handleShoppingCartCanceled(EventEnvelope<Canceled> eventEnvelope) {
     getAndUpdate(UUID.fromString(eventEnvelope.metadata().streamId()), eventEnvelope,
       view -> view.setStatus(ShoppingCartStatus.Canceled)
     );

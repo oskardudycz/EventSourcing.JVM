@@ -19,13 +19,13 @@ sealed public interface ShoppingCart {
 
   static ShoppingCart evolve(ShoppingCart state, ShoppingCartEvent event) {
     return switch (event) {
-      case ShoppingCartOpened ignore: {
+      case Opened ignore: {
         if (!(state instanceof Empty))
           yield state;
 
         yield new Pending(ProductItems.empty());
       }
-      case ProductItemAddedToShoppingCart(var productItem): {
+      case ProductItemAdded(var productItem): {
         if (!(state instanceof Pending pending))
           yield state;
 
@@ -33,7 +33,7 @@ sealed public interface ShoppingCart {
           pending.productItems().with(productItem)
         );
       }
-      case ProductItemRemovedFromShoppingCart(var productItem): {
+      case ProductItemRemoved(var productItem): {
         if (!(state instanceof Pending pending))
           yield state;
 
@@ -41,13 +41,13 @@ sealed public interface ShoppingCart {
           pending.productItems().without(productItem)
         );
       }
-      case ShoppingCartConfirmed ignore: {
+      case Confirmed ignore: {
         if (!(state instanceof Pending))
           yield state;
 
         yield new Closed();
       }
-      case ShoppingCartCanceled ignore: {
+      case Canceled ignore: {
         if (!(state instanceof Pending))
           yield state;
 

@@ -7,27 +7,27 @@ import java.util.UUID;
 
 public sealed interface ShoppingCartEvent {
 
-  record ShoppingCartOpened(
+  record Opened(
     UUID clientId
   ) implements ShoppingCartEvent {
   }
 
-  record ProductItemAddedToShoppingCart(
+  record ProductItemAdded(
     PricedProductItem productItem
   ) implements ShoppingCartEvent {
   }
 
-  record ProductItemRemovedFromShoppingCart(
+  record ProductItemRemoved(
     PricedProductItem productItem
   ) implements ShoppingCartEvent {
   }
 
-  record ShoppingCartConfirmed(
+  record Confirmed(
     OffsetDateTime confirmedAt
   ) implements ShoppingCartEvent {
   }
 
-  record ShoppingCartCanceled(
+  record Canceled(
     OffsetDateTime canceledAt
   ) implements ShoppingCartEvent {
   }
