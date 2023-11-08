@@ -9,10 +9,8 @@ import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.*;
 import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCart.*;
 
 public class ShoppingCartDecider {
-  private final ProductPriceCalculator productPriceCalculator;
 
-  public ShoppingCartDecider(ProductPriceCalculator productPriceCalculator) {
-    this.productPriceCalculator = productPriceCalculator;
+  public ShoppingCartDecider() {
   }
 
   public ShoppingCartEvent handle(ShoppingCartCommand command, ShoppingCart shoppingCart) {
@@ -20,7 +18,7 @@ public class ShoppingCartDecider {
       case OpenShoppingCart openShoppingCart:
         yield handle(shoppingCart, openShoppingCart);
       case AddProductItemToShoppingCart addProductItemToShoppingCart:
-        yield handle(productPriceCalculator, addProductItemToShoppingCart, shoppingCart);
+        yield handle(addProductItemToShoppingCart, shoppingCart);
       case RemoveProductItemFromShoppingCart removeProductItemFromShoppingCart:
         yield handle(removeProductItemFromShoppingCart, shoppingCart);
       case ConfirmShoppingCart confirmShoppingCart:
@@ -31,7 +29,7 @@ public class ShoppingCartDecider {
   }
 
   private ShoppingCartOpened handle(ShoppingCart shoppingCart, OpenShoppingCart command) {
-    if (!(shoppingCart instanceof Initial))
+    if (!(shoppingCart instanceof Empty))
       throw new IllegalStateException("Opening shopping cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
     return new ShoppingCartOpened(
@@ -41,20 +39,15 @@ public class ShoppingCartDecider {
   }
 
   private ProductItemAddedToShoppingCart handle(
-    ProductPriceCalculator productPriceCalculator,
     AddProductItemToShoppingCart command,
     ShoppingCart shoppingCart
   ) {
-    if (!(shoppingCart instanceof Pending pendingShoppingCart))
+    if (!(shoppingCart instanceof Pending))
       throw new IllegalStateException("Adding product item to cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
-
-    var pricedProductItem = productPriceCalculator.calculate(command.productItem());
-
-    pendingShoppingCart.productItems().add(pricedProductItem);
 
     return new ProductItemAddedToShoppingCart(
       command.shoppingCartId(),
-      pricedProductItem
+      command.productItem()
     );
   }
 
@@ -65,7 +58,8 @@ public class ShoppingCartDecider {
     if (!(shoppingCart instanceof Pending pendingShoppingCart))
       throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
-    pendingShoppingCart.productItems().assertThatCanRemove(command.productItem());
+    if (!pendingShoppingCart.productItems().canRemove(command.productItem()))
+      throw new IllegalStateException("Not enough product items.");
 
     return new ProductItemRemovedFromShoppingCart(
       command.shoppingCartId(),
@@ -74,21 +68,21 @@ public class ShoppingCartDecider {
   }
 
   private ShoppingCartConfirmed handle(ConfirmShoppingCart command, ShoppingCart shoppingCart) {
-    if (!(shoppingCart instanceof Pending pendingShoppingCart))
+    if (!(shoppingCart instanceof Pending))
       throw new IllegalStateException("Confirming shopping cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
     return new ShoppingCartConfirmed(
-      pendingShoppingCart.id(),
+      command.shoppingCartId(),
       OffsetDateTime.now()
     );
   }
 
   private ShoppingCartCanceled handle(CancelShoppingCart command, ShoppingCart shoppingCart) {
-    if (!(shoppingCart instanceof Pending pendingShoppingCart))
+    if (!(shoppingCart instanceof Pending))
       throw new IllegalStateException("Canceling shopping cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
     return new ShoppingCartCanceled(
-      pendingShoppingCart.id(),
+      command.shoppingCartId(),
       OffsetDateTime.now()
     );
   }

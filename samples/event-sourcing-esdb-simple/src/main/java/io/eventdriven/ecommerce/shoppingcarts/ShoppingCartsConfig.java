@@ -3,8 +3,6 @@ package io.eventdriven.ecommerce.shoppingcarts;
 import com.eventstore.dbclient.EventStoreDBClient;
 import io.eventdriven.ecommerce.core.entities.CommandHandler;
 import io.eventdriven.ecommerce.pricing.ProductPriceCalculator;
-import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.ShoppingCartDetailsRepository;
-import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.ShoppingCartShortInfoRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.context.annotation.ApplicationScope;
@@ -12,12 +10,8 @@ import org.springframework.web.context.annotation.ApplicationScope;
 @Configuration
 class ShoppingCartsConfig {
   @Bean
-  ShoppingCartDecider shoppingCartDecider(
-    ProductPriceCalculator productPriceCalculator
-  ) {
-    return new ShoppingCartDecider(
-      productPriceCalculator
-    );
+  ShoppingCartDecider shoppingCartDecider() {
+    return new ShoppingCartDecider();
   }
 
   @Bean
@@ -28,7 +22,7 @@ class ShoppingCartsConfig {
   ) {
     return new CommandHandler<>(
       eventStore,
-      ShoppingCart::when,
+      ShoppingCart::evolve,
       decider::handle,
       ShoppingCart::mapToStreamId,
       ShoppingCart::empty

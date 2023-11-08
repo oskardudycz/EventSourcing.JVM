@@ -3,26 +3,29 @@ package io.eventdriven.ecommerce.api.controllers;
 import io.eventdriven.ecommerce.api.requests.ShoppingCartsRequests;
 import io.eventdriven.ecommerce.core.entities.CommandHandler;
 import io.eventdriven.ecommerce.core.http.ETag;
-import io.eventdriven.ecommerce.shoppingcarts.*;
+import io.eventdriven.ecommerce.pricing.ProductPriceCalculator;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.UUID;
 
-import static com.eventstore.dbclient.ExpectedRevision.noStream;
 import static com.eventstore.dbclient.ExpectedRevision.expectedRevision;
+import static com.eventstore.dbclient.ExpectedRevision.noStream;
 import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.*;
 
 @Validated
@@ -30,11 +33,14 @@ import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.*;
 @RequestMapping("api/shopping-carts")
 class ShoppingCartsCommandController {
   private final CommandHandler<ShoppingCart, ShoppingCartCommand, ShoppingCartEvent> store;
+  private final ProductPriceCalculator productPriceCalculator;
 
   ShoppingCartsCommandController(
-    CommandHandler<ShoppingCart, ShoppingCartCommand, ShoppingCartEvent> store
+    CommandHandler<ShoppingCart, ShoppingCartCommand, ShoppingCartEvent> store,
+    ProductPriceCalculator productPriceCalculator
   ) {
     this.store = store;
+    this.productPriceCalculator = productPriceCalculator;
   }
 
   @PostMapping
@@ -68,14 +74,18 @@ class ShoppingCartsCommandController {
     if (request.productItem() == null)
       throw new IllegalArgumentException("Product Item has to be defined");
 
+    var productItem = productPriceCalculator.calculate(
+      new ProductItem(
+        request.productItem().productId(),
+        request.productItem().quantity()
+      )
+    );
+
     var result = store.handle(
       id,
       new AddProductItemToShoppingCart(
         id,
-        new ProductItem(
-          request.productItem().productId(),
-          request.productItem().quantity()
-        )
+        productItem
       ),
       expectedRevision(ifMatch.toLong())
     );
@@ -94,17 +104,20 @@ class ShoppingCartsCommandController {
     @RequestParam @NotNull Double price,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
+
+    var productItem =  new PricedProductItem(
+      new ProductItem(
+        productId,
+        quantity
+      ),
+      price
+    );
+
     var result = store.handle(
       id,
       new RemoveProductItemFromShoppingCart(
         id,
-        new PricedProductItem(
-          new ProductItem(
-            productId,
-            quantity
-          ),
-          price
-        )
+        productItem
       ),
       expectedRevision(ifMatch.toLong())
     );

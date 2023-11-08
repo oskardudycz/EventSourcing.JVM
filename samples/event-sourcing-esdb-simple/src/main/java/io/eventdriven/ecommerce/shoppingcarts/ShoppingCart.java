@@ -3,93 +3,55 @@ package io.eventdriven.ecommerce.shoppingcarts;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItems;
 
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 sealed public interface ShoppingCart {
-  record Initial() implements ShoppingCart {
+  record Empty() implements ShoppingCart {
   }
 
   record Pending(
-    UUID id,
-    UUID clientId,
     ProductItems productItems
   ) implements ShoppingCart {
   }
 
-  record Confirmed(
-    UUID id,
-    UUID clientId,
-    ProductItems productItems,
-    OffsetDateTime confirmedAt
-  ) implements ShoppingCart {
+  record Closed() implements ShoppingCart {
   }
 
-  record Canceled(
-    UUID id,
-    UUID clientId,
-    ProductItems productItems,
-    OffsetDateTime canceledAt
-  ) implements ShoppingCart {
-  }
-
-  default boolean isClosed() {
-    return this instanceof Confirmed || this instanceof Canceled;
-  }
-
-  static ShoppingCart when(ShoppingCart current, ShoppingCartEvent event) {
+  static ShoppingCart evolve(ShoppingCart state, ShoppingCartEvent event) {
     return switch (event) {
-      case ShoppingCartOpened shoppingCartOpened: {
-        if (!(current instanceof Initial))
-          yield current;
+      case ShoppingCartOpened ignore: {
+        if (!(state instanceof Empty))
+          yield state;
+
+        yield new Pending(ProductItems.empty());
+      }
+      case ProductItemAddedToShoppingCart(var ignore, var productItem): {
+        if (!(state instanceof Pending pending))
+          yield state;
 
         yield new Pending(
-          shoppingCartOpened.shoppingCartId(),
-          shoppingCartOpened.clientId(),
-          ProductItems.empty()
+          pending.productItems().with(productItem)
         );
       }
-      case ProductItemAddedToShoppingCart productItemAddedToShoppingCart: {
-        if (!(current instanceof Pending pending))
-          yield current;
+      case ProductItemRemovedFromShoppingCart(var ignore, var productItem): {
+        if (!(state instanceof Pending pending))
+          yield state;
 
         yield new Pending(
-          pending.id(),
-          pending.clientId(),
-          pending.productItems().add(productItemAddedToShoppingCart.productItem())
+          pending.productItems().without(productItem)
         );
       }
-      case ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart: {
-        if (!(current instanceof Pending pending))
-          yield current;
+      case ShoppingCartConfirmed ignore: {
+        if (!(state instanceof Pending))
+          yield state;
 
-        yield new Pending(
-          pending.id(),
-          pending.clientId(),
-          pending.productItems().remove(productItemRemovedFromShoppingCart.productItem())
-        );
+        yield new Closed();
       }
-      case ShoppingCartConfirmed shoppingCartConfirmed: {
-        if (!(current instanceof Pending pending))
-          yield current;
+      case ShoppingCartCanceled ignore: {
+        if (!(state instanceof Pending))
+          yield state;
 
-        yield new Confirmed(
-          pending.id(),
-          pending.clientId(),
-          pending.productItems(),
-          shoppingCartConfirmed.confirmedAt()
-        );
-      }
-      case ShoppingCartCanceled shoppingCartCanceled: {
-        if (!(current instanceof Pending pending))
-          yield current;
-
-        yield new Canceled(
-          pending.id(),
-          pending.clientId(),
-          pending.productItems(),
-          shoppingCartCanceled.canceledAt()
-        );
+        yield new Closed();
       }
       case null:
         throw new IllegalArgumentException("Event cannot be null!");
@@ -97,7 +59,7 @@ sealed public interface ShoppingCart {
   }
 
   static ShoppingCart empty() {
-    return new Initial();
+    return new Empty();
   }
 
   static String mapToStreamId(UUID shoppingCartId) {

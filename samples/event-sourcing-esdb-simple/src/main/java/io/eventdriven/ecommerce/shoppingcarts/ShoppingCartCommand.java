@@ -14,7 +14,7 @@ public sealed interface ShoppingCartCommand {
 
   record AddProductItemToShoppingCart(
     UUID shoppingCartId,
-    ProductItem productItem
+    PricedProductItem productItem
   ) implements ShoppingCartCommand {
   }
 
