@@ -1,7 +1,5 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
-import io.eventdriven.ecommerce.pricing.ProductPriceCalculator;
-
 import java.time.OffsetDateTime;
 
 import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.*;
@@ -33,7 +31,6 @@ public class ShoppingCartDecider {
       throw new IllegalStateException("Opening shopping cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
     return new ShoppingCartOpened(
-      command.shoppingCartId(),
       command.clientId()
     );
   }
@@ -46,7 +43,6 @@ public class ShoppingCartDecider {
       throw new IllegalStateException("Adding product item to cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
     return new ProductItemAddedToShoppingCart(
-      command.shoppingCartId(),
       command.productItem()
     );
   }
@@ -62,7 +58,6 @@ public class ShoppingCartDecider {
       throw new IllegalStateException("Not enough product items.");
 
     return new ProductItemRemovedFromShoppingCart(
-      command.shoppingCartId(),
       command.productItem()
     );
   }
@@ -72,7 +67,6 @@ public class ShoppingCartDecider {
       throw new IllegalStateException("Confirming shopping cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
     return new ShoppingCartConfirmed(
-      command.shoppingCartId(),
       OffsetDateTime.now()
     );
   }
@@ -82,7 +76,6 @@ public class ShoppingCartDecider {
       throw new IllegalStateException("Canceling shopping cart in '%s' status is not allowed.".formatted(shoppingCart.getClass().getName()));
 
     return new ShoppingCartCanceled(
-      command.shoppingCartId(),
       OffsetDateTime.now()
     );
   }

@@ -25,7 +25,7 @@ sealed public interface ShoppingCart {
 
         yield new Pending(ProductItems.empty());
       }
-      case ProductItemAddedToShoppingCart(var ignore, var productItem): {
+      case ProductItemAddedToShoppingCart(var productItem): {
         if (!(state instanceof Pending pending))
           yield state;
 
@@ -33,7 +33,7 @@ sealed public interface ShoppingCart {
           pending.productItems().with(productItem)
         );
       }
-      case ProductItemRemovedFromShoppingCart(var ignore, var productItem): {
+      case ProductItemRemovedFromShoppingCart(var productItem): {
         if (!(state instanceof Pending pending))
           yield state;
 

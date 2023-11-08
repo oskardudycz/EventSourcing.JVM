@@ -27,7 +27,7 @@ class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDetails, U
       var event = eventEnvelope.data();
 
       return new ShoppingCartDetails(
-        event.shoppingCartId(),
+        UUID.fromString(eventEnvelope.metadata().streamId()),
         event.clientId(),
         ShoppingCartStatus.Pending,
         new ArrayList<>(),
@@ -39,7 +39,7 @@ class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDetails, U
 
   @EventListener
   void handleProductItemAddedToShoppingCart(EventEnvelope<ProductItemAddedToShoppingCart> eventEnvelope) {
-    getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope, view -> {
+    getAndUpdate(UUID.fromString(eventEnvelope.metadata().streamId()), eventEnvelope, view -> {
       var event = eventEnvelope.data();
 
       var productItem = event.productItem();
@@ -65,7 +65,7 @@ class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDetails, U
 
   @EventListener
   void handleProductItemRemovedFromShoppingCart(EventEnvelope<ProductItemRemovedFromShoppingCart> eventEnvelope) {
-    getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope, view -> {
+    getAndUpdate(UUID.fromString(eventEnvelope.metadata().streamId()), eventEnvelope, view -> {
       var productItem = eventEnvelope.data().productItem();
       var existingProductItem = view.getProductItems().stream()
         .filter(x -> x.getProductId().equals(productItem.productId()))
@@ -88,14 +88,14 @@ class ShoppingCartDetailsProjection extends JPAProjection<ShoppingCartDetails, U
 
   @EventListener
   void handleShoppingCartConfirmed(EventEnvelope<ShoppingCartConfirmed> eventEnvelope) {
-    getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
+    getAndUpdate(UUID.fromString(eventEnvelope.metadata().streamId()), eventEnvelope,
       view -> view.setStatus(ShoppingCartStatus.Confirmed)
     );
   }
 
   @EventListener
   void handleShoppingCartCanceled(EventEnvelope<ShoppingCartCanceled> eventEnvelope) {
-    getAndUpdate(eventEnvelope.data().shoppingCartId(), eventEnvelope,
+    getAndUpdate(UUID.fromString(eventEnvelope.metadata().streamId()), eventEnvelope,
       view -> view.setStatus(ShoppingCartStatus.Canceled)
     );
   }

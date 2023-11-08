@@ -52,10 +52,7 @@ class ShoppingCartsCommandController {
 
     var result = store.handle(
       cartId,
-      new OpenShoppingCart(
-        cartId,
-        request.clientId()
-      ),
+      new OpenShoppingCart(request.clientId()),
       noStream()
     );
 
@@ -83,10 +80,7 @@ class ShoppingCartsCommandController {
 
     var result = store.handle(
       id,
-      new AddProductItemToShoppingCart(
-        id,
-        productItem
-      ),
+      new AddProductItemToShoppingCart(productItem),
       expectedRevision(ifMatch.toLong())
     );
 
@@ -105,7 +99,7 @@ class ShoppingCartsCommandController {
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
 
-    var productItem =  new PricedProductItem(
+    var productItem = new PricedProductItem(
       new ProductItem(
         productId,
         quantity
@@ -115,10 +109,7 @@ class ShoppingCartsCommandController {
 
     var result = store.handle(
       id,
-      new RemoveProductItemFromShoppingCart(
-        id,
-        productItem
-      ),
+      new RemoveProductItemFromShoppingCart(productItem),
       expectedRevision(ifMatch.toLong())
     );
 
@@ -135,7 +126,7 @@ class ShoppingCartsCommandController {
   ) {
     var result = store.handle(
       id,
-      new ConfirmShoppingCart(id),
+      new ConfirmShoppingCart(),
       expectedRevision(ifMatch.toLong())
     );
 
@@ -152,7 +143,7 @@ class ShoppingCartsCommandController {
   ) {
     var result = store.handle(
       id,
-      new CancelShoppingCart(id),
+      new CancelShoppingCart(),
       expectedRevision(ifMatch.toLong())
     );
 

@@ -30,19 +30,15 @@ public class ShoppingCartTests {
     var events = new ShoppingCartEvent[]
       {
         new ShoppingCartOpened(
-          shoppingCartId,
           clientId
         ),
         new ProductItemAddedToShoppingCart(
-          shoppingCartId,
           shoes
         ),
         new ProductItemAddedToShoppingCart(
-          shoppingCartId,
           tShirt
         ),
         new ProductItemRemovedFromShoppingCart(
-          shoppingCartId,
           shoes
         ),
       };
