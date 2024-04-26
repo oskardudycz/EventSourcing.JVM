@@ -5,9 +5,9 @@ services:
   #  EventStoreDB - Event Store
   #######################################################
   eventstore.db:
-    image: eventstore/eventstore:22.10.0-buster-slim
+    image: eventstore/eventstore:23.10.0-buster-slim
     # use this image if you're running ARM-based proc like Apple M1
-    # image: eventstore/eventstore:22.10.0-alpha-arm64v8
+    # image: eventstore/eventstore:23.10.0-alpha-arm64v8
     environment:
       - EVENTSTORE_CLUSTER_SIZE=1
       - EVENTSTORE_RUN_PROJECTIONS=All
@@ -34,14 +34,14 @@ services:
   #  Postgres
   #######################################################
   postgres:
-      image: clkao/postgres-plv8
-      container_name: postgres
-      environment:
-          POSTGRES_PASSWORD: Password12!
-      ports:
-          - "5432:5432"
-      networks:
-          - postgres
+    image: postgres:15.1-alpine
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=Password12!
+    ports:
+      - "5432:5432"
+    networks:
+      - postgres
 
   pgadmin:
       image: dpage/pgadmin4
