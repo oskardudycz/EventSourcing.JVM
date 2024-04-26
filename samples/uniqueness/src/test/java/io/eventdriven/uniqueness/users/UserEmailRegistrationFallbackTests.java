@@ -15,10 +15,11 @@ import io.eventdriven.uniqueness.core.retries.NulloRetryPolicy;
 import io.eventdriven.uniqueness.users.reservation.UserEmailReservationEventHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import java.time.Duration;
@@ -33,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@RunWith(SpringRunner.class)
+@ExtendWith(SpringExtension.class)
 public class UserEmailRegistrationFallbackTests {
   @Test
   public void reservationHappyPath_confirmsReservation() throws InterruptedException {
@@ -196,7 +197,7 @@ public class UserEmailRegistrationFallbackTests {
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
+    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parseOrThrow("esdb://localhost:2113?tls=false");
     eventStoreDBClient = EventStoreDBClient.create(settings);
     eventStore = new EventStore(eventStoreDBClient);
     var resourceReservationCommandHandler = new ESDBResourceReservationHandler(reservationLockDuration, new NulloRetryPolicy(), eventStore);

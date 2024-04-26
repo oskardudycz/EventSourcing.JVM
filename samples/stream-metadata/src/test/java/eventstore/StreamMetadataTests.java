@@ -16,7 +16,7 @@ public class StreamMetadataTests {
 
     @BeforeEach
     void beforeEach() throws ConnectionStringParsingException {
-        EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
+        EventStoreDBClientSettings settings = EventStoreDBConnectionString.parseOrThrow("esdb://localhost:2113?tls=false");
         this.eventStore = EventStoreDBClient.create(settings);
     }
 
@@ -46,7 +46,7 @@ public class StreamMetadataTests {
         // 1. We can set stream metadata in advance
         ///////////////////////////////////////////////////////////////////////////////////
         final var streamMetadata = new StreamMetadata();
-        streamMetadata.setMaxCount(2);
+        streamMetadata.setMaxCount(2L);
 
         this.eventStore.setStreamMetadata(streamName, streamMetadata).get();
 
@@ -99,7 +99,7 @@ public class StreamMetadataTests {
         ///////////////////////////////////////////////////////////////////////////////////
         // 1. We can set stream metadata in advance
         ///////////////////////////////////////////////////////////////////////////////////
-        final var maxAge = 2;
+        final var maxAge = 2L;
         final var streamMetadata = new StreamMetadata();
         streamMetadata.setMaxAge(maxAge);
 
@@ -165,7 +165,7 @@ public class StreamMetadataTests {
         // 2. Truncate events before order shipped (so initiated and paid)
         ///////////////////////////////////////////////////////////////////////////////////
         final var streamMetadata = new StreamMetadata();
-        streamMetadata.setTruncateBefore(2);
+        streamMetadata.setTruncateBefore(2L);
 
         this.eventStore.setStreamMetadata(streamName, streamMetadata).get();
 
