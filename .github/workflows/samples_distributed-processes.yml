@@ -23,11 +23,11 @@ jobs:
     strategy:
       # define the test matrix
       matrix:
-        java-version: [17, 18]
+        java-version: [21]
 
     steps:
       - name: Check Out Repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Start containers
         run: docker-compose up -d
@@ -39,11 +39,11 @@ jobs:
           distribution: "adopt"
           cache: gradle
 
-      - uses: gradle/gradle-build-action@v2
-        with:
-          arguments: build
-          gradle-version: wrapper
-          build-root-directory: samples/distributed-processes
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build with Gradle
+        run: ./gradlew build
 
       - name: Archive test report
         uses: actions/upload-artifact@v2
