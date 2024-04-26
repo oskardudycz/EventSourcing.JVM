@@ -2,6 +2,12 @@ plugins {
   id 'java'
 }
 
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(21)
+  }
+}
+
 group = 'io.event-driven'
 version = '0.0.1-SNAPSHOT'
 
@@ -32,16 +38,6 @@ dependencies {
 
 tasks.named('test') {
   useJUnitPlatform()
-}
-
-tasks.withType(JavaCompile) {
-  options.compilerArgs += "--enable-preview"
-}
-tasks.withType(Test) {
-  jvmArgs += "--enable-preview"
-}
-tasks.withType(JavaExec) {
-  jvmArgs += "--enable-preview"
 }
 
 test {
