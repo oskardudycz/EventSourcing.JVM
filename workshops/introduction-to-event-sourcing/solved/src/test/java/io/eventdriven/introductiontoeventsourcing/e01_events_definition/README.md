@@ -16,3 +16,7 @@ Create sample events that represent a specific shopping cart. You can do that in
 Events model:
 
 ![events](./assets/events.jpg)
+
+There are two alternative solutions:
+1. Simple events structure [solution1/EventsDefinitionTests.java](./solution1/EventsDefinitionTests.java).
+2. Events structure with union type to give option to tell that Shopping Cart event is one of the defined types [solution2/EventsDefinitionTests.java](solution2/EventsDefinitionTests.java).

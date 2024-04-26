@@ -138,7 +138,7 @@ public class GettingStateFromEventsTests {
       };
     }
 
-    static ShoppingCart when(ShoppingCart current, ShoppingCartEvent event) {
+    static ShoppingCart evolve(ShoppingCart current, ShoppingCartEvent event) {
       return switch (event) {
         case ShoppingCartOpened shoppingCartOpened:
           yield new PendingShoppingCart(
@@ -191,7 +191,7 @@ public class GettingStateFromEventsTests {
     return Arrays.stream(events)
       .filter(ShoppingCartEvent.class::isInstance)
       .map(ShoppingCartEvent.class::cast)
-      .collect(foldLeft(ShoppingCart::empty, ShoppingCart::when));
+      .collect(foldLeft(ShoppingCart::empty, ShoppingCart::evolve));
   }
 
   @Test

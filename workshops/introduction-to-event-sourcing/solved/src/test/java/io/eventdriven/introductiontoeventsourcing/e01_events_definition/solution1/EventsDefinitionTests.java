@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.e01_events_definition;
+package io.eventdriven.introductiontoeventsourcing.e01_events_definition.solution1;
 
 import org.junit.jupiter.api.Test;
 
@@ -8,41 +8,38 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static io.eventdriven.introductiontoeventsourcing.e01_events_definition.EventsDefinitionTests.ShoppingCartEvent.ShoppingCartConfirmed.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class EventsDefinitionTests {
   // 1. Define your events and entity here
-  public sealed interface ShoppingCartEvent {
-    record ShoppingCartOpened(
-      UUID shoppingCartId,
-      UUID clientId
-    ) implements ShoppingCartEvent {
-    }
+  record ShoppingCartOpened(
+    UUID shoppingCartId,
+    UUID clientId
+  ) {
+  }
 
-    record ProductItemAddedToShoppingCart(
-      UUID shoppingCartId,
-      PricedProductItem productItem
-    ) implements ShoppingCartEvent {
-    }
+  record ProductItemAddedToShoppingCart(
+    UUID shoppingCartId,
+    PricedProductItem productItem
+  ) {
+  }
 
-    record ProductItemRemovedFromShoppingCart(
-      UUID shoppingCartId,
-      PricedProductItem productItem
-    ) implements ShoppingCartEvent {
-    }
+  record ProductItemRemovedFromShoppingCart(
+    UUID shoppingCartId,
+    PricedProductItem productItem
+  ) {
+  }
 
-    record ShoppingCartConfirmed(
-      UUID shoppingCartId,
-      OffsetDateTime confirmedAt
-    ) implements ShoppingCartEvent {
-    }
+  record ShoppingCartConfirmed(
+    UUID shoppingCartId,
+    OffsetDateTime confirmedAt
+  ) {
+  }
 
-    record ShoppingCartCanceled(
-      UUID shoppingCartId,
-      OffsetDateTime canceledAt
-    ) implements ShoppingCartEvent {
-    }
+  record ShoppingCartCanceled(
+    UUID shoppingCartId,
+    OffsetDateTime canceledAt
+  ) {
   }
 
   // VALUE OBJECTS
@@ -51,7 +48,8 @@ public class EventsDefinitionTests {
     private double unitPrice;
     private int quantity;
 
-    public PricedProductItem(){}
+    public PricedProductItem() {
+    }
 
     public PricedProductItem(UUID productId, int quantity, double unitPrice) {
       this.setProductId(productId);

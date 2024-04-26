@@ -68,7 +68,7 @@ public class GettingStateFromEventsTests {
     Canceled
   }
 
-  static ShoppingCart getShoppingCart(Object[] events) {
+  static ShoppingCart getShoppingCart(ShoppingCartEvent[] events) {
     // 1. Add logic here
     throw new RuntimeException("Not implemented!");
   }
@@ -84,7 +84,7 @@ public class GettingStateFromEventsTests {
     var pairOfShoes = new PricedProductItem(shoesId, 1, 100);
     var tShirt = new PricedProductItem(tShirtId, 1, 50);
 
-    var events = new Object[]
+    var events = new ShoppingCartEvent[]
       {
         new ShoppingCartOpened(shoppingCartId, clientId),
         new ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),

@@ -70,15 +70,12 @@ public class GettingStateFromEventsTests {
     Canceled
   }
 
-  static ShoppingCart getShoppingCart(Object[] events) {
+  static ShoppingCart getShoppingCart(ShoppingCartEvent[] events) {
     // 1. Add logic here
     ShoppingCart shoppingCart = null;
 
     for (var event : events) {
-      if (!(event instanceof ShoppingCartEvent shoppingCartEvent))
-        continue;
-
-      switch (shoppingCartEvent) {
+      switch (event) {
         case ShoppingCartOpened opened -> shoppingCart = new ShoppingCart(
           opened.shoppingCartId(),
           opened.clientId(),
@@ -158,7 +155,7 @@ public class GettingStateFromEventsTests {
     var pairOfShoes = new PricedProductItem(shoesId, 1, 100);
     var tShirt = new PricedProductItem(tShirtId, 1, 50);
 
-    var events = new Object[]
+    var events = new ShoppingCartEvent[]
       {
         new ShoppingCartEvent.ShoppingCartOpened(shoppingCartId, clientId),
         new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),
