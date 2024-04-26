@@ -68,7 +68,7 @@ public final class EventStoreDBSubscriptionCheckpointRepository implements Subsc
       // using stream metadata $maxCount property
 
       var keepOnlyLastEvent = new StreamMetadata();
-      keepOnlyLastEvent.setMaxCount(1);
+      keepOnlyLastEvent.setMaxCount(1L);
 
       try {
         eventStore.setStreamMetadata(

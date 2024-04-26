@@ -20,7 +20,7 @@ public record GetShoppingCartById(
     RetryTemplate retryTemplate = RetryTemplate.builder()
       .retryOn(EntityNotFoundException.class)
       .exponentialBackoff(100, 2, 1000)
-      .withinMillis(5000)
+      .withTimeout(5000)
       .build();
 
     return retryTemplate.execute(context -> {

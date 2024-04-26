@@ -101,7 +101,7 @@ public class EventStore {
   public AppendResult setStreamMaxAge(String streamId, Duration duration) {
     try {
       var metadata = new StreamMetadata();
-      metadata.setMaxAge((int)duration.toSeconds());
+      metadata.setMaxAge(duration.toSeconds());
 
       var result = eventStore.setStreamMetadata(
         streamId,

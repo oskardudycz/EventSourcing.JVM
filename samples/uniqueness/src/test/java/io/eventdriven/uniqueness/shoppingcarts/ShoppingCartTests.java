@@ -44,7 +44,7 @@ public class ShoppingCartTests {
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
+    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parseOrThrow("esdb://localhost:2113?tls=false");
     this.eventStore = EventStoreDBClient.create(settings);
   }
 }

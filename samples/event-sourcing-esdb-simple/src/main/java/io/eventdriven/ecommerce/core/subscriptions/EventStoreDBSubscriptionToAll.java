@@ -34,10 +34,15 @@ public class EventStoreDBSubscriptionToAll {
     }
 
     @Override
-    public void onError(Subscription subscription, Throwable throwable) {
-      logger.error("Subscription was dropped", throwable);
+    public void onCancelled(Subscription subscription, Throwable exception) {
+      // Subscription was dropped by the user.
 
-      throw new RuntimeException(throwable);
+      if (exception == null)
+        return;
+
+      logger.error("Subscription was dropped", exception);
+
+      throw new RuntimeException(exception);
     }
   };
 

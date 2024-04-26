@@ -18,7 +18,7 @@ class EventStoreDBConfig {
   @Scope("singleton")
   EventStoreDBClient eventStoreDBClient(@Value("${esdb.connectionstring}") String connectionString) {
     try {
-      EventStoreDBClientSettings settings = EventStoreDBConnectionString.parse(connectionString);
+      EventStoreDBClientSettings settings = EventStoreDBConnectionString.parseOrThrow(connectionString);
 
       return EventStoreDBClient.create(settings);
     } catch (Throwable e) {

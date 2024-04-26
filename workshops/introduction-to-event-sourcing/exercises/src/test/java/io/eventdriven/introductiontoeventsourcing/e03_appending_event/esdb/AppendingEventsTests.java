@@ -81,7 +81,7 @@ public class AppendingEventsTests {
         new ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
 
-    var settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
+    var settings = EventStoreDBConnectionString.parseOrThrow("esdb://localhost:2113?tls=false");
 
     var eventStore = EventStoreDBClient.create(settings);
 
