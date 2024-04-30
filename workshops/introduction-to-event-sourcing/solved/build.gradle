@@ -33,6 +33,7 @@ dependencies {
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
   testImplementation 'org.junit.platform:junit-platform-launcher:1.10.2'
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+  testImplementation 'org.assertj:assertj-core:3.24.2'
 }
 
 tasks.named('test') {

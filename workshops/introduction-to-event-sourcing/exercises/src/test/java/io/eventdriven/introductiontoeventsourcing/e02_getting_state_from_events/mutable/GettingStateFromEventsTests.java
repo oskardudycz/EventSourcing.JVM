@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static io.eventdriven.introductiontoeventsourcing.e02_getting_state_from_events.mutable.GettingStateFromEventsTests.ShoppingCartEvent.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class GettingStateFromEventsTests {
@@ -128,8 +129,8 @@ public class GettingStateFromEventsTests {
       this.status = status;
     }
 
-    public List<PricedProductItem> productItems() {
-      return productItems;
+    public PricedProductItem[] productItems() {
+      return productItems.toArray(PricedProductItem[]::new);
     }
 
     public void setProductItems(List<PricedProductItem> productItems) {
@@ -189,14 +190,9 @@ public class GettingStateFromEventsTests {
 
     assertEquals(shoppingCartId, shoppingCart.id());
     assertEquals(clientId, shoppingCart.clientId());
-    assertEquals(2, shoppingCart.productItems().size());
+    assertEquals(2, shoppingCart.productItems().length);
 
-    assertEquals(shoesId, shoppingCart.productItems().get(0).productId());
-    assertEquals(pairOfShoes.quantity(), shoppingCart.productItems().get(0).quantity());
-    assertEquals(pairOfShoes.unitPrice(), shoppingCart.productItems().get(0).unitPrice());
-
-    assertEquals(tShirtId, shoppingCart.productItems().get(1).productId());
-    assertEquals(tShirt.quantity(), shoppingCart.productItems().get(1).quantity());
-    assertEquals(tShirt.unitPrice(), shoppingCart.productItems().get(1).unitPrice());
+    assertThat(shoppingCart.productItems()[0]).usingRecursiveComparison().isEqualTo(pairOfShoes);
+    assertThat(shoppingCart.productItems()[1]).usingRecursiveComparison().isEqualTo(tShirt);
   }
 }
