@@ -1,36 +1,28 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
-import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 
 import java.util.UUID;
 
 public sealed interface ShoppingCartCommand {
-  record OpenShoppingCart(
-    UUID shoppingCartId,
+  record Open(
     UUID clientId
   ) implements ShoppingCartCommand {
   }
 
-  record AddProductItemToShoppingCart(
-    UUID shoppingCartId,
-    ProductItem productItem
-  ) implements ShoppingCartCommand {
-  }
-
-  record ConfirmShoppingCart(
-    UUID shoppingCartId
-  ) implements ShoppingCartCommand {
-  }
-
-  record RemoveProductItemFromShoppingCart(
-    UUID shoppingCartId,
+  record AddProductItem(
     PricedProductItem productItem
   ) implements ShoppingCartCommand {
   }
 
-  record CancelShoppingCart(
-    UUID shoppingCartId
+  record RemoveProductItem(
+    PricedProductItem productItem
   ) implements ShoppingCartCommand {
+  }
+
+  record Confirm() implements ShoppingCartCommand {
+  }
+
+  record Cancel() implements ShoppingCartCommand {
   }
 }

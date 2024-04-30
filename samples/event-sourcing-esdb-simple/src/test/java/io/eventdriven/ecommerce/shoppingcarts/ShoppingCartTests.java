@@ -1,15 +1,12 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart.*;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemAddedToShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemRemovedFromShoppingCart;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartConfirmed;
-import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ShoppingCartOpened;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemAdded;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemRemoved;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.Opened;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import org.junit.jupiter.api.Test;
 
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,7 +15,6 @@ public class ShoppingCartTests {
   @Test
   void aggregationWorks() {
     var clientId = UUID.randomUUID();
-    var shoppingCartId = UUID.randomUUID();
 
     var shoes = new PricedProductItem(
       new ProductItem(UUID.randomUUID(), 1),
@@ -32,42 +28,35 @@ public class ShoppingCartTests {
 
     var events = new ShoppingCartEvent[]
       {
-        new ShoppingCartOpened(
-          shoppingCartId,
+        new Opened(
           clientId
         ),
-        new ProductItemAddedToShoppingCart(
-          shoppingCartId,
+        new ProductItemAdded(
           shoes
         ),
-        new ProductItemAddedToShoppingCart(
-          shoppingCartId,
+        new ProductItemAdded(
           tShirt
         ),
-        new ProductItemRemovedFromShoppingCart(
-          shoppingCartId,
+        new ProductItemRemoved(
           shoes
         ),
-        new ShoppingCartConfirmed(
-          shoppingCartId,
-          OffsetDateTime.now()
-        )
       };
 
     var shoppingCart = ShoppingCart.empty();
     for (var event : events) {
-      shoppingCart = ShoppingCart.when(shoppingCart, event);
+      shoppingCart = ShoppingCart.evolve(shoppingCart, event);
     }
 
-    assertTrue(shoppingCart instanceof Confirmed);
-    var confirmedShoppingCart = (Confirmed) shoppingCart;
-    assertEquals(confirmedShoppingCart.id(), shoppingCartId);
-    assertEquals(confirmedShoppingCart.clientId(), clientId);
-    assertTrue(confirmedShoppingCart.isClosed());
+    assertInstanceOf(ShoppingCart.Pending.class, shoppingCart);
+    var confirmedShoppingCart = (ShoppingCart.Pending) shoppingCart;
 
-    assertEquals(confirmedShoppingCart.productItems().items().stream().count(), 1);
+    assertEquals(1, confirmedShoppingCart.productItems().size());
+    assertTrue(confirmedShoppingCart.productItems().has(tShirt.productId()));
 
-    var tShirtFromShoppingCart = confirmedShoppingCart.productItems().items().get(0);
-    assertEquals(tShirt, tShirtFromShoppingCart);
+    var tShirtQuantityFromShoppingCart =
+      confirmedShoppingCart.productItems().get(tShirt.productId());
+
+    assertTrue(tShirtQuantityFromShoppingCart.isPresent());
+    assertEquals(tShirt.quantity(), tShirtQuantityFromShoppingCart.get());
   }
 }
