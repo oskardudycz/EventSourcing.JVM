@@ -168,11 +168,8 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
       this.canceledAt = canceledAt;
     }
 
-    public void when(Object event) {
-      if (!(event instanceof ShoppingCartEvent shoppingCartEvent))
-        return;
-
-      switch (shoppingCartEvent) {
+    public void evolve(ShoppingCartEvent event) {
+      switch (event) {
         case ShoppingCartOpened opened -> apply(opened);
         case ProductItemAddedToShoppingCart productItemAdded ->
           apply(productItemAdded);
@@ -248,7 +245,7 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
       var shoppingCart = new ShoppingCart();
 
       for (var event : events) {
-        shoppingCart.when(event);
+        shoppingCart.evolve(event);
       }
 
       return shoppingCart;
@@ -277,7 +274,7 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
     var pairOfShoes = new PricedProductItem(shoesId, 1, 100);
     var tShirt = new PricedProductItem(tShirtId, 1, 50);
 
-    var events = new Object[]
+    var events = new ShoppingCartEvent[]
       {
         new ShoppingCartOpened(shoppingCartId, clientId),
         new ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),
@@ -297,7 +294,7 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
     assertEquals(clientId, shoppingCart.clientId());
     assertEquals(2, shoppingCart.productItems().size());
 
-    assertEquals(shoesId, shoppingCart.productItems().get(0).productId());
+    assertEquals(shoesId, shoppingCart.productItems().getFirst().productId());
     assertEquals(pairOfShoes.quantity(), shoppingCart.productItems().get(0).quantity());
     assertEquals(pairOfShoes.unitPrice(), shoppingCart.productItems().get(0).unitPrice());
 

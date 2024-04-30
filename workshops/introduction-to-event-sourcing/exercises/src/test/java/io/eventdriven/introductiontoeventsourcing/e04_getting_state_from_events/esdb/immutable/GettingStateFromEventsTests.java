@@ -87,7 +87,7 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
     var pairOfShoes = new PricedProductItem(shoesId, 1, 100);
     var tShirt = new PricedProductItem(tShirtId, 1, 50);
 
-    var events = new Object[]
+    var events = new ShoppingCartEvent[]
       {
         new ShoppingCartOpened(shoppingCartId, clientId),
         new ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),

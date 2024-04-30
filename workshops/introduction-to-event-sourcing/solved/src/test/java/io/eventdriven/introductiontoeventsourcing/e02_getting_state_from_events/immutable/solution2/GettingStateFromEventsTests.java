@@ -204,14 +204,14 @@ public class GettingStateFromEventsTests {
     var pairOfShoes = new PricedProductItem(shoesId, 1, 100);
     var tShirt = new PricedProductItem(tShirtId, 1, 50);
 
-    var events = new Object[]
+    var events = new ShoppingCartEvent[]
       {
-        new ShoppingCartEvent.ShoppingCartOpened(shoppingCartId, clientId),
-        new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),
-        new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, tShirt),
-        new ShoppingCartEvent.ProductItemRemovedFromShoppingCart(shoppingCartId, pairOfShoes),
-        new ShoppingCartEvent.ShoppingCartConfirmed(shoppingCartId, OffsetDateTime.now()),
-        new ShoppingCartEvent.ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
+        new ShoppingCartOpened(shoppingCartId, clientId),
+        new ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),
+        new ProductItemAddedToShoppingCart(shoppingCartId, tShirt),
+        new ProductItemRemovedFromShoppingCart(shoppingCartId, pairOfShoes),
+        new ShoppingCartConfirmed(shoppingCartId, OffsetDateTime.now()),
+        new ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
 
     var shoppingCart = getShoppingCart(events);

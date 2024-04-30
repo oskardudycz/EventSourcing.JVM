@@ -72,7 +72,7 @@ public class BusinessLogicTests {
     var shoppingCart = new ShoppingCart();
 
     for (var event : shoppingCartEvents) {
-      shoppingCart.when(event);
+      shoppingCart.evolve(event);
     }
 
     return shoppingCart;

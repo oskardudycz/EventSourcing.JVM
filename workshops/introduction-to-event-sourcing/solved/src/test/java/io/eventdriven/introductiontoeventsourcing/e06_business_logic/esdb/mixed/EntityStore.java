@@ -58,7 +58,7 @@ public class EntityStore<Entity extends Aggregate<Event>, Event, Command> {
       var entity = getEmpty.get();
 
       for (var event : events) {
-        entity.when(event);
+        entity.evolve(event);
       }
 
       return entity;

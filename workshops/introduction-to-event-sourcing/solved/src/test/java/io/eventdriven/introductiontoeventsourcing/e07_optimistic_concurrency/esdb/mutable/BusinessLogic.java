@@ -24,11 +24,11 @@ public class BusinessLogic {
       return dequeuedEvents;
     }
 
-    public abstract void when(Event event);
+    public abstract void evolve(Event event);
 
     protected void enqueue(Event event) {
       uncommittedEvents.add(event);
-      when(event);
+      evolve(event);
     }
   }
 
@@ -140,7 +140,7 @@ public class BusinessLogic {
     }
 
     @Override
-    public void when(ShoppingCartEvent event) {
+    public void evolve(ShoppingCartEvent event) {
       switch (event) {
         case ShoppingCartOpened opened -> apply(opened);
         case ProductItemAddedToShoppingCart productItemAdded ->

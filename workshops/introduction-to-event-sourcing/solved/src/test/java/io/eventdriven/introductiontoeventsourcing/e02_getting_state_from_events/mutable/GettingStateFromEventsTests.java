@@ -160,11 +160,8 @@ public class GettingStateFromEventsTests {
       this.canceledAt = canceledAt;
     }
 
-    public void evolve(Object event) {
-      if (!(event instanceof ShoppingCartEvent shoppingCartEvent))
-        return;
-
-      switch (shoppingCartEvent) {
+    public void evolve(ShoppingCartEvent event) {
+      switch (event) {
         case ShoppingCartOpened opened -> apply(opened);
         case ProductItemAddedToShoppingCart productItemAdded ->
           apply(productItemAdded);
@@ -264,7 +261,7 @@ public class GettingStateFromEventsTests {
     assertEquals(clientId, shoppingCart.clientId());
     assertEquals(2, shoppingCart.productItems().size());
 
-    assertEquals(shoesId, shoppingCart.productItems().get(0).productId());
+    assertEquals(shoesId, shoppingCart.productItems().getFirst().productId());
     assertEquals(pairOfShoes.quantity(), shoppingCart.productItems().get(0).quantity());
     assertEquals(pairOfShoes.unitPrice(), shoppingCart.productItems().get(0).unitPrice());
 

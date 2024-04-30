@@ -13,7 +13,7 @@ public class BusinessLogic {
   public interface Aggregate<ShoppingCartEvent> {
     UUID id();
 
-    void when(ShoppingCartEvent event);
+    void evolve(ShoppingCartEvent event);
   }
 
   public static class ShoppingCart implements Aggregate<ShoppingCartEvent> {
@@ -30,7 +30,7 @@ public class BusinessLogic {
     private ShoppingCart(
       ShoppingCartOpened event
     ) {
-      when(event);
+      evolve(event);
     }
 
     public static ShoppingCart empty(){
@@ -134,7 +134,7 @@ public class BusinessLogic {
     }
 
     @Override
-    public void when(ShoppingCartEvent event) {
+    public void evolve(ShoppingCartEvent event) {
       switch (event) {
         case ShoppingCartOpened opened -> apply(opened);
         case ProductItemAddedToShoppingCart productItemAdded ->

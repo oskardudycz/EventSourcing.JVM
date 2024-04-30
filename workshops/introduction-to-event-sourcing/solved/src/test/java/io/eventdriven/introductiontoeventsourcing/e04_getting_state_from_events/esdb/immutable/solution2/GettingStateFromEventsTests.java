@@ -144,7 +144,7 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
       };
     }
 
-    static ShoppingCart when(ShoppingCart current, ShoppingCartEvent event) {
+    static ShoppingCart evolve(ShoppingCart current, ShoppingCartEvent event) {
       return switch (event) {
         case ShoppingCartOpened shoppingCartOpened:
           yield new PendingShoppingCart(
@@ -195,7 +195,7 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
   static ShoppingCart getShoppingCart(EventStoreDBClient eventStore, String streamName) {
     // 1. Add logic here
     return getEvents(ShoppingCartEvent.class, eventStore, streamName)
-      .collect(foldLeft(ShoppingCart::empty, ShoppingCart::when));
+      .collect(foldLeft(ShoppingCart::empty, ShoppingCart::evolve));
   }
 
   static <Event> Stream<Event> getEvents(Class<Event> eventClass, EventStoreDBClient eventStore, String streamName) {
@@ -231,14 +231,14 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
     var pairOfShoes = new PricedProductItem(shoesId, 1, 100);
     var tShirt = new PricedProductItem(tShirtId, 1, 50);
 
-    var events = new Object[]
+    var events = new ShoppingCartEvent[]
       {
-        new ShoppingCartEvent.ShoppingCartOpened(shoppingCartId, clientId),
-        new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),
-        new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, tShirt),
-        new ShoppingCartEvent.ProductItemRemovedFromShoppingCart(shoppingCartId, pairOfShoes),
-        new ShoppingCartEvent.ShoppingCartConfirmed(shoppingCartId, OffsetDateTime.now()),
-        new ShoppingCartEvent.ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
+        new ShoppingCartOpened(shoppingCartId, clientId),
+        new ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),
+        new ProductItemAddedToShoppingCart(shoppingCartId, tShirt),
+        new ProductItemRemovedFromShoppingCart(shoppingCartId, pairOfShoes),
+        new ShoppingCartConfirmed(shoppingCartId, OffsetDateTime.now()),
+        new ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
 
     var streamName = "shopping_cart-%s".formatted(shoppingCartId);
