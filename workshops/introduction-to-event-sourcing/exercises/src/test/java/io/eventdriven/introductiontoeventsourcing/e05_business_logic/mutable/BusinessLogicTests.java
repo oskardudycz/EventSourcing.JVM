@@ -161,11 +161,8 @@ public class BusinessLogicTests {
       this.canceledAt = canceledAt;
     }
 
-    public void when(Object event) {
-      if (!(event instanceof ShoppingCartEvent shoppingCartEvent))
-        return;
-
-      switch (shoppingCartEvent) {
+    public void evolve(ShoppingCartEvent event) {
+      switch (event) {
         case ShoppingCartOpened opened -> apply(opened);
         case ProductItemAddedToShoppingCart productItemAdded ->
           apply(productItemAdded);
@@ -228,12 +225,12 @@ public class BusinessLogicTests {
     Canceled
   }
 
-  static ShoppingCart getShoppingCart(Object[] events) {
+  static ShoppingCart getShoppingCart(ShoppingCartEvent[] events) {
     // 1. Add logic here
     var shoppingCart = new ShoppingCart();
 
     for (var event : events) {
-      shoppingCart.when(event);
+      shoppingCart.evolve(event);
     }
 
     return shoppingCart;
@@ -252,7 +249,7 @@ public class BusinessLogicTests {
 
     // TODO: Fill the events object with results of your business logic
     // to be the same as events below
-    var events = new Object[]
+    var events = new ShoppingCartEvent[]
       {
 //        new ShoppingCartOpened(shoppingCartId, clientId),
 //        new ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),

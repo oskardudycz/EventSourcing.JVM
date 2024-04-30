@@ -160,7 +160,7 @@ public class BusinessLogicTests extends EventStoreDBTest {
       return this instanceof ConfirmedShoppingCart || this instanceof CanceledShoppingCart;
     }
 
-    static ShoppingCart when(ShoppingCart current, ShoppingCartEvent event) {
+    static ShoppingCart evolve(ShoppingCart current, ShoppingCartEvent event) {
       return switch (event) {
         case ShoppingCartOpened shoppingCartOpened:
           yield new PendingShoppingCart(
@@ -213,7 +213,7 @@ public class BusinessLogicTests extends EventStoreDBTest {
     return Arrays.stream(events)
       .filter(ShoppingCartEvent.class::isInstance)
       .map(ShoppingCartEvent.class::cast)
-      .collect(foldLeft(ShoppingCart::empty, ShoppingCart::when));
+      .collect(foldLeft(ShoppingCart::empty, ShoppingCart::evolve));
   }
 
   @Tag("Exercise")
@@ -240,7 +240,7 @@ public class BusinessLogicTests extends EventStoreDBTest {
         eventStore,
         ShoppingCart::empty,
         "shopping_cart-%s"::formatted,
-        ShoppingCart::when,
+        ShoppingCart::evolve,
         (command, entity) -> ShoppingCartCommandHandler.decide(
           () -> command instanceof ShoppingCartCommand.AddProductItemToShoppingCart addProduct ?
             FakeProductPriceCalculator.returning(addProduct.productItem() == twoPairsOfShoes ? shoesPrice : tShirtPrice)
@@ -279,7 +279,7 @@ public class BusinessLogicTests extends EventStoreDBTest {
     var getResult = EntityStore.get(
       ShoppingCartEvent.class,
       eventStore,
-      ShoppingCart::when,
+      ShoppingCart::evolve,
       ShoppingCart::empty,
       "shopping_cart-%s".formatted(shoppingCartId)
     );

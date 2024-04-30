@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static io.eventdriven.introductiontoeventsourcing.e01_events_definition.solution2.EventsDefinitionTests.ShoppingCartEvent.ShoppingCartConfirmed.*;
+import static io.eventdriven.introductiontoeventsourcing.e01_events_definition.solution2.EventsDefinitionTests.ShoppingCartEvent.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class EventsDefinitionTests {
@@ -188,7 +188,7 @@ public class EventsDefinitionTests {
     var clientId = UUID.randomUUID();
     var pairOfShoes = new PricedProductItem(UUID.randomUUID(), 1, 100);
 
-    var events = new Object[]
+    var events = new ShoppingCartEvent[]
       {
         new ShoppingCartOpened(shoppingCartId, clientId),
         new ProductItemAddedToShoppingCart(shoppingCartId, pairOfShoes),

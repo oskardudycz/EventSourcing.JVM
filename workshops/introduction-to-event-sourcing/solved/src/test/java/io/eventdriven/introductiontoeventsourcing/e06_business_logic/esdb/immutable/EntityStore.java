@@ -32,7 +32,7 @@ public final class EntityStore {
   public static <Entity, Event> Optional<Entity> get(
     Class<Event> eventClass,
     EventStoreDBClient eventStore,
-    BiFunction<Entity, Event, Entity> when,
+    BiFunction<Entity, Event, Entity> evolve,
     Supplier<Entity> getEmpty,
     String streamName
   ) {
@@ -43,7 +43,7 @@ public final class EntityStore {
           .map(EntityStore::deserialize)
           .filter(eventClass::isInstance)
           .map(eventClass::cast)
-          .collect(foldLeft(getEmpty, when))
+          .collect(foldLeft(getEmpty, evolve))
       );
     } catch (Throwable e) {
       Throwable innerException = e.getCause();
@@ -58,13 +58,13 @@ public final class EntityStore {
   public static <Entity, Command, Event> void getAndUpdate(
     Class<Event> eventClass,
     EventStoreDBClient eventStore,
-    BiFunction<Entity, Event, Entity> when,
+    BiFunction<Entity, Event, Entity> evolve,
     Supplier<Entity> getEmpty,
     BiFunction<Command, Entity, Event> handle,
     String streamName,
     Command command
   ) {
-    var entity = get(eventClass, eventStore, when, getEmpty, streamName)
+    var entity = get(eventClass, eventStore, evolve, getEmpty, streamName)
       .orElse(getEmpty.get());
 
     var event = handle.apply(command, entity);
@@ -77,7 +77,7 @@ public final class EntityStore {
     EventStoreDBClient eventStore,
     Supplier<Entity> getEmpty,
     Function<UUID, String> toStreamName,
-    BiFunction<Entity, Event, Entity> when,
+    BiFunction<Entity, Event, Entity> evolve,
     BiFunction<Command, Entity, Event> handle
   ) {
     return (id, command) -> {
@@ -86,7 +86,7 @@ public final class EntityStore {
       EntityStore.getAndUpdate(
         eventClass,
         eventStore,
-        when,
+        evolve,
         getEmpty,
         handle,
         streamName,

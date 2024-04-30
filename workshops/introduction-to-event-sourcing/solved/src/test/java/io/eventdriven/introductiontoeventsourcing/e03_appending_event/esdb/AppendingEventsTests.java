@@ -90,7 +90,7 @@ public class AppendingEventsTests {
   }
 
   @Test
-  public void AppendingEvents_ForSequenceOfEvents_ShouldSucceed() throws ConnectionStringParsingException {
+  public void AppendingEvents_ForSequenceOfEvents_ShouldSucceed() {
     var shoppingCartId = UUID.randomUUID();
     var clientId = UUID.randomUUID();
     var shoesId = UUID.randomUUID();
@@ -99,7 +99,7 @@ public class AppendingEventsTests {
     var pairOfShoes = new PricedProductItem(shoesId, 1, 100);
     var tShirt = new PricedProductItem(tShirtId, 1, 50);
 
-    var events = new Object[]
+    var events = new ShoppingCartEvent[]
       {
         new ShoppingCartOpened(shoppingCartId, clientId),
         new ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),

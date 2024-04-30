@@ -14,7 +14,7 @@ public final class EntityStore {
   public static <Entity, Event> Optional<Entity> get(
     Class<Event> eventClass,
     EventStoreDBClient eventStore,
-    BiFunction<Entity, Event, Entity> when,
+    BiFunction<Entity, Event, Entity> evolve,
     Supplier<Entity> getEmpty,
     String streamName
   ) {
@@ -25,7 +25,7 @@ public final class EntityStore {
   public static <Entity, Command, Event> void getAndUpdate(
     Class<Event> eventClass,
     EventStoreDBClient eventStore,
-    BiFunction<Entity, Event, Entity> when,
+    BiFunction<Entity, Event, Entity> evolve,
     Supplier<Entity> getEmpty,
     BiFunction<Command, Entity, Event> handle,
     String streamName,
@@ -41,7 +41,7 @@ public final class EntityStore {
     EventStoreDBClient eventStore,
     Supplier<Entity> getEmpty,
     Function<UUID, String> toStreamName,
-    BiFunction<Entity, Event, Entity> when,
+    BiFunction<Entity, Event, Entity> evolve,
     BiFunction<Command, Entity, Event> handle
   ) {
     return (id, command, expectedRevision) -> {
@@ -50,7 +50,7 @@ public final class EntityStore {
       EntityStore.getAndUpdate(
         eventClass,
         eventStore,
-        when,
+        evolve,
         getEmpty,
         handle,
         streamName,

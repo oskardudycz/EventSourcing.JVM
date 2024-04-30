@@ -56,7 +56,7 @@ public class EntityStore<Entity extends Aggregate<Event>, Event> {
       var entity = entityClass.getDeclaredConstructor().newInstance();
 
       for (var event : events) {
-        entity.when(event);
+        entity.evolve(event);
       }
 
       return entity;

@@ -139,7 +139,7 @@ public class BusinessLogicTests {
       };
     }
 
-    static ShoppingCart when(ShoppingCart current, ShoppingCartEvent event) {
+    static ShoppingCart evolve(ShoppingCart current, ShoppingCartEvent event) {
       return switch (event) {
         case ShoppingCartOpened shoppingCartOpened:
           yield new PendingShoppingCart(
@@ -192,7 +192,7 @@ public class BusinessLogicTests {
     return Arrays.stream(events)
       .filter(ShoppingCartEvent.class::isInstance)
       .map(ShoppingCartEvent.class::cast)
-      .collect(foldLeft(ShoppingCart::empty, ShoppingCart::when));
+      .collect(foldLeft(ShoppingCart::empty, ShoppingCart::evolve));
   }
 
   @Tag("Exercise")
@@ -208,7 +208,7 @@ public class BusinessLogicTests {
 
     // TODO: Fill the events object with results of your business logic
     // to be the same as events below
-    var events = new Object[]
+    var events = new ShoppingCartEvent[]
       {
 //        new ShoppingCartEvent.ShoppingCartOpened(shoppingCartId, clientId),
 //        new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, twoPairsOfShoes),

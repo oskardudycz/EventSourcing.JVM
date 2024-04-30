@@ -161,7 +161,7 @@ public class BusinessLogicTests {
       return this instanceof ConfirmedShoppingCart || this instanceof CanceledShoppingCart;
     }
 
-    static ShoppingCart when(ShoppingCart current, ShoppingCartEvent event) {
+    static ShoppingCart evolve(ShoppingCart current, ShoppingCartEvent event) {
       return switch (event) {
         case ShoppingCartOpened shoppingCartOpened:
           yield new PendingShoppingCart(
@@ -214,7 +214,7 @@ public class BusinessLogicTests {
     return Arrays.stream(events)
       .filter(ShoppingCartEvent.class::isInstance)
       .map(ShoppingCartEvent.class::cast)
-      .collect(foldLeft(ShoppingCart::empty, ShoppingCart::when));
+      .collect(foldLeft(ShoppingCart::empty, ShoppingCart::evolve));
   }
 
   @Test
