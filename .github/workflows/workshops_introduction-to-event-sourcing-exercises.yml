@@ -23,7 +23,7 @@ jobs:
     strategy:
       # define the test matrix
       matrix:
-        java-version: [21]
+        java-version: [22]
 
     steps:
       - name: Check Out Repo
