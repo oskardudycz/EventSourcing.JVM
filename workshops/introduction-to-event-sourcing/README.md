@@ -51,7 +51,7 @@ Read also more in my article [Introduction to Event Sourcing - Self Paced Kit](h
 
 1. Install git - https://git-scm.com/downloads.
 2. Clone this repository.
-3. Install Java JDK 17 (or later) - https://www.oracle.com/java/technologies/downloads/.
+3. Install Java JDK 22 (or later) - https://www.oracle.com/java/technologies/downloads/.
 4. Install IntelliJ, Eclipse, VSCode or other preferred IDE.
 5. Install docker - https://docs.docker.com/engine/install/.
 6. Open [exercises](./exercises/) folder as project.
