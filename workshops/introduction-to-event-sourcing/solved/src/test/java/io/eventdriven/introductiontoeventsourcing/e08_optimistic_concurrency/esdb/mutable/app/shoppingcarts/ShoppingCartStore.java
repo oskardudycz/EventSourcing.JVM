@@ -1,6 +1,8 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.shoppingcarts;
 
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.functional.Tuple;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.eventStoreDB.EventStore;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.http.ETag;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -13,24 +15,30 @@ public class ShoppingCartStore {
     this.eventStore = eventStore;
   }
 
-  public Optional<ShoppingCart> get(UUID id) {
+  public Optional<Tuple<ShoppingCart, ETag>> get(UUID id) {
     return eventStore.aggregateStream(
-      ShoppingCartEvent.class,
-      ShoppingCart::initial,
-      toStreamName(id)
+        ShoppingCartEvent.class,
+        ShoppingCart::initial,
+        toStreamName(id)
+      )
+      .map(r -> new Tuple<>(r.first(), ETag.weak(r.second())));
+  }
+
+  public ETag add(UUID id, ShoppingCart shoppingCart) {
+    return ETag.weak(
+      eventStore.add(toStreamName(id), shoppingCart)
     );
   }
 
-  public void add(UUID id, ShoppingCart shoppingCart) {
-    eventStore.add(toStreamName(id), shoppingCart);
-  }
-
-  public void getAndUpdate(UUID id, Consumer<ShoppingCart> handle) {
-    eventStore.getAndUpdate(
-      ShoppingCartEvent.class,
-      ShoppingCart::initial,
-      toStreamName(id),
-      handle
+  public ETag getAndUpdate(UUID id, ETag eTag, Consumer<ShoppingCart> handle) {
+    return ETag.weak(
+      eventStore.getAndUpdate(
+        ShoppingCartEvent.class,
+        ShoppingCart::initial,
+        toStreamName(id),
+        eTag.toLong(),
+        handle
+      )
     );
   }
 

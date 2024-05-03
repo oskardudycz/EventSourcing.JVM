@@ -17,7 +17,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic.esdb.immutable.FunctionalTools.FoldLeft.foldLeft;
+import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.functional.FunctionalTools.FoldLeft.foldLeft;
 
 public class EventStore {
   private final EventStoreDBClient eventStore;

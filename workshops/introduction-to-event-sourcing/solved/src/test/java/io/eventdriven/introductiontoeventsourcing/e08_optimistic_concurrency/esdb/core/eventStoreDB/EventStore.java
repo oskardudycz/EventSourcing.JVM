@@ -3,8 +3,10 @@ package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.es
 import com.eventstore.dbclient.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.functional.Tuple;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.entities.Aggregate;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.entities.EntityNotFoundException;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.http.ETag;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -12,12 +14,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic.esdb.immutable.FunctionalTools.FoldLeft.foldLeft;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.functional.FunctionalTools.FoldLeft.foldLeft;
 
 public class EventStore {
   private final EventStoreDBClient eventStore;
@@ -31,7 +34,7 @@ public class EventStore {
     this.mapper = mapper;
   }
 
-  public <State extends Aggregate<Event>, Event> Optional<State> aggregateStream(
+  public <State extends Aggregate<Event>, Event> Optional<Tuple<State, Long>> aggregateStream(
     Class<Event> eventClass,
     Supplier<State> getInitial,
     String streamName
@@ -46,21 +49,29 @@ public class EventStore {
     );
   }
 
-  public <State, Event> Optional<State> aggregateStream(
+  public <State, Event> Optional<Tuple<State, Long>> aggregateStream(
     Class<Event> eventClass,
     BiFunction<State, Event, State> evolve,
     Supplier<State> getInitial,
     String streamName
   ) {
     try {
-      return Optional.of(
-        eventStore.readStream(streamName, ReadStreamOptions.get()).get()
-          .getEvents().stream()
-          .map(this::deserialize)
-          .filter(eventClass::isInstance)
-          .map(eventClass::cast)
-          .collect(foldLeft(getInitial, evolve))
-      );
+      AtomicReference<Long> position = new AtomicReference<>(null);
+
+      var result = eventStore.readStream(streamName, ReadStreamOptions.get()).get()
+        .getEvents().stream()
+        .map(resolvedEvent -> {
+          position.set(resolvedEvent.getEvent().getRevision());
+          return deserialize(resolvedEvent);
+        })
+        .filter(eventClass::isInstance)
+        .map(eventClass::cast)
+        .collect(foldLeft(getInitial, evolve));
+
+      if (result == null)
+        return Optional.empty();
+
+      return Optional.of(new Tuple<>(result, position.get()));
     } catch (Throwable e) {
       Throwable innerException = e.getCause();
 
@@ -72,35 +83,39 @@ public class EventStore {
   }
 
 
-  public <State extends Aggregate> void add(String streamName, State aggregate) {
-    add(streamName, aggregate.dequeueUncommittedEvents().toArray());
+  public <State extends Aggregate> long add(String streamName, State aggregate) {
+    return add(streamName, aggregate.dequeueUncommittedEvents().toArray());
   }
 
-  public void add(String streamName, Object[] events) {
+  public long add(String streamName, Object[] events) {
     try {
-      eventStore.appendToStream(
+      var result = eventStore.appendToStream(
         streamName,
         AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
         Arrays.stream(events).map(this::serialize).iterator()
       ).get();
+
+      return result.getNextExpectedRevision().toRawLong();
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException(e);
     }
   }
 
-  public <State extends Aggregate<Event>, Event> void getAndUpdate(
+  public <State extends Aggregate<Event>, Event> long getAndUpdate(
     Class<Event> eventClass,
     Supplier<State> getInitial,
     String streamName,
+    Long expectedRevision,
     Consumer<State> handle
   ) {
-    getAndUpdate(eventClass,
+    return getAndUpdate(eventClass,
       (state, event) -> {
         state.evolve(event);
         return state;
       },
       getInitial,
       streamName,
+      expectedRevision,
       (state) -> {
         handle.accept(state);
 
@@ -109,23 +124,33 @@ public class EventStore {
     );
   }
 
-  public <State, Event> void getAndUpdate(
+  public <State, Event> long getAndUpdate(
     Class<Event> eventClass,
     BiFunction<State, Event, State> evolve,
     Supplier<State> getInitial,
     String streamName,
+    Long expectedRevision,
     Function<State, List<Event>> handle
   ) {
-    var entity = aggregateStream(eventClass, evolve, getInitial, streamName)
+    var current = aggregateStream(eventClass, evolve, getInitial, streamName)
       .orElseThrow(EntityNotFoundException::new);
+
+    var entity = current.first();
+    var currentRevision = current.second();
 
     var events = handle.apply(entity);
 
+    var options = AppendToStreamOptions.get()
+      .expectedRevision(expectedRevision != null ? expectedRevision : currentRevision);
+
     try {
-      eventStore.appendToStream(
+      var result = eventStore.appendToStream(
         streamName,
+        options,
         events.stream().map(this::serialize).iterator()
       ).get();
+
+      return result.getNextExpectedRevision().toRawLong();
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException(e);
     }

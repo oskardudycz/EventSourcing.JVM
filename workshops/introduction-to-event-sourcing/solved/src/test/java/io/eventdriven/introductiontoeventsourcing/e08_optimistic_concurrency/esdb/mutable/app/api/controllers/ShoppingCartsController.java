@@ -1,11 +1,16 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.api.controllers;
 
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.http.ETag;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.api.ShoppingCartsRequests;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.shoppingcarts.ShoppingCart;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.shoppingcarts.ShoppingCartStore;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.shoppingcarts.productItems.ProductPriceCalculator;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -40,26 +45,29 @@ class ShoppingCartsController {
   ) throws URISyntaxException {
     var cartId = UUID.randomUUID();
 
-    store.add(
+    var result = store.add(
       cartId,
       ShoppingCart.open(cartId, request.clientId())
     );
 
     return ResponseEntity
       .created(new URI("api/shopping-carts/%s".formatted(cartId)))
+      .eTag(result.value())
       .build();
   }
 
   @PostMapping("{id}/products")
   ResponseEntity<Void> addProduct(
     @PathVariable UUID id,
-    @RequestBody ShoppingCartsRequests.AddProduct request
+    @RequestBody ShoppingCartsRequests.AddProduct request,
+    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
     if (request.productItem() == null)
       throw new IllegalArgumentException("Product Item has to be defined");
 
-    store.getAndUpdate(
+    var result = store.getAndUpdate(
       id,
+      ifMatch,
       state -> state.addProduct(
         productPriceCalculator,
         new ProductItem(
@@ -71,6 +79,7 @@ class ShoppingCartsController {
 
     return ResponseEntity
       .ok()
+      .eTag(result.value())
       .build();
   }
 
@@ -79,10 +88,12 @@ class ShoppingCartsController {
     @PathVariable UUID id,
     @PathVariable UUID productId,
     @RequestParam @NotNull Integer quantity,
-    @RequestParam @NotNull Double price
+    @RequestParam @NotNull Double price,
+    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
-    store.getAndUpdate(
+    var result = store.getAndUpdate(
       id,
+      ifMatch,
       state -> state.removeProduct(
         new PricedProductItem(
           productId,
@@ -94,34 +105,41 @@ class ShoppingCartsController {
 
     return ResponseEntity
       .ok()
+      .eTag(result.value())
       .build();
   }
 
   @PutMapping("{id}")
   ResponseEntity<Void> confirmCart(
-    @PathVariable UUID id
+    @PathVariable UUID id,
+    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
-    store.getAndUpdate(
+    var result = store.getAndUpdate(
       id,
+      ifMatch,
       ShoppingCart::confirm
     );
 
     return ResponseEntity
       .ok()
+      .eTag(result.value())
       .build();
   }
 
   @DeleteMapping("{id}")
   ResponseEntity<Void> cancelCart(
-    @PathVariable UUID id
+    @PathVariable UUID id,
+    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
-    store.getAndUpdate(
+    var result = store.getAndUpdate(
       id,
+      ifMatch,
       ShoppingCart::cancel
     );
 
     return ResponseEntity
       .ok()
+      .eTag(result.value())
       .build();
   }
 
@@ -132,7 +150,11 @@ class ShoppingCartsController {
     var result = store.get(id);
 
     return result
-      .map(s -> ResponseEntity.ok().body(s))
+      .map(s -> ResponseEntity
+        .ok()
+        .eTag(s.second().value())
+        .body(s.first())
+      )
       .orElse(ResponseEntity.notFound().build());
   }
 }
