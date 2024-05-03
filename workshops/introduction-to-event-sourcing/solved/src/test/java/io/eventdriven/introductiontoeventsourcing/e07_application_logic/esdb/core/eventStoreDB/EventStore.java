@@ -1,14 +1,8 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.eventStoreDB;
 
 import com.eventstore.dbclient.*;
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.entities.Aggregate;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.entities.EntityNotFoundException;
 
@@ -27,18 +21,14 @@ import static io.eventdriven.introductiontoeventsourcing.e06_business_logic.esdb
 
 public class EventStore {
   private final EventStoreDBClient eventStore;
-
-  public static final ObjectMapper mapper =
-    new JsonMapper()
-      .registerModule(new JavaTimeModule())
-      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-      .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-      .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+  private final ObjectMapper mapper;
 
   public EventStore(
-    EventStoreDBClient eventStore
+    EventStoreDBClient eventStore,
+    ObjectMapper mapper
   ) {
     this.eventStore = eventStore;
+    this.mapper = mapper;
   }
 
   public <State extends Aggregate<Event>, Event> Optional<State> aggregateStream(
@@ -66,7 +56,7 @@ public class EventStore {
       return Optional.of(
         eventStore.readStream(streamName, ReadStreamOptions.get()).get()
           .getEvents().stream()
-          .map(EventStore::deserialize)
+          .map(this::deserialize)
           .filter(eventClass::isInstance)
           .map(eventClass::cast)
           .collect(foldLeft(getInitial, evolve))
@@ -91,7 +81,7 @@ public class EventStore {
       eventStore.appendToStream(
         streamName,
         AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
-        Arrays.stream(events).map(EventStore::serialize).iterator()
+        Arrays.stream(events).map(this::serialize).iterator()
       ).get();
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException(e);
@@ -134,14 +124,14 @@ public class EventStore {
     try {
       eventStore.appendToStream(
         streamName,
-        events.stream().map(EventStore::serialize).iterator()
+        events.stream().map(this::serialize).iterator()
       ).get();
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException(e);
     }
   }
 
-  private static EventData serialize(Object event) {
+  private EventData serialize(Object event) {
     try {
       return EventDataBuilder.json(
         UUID.randomUUID(),
@@ -153,7 +143,7 @@ public class EventStore {
     }
   }
 
-  private static Object deserialize(ResolvedEvent resolvedEvent) {
+  private Object deserialize(ResolvedEvent resolvedEvent) {
     try {
       var eventClass = Class.forName(
         resolvedEvent.getOriginalEvent().getEventType());
