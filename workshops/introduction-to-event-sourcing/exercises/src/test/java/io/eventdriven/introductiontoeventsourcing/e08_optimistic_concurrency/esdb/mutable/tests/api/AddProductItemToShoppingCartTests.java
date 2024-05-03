@@ -73,6 +73,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
       .then(OK);
   }
 
+  @Tag("Exercise")
   @ParameterizedTest
   @MethodSource("invalidBodiesProvider")
   public void addProductItem_fails_withBadRequest_forInvalidBody(HttpEntity<String> invalidBody) {

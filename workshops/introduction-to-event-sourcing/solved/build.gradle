@@ -10,6 +10,13 @@ java {
   }
 }
 
+bootJar {
+  enabled = false
+}
+
+jar {
+  enabled = true
+}
 
 group = 'io.event-driven'
 version = '0.0.1-SNAPSHOT'
