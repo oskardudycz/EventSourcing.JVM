@@ -1,0 +1,8 @@
+package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.ProductItems;
+
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.ProductItems.ProductItems.PricedProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.ProductItems.ProductItems.ProductItem;
+
+public interface ProductPriceCalculator {
+  PricedProductItem calculate(ProductItem productItems);
+}
