@@ -1,9 +1,9 @@
-package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.api.controllers;
+package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.api.controllers;
 
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.api.ShoppingCartsRequests;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.ShoppingCart;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.ShoppingCartStore;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.productItems.ProductPriceCalculator;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.api.ShoppingCartsRequests;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCart;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCartStore;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.productItems.ProductPriceCalculator;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
@@ -15,10 +15,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.ShoppingCartService.ShoppingCartCommand.*;
-import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.ShoppingCartService.handle;
-import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
-import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.productItems.ProductItems.ProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCartService.ShoppingCartCommand.*;
+import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCartService.handle;
+import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.productItems.ProductItems.ProductItem;
 
 @Validated
 @RestController

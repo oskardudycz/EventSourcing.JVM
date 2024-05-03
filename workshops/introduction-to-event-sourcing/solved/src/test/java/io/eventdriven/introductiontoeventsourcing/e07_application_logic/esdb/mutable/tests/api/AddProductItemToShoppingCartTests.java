@@ -1,8 +1,8 @@
-package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.tests.api;
+package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.tests.api;
 
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.ECommerceApplication;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.tests.api.builders.ShoppingCartRestBuilder;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.api.ShoppingCartsRequests.*;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.ECommerceApplication;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.tests.api.builders.ShoppingCartRestBuilder;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.api.ShoppingCartsRequests.*;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.testing.ApiSpecification;
 import org.json.JSONException;
 import org.json.JSONObject;

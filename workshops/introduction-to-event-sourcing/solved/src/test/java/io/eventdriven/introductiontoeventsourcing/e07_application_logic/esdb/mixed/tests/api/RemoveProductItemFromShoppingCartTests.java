@@ -1,10 +1,10 @@
-package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.tests.api;
+package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.tests.api;
 
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.ECommerceApplication;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.ShoppingCart;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.productItems.ProductItems;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.tests.api.builders.ShoppingCartRestBuilder;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.api.ShoppingCartsRequests.ProductItemRequest;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.ECommerceApplication;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCart;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.productItems.ProductItems;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.tests.api.builders.ShoppingCartRestBuilder;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.api.ShoppingCartsRequests.ProductItemRequest;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -1,6 +1,6 @@
-package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.tests.api.builders;
+package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.tests.api.builders;
 
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.api.ShoppingCartsRequests.*;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.api.ShoppingCartsRequests.*;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.*;
 

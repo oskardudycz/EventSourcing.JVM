@@ -1,13 +1,13 @@
-package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app;
+package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app;
 
 import com.eventstore.dbclient.EventStoreDBClient;
 import com.eventstore.dbclient.EventStoreDBClientSettings;
 import com.eventstore.dbclient.EventStoreDBConnectionString;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.eventStoreDB.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.http.GlobalExceptionHandler;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.ShoppingCartStore;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.productItems.FakeProductPriceCalculator;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.productItems.ProductPriceCalculator;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts.ShoppingCartStore;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts.productItems.FakeProductPriceCalculator;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts.productItems.ProductPriceCalculator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
