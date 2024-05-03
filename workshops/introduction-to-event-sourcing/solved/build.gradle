@@ -1,5 +1,7 @@
 plugins {
   id 'java'
+  id 'org.springframework.boot' version '3.2.5'
+  id 'io.spring.dependency-management' version '1.1.4'
 }
 
 java {
@@ -17,24 +19,43 @@ repositories {
 }
 
 dependencies {
+  // Spring Boot Web
+  implementation 'org.springframework.boot:spring-boot-starter-web:3.2.5'
+  // Validation
+  implementation 'org.springframework.boot:spring-boot-starter-validation:3.2.5'
+  // Retry policy
+  implementation 'org.springframework.retry:spring-retry:2.0.5'
+  // Swagger
+  implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
+
   // Serialisation
   implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
   implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.0'
+  implementation 'com.fasterxml.jackson.core:jackson-core:2.17.0'
 
   // EventStoreDB client
   implementation 'com.eventstore:db-client-java:5.3.2'
 
   // Logging
+  implementation 'org.springframework.boot:spring-boot-starter-log4j2:3.2.5'
   implementation 'org.apache.logging.log4j:log4j-api:2.23.1'
   implementation 'org.apache.logging.log4j:log4j-core:2.23.1'
   implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.23.1'
 
   // Test frameworks
+  testImplementation 'org.springframework.boot:spring-boot-starter-test:3.2.5'
+
   testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.2'
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
   testImplementation 'org.junit.platform:junit-platform-launcher:1.10.2'
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+  testImplementation 'com.fasterxml.jackson.core:jackson-core:2.17.0'
   testImplementation 'org.assertj:assertj-core:3.24.2'
+}
+
+configurations {
+  all*.exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+  all*.exclude group: 'spring-boot-starter-test', module: 'junit'
 }
 
 tasks.named('test') {
