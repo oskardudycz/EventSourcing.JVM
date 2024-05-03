@@ -1,8 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts;
 
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.eventStoreDB.EventStore;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCart;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCartEvent;
 
 import java.util.List;
 import java.util.Optional;
@@ -16,23 +14,29 @@ public class ShoppingCartStore {
     this.eventStore = eventStore;
   }
 
-  public Optional<io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCart> get(UUID id) {
+  public Optional<ShoppingCart> get(UUID id) {
     return eventStore.aggregateStream(
-      io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCartEvent.class,
-      io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCart::evolve,
-      io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCart::initial,
+      ShoppingCartEvent.class,
+      (state, event) -> {
+        state.evolve(event);
+        return state;
+      },
+      ShoppingCart::initial,
       toStreamName(id)
     );
   }
 
-  public void add(UUID id, io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCartEvent event) {
+  public void add(UUID id, ShoppingCartEvent event) {
     eventStore.add(toStreamName(id), new Object[]{event});
   }
 
-  public void getAndUpdate(UUID id, Function<io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCart, io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCartEvent> handle) {
+  public void getAndUpdate(UUID id, Function<ShoppingCart, ShoppingCartEvent> handle) {
     eventStore.getAndUpdate(
       ShoppingCartEvent.class,
-      io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCart::evolve,
+      (state, event) -> {
+        state.evolve(event);
+        return state;
+      },
       ShoppingCart::initial,
       toStreamName(id),
       (state) -> List.of(handle.apply(state))

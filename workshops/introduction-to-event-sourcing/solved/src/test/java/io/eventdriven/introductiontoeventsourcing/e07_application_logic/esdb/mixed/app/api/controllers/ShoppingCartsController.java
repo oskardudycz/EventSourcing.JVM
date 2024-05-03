@@ -15,8 +15,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCartService.ShoppingCartCommand.*;
-import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCartService.handle;
 import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
 import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.productItems.ProductItems.ProductItem;
 
@@ -44,7 +42,7 @@ class ShoppingCartsController {
 
     store.add(
       cartId,
-      handle(new OpenShoppingCart(cartId, request.clientId()))
+      ShoppingCart.open(cartId, request.clientId()).getKey()
     );
 
     return ResponseEntity
@@ -62,16 +60,12 @@ class ShoppingCartsController {
 
     store.getAndUpdate(
       id,
-      state -> handle(
+      state -> state.addProduct(
         productPriceCalculator,
-        new AddProductItemToShoppingCart(
-          id,
-          new ProductItem(
-            request.productItem().productId(),
-            request.productItem().quantity()
-          )
-        ),
-        state
+        new ProductItem(
+          request.productItem().productId(),
+          request.productItem().quantity()
+        )
       )
     );
 
@@ -89,16 +83,12 @@ class ShoppingCartsController {
   ) {
     store.getAndUpdate(
       id,
-      state -> handle(
-        new RemoveProductItemFromShoppingCart(
-          id,
-          new PricedProductItem(
-            productId,
-            quantity,
-            price
-          )
-        ),
-        state
+      state -> state.removeProduct(
+        new PricedProductItem(
+          productId,
+          quantity,
+          price
+        )
       )
     );
 
@@ -113,10 +103,7 @@ class ShoppingCartsController {
   ) {
     store.getAndUpdate(
       id,
-      state -> handle(
-        new ConfirmShoppingCart(id),
-        state
-      )
+      ShoppingCart::confirm
     );
 
     return ResponseEntity
@@ -130,10 +117,7 @@ class ShoppingCartsController {
   ) {
     store.getAndUpdate(
       id,
-      state -> handle(
-        new CancelShoppingCart(id),
-        state
-      )
+      ShoppingCart::cancel
     );
 
     return ResponseEntity

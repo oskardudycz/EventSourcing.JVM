@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.ProductItems;
+package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.productItems;
 
 import java.util.UUID;
 

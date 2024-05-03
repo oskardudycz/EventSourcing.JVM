@@ -1,7 +1,7 @@
-package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.ProductItems;
+package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.productItems;
 
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.ProductItems.ProductItems.PricedProductItem;
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.ProductItems.ProductItems.ProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.productItems.ProductItems.PricedProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.productItems.ProductItems.ProductItem;
 
 public class FakeProductPriceCalculator implements ProductPriceCalculator {
   private final double value;
