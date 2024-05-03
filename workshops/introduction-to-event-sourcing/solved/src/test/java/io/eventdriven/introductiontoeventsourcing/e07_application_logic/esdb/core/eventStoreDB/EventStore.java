@@ -152,30 +152,4 @@ public class EventStore {
       throw new RuntimeException(e);
     }
   }
-
-//  public ETag handle(
-//    UUID id,
-//    Command command,
-//    ExpectedRevision expectedRevision
-//  ) {
-//    var streamId = mapToStreamId.apply(id);
-//    var entity = get(id);
-//
-//    if (entity.isEmpty() && !expectedRevision.equals(ExpectedRevision.noStream()))
-//      throw new EntityNotFoundException();
-//
-//    var event = handle.apply(command, entity.orElse(getDefault.get()));
-//
-//    try {
-//      var result = eventStore.appendToStream(
-//        streamId,
-//        AppendToStreamOptions.get().expectedRevision(expectedRevision),
-//        EventSerializer.serialize(event)
-//      ).get();
-//
-//      return toETag(result.getNextExpectedRevision());
-//    } catch (Throwable e) {
-//      throw new RuntimeException(e);
-//    }
-//  }
 }

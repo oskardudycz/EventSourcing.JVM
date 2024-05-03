@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app;
+package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app;
 
 import com.eventstore.dbclient.EventStoreDBClient;
 import com.eventstore.dbclient.EventStoreDBClientSettings;
@@ -7,9 +7,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.eventStoreDB.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.http.GlobalExceptionHandler;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.serializer.DefaultSerializer;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mixed.app.shoppingcarts.ShoppingCartStore;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mixed.app.shoppingcarts.productItems.FakeProductPriceCalculator;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mixed.app.shoppingcarts.productItems.ProductPriceCalculator;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.shoppingcarts.ShoppingCartStore;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.shoppingcarts.productItems.FakeProductPriceCalculator;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.shoppingcarts.productItems.ProductPriceCalculator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -57,7 +57,7 @@ class Config {
 
   @Primary
   @Bean
-  public GlobalExceptionHandler restResponseEntityExceptionHandler (){
-    return new GlobalExceptionHandler ();
+  public GlobalExceptionHandler restResponseEntityExceptionHandler() {
+    return new GlobalExceptionHandler();
   }
 }
