@@ -40,7 +40,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
     var getResult = GET(ShoppingCart.class)
       .apply(restTemplate, result.id().toString());
 
-    product = getResult.getBody().productItems().get(0);
+    product = getResult.getBody().productItems()[0];
   }
 
   @Test

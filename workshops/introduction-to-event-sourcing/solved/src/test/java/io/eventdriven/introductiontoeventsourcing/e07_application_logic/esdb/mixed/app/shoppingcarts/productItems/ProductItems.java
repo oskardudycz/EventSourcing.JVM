@@ -1,81 +1,91 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.productItems;
 
-import java.util.Arrays;
 import java.util.UUID;
-import java.util.stream.Stream;
 
-import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.functional.FunctionalTools.groupingByOrdered;
+public final class ProductItems {
+  public static class ProductItem {
+    private UUID productId;
+    private int quantity;
 
-public record ProductItems(
-  PricedProductItem[] values
-) {
-  public static ProductItems empty() {
-    return new ProductItems(new PricedProductItem[]{});
+    public ProductItem(UUID productId, int quantity) {
+      this.setProductId(productId);
+      this.setQuantity(quantity);
+    }
+
+    public ProductItem(){}
+
+    public UUID productId() {
+      return productId;
+    }
+
+    public void setProductId(UUID productId) {
+      this.productId = productId;
+    }
+
+    public int quantity() {
+      return quantity;
+    }
+
+    public void setQuantity(int quantity) {
+      this.quantity = quantity;
+    }
+
+    public void add(int quantity) {
+      this.quantity += quantity;
+    }
+
+    public void subtract(int quantity) {
+      this.quantity -= quantity;
+    }
   }
 
-  public ProductItems add(PricedProductItem productItem) {
-    return new ProductItems(
-      Stream.concat(Arrays.stream(values), Stream.of(productItem))
-        .collect(groupingByOrdered(PricedProductItem::productId))
-        .entrySet().stream()
-        .map(group -> group.getValue().size() == 1 ?
-          group.getValue().getFirst() :
-          new PricedProductItem(
-            group.getKey(),
-            group.getValue().stream().mapToInt(PricedProductItem::quantity).sum(),
-            group.getValue().getFirst().unitPrice()
-          )
-        )
-        .toArray(PricedProductItem[]::new)
-    );
-  }
+  public static class PricedProductItem {
+    private UUID productId;
+    private double unitPrice;
+    private int quantity;
 
-  public ProductItems remove(PricedProductItem productItem) {
-    return new ProductItems(
-      Arrays.stream(values())
-        .map(pi -> pi.productId().equals(productItem.productId()) ?
-          new PricedProductItem(
-            pi.productId(),
-            pi.quantity() - productItem.quantity(),
-            pi.unitPrice()
-          )
-          : pi
-        )
-        .filter(pi -> pi.quantity > 0)
-        .toArray(PricedProductItem[]::new)
-    );
-  }
+    public PricedProductItem(UUID productId, int quantity, double unitPrice) {
+      this.setProductId(productId);
+      this.setUnitPrice(unitPrice);
+      this.setQuantity(quantity);
+    }
 
-  public boolean hasEnough(PricedProductItem productItem) {
-    var currentQuantity = Arrays.stream(values)
-      .filter(pi -> pi.productId().equals(productItem.productId()))
-      .mapToInt(PricedProductItem::quantity)
-      .sum();
+    public PricedProductItem(){}
 
-    return currentQuantity >= productItem.quantity();
-  }
+    private double totalAmount() {
+      return quantity() * unitPrice();
+    }
 
-  public PricedProductItem get(int index) {
-    return values[index];
-  }
+    public UUID productId() {
+      return productId;
+    }
 
-  public int size() {
-    return values.length;
-  }
+    public void setProductId(UUID productId) {
+      this.productId = productId;
+    }
 
-  public record ProductItem(
-    UUID productId,
-    int quantity
-  ) {
-  }
+    public double unitPrice() {
+      return unitPrice;
+    }
 
-  public record PricedProductItem(
-    UUID productId,
-    int quantity,
-    double unitPrice
-  ) {
-    public double totalAmount() {
-      return quantity * unitPrice;
+    public void setUnitPrice(double unitPrice) {
+      this.unitPrice = unitPrice;
+    }
+
+    public int quantity() {
+      return quantity;
+    }
+
+    public void setQuantity(int quantity) {
+      this.quantity = quantity;
+    }
+
+    public void add(int quantity) {
+      this.quantity += quantity;
+    }
+
+    public void subtract(int quantity) {
+      this.quantity -= quantity;
     }
   }
 }

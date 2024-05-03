@@ -1,6 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2;
 
-import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.ProductItems.ProductPriceCalculator;
+import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.productItems.ProductPriceCalculator;
 
 import java.time.OffsetDateTime;
 import java.util.AbstractMap.*;
@@ -9,12 +9,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.ProductItems.ProductItems.PricedProductItem;
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.ProductItems.ProductItems.ProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.productItems.ProductItems.PricedProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.productItems.ProductItems.ProductItem;
 import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution2.ShoppingCartEvent.*;
 
 // ENTITY
-public class ShoppingCart implements Aggregate<ShoppingCartEvent> {
+public class ShoppingCart {
   public enum Status {
     Pending,
     Confirmed,
@@ -137,7 +137,6 @@ public class ShoppingCart implements Aggregate<ShoppingCartEvent> {
     return canceledAt;
   }
 
-  @Override
   public void evolve(ShoppingCartEvent event) {
     switch (event) {
       case ShoppingCartOpened opened -> apply(opened);
