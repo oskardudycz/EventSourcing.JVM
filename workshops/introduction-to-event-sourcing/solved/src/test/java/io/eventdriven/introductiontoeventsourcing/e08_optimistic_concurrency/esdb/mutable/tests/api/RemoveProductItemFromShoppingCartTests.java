@@ -1,20 +1,17 @@
-package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.tests.api;
+package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.tests.api;
 
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.ECommerceApplication;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCart;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.tests.api.builders.ShoppingCartRestBuilder;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.api.ShoppingCartsRequests.ProductItemRequest;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.http.ETag;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.ECommerceApplication;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.api.ShoppingCartsRequests.ProductItemRequest;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.shoppingcarts.ShoppingCart;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.shoppingcarts.productItems.ProductItems;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.tests.api.builders.ShoppingCartRestBuilder;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.UUID;
-import java.util.stream.Stream;
 
 @SpringBootTest(classes = ECommerceApplication.class,
   webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -43,7 +40,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
     var getResult = GET(ETag.weak(eTag.toLong() - 1), ShoppingCart.class)
       .apply(restTemplate, result.id().toString());
 
-    product = getResult.getBody().productItems().get(0);
+    product = getResult.getBody().productItems()[0];
   }
 
   @Test
