@@ -3,8 +3,10 @@ package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.im
 import com.eventstore.dbclient.EventStoreDBClient;
 import com.eventstore.dbclient.EventStoreDBClientSettings;
 import com.eventstore.dbclient.EventStoreDBConnectionString;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.eventStoreDB.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.http.GlobalExceptionHandler;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.serializer.DefaultSerializer;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.ShoppingCartStore;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.productItems.FakeProductPriceCalculator;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.productItems.ProductPriceCalculator;
@@ -17,6 +19,11 @@ import org.springframework.web.context.annotation.ApplicationScope;
 
 @Configuration
 class Config {
+  @Bean
+  ObjectMapper defaultJSONMapper() {
+    return DefaultSerializer.mapper;
+  }
+
   @Bean
   @Scope("singleton")
   EventStoreDBClient eventStoreDBClient(@Value("${esdb.connectionstring}") String connectionString) {
@@ -31,8 +38,8 @@ class Config {
 
   @Bean
   @Scope("singleton")
-  EventStore eventStore(EventStoreDBClient eventStoreDBClient) {
-    return new EventStore(eventStoreDBClient);
+  EventStore eventStore(EventStoreDBClient eventStoreDBClient, ObjectMapper mapper) {
+    return new EventStore(eventStoreDBClient, mapper);
   }
 
   @Bean
