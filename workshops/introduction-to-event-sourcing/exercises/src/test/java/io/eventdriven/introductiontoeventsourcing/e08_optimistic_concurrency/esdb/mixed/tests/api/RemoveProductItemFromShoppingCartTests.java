@@ -8,6 +8,7 @@ import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esd
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mixed.tests.api.builders.ShoppingCartRestBuilder;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -43,6 +44,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
     product = getResult.getBody().productItems()[0];
   }
 
+  @Tag("Exercise")
   @Test
   public void removeProductItem_succeeds_forNotAllProductsAndExistingShoppingCart() {
     given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity() - 1))
@@ -50,6 +52,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       .then(OK);
   }
 
+  @Tag("Exercise")
   @Test
   public void removeProductItem_succeeds_forAllProductsAndExistingShoppingCart() {
     given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity()))
@@ -57,6 +60,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       .then(OK);
   }
 
+  @Tag("Exercise")
   @Test
   public void removeProductItem_fails_withMethodNotAllowed_forMissingShoppingCartId() {
     given(() -> "")
@@ -64,6 +68,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       .then(METHOD_NOT_ALLOWED);
   }
 
+  @Tag("Exercise")
   @Test
   public void removeProductItem_fails_withNotFound_forNotExistingShoppingCart() {
     var notExistingId = UUID.randomUUID();
@@ -73,6 +78,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       .then(NOT_FOUND);
   }
 
+  @Tag("Exercise")
   @Test
   public void removeProductItem_fails_withConflict_forConfirmedShoppingCart() {
     var result =
@@ -84,6 +90,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       .then(CONFLICT);
   }
 
+  @Tag("Exercise")
   @Test
   public void removeProductItem_fails_withConflict_forCanceledShoppingCart() {
     var result =
@@ -95,6 +102,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       .then(CONFLICT);
   }
 
+  @Tag("Exercise")
   @Test
   public void removeProductItem_fails_withPreconditionFailed_forWrongETag() {
     var wrongETag = ETag.weak(999);

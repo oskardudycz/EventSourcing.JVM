@@ -36,14 +36,7 @@ public class EventStore {
     Supplier<State> getInitial,
     String streamName
   ) {
-    return aggregateStream(eventClass,
-      (state, event) -> {
-        state.evolve(event);
-        return state;
-      },
-      getInitial,
-      streamName
-    );
+    throw new RuntimeException();
   }
 
   public <State, Event> Optional<State> aggregateStream(
@@ -52,40 +45,15 @@ public class EventStore {
     Supplier<State> getInitial,
     String streamName
   ) {
-    try {
-      return Optional.of(
-        eventStore.readStream(streamName, ReadStreamOptions.get()).get()
-          .getEvents().stream()
-          .map(this::deserialize)
-          .filter(eventClass::isInstance)
-          .map(eventClass::cast)
-          .collect(foldLeft(getInitial, evolve))
-      );
-    } catch (Throwable e) {
-      Throwable innerException = e.getCause();
-
-      if (innerException instanceof StreamNotFoundException) {
-        return Optional.empty();
-      }
-      throw new RuntimeException(e);
-    }
+    throw new RuntimeException();
   }
-
 
   public <State extends Aggregate> void add(String streamName, State aggregate) {
     add(streamName, aggregate.dequeueUncommittedEvents().toArray());
   }
 
   public void add(String streamName, Object[] events) {
-    try {
-      eventStore.appendToStream(
-        streamName,
-        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
-        Arrays.stream(events).map(this::serialize).iterator()
-      ).get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
-    }
+    throw new RuntimeException();
   }
 
   public <State extends Aggregate<Event>, Event> void getAndUpdate(
@@ -94,19 +62,7 @@ public class EventStore {
     String streamName,
     Consumer<State> handle
   ) {
-    getAndUpdate(eventClass,
-      (state, event) -> {
-        state.evolve(event);
-        return state;
-      },
-      getInitial,
-      streamName,
-      (state) -> {
-        handle.accept(state);
-
-        return state.dequeueUncommittedEvents();
-      }
-    );
+    throw new RuntimeException();
   }
 
   public <State, Event> void getAndUpdate(
@@ -116,40 +72,6 @@ public class EventStore {
     String streamName,
     Function<State, List<Event>> handle
   ) {
-    var entity = aggregateStream(eventClass, evolve, getInitial, streamName)
-      .orElseThrow(EntityNotFoundException::new);
-
-    var events = handle.apply(entity);
-
-    try {
-      eventStore.appendToStream(
-        streamName,
-        events.stream().map(this::serialize).iterator()
-      ).get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private EventData serialize(Object event) {
-    try {
-      return EventDataBuilder.json(
-        UUID.randomUUID(),
-        event.getClass().getTypeName(),
-        mapper.writeValueAsBytes(event)
-      ).build();
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private Object deserialize(ResolvedEvent resolvedEvent) {
-    try {
-      var eventClass = Class.forName(
-        resolvedEvent.getOriginalEvent().getEventType());
-      return mapper.readValue(resolvedEvent.getEvent().getEventData(), eventClass);
-    } catch (IOException | ClassNotFoundException e) {
-      throw new RuntimeException(e);
-    }
+    throw new RuntimeException();
   }
 }
