@@ -28,7 +28,7 @@ import static io.eventdriven.introductiontoeventsourcing.e06_business_logic.esdb
 public class EventStore {
   private final EventStoreDBClient eventStore;
 
-  private static final ObjectMapper mapper =
+  public static final ObjectMapper mapper =
     new JsonMapper()
       .registerModule(new JavaTimeModule())
       .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
