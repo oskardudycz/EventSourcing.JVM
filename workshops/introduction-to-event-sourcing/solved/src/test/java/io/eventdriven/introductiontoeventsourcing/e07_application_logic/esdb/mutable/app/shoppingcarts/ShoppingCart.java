@@ -1,156 +1,219 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts;
 
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts.productItems.ProductItems;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.entities.Aggregate;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts.productItems.ProductPriceCalculator;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts.productItems.ProductItems.ProductItem;
 
-public record ShoppingCart(
-  UUID id,
-  UUID clientId,
-  Status status,
-  ProductItems productItems,
-  OffsetDateTime confirmedAt,
-  OffsetDateTime canceledAt
-) {
+// ENTITY
+public class ShoppingCart extends Aggregate<ShoppingCartEvent> {
   public enum Status {
     Pending,
     Confirmed,
     Canceled
   }
 
-  public boolean isClosed() {
-    return status == Status.Confirmed || status == Status.Canceled;
+  private UUID id;
+  private UUID clientId;
+  private Status status;
+  private List<PricedProductItem> productItems = new ArrayList<>();
+  private OffsetDateTime confirmedAt;
+  private OffsetDateTime canceledAt;
+
+  public ShoppingCart(UUID id, UUID clientId, Status status, List<PricedProductItem> productItems, OffsetDateTime confirmedAt, OffsetDateTime canceledAt) {
+    this.id = id;
+    this.clientId = clientId;
+    this.status = status;
+    this.productItems = productItems;
+    this.confirmedAt = confirmedAt;
+    this.canceledAt = canceledAt;
   }
 
   public static ShoppingCart initial() {
-    return new ShoppingCart(null, null, null, null, null, null);
+    return new ShoppingCart();
   }
 
-  public static ShoppingCart evolve(ShoppingCart state, ShoppingCartEvent event) {
-    return switch (event) {
-      case ShoppingCartOpened opened -> new ShoppingCart(
-        opened.shoppingCartId(),
-        opened.clientId(),
-        Status.Pending,
-        ProductItems.empty(),
-        null,
-        null
+  private ShoppingCart() {
+  }
+
+  public static ShoppingCart open(UUID shoppingCartId, UUID clientId) {
+    var shoppingCart = initial();
+
+    shoppingCart.enqueue(new ShoppingCartOpened(shoppingCartId, clientId));
+
+    return shoppingCart;
+  }
+
+  public void addProduct(
+    ProductPriceCalculator productPriceCalculator,
+    ProductItem productItem
+  ) {
+    if (isClosed())
+      throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(status));
+
+    var pricedProductItem = productPriceCalculator.calculate(productItem);
+
+    enqueue(new ProductItemAddedToShoppingCart(
+      id,
+      pricedProductItem
+    ));
+  }
+
+  public void removeProduct(
+    PricedProductItem productItem
+  ) {
+    if (isClosed())
+      throw new IllegalStateException("Adding product item for cart in '%s' status is not allowed.".formatted(status));
+
+    if (!hasEnough(productItem))
+      throw new IllegalStateException("Not enough product items to remove");
+
+    enqueue(new ProductItemRemovedFromShoppingCart(
+      id,
+      productItem
+    ));
+  }
+
+  public void confirm() {
+    if (isClosed())
+      throw new IllegalStateException("Confirming cart in '%s' status is not allowed.".formatted(status));
+
+    enqueue(new ShoppingCartConfirmed(
+      id,
+      OffsetDateTime.now()
+    ));
+  }
+
+  public void cancel() {
+    if (isClosed())
+      throw new IllegalStateException("Canceling cart in '%s' status is not allowed.".formatted(status));
+
+    enqueue(new ShoppingCartCanceled(
+      id,
+      OffsetDateTime.now()
+    ));
+  }
+
+  private boolean isClosed() {
+    return status == Status.Confirmed || status == Status.Canceled;
+  }
+
+  public boolean hasEnough(PricedProductItem productItem) {
+    var currentQuantity = productItems.stream()
+      .filter(pi -> pi.productId().equals(productItem.productId()))
+      .mapToInt(PricedProductItem::quantity)
+      .sum();
+
+    return currentQuantity >= productItem.quantity();
+  }
+  public void evolve(ShoppingCartEvent event) {
+    switch (event) {
+      case ShoppingCartOpened opened -> apply(opened);
+      case ProductItemAddedToShoppingCart productItemAdded ->
+        apply(productItemAdded);
+      case ProductItemRemovedFromShoppingCart productItemRemoved ->
+        apply(productItemRemoved);
+      case ShoppingCartConfirmed confirmed -> apply(confirmed);
+      case ShoppingCartCanceled canceled -> apply(canceled);
+    }
+  }
+
+  private void apply(ShoppingCartOpened event) {
+    setId(event.shoppingCartId());
+    setClientId(event.clientId());
+    setStatus(Status.Pending);
+    setProductItems(new ArrayList<>());
+  }
+
+  private void apply(ProductItemAddedToShoppingCart event) {
+    var pricedProductItem = event.productItem();
+    var productId = pricedProductItem.productId();
+    var quantityToAdd = pricedProductItem.quantity();
+
+    productItems.stream()
+      .filter(pi -> pi.productId().equals(productId))
+      .findAny()
+      .ifPresentOrElse(
+        current -> current.add(quantityToAdd),
+        () -> productItems.add(pricedProductItem)
       );
-      case ProductItemAddedToShoppingCart(_, var productItem) ->
-        new ShoppingCart(
-          state.id,
-          state.clientId,
-          state.status,
-          state.productItems.add(productItem),
-          state.confirmedAt,
-          state.canceledAt
-        );
-      case ProductItemRemovedFromShoppingCart(_, var productItem) ->
-        new ShoppingCart(
-          state.id,
-          state.clientId,
-          state.status,
-          state.productItems.remove(productItem),
-          state.confirmedAt,
-          state.canceledAt
-        );
-      case ShoppingCartConfirmed _ ->
-        new ShoppingCart(
-          state.id,
-          state.clientId,
-          Status.Confirmed,
-          state.productItems,
-          state.confirmedAt,
-          state.canceledAt
-        );
-      case ShoppingCartCanceled _ ->
-        new ShoppingCart(
-          state.id,
-          state.clientId,
-          Status.Canceled,
-          state.productItems,
-          state.confirmedAt,
-          state.canceledAt
-        );
-    };
+  }
+
+  private void apply(ProductItemRemovedFromShoppingCart event) {
+    var pricedProductItem = event.productItem();
+    var productId = pricedProductItem.productId();
+    var quantityToRemove = pricedProductItem.quantity();
+
+    productItems.stream()
+      .filter(pi -> pi.productId().equals(productId))
+      .findAny()
+      .ifPresentOrElse(
+        current -> current.subtract(quantityToRemove),
+        () -> productItems.add(pricedProductItem)
+      );
+  }
+
+  private void apply(ShoppingCartConfirmed event) {
+    setStatus(Status.Confirmed);
+    setConfirmedAt(event.confirmedAt());
+  }
+
+  private void apply(ShoppingCartCanceled event) {
+    setStatus(Status.Canceled);
+    setConfirmedAt(event.canceledAt());
+  }
+
+  public UUID id() {
+    return id;
+  }
+
+  public void setId(UUID id) {
+    this.id = id;
+  }
+
+  public UUID clientId() {
+    return clientId;
+  }
+
+  public void setClientId(UUID clientId) {
+    this.clientId = clientId;
+  }
+
+  public Status status() {
+    return status;
+  }
+
+  public void setStatus(Status status) {
+    this.status = status;
+  }
+
+  public PricedProductItem[] productItems() {
+    return productItems.toArray(PricedProductItem[]::new);
+  }
+  public void setProductItems(List<PricedProductItem> productItems) {
+    this.productItems = productItems;
+  }
+
+  public OffsetDateTime confirmedAt() {
+    return confirmedAt;
+  }
+
+  public void setConfirmedAt(OffsetDateTime confirmedAt) {
+    this.confirmedAt = confirmedAt;
+  }
+
+  public OffsetDateTime canceledAt() {
+    return canceledAt;
+  }
+
+  public void setCanceledAt(OffsetDateTime canceledAt) {
+    this.canceledAt = canceledAt;
   }
 }
-//
-//static ShoppingCart evolve(EventStoreDBClient eventStore, String streamName) {
-//  // 1. Add logic here
-//  ShoppingCart shoppingCart = null;
-//
-//
-//  for (var event : getEvents(eventStore, streamName)) {
-//    switch (event) {
-//      case ShoppingCartOpened opened -> shoppingCart = new ShoppingCart(
-//        opened.shoppingCartId(),
-//        opened.clientId(),
-//        ShoppingCartStatus.Pending,
-//        new PricedProductItem[]{},
-//        null,
-//        null
-//      );
-//      case ProductItemAddedToShoppingCart productItemAdded ->
-//        shoppingCart = new ShoppingCart(
-//          shoppingCart.id(),
-//          shoppingCart.clientId(),
-//          shoppingCart.status(),
-//          Stream.concat(Arrays.stream(shoppingCart.productItems()), Stream.of(productItemAdded.productItem()))
-//            .collect(groupingByOrdered(PricedProductItem::productId))
-//            .entrySet().stream()
-//            .map(group -> group.getValue().size() == 1 ?
-//              group.getValue().get(0) :
-//              new PricedProductItem(
-//                group.getKey(),
-//                group.getValue().stream().mapToInt(PricedProductItem::quantity).sum(),
-//                group.getValue().get(0).unitPrice()
-//              )
-//            )
-//            .toArray(PricedProductItem[]::new),
-//          shoppingCart.confirmedAt(),
-//          shoppingCart.canceledAt()
-//        );
-//      case ProductItemRemovedFromShoppingCart productItemRemoved ->
-//        shoppingCart = new ShoppingCart(
-//          shoppingCart.id(),
-//          shoppingCart.clientId(),
-//          shoppingCart.status(),
-//          Arrays.stream(shoppingCart.productItems())
-//            .map(pi -> pi.productId().equals(productItemRemoved.productItem().productId()) ?
-//              new PricedProductItem(
-//                pi.productId(),
-//                pi.quantity() - productItemRemoved.productItem().quantity(),
-//                pi.unitPrice()
-//              )
-//              : pi
-//            )
-//            .filter(pi -> pi.quantity > 0)
-//            .toArray(PricedProductItem[]::new),
-//          shoppingCart.confirmedAt(),
-//          shoppingCart.canceledAt()
-//        );
-//      case ShoppingCartConfirmed confirmed -> shoppingCart = new ShoppingCart(
-//        shoppingCart.id(),
-//        shoppingCart.clientId(),
-//        ShoppingCartStatus.Confirmed,
-//        shoppingCart.productItems(),
-//        confirmed.confirmedAt(),
-//        shoppingCart.canceledAt()
-//      );
-//      case ShoppingCartCanceled canceled -> shoppingCart = new ShoppingCart(
-//        shoppingCart.id(),
-//        shoppingCart.clientId(),
-//        ShoppingCartStatus.Canceled,
-//        shoppingCart.productItems(),
-//        shoppingCart.confirmedAt(),
-//        canceled.canceledAt()
-//      );
-//    }
-//  }
-//
-//  return shoppingCart;
-//}

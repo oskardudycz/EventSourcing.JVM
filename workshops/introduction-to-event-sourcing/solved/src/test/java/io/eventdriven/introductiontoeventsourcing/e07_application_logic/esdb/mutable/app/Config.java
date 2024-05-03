@@ -3,6 +3,7 @@ package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mu
 import com.eventstore.dbclient.EventStoreDBClient;
 import com.eventstore.dbclient.EventStoreDBClientSettings;
 import com.eventstore.dbclient.EventStoreDBConnectionString;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.eventStoreDB.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.http.GlobalExceptionHandler;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts.ShoppingCartStore;
@@ -17,6 +18,11 @@ import org.springframework.web.context.annotation.ApplicationScope;
 
 @Configuration
 class Config {
+  @Bean
+  ObjectMapper defaultJSONMapper() {
+    return EventStore.mapper;
+  }
+
   @Bean
   @Scope("singleton")
   EventStoreDBClient eventStoreDBClient(@Value("${esdb.connectionstring}") String connectionString) {

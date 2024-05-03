@@ -1,13 +1,10 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts;
 
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.eventStoreDB.EventStore;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts.ShoppingCart;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts.ShoppingCartEvent;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Function;
+import java.util.function.Consumer;
 
 public class ShoppingCartStore {
   private final EventStore eventStore;
@@ -19,23 +16,21 @@ public class ShoppingCartStore {
   public Optional<ShoppingCart> get(UUID id) {
     return eventStore.aggregateStream(
       ShoppingCartEvent.class,
-      ShoppingCart::evolve,
       ShoppingCart::initial,
       toStreamName(id)
     );
   }
 
-  public void add(UUID id, ShoppingCartEvent event) {
-    eventStore.add(toStreamName(id), new Object[]{event});
+  public void add(UUID id, ShoppingCart shoppingCart) {
+    eventStore.add(toStreamName(id), shoppingCart);
   }
 
-  public void getAndUpdate(UUID id, Function<ShoppingCart, ShoppingCartEvent> handle) {
+  public void getAndUpdate(UUID id, Consumer<ShoppingCart> handle) {
     eventStore.getAndUpdate(
       ShoppingCartEvent.class,
-      ShoppingCart::evolve,
       ShoppingCart::initial,
       toStreamName(id),
-      (state) -> List.of(handle.apply(state))
+      handle
     );
   }
 
