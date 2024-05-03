@@ -48,14 +48,13 @@ class ShoppingCartsController {
   ) throws URISyntaxException {
     var cartId = UUID.randomUUID();
 
-    var result = store.add(
+    store.add(
       cartId,
       handle(new OpenShoppingCart(cartId, request.clientId()))
     );
 
     return ResponseEntity
       .created(new URI("api/shopping-carts/%s".formatted(cartId)))
-      .eTag(result.value())
       .build();
   }
 
@@ -68,9 +67,8 @@ class ShoppingCartsController {
     if (request.productItem() == null)
       throw new IllegalArgumentException("Product Item has to be defined");
 
-    var result = store.getAndUpdate(
+    store.getAndUpdate(
       id,
-      ifMatch,
       state -> handle(
         productPriceCalculator,
         new AddProductItemToShoppingCart(
@@ -86,7 +84,6 @@ class ShoppingCartsController {
 
     return ResponseEntity
       .ok()
-      .eTag(result.value())
       .build();
   }
 
@@ -98,9 +95,8 @@ class ShoppingCartsController {
     @RequestParam @NotNull Double price,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
-    var result = store.getAndUpdate(
+    store.getAndUpdate(
       id,
-      ifMatch,
       state -> handle(
         new RemoveProductItemFromShoppingCart(
           id,
@@ -116,7 +112,6 @@ class ShoppingCartsController {
 
     return ResponseEntity
       .ok()
-      .eTag(result.value())
       .build();
   }
 
@@ -125,9 +120,8 @@ class ShoppingCartsController {
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
-    var result = store.getAndUpdate(
+    store.getAndUpdate(
       id,
-      ifMatch,
       state -> handle(
         new ConfirmShoppingCart(id),
         state
@@ -136,7 +130,6 @@ class ShoppingCartsController {
 
     return ResponseEntity
       .ok()
-      .eTag(result.value())
       .build();
   }
 
@@ -145,9 +138,8 @@ class ShoppingCartsController {
     @PathVariable UUID id,
     @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
   ) {
-    var result = store.getAndUpdate(
+    store.getAndUpdate(
       id,
-      ifMatch,
       state -> handle(
         new CancelShoppingCart(id),
         state
@@ -156,7 +148,6 @@ class ShoppingCartsController {
 
     return ResponseEntity
       .ok()
-      .eTag(result.value())
       .build();
   }
 
@@ -169,8 +160,7 @@ class ShoppingCartsController {
     return result
       .map(s -> ResponseEntity
         .ok()
-        .eTag(s.second().value())
-        .body(s.first())
+        .body(s)
       )
       .orElse(ResponseEntity.notFound().build());
   }
