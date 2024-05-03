@@ -8,6 +8,7 @@ import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esd
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -40,6 +41,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
     eTag = result.eTag();
   }
 
+  @Tag("Exercise")
   @Test
   public void addProductItem_succeeds_forValidDataAndExistingShoppingCart() {
     given(() ->
@@ -51,6 +53,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
       .then(OK);
   }
 
+  @Tag("Exercise")
   @Test
   public void addProductItem_succeeds_forValidDataAndNonEmptyExistingShoppingCart() {
     var result =
@@ -77,6 +80,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
       .then(BAD_REQUEST);
   }
 
+  @Tag("Exercise")
   @Test
   public void addProductItem_fails_withNotFound_forNotExistingShoppingCart() {
     var notExistingId = UUID.randomUUID();
@@ -90,6 +94,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
       .then(NOT_FOUND);
   }
 
+  @Tag("Exercise")
   @Test
   public void addProductItem_fails_withConflict_forConfirmedShoppingCart() {
     var result =
@@ -105,6 +110,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
       .then(CONFLICT);
   }
 
+  @Tag("Exercise")
   @Test
   public void addProductItem_fails_withConflict_forCanceledShoppingCart() {
     var result =
@@ -120,6 +126,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
       .then(CONFLICT);
   }
 
+  @Tag("Exercise")
   @Test
   public void addProductItem_fails_withPreconditionFailed_forWrongETag() {
     var wrongETag = ETag.weak(999);

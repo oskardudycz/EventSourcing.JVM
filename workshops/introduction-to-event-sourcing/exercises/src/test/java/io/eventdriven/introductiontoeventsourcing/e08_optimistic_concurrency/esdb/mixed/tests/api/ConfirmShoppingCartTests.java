@@ -6,6 +6,7 @@ import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esd
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mixed.tests.api.builders.ShoppingCartRestBuilder;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -32,6 +33,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
     eTag = result.eTag();
   }
 
+  @Tag("Exercise")
   @Test
   public void confirm_succeeds_forValidDataAndExistingShoppingCart() {
     given(() -> shoppingCartId)
@@ -39,6 +41,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
       .then(OK);
   }
 
+  @Tag("Exercise")
   @Test
   public void confirm_succeeds_forValidDataAndNonEmptyExistingShoppingCart() {
     var result =
@@ -53,6 +56,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
       .then(OK);
   }
 
+  @Tag("Exercise")
   @Test
   public void confirm_fails_withNotFound_forMissingShoppingCartId() {
     given(() -> "")
@@ -60,6 +64,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
       .then(NOT_FOUND);
   }
 
+  @Tag("Exercise")
   @Test
   public void confirm_fails_withNotFound_forNotExistingShoppingCart() {
     var notExistingId = UUID.randomUUID();
@@ -69,6 +74,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
       .then(NOT_FOUND);
   }
 
+  @Tag("Exercise")
   @Test
   public void confirm_fails_withConflict_forConfirmedShoppingCart() {
     var result =
@@ -80,6 +86,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
       .then(CONFLICT);
   }
 
+  @Tag("Exercise")
   @Test
   public void confirm_fails_withConflict_forCanceledShoppingCart() {
     var result =
@@ -91,6 +98,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
       .then(CONFLICT);
   }
 
+  @Tag("Exercise")
   @Test
   public void confirm_fails_withPreconditionFailed_forWrongETag() {
     var wrongETag = ETag.weak(999);

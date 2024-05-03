@@ -4,6 +4,7 @@ import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esd
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.api.ShoppingCartsRequests;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.testing.ApiSpecification;
 import org.json.JSONObject;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -18,6 +19,7 @@ public class OpenShoppingCartTests extends ApiSpecification {
     super("api/shopping-carts");
   }
 
+  @Tag("Exercise")
   @Test
   public void openShoppingCart_succeeds_forValidData() {
     given(() -> new ShoppingCartsRequests.Open(UUID.randomUUID()))
@@ -25,6 +27,7 @@ public class OpenShoppingCartTests extends ApiSpecification {
       .then(CREATED);
   }
 
+  @Tag("Exercise")
   @Test
   public void openShoppingCart_fails_withBadRequest_forInvalidBody() {
     given(() -> toHttpEntity(new JSONObject()))
