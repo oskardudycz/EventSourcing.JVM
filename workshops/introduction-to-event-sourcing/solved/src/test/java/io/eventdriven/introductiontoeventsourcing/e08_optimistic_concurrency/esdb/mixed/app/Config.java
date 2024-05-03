@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app;
+package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mixed.app;
 
 import com.eventstore.dbclient.EventStoreDBClient;
 import com.eventstore.dbclient.EventStoreDBClientSettings;
