@@ -1,8 +1,8 @@
-package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.tests.api;
+package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.tests.api;
 
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.ECommerceApplication;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.api.ShoppingCartsRequests.ProductItemRequest;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.tests.api.builders.ShoppingCartRestBuilder;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.ECommerceApplication;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.tests.api.builders.ShoppingCartRestBuilder;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.api.ShoppingCartsRequests.ProductItemRequest;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,11 +12,11 @@ import java.util.UUID;
 
 @SpringBootTest(classes = ECommerceApplication.class,
   webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class CancelShoppingCartTests extends ApiSpecification {
+public class ConfirmShoppingCartTests extends ApiSpecification {
   public final UUID clientId = UUID.randomUUID();
   private UUID shoppingCartId;
 
-  public CancelShoppingCartTests() {
+  public ConfirmShoppingCartTests() {
     super("api/shopping-carts");
   }
 
@@ -30,14 +30,14 @@ public class CancelShoppingCartTests extends ApiSpecification {
   }
 
   @Test
-  public void cancel_succeeds_forValidDataAndExistingShoppingCart() {
+  public void confirm_succeeds_forValidDataAndExistingShoppingCart() {
     given(() -> shoppingCartId)
-      .when(DELETE())
+      .when(PUT())
       .then(OK);
   }
 
   @Test
-  public void cancel_succeeds_forValidDataAndNonEmptyExistingShoppingCart() {
+  public void confirm_succeeds_forValidDataAndNonEmptyExistingShoppingCart() {
     var result =
       ShoppingCartRestBuilder.of(restTemplate, port)
         .build(cart -> cart
@@ -46,45 +46,45 @@ public class CancelShoppingCartTests extends ApiSpecification {
         );
 
     given(() -> result.id())
-      .when(DELETE())
+      .when(PUT())
       .then(OK);
   }
 
   @Test
-  public void cancel_fails_withMethodNotAllowed_forMissingShoppingCartId() {
+  public void confirm_fails_withNotFound_forMissingShoppingCartId() {
     given(() -> "")
-      .when(DELETE())
-      .then(METHOD_NOT_ALLOWED);
-  }
-
-  @Test
-  public void cancel_fails_withNotFound_forNotExistingShoppingCart() {
-    var notExistingId = UUID.randomUUID();
-
-    given(() -> notExistingId)
-      .when(DELETE())
+      .when(PUT())
       .then(NOT_FOUND);
   }
 
   @Test
-  public void cancel_fails_withConflict_forConfirmedShoppingCart() {
+  public void confirm_fails_withNotFound_forNotExistingShoppingCart() {
+    var notExistingId = UUID.randomUUID();
+
+    given(() -> notExistingId)
+      .when(PUT())
+      .then(NOT_FOUND);
+  }
+
+  @Test
+  public void confirm_fails_withConflict_forConfirmedShoppingCart() {
     var result =
       ShoppingCartRestBuilder.of(restTemplate, port)
         .build(cart -> cart.withClientId(clientId).confirmed());
 
     given(() -> result.id())
-      .when(DELETE())
+      .when(PUT())
       .then(CONFLICT);
   }
 
   @Test
-  public void cancel_fails_withConflict_forCanceledShoppingCart() {
+  public void confirm_fails_withConflict_forCanceledShoppingCart() {
     var result =
       ShoppingCartRestBuilder.of(restTemplate, port)
         .build(builder -> builder.withClientId(clientId).canceled());
 
     given(() -> result.id())
-      .when(DELETE())
+      .when(PUT())
       .then(CONFLICT);
   }
 }

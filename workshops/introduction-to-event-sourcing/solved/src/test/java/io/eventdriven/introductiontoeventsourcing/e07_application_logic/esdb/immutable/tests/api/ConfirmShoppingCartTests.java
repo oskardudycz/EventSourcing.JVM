@@ -3,7 +3,6 @@ package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.im
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.ECommerceApplication;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.tests.api.builders.ShoppingCartRestBuilder;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.api.ShoppingCartsRequests.ProductItemRequest;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.http.ETag;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,7 +15,6 @@ import java.util.UUID;
 public class ConfirmShoppingCartTests extends ApiSpecification {
   public final UUID clientId = UUID.randomUUID();
   private UUID shoppingCartId;
-  private ETag eTag;
 
   public ConfirmShoppingCartTests() {
     super("api/shopping-carts");
@@ -29,13 +27,12 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
         .build(cart -> cart.withClientId(clientId));
 
     shoppingCartId = result.id();
-    eTag = result.eTag();
   }
 
   @Test
   public void confirm_succeeds_forValidDataAndExistingShoppingCart() {
     given(() -> shoppingCartId)
-      .when(PUT(eTag))
+      .when(PUT())
       .then(OK);
   }
 
@@ -49,14 +46,14 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
         );
 
     given(() -> result.id())
-      .when(PUT(result.eTag()))
+      .when(PUT())
       .then(OK);
   }
 
   @Test
   public void confirm_fails_withNotFound_forMissingShoppingCartId() {
     given(() -> "")
-      .when(PUT(eTag))
+      .when(PUT())
       .then(NOT_FOUND);
   }
 
@@ -65,7 +62,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
     var notExistingId = UUID.randomUUID();
 
     given(() -> notExistingId)
-      .when(PUT(eTag))
+      .when(PUT())
       .then(NOT_FOUND);
   }
 
@@ -76,7 +73,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
         .build(cart -> cart.withClientId(clientId).confirmed());
 
     given(() -> result.id())
-      .when(PUT(result.eTag()))
+      .when(PUT())
       .then(CONFLICT);
   }
 
@@ -87,16 +84,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
         .build(builder -> builder.withClientId(clientId).canceled());
 
     given(() -> result.id())
-      .when(PUT(result.eTag()))
+      .when(PUT())
       .then(CONFLICT);
-  }
-
-  @Test
-  public void confirm_fails_withPreconditionFailed_forWrongETag() {
-    var wrongETag = ETag.weak(999);
-
-    given(() -> shoppingCartId)
-      .when(PUT(wrongETag))
-      .then(PRECONDITION_FAILED);
   }
 }

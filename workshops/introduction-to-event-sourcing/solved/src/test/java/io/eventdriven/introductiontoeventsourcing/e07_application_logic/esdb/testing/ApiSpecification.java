@@ -1,12 +1,10 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.testing;
 
 
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.http.ETag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
-import org.springframework.lang.Nullable;
 
 import java.util.UUID;
 import java.util.function.BiFunction;
@@ -40,30 +38,20 @@ public abstract class ApiSpecification {
   ////   WHEN    ////
   ///////////////////
 
+
   public <T> BiFunction<TestRestTemplate, Object, ResponseEntity<T>> GET(Class<T> entityClass) {
     return GET("", entityClass);
   }
 
   public <T> BiFunction<TestRestTemplate, Object, ResponseEntity<T>> GET(String urlSuffix, Class<T> entityClass) {
-    return GET(urlSuffix, null, entityClass);
-  }
-
-  public <T> BiFunction<TestRestTemplate, Object, ResponseEntity<T>> GET(@Nullable ETag eTag, Class<T> entityClass) {
-    return GET("", eTag, entityClass);
-  }
-
-  public <T> BiFunction<TestRestTemplate, Object, ResponseEntity<T>> GET(String urlSuffix, @Nullable ETag eTag, Class<T> entityClass) {
     var headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
-    if (eTag != null) {
-      headers.setIfNoneMatch(eTag.value());
-    }
 
     return (api, request) -> this.restTemplate
       .exchange(
         getApiUrl() + urlSuffix + (request != "" ? "/%s".formatted(request) : request),
         HttpMethod.GET,
-        new HttpEntity<>(null, getIfNoneMatchHeader(eTag)),
+        new HttpEntity<>(null),
         entityClass
       );
   }
@@ -75,43 +63,34 @@ public abstract class ApiSpecification {
       .postForEntity(getApiUrl() + urlSuffix, request, Void.class);
   }
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> POST(String urlSuffix, ETag eTag) {
-    return (api, request) -> this.restTemplate
-      .postForEntity(
-        getApiUrl() + urlSuffix,
-        new HttpEntity<>(request, getIfMatchHeader(eTag)),
-        Void.class
-      );
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT() {
+    return PUT("");
   }
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT(ETag eTag) {
-    return PUT("", eTag);
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT(String urlSuffix) {
+    return PUT(urlSuffix, true);
   }
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT(String urlSuffix, ETag eTag) {
-    return PUT(urlSuffix, eTag, true);
-  }
-
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT(String urlSuffix, ETag eTag, boolean withEmptyBody) {
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT(String urlSuffix, boolean withEmptyBody) {
     return (api, request) -> this.restTemplate
       .exchange(
         getApiUrl() + urlSuffix + (withEmptyBody ? "/%s".formatted(request) : ""),
         HttpMethod.PUT,
-        new HttpEntity<>(!withEmptyBody ? request : null, getIfMatchHeader(eTag)),
+        new HttpEntity<>(!withEmptyBody ? request : null),
         Void.class
       );
   }
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> DELETE(ETag eTag) {
-    return DELETE("", eTag);
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> DELETE() {
+    return DELETE("");
   }
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> DELETE(String urlSuffix, ETag eTag) {
+  public BiFunction<TestRestTemplate, Object, ResponseEntity> DELETE(String urlSuffix) {
     return (api, request) -> this.restTemplate
       .exchange(
         getApiUrl() + urlSuffix + (request != "" ? "/%s".formatted(request) : request),
         HttpMethod.DELETE,
-        new HttpEntity<>(null, getIfMatchHeader(eTag)),
+        new HttpEntity<>(null),
         Void.class
       );
   }
@@ -124,18 +103,6 @@ public abstract class ApiSpecification {
 
     return headers;
   }
-
-  HttpHeaders getIfMatchHeader(ETag eTag) {
-    return getHeaders(headers -> headers.setIfMatch(eTag.value()));
-  }
-
-  HttpHeaders getIfNoneMatchHeader(@Nullable ETag eTag) {
-    return getHeaders(headers -> {
-      if (eTag != null)
-        headers.setIfNoneMatch(eTag.value());
-    });
-  }
-
 
   ///////////////////
   ////   THEN    ////
