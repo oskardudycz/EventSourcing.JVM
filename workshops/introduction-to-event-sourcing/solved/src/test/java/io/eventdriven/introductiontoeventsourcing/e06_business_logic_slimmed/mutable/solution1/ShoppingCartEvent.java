@@ -3,7 +3,7 @@ package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mu
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.ProductItems.ProductItems.*;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.productItems.ProductItems.*;
 
 public sealed interface ShoppingCartEvent {
   record ShoppingCartOpened(

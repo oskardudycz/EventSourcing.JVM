@@ -1,14 +1,14 @@
-package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable;
+package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts;
 
-import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.productItems.ProductPriceCalculator;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductPriceCalculator;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.productItems.ProductItems.PricedProductItem;
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.productItems.ProductItems.ProductItem;
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ShoppingCartEvent.*;
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ShoppingCartService.ShoppingCartCommand.*;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems.ProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCartEvent.*;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCartService.ShoppingCartCommand.*;
 
 public class ShoppingCartService {
   public sealed interface ShoppingCartCommand {

@@ -1,12 +1,12 @@
 package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1;
 
 import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.tools.EventStore;
-import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.ProductItems.*;
+import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.productItems.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.ProductItems.ProductItems.*;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.productItems.ProductItems.*;
 import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.ShoppingCartEvent.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
