@@ -1,10 +1,10 @@
-package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.api.controllers;
+package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.api.controllers;
 
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.http.ETag;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.api.ShoppingCartsRequests;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.ShoppingCart;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.ShoppingCartStore;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.productItems.ProductPriceCalculator;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.http.ETag;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.api.ShoppingCartsRequests;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCart;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCartStore;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductPriceCalculator;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -21,10 +21,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.ShoppingCartService.ShoppingCartCommand.*;
-import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.ShoppingCartService.handle;
-import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
-import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.productItems.ProductItems.ProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCartService.ShoppingCartCommand.*;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCartService.handle;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems.ProductItem;
 
 @Validated
 @RestController

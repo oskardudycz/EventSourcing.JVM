@@ -1,9 +1,9 @@
-package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts;
+package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.immutable.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
 
 public sealed interface ShoppingCartEvent {
   record ShoppingCartOpened(

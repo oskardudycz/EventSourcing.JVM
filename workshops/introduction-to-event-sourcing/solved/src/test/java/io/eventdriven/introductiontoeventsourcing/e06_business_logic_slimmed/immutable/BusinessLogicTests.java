@@ -1,15 +1,14 @@
 package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable;
 
-import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ProductItems.FakeProductPriceCalculator;
+import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.productItems.FakeProductPriceCalculator;
 import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.tools.EventStore;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
 import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.FunctionalTools.FoldLeft.foldLeft;
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ProductItems.ProductItems.PricedProductItem;
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ProductItems.ProductItems.ProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.productItems.ProductItems.PricedProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.productItems.ProductItems.ProductItem;
 import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ShoppingCartEvent.*;
 import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ShoppingCartService.ShoppingCartCommand.*;
 import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ShoppingCartService.handle;

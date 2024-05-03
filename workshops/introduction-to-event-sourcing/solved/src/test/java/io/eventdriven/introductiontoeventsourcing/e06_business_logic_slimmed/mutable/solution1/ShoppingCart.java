@@ -1,14 +1,14 @@
 package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1;
 
-import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.ProductItems.ProductPriceCalculator;
+import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.productItems.ProductPriceCalculator;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.ProductItems.ProductItems.PricedProductItem;
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.ProductItems.ProductItems.ProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.productItems.ProductItems.PricedProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.productItems.ProductItems.ProductItem;
 import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.mutable.solution1.ShoppingCartEvent.*;
 
 // ENTITY

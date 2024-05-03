@@ -1,6 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable;
 
-import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ProductItems.ProductItems;
+import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.productItems.ProductItems;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;

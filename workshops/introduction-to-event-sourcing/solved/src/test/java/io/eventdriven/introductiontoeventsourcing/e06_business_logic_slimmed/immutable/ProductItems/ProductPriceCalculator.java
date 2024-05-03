@@ -1,8 +1,0 @@
-package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ProductItems;
-
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ProductItems.ProductItems.PricedProductItem;
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ProductItems.ProductItems.ProductItem;
-
-public interface ProductPriceCalculator {
-  PricedProductItem calculate(ProductItem productItems);
-}
