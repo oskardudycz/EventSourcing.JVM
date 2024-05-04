@@ -13,5 +13,6 @@ public final class DefaultSerializer {
     .registerModule(new JavaTimeModule())
     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+    .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
     .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 }

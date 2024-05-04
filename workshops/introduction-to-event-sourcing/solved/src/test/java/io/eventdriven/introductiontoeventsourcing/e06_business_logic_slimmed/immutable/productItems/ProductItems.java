@@ -1,66 +1,50 @@
 package io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.productItems;
 
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Stream;
 
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.FunctionalTools.groupingByOrdered;
+public class ProductItems {
+  Map<String, Integer> values;
 
-public record ProductItems(
-  PricedProductItem[] values
-) {
+  private ProductItems(Map<String, Integer> values) {
+    this.values = values;
+  }
+
   public static ProductItems empty() {
-    return new ProductItems(new PricedProductItem[]{});
+    return new ProductItems(new HashMap<>());
   }
 
   public ProductItems add(PricedProductItem productItem) {
-    return new ProductItems(
-      Stream.concat(Arrays.stream(values), Stream.of(productItem))
-        .collect(groupingByOrdered(PricedProductItem::productId))
-        .entrySet().stream()
-        .map(group -> group.getValue().size() == 1 ?
-          group.getValue().getFirst() :
-          new PricedProductItem(
-            group.getKey(),
-            group.getValue().stream().mapToInt(PricedProductItem::quantity).sum(),
-            group.getValue().getFirst().unitPrice()
-          )
-        )
-        .toArray(PricedProductItem[]::new)
+    var newValues = new HashMap<>(values);
+
+    newValues.compute(key((productItem)), (_, currentQuantity) ->
+      Optional.ofNullable(currentQuantity).orElse(0) + productItem.quantity
     );
+
+    return new ProductItems(newValues);
   }
 
   public ProductItems remove(PricedProductItem productItem) {
-    return new ProductItems(
-      Arrays.stream(values())
-        .map(pi -> pi.productId().equals(productItem.productId()) ?
-          new PricedProductItem(
-            pi.productId(),
-            pi.quantity() - productItem.quantity(),
-            pi.unitPrice()
-          )
-          : pi
-        )
-        .filter(pi -> pi.quantity > 0)
-        .toArray(PricedProductItem[]::new)
+    var newValues = new HashMap<>(values);
+
+    newValues.compute(key((productItem)), (_, currentQuantity) ->
+      Optional.ofNullable(currentQuantity).orElse(0) - productItem.quantity
     );
+
+    return new ProductItems(newValues);
   }
 
   public boolean hasEnough(PricedProductItem productItem) {
-    var currentQuantity = Arrays.stream(values)
-      .filter(pi -> pi.productId().equals(productItem.productId()))
-      .mapToInt(PricedProductItem::quantity)
-      .sum();
+    var currentQuantity = values.getOrDefault(key(productItem), 0);
 
     return currentQuantity >= productItem.quantity();
   }
 
-  public PricedProductItem get(int index) {
-    return values[index];
-  }
 
-  public int size() {
-    return values.length;
+  private static String key(PricedProductItem pricedProductItem) {
+    return String.format("%s_%s", pricedProductItem.productId, pricedProductItem.unitPrice());
   }
 
   public record ProductItem(

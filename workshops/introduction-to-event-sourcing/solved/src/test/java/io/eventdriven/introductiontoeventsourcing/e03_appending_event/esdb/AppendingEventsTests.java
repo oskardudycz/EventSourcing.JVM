@@ -65,7 +65,8 @@ public class AppendingEventsTests {
     new JsonMapper()
       .registerModule(new JavaTimeModule())
       .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-      .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+      .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+      .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false);
 
   private CompletableFuture<WriteResult> appendEvents(EventStoreDBClient eventStore, String streamName, Object[] events) {
     // 1. Add logic here

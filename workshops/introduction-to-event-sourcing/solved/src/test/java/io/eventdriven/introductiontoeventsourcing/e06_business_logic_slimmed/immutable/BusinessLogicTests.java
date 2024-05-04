@@ -4,24 +4,24 @@ import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.imm
 import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.tools.EventStore;
 import org.junit.jupiter.api.Test;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.FunctionalTools.FoldLeft.foldLeft;
 import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.productItems.ProductItems.PricedProductItem;
 import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.productItems.ProductItems.ProductItem;
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ShoppingCartEvent.*;
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ShoppingCartService.ShoppingCartCommand.*;
-import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ShoppingCartService.handle;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ShoppingCart.Event.*;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ShoppingCartDecider.Command.*;
+import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ShoppingCartDecider.decide;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class BusinessLogicTests {
   static ShoppingCart getShoppingCart(EventStore eventStore, UUID shoppingCartId) {
-    var events = eventStore.readStream(ShoppingCartEvent.class, shoppingCartId);
+    var events = eventStore.readStream(ShoppingCart.Event.class, shoppingCartId);
 
     return events.stream()
-      .collect(foldLeft(ShoppingCart::initial, ShoppingCart::evolve));
+      .collect(foldLeft(ShoppingCart.Initial::new, ShoppingCart::evolve));
   }
 
   @Test
@@ -37,45 +37,48 @@ public class BusinessLogicTests {
     var shoesPrice = 100;
     var tShirtPrice = 50;
 
+    var pricedTwoPairOfShoes = new PricedProductItem(shoesId, 2, shoesPrice);
     var pricedPairOfShoes = new PricedProductItem(shoesId, 1, shoesPrice);
     var pricedTShirt = new PricedProductItem(tShirtId, 1, tShirtPrice);
 
     var eventStore = new EventStore();
+    var now = OffsetDateTime.now();
 
     // Open
-    ShoppingCartEvent result = handle(new OpenShoppingCart(shoppingCartId, clientId));
+    var shoppingCart = getShoppingCart(eventStore, shoppingCartId);
+    ShoppingCart.Event result = decide(new Open(shoppingCartId, clientId, now), shoppingCart);
     eventStore.appendToStream(shoppingCartId, new Object[]{result});
 
     // Add Two Pair of Shoes
-    var shoppingCart = getShoppingCart(eventStore, shoppingCartId);
-    result = handle(
-      FakeProductPriceCalculator.returning(shoesPrice),
-      new AddProductItemToShoppingCart(shoppingCartId, twoPairsOfShoes),
+    shoppingCart = getShoppingCart(eventStore, shoppingCartId);
+    result = decide(
+      new AddProductItem(shoppingCartId,
+        FakeProductPriceCalculator.returning(shoesPrice).calculate(twoPairsOfShoes), now),
       shoppingCart
     );
     eventStore.appendToStream(shoppingCartId, new Object[]{result});
 
     // Add T-Shirt
     shoppingCart = getShoppingCart(eventStore, shoppingCartId);
-    result = handle(
-      FakeProductPriceCalculator.returning(tShirtPrice),
-      new AddProductItemToShoppingCart(shoppingCartId, tShirt),
+    result = decide(
+      new AddProductItem(shoppingCartId,
+        FakeProductPriceCalculator.returning(tShirtPrice).calculate(tShirt), now),
       shoppingCart
     );
     eventStore.appendToStream(shoppingCartId, new Object[]{result});
 
     // Remove a pair of shoes
     shoppingCart = getShoppingCart(eventStore, shoppingCartId);
-    result = handle(
-      new RemoveProductItemFromShoppingCart(shoppingCartId, pricedPairOfShoes),
+    result = decide(
+      new RemoveProductItem(shoppingCartId, pricedPairOfShoes, now),
       shoppingCart
     );
     eventStore.appendToStream(shoppingCartId, new Object[]{result});
 
     // Confirm
     shoppingCart = getShoppingCart(eventStore, shoppingCartId);
-    result = handle(
-      new ConfirmShoppingCart(shoppingCartId),
+    result = decide(
+      new Confirm(shoppingCartId, now),
       shoppingCart
     );
     eventStore.appendToStream(shoppingCartId, new Object[]{result});
@@ -83,8 +86,8 @@ public class BusinessLogicTests {
     // Try Cancel
     ShoppingCart finalShoppingCart = getShoppingCart(eventStore, shoppingCartId);
     assertThrows(IllegalStateException.class, () -> {
-      var cancelResult = handle(
-        new CancelShoppingCart(shoppingCartId),
+      var cancelResult = decide(
+        new Cancel(shoppingCartId, now),
         finalShoppingCart
       );
       eventStore.appendToStream(shoppingCartId, new Object[]{cancelResult});
@@ -93,28 +96,14 @@ public class BusinessLogicTests {
 
     shoppingCart = getShoppingCart(eventStore, shoppingCartId);
 
-    assertEquals(shoppingCartId, shoppingCart.id());
-    assertEquals(clientId, shoppingCart.clientId());
-    assertEquals(2, shoppingCart.productItems().size());
-    assertEquals(ShoppingCart.Status.Confirmed, shoppingCart.status());
+    assertThat(shoppingCart).isInstanceOf(ShoppingCart.Closed.class);
 
-    assertEquals(shoesId, shoppingCart.productItems().get(0).productId());
-    assertEquals(pairOfShoes.quantity(), shoppingCart.productItems().get(0).quantity());
-    assertEquals(pricedPairOfShoes.unitPrice(), shoppingCart.productItems().get(0).unitPrice());
-
-    assertEquals(tShirtId, shoppingCart.productItems().get(1).productId());
-    assertEquals(tShirt.quantity(), shoppingCart.productItems().get(1).quantity());
-    assertEquals(pricedTShirt.unitPrice(), shoppingCart.productItems().get(1).unitPrice());
-
-    assertThat(shoppingCart.productItems().get(0)).usingRecursiveComparison().isEqualTo(pricedPairOfShoes);
-    assertThat(shoppingCart.productItems().get(1)).usingRecursiveComparison().isEqualTo(pricedTShirt);
-
-    var events = eventStore.readStream(ShoppingCartEvent.class, shoppingCartId);
+    var events = eventStore.readStream(ShoppingCart.Event.class, shoppingCartId);
     assertThat(events).hasSize(5);
-    assertThat(events.get(0)).isInstanceOf(ShoppingCartOpened.class);
-    assertThat(events.get(1)).isInstanceOf(ProductItemAddedToShoppingCart.class);
-    assertThat(events.get(2)).isInstanceOf(ProductItemAddedToShoppingCart.class);
-    assertThat(events.get(3)).isInstanceOf(ProductItemRemovedFromShoppingCart.class);
-    assertThat(events.get(4)).isInstanceOf(ShoppingCartConfirmed.class);
+    assertThat(events.get(0)).isEqualTo(new Opened(shoppingCartId, clientId, now));
+    assertThat(events.get(1)).isEqualTo(new ProductItemAdded(shoppingCartId, pricedTwoPairOfShoes, now));
+    assertThat(events.get(2)).isEqualTo(new ProductItemAdded(shoppingCartId, pricedTShirt, now));
+    assertThat(events.get(3)).isEqualTo(new ProductItemRemoved(shoppingCartId, pricedPairOfShoes, now));
+    assertThat(events.get(4)).isEqualTo(new Confirmed(shoppingCartId, now));
   }
 }
