@@ -14,7 +14,7 @@ The presented use case is Shopping Cart flow:
 5. The customer may also cancel the shopping cart and reject all selected products.
 6. After shopping cart confirmation or cancellation, the product can no longer be added or removed from the cart.
 
-Technically it's modelled as Web API written in [Spring Boot](https://spring.io/projects/spring-boot) and [Java 17](https://www.oracle.com/java/technologies/downloads/). 
+Technically it's modelled as Web API written in [Spring Boot](https://spring.io/projects/spring-boot) and [Java 22](https://www.oracle.com/java/technologies/downloads/). 
 
 ## Watch the video
 
@@ -41,7 +41,7 @@ It uses:
 - App has Swagger and predefined [docker-compose](./docker-compose.yml) to run and play with samples.
 
 ## Write Model
-- Sample [ShoppingCart](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCart.java) aggregate and [events](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCartEvent.java) represent the business workflow. All events are stored in the same file using [sealed classes](https://blogs.oracle.com/javamagazine/post/java-sealed-classes-fight-ambiguity) to be able to understand flow without jumping from one file to another. It also enables better typing support in pattern matching. `ShoppingCart` also contains [when method](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCart.java#L113) method defining how to apply events to get the entity state. It uses the Java 17 switch syntax for pattern matching.
+- Sample [ShoppingCart](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCart.java) aggregate and [events](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCartEvent.java) represent the business workflow. All events are stored in the same file using [sealed classes](https://blogs.oracle.com/javamagazine/post/java-sealed-classes-fight-ambiguity) to be able to understand flow without jumping from one file to another. It also enables better typing support in pattern matching. `ShoppingCart` also contains [when method](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCart.java#L113) method defining how to apply events to get the entity state. It uses the Java 22 switch syntax for pattern matching.
 - business logic is encapsulated into aggregate methods. It helps to keep the invariants and business logic in the same place. They are pure functions that take command and/or state and create new events based on the business logic. See sample [Adding Product Item to ShoppingCart](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCart.java#L55). This example also shows that you can inject external services to handlers if needed.
 - Code uses [functional interfaces](https://www.theserverside.com/blog/Coffee-Talk-Java-News-Stories-and-Opinions/Get-the-most-from-Java-Function-interface-with-this-example) in many places to introduce composability and lously coupled, testable code.
 - Added [EventStoreDB aggregate store](./src/main/java/io/eventdriven/ecommerce/core/aggregates/AggregateStore.java) to load entity state and store event created by business logic.
@@ -67,7 +67,7 @@ It uses:
 ## Prerequisites
 
 1. Install git - https://git-scm.com/downloads.
-2. Install Java JDK 17 (or later) - https://www.oracle.com/java/technologies/downloads/.
+2. Install Java JDK 22 (or later) - https://www.oracle.com/java/technologies/downloads/.
 3. Install IntelliJ, Eclipse, VSCode or other preferred IDE.
 4. Install docker - https://docs.docker.com/engine/install/.
 5. Open project folder.

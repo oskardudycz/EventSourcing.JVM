@@ -6,8 +6,14 @@ plugins {
 
 java {
   toolchain {
-    languageVersion = JavaLanguageVersion.of(21)
+    languageVersion = JavaLanguageVersion.of(22)
   }
+}
+
+// workaround for https://github.com/gradle/gradle/issues/28987#issuecomment-2084711213
+// Todo: remove it once Gradle and Spring are aligned, possibly in Gralde 8.8 and Spring Boot 3.3.x
+springBoot {
+  mainClass = 'io.eventdriven.ecommerce.ECommerceApplication'
 }
 
 group = 'io.event-driven'
