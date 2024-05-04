@@ -24,6 +24,7 @@ public class Database {
       .registerModule(new JavaTimeModule())
       .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
       .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+      .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
       .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
   public <T> void store(Class<T> typeClass, UUID id, Object obj) {
