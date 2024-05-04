@@ -14,6 +14,7 @@ Tutorial, practical samples and other resources about Event Sourcing in JVM. See
     - [Event Store](#event-store)
   - [Videos](#videos)
     - [Practical introduction to Event Sourcing with Spring Boot and EventStoreDB](#practical-introduction-to-event-sourcing-with-spring-boot-and-eventstoredb)
+    - [Facts and Myths about CQRS](#facts-and-myths-about-cqrs)
     - [Let's build the worst Event Sourcing system!](#lets-build-the-worst-event-sourcing-system)
     - [The Light and The Dark Side of the Event-Driven Design](#the-light-and-the-dark-side-of-the-event-driven-design)
     - [Conversation with Yves Lorphelin about CQRS](#conversation-with-yves-lorphelin-about-cqrs)
@@ -293,7 +294,7 @@ The presented use case is Shopping Cart flow:
 5. The customer may also cancel the shopping cart and reject all selected products.
 6. After shopping cart confirmation or cancellation, the product can no longer be added or removed from the cart.
 
-Technically it's modelled as Web API written in [Spring Boot](https://spring.io/projects/spring-boot) and [Java 17](https://www.oracle.com/java/technologies/downloads/). 
+Technically it's modelled as Web API written in [Spring Boot](https://spring.io/projects/spring-boot) and [Java 22](https://www.oracle.com/java/technologies/downloads/). 
 
 There are two variations of those samples:
 - [Event Sourcing with Spring Boot and EventStoreDB](./samples/event-sourcing-esdb-simple)
@@ -312,7 +313,7 @@ There are two variations of those samples:
 
 For running the Event Store examples you need to have:
 
-1. Java JDK 17 (or later) installed - https://www.oracle.com/java/technologies/downloads/.
+1. Java JDK 22 (or later) installed - https://www.oracle.com/java/technologies/downloads/.
 2. Installed IntelliJ, Eclipse, VSCode or other preferred IDE.
 3. [Docker](https://store.docker.com/search?type=edition&offering=community) installed.
 
