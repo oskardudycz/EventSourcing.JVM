@@ -1,0 +1,57 @@
+name: Workshop - Build your own event store - Solved
+
+on:
+  # run it on push to the default repository branch
+  push:
+    branches: [main]
+    paths:
+      - "workshops/build-your-own-event-store/solved/**"
+  # run it during pull request
+  pull_request:
+    paths:
+      - "workshops/build-your-own-event-store/solved/**"
+
+defaults:
+  run:
+    working-directory: workshops/build-your-own-event-store/solved
+
+jobs:
+  build-and-test-code:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    strategy:
+      # define the test matrix
+      matrix:
+        java-version: [17, 18]
+
+    steps:
+      - name: Check Out Repo
+        uses: actions/checkout@v2
+
+      - name: Start containers
+        run: docker-compose up -d
+
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v2
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: "adopt"
+          cache: gradle
+
+      - uses: gradle/gradle-build-action@v2
+        with:
+          arguments: build
+          gradle-version: wrapper
+          build-root-directory: workshops/build-your-own-event-store/solved
+
+      - name: Archive test report
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Test report
+          path: ./workshops/build-your-own-event-store/solved/build/test-results/test
+
+      - name: Stop containers
+        if: always()
+        run: docker-compose down
