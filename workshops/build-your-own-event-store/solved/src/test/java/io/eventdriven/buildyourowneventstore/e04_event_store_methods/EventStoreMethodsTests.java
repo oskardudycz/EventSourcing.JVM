@@ -54,7 +54,7 @@ public class EventStoreMethodsTests extends PostgresTest {
 
     private <Event> Event findFirstOfType(Class<Event> type, List<Object> events) {
         return events.stream()
-            .filter(sc -> type.isInstance(sc))
+            .filter(type::isInstance)
             .map(sc -> (Event) sc)
             .findFirst()
             .get();
