@@ -1,7 +1,10 @@
 package io.eventdriven.buildyourowneventstore.e03_create_append_event_function;
 
 import bankaccounts.BankAccount;
+import io.eventdriven.buildyourowneventstore.EventStore;
+import io.eventdriven.buildyourowneventstore.PgEventStore;
 import io.eventdriven.buildyourowneventstore.tools.PostgresTest;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -12,40 +15,51 @@ import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.*;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CreateAppendFunctionTests extends PostgresTest {
-    private final String appendEventFunctionName = "append_event";
+  protected static EventStore eventStore;
 
-    @Test
-    public void appendEventFunction_WhenStreamDoesNotExist_CreateNewStream_And_AppendNewEvent() {
-        var bankAccountId = UUID.randomUUID();
-        var accountNumber = "PL61 1090 1014 0000 0712 1981 2874";
-        var clientId = UUID.randomUUID();
-        var currencyISOCOde = "PLN";
+  @BeforeAll
+  public void setup() {
+    // Create Event Store
+    eventStore = new PgEventStore(dbConnection);
 
-        var event = new BankAccountOpened(
-            bankAccountId,
-            accountNumber,
-            clientId,
-            currencyISOCOde,
-            LocalDateTime.now(),
-            1
-        );
+    // Initialize Event Store
+    eventStore.init();
+  }
 
-        eventStore.appendEvents(BankAccount.class, bankAccountId, event);
+  private final String appendEventFunctionName = "append_event";
 
-        var wasStreamCreated = querySingleSql(
-            dbConnection,
-            "select exists (select 1 as exist from streams where id = ?::uuid) as exist",
-            setStringParam(bankAccountId.toString()),
-            rs -> getBoolean(rs, "exist")
-        );
-        assertTrue(wasStreamCreated);
+  @Test
+  public void appendEventFunction_WhenStreamDoesNotExist_CreateNewStream_And_AppendNewEvent() {
+    var bankAccountId = UUID.randomUUID();
+    var accountNumber = "PL61 1090 1014 0000 0712 1981 2874";
+    var clientId = UUID.randomUUID();
+    var currencyISOCOde = "PLN";
 
-        var wasEventAppended = querySingleSql(
-            dbConnection,
-            "select exists (select 1 from events where stream_id = ?::uuid) as exist",
-            setStringParam(bankAccountId.toString()),
-            rs -> getBoolean(rs, "exist")
-        );
-        assertTrue(wasEventAppended);
-    }
+    var event = new BankAccountOpened(
+      bankAccountId,
+      accountNumber,
+      clientId,
+      currencyISOCOde,
+      LocalDateTime.now(),
+      1
+    );
+
+    eventStore.appendEvents(BankAccount.class, bankAccountId, event);
+
+    var wasStreamCreated = querySingleSql(
+      dbConnection,
+      "select exists (select 1 as exist from streams where id = ?::uuid) as exist",
+      setStringParam(bankAccountId.toString()),
+      rs -> getBoolean(rs, "exist")
+    );
+    assertTrue(wasStreamCreated);
+
+    var wasEventAppended = querySingleSql(
+      dbConnection,
+      "select exists (select 1 from events where stream_id = ?::uuid) as exist",
+      setStringParam(bankAccountId.toString()),
+      rs -> getBoolean(rs, "exist")
+    );
+    assertTrue(wasEventAppended);
+  }
 }

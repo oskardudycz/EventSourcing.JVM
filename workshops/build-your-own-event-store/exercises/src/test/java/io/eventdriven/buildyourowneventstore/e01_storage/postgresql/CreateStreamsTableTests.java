@@ -1,6 +1,7 @@
-package io.eventdriven.buildyourowneventstore.e01_create_streams_table;
+package io.eventdriven.buildyourowneventstore.e01_storage.postgresql;
 
 import io.eventdriven.buildyourowneventstore.tools.PostgresTest;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static io.eventdriven.buildyourowneventstore.tools.PostgresSchemaProvider.Column.*;
@@ -12,11 +13,12 @@ public class CreateStreamsTableTests extends PostgresTest {
 
     private final String idColumnName = "id";
     private final String typeColumnName = "type";
-    private final String versionColumnName = "version";
+    private final String streamPositionColumnName = "stream_position";
 
     /**
      * Verifies if Stream table was created
      */
+    @Tag("Exercise")
     @Test
     public void streamsTable_ShouldBeCreated() {
         var streamsTable = schemaProvider.getTable(streamsTableName);
@@ -28,6 +30,7 @@ public class CreateStreamsTableTests extends PostgresTest {
     /**
      * Verifies if Stream table has id column of type UUID
      */
+    @Tag("Exercise")
     @Test
     public void streamsTable_ShouldHave_IdColumn() {
         var idColumn = schemaProvider
@@ -42,6 +45,7 @@ public class CreateStreamsTableTests extends PostgresTest {
     /**
      * Verifies if Stream table has Type column of type String
      */
+    @Tag("Exercise")
     @Test
     public void streamsTable_ShouldHave_TypeColumn_WithStringType() {
         var typeColumn = schemaProvider
@@ -54,16 +58,17 @@ public class CreateStreamsTableTests extends PostgresTest {
     }
 
     /**
-     * Verifies if Stream table has Version column of type Long
+     * Verifies if Stream table has StreamPosition column of type Long
      */
+    @Tag("Exercise")
     @Test
-    public void streamsTable_ShouldHave_VersionColumn_WithLongType() {
-        var versionColumn = schemaProvider
+    public void streamsTable_ShouldHave_StreamPositionColumn_WithLongType() {
+        var streamPositionColumn = schemaProvider
             .getTable(streamsTableName)
-            .flatMap(table -> table.getColumn(versionColumnName));
+            .flatMap(table -> table.getColumn(streamPositionColumnName));
 
-        assertTrue(versionColumn.isPresent());
-        assertEquals(versionColumnName, versionColumn.get().getName());
-        assertEquals(bigintType, versionColumn.get().getType());
+        assertTrue(streamPositionColumn.isPresent());
+        assertEquals(streamPositionColumnName, streamPositionColumn.get().getName());
+        assertEquals(bigintType, streamPositionColumn.get().getType());
     }
 }

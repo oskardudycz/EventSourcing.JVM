@@ -1,54 +1,68 @@
 package io.eventdriven.buildyourowneventstore.e05_stream_aggregation;
 
 import bankaccounts.BankAccount;
+import io.eventdriven.buildyourowneventstore.EventStore;
+import io.eventdriven.buildyourowneventstore.PgEventStore;
 import io.eventdriven.buildyourowneventstore.tools.PostgresTest;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static bankaccounts.BankAccount.Event.*;
-import static bankaccounts.BankAccountService.*;
+import static bankaccounts.BankAccountService.getBankAccount;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class StreamAggregationTests extends PostgresTest {
-    @Test
-    public void aggregateStream_ShouldReturnObjectWithStateBasedOnEvents() {
-        var bankAccountId = UUID.randomUUID();
-        var accountNumber = "PL61 1090 1014 0000 0712 1981 2874";
-        var clientId = UUID.randomUUID();
-        var currencyISOCOde = "PLN";
-        var createdAt = LocalDateTime.now();
-        var version = 0;
+  protected static EventStore eventStore;
 
-        var bankAccountCreated = new BankAccountOpened(
-            bankAccountId,
-            accountNumber,
-            clientId,
-            currencyISOCOde,
-            createdAt,
-            version
-        );
+  @BeforeAll
+  public void setup() {
+    // Create Event Store
+    eventStore = new PgEventStore(dbConnection);
 
-        var cashierId = UUID.randomUUID();
-        var depositRecorded = new DepositRecorded(bankAccountId, 100, cashierId, LocalDateTime.now(), ++version);
+    // Initialize Event Store
+    eventStore.init();
+  }
 
-        var atmId = UUID.randomUUID();
-        var cashWithdrawn = new CashWithdrawnFromATM(bankAccountId, 50, atmId, LocalDateTime.now(), ++version);
+  @Test
+  public void aggregateStream_ShouldReturnObjectWithStateBasedOnEvents() {
+    var bankAccountId = UUID.randomUUID();
+    var accountNumber = "PL61 1090 1014 0000 0712 1981 2874";
+    var clientId = UUID.randomUUID();
+    var currencyISOCOde = "PLN";
+    var createdAt = LocalDateTime.now();
+    var version = 0;
 
-        eventStore.appendEvents(
-            BankAccount.class,
-            bankAccountId,
-            bankAccountCreated, depositRecorded, cashWithdrawn
-        );
+    var bankAccountCreated = new BankAccountOpened(
+      bankAccountId,
+      accountNumber,
+      clientId,
+      currencyISOCOde,
+      createdAt,
+      version
+    );
 
-        var bankAccount = getBankAccount(eventStore, bankAccountId);
+    var cashierId = UUID.randomUUID();
+    var depositRecorded = new DepositRecorded(bankAccountId, 100, cashierId, LocalDateTime.now(), ++version);
 
-        assertTrue(bankAccount.isPresent());
-        assertEquals(
-            new BankAccount(bankAccountId, BankAccount.BankAccountStatus.Opened, 50, 2),
-            bankAccount.get()
-        );
-    }
+    var atmId = UUID.randomUUID();
+    var cashWithdrawn = new CashWithdrawnFromATM(bankAccountId, 50, atmId, LocalDateTime.now(), ++version);
+
+    eventStore.appendEvents(
+      BankAccount.class,
+      bankAccountId,
+      bankAccountCreated, depositRecorded, cashWithdrawn
+    );
+
+    var bankAccount = getBankAccount(eventStore, bankAccountId);
+
+    assertTrue(bankAccount.isPresent());
+    assertEquals(
+      new BankAccount(bankAccountId, BankAccount.BankAccountStatus.Opened, 50, 2),
+      bankAccount.get()
+    );
+  }
 }
