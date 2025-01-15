@@ -1,5 +1,7 @@
 package bankaccounts;
 
+import org.bson.codecs.pojo.annotations.BsonDiscriminator;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
