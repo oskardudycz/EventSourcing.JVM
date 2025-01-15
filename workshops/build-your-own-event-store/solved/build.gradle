@@ -18,6 +18,11 @@ dependencies {
   // Postgres client
   implementation 'org.postgresql:postgresql:42.7.3'
 
+  // MongoDB client
+  implementation 'org.mongodb:mongodb-driver-sync:5.3.0'
+  // Spring MongoDB Template
+  implementation 'org.springframework.boot:spring-boot-starter-data-mongodb:3.4.1'
+
   // Logging
   implementation 'org.apache.logging.log4j:log4j-api:2.23.1'
   implementation 'org.apache.logging.log4j:log4j-core:2.23.1'
@@ -28,6 +33,7 @@ dependencies {
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.3'
   testImplementation 'org.junit.platform:junit-platform-launcher:1.10.3'
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
+  testImplementation 'org.testcontainers:mongodb:1.20.4'
 }
 
 tasks.named('test') {

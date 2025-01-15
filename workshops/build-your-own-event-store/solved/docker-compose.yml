@@ -1,31 +1,77 @@
-version: "3"
-services:
-    postgres:
-        image: postgres:17.2-alpine
-        ports:
-            - "5432:5432"
-        environment:
-            - POSTGRES_DB=postgres
-            - POSTGRES_PASSWORD=postgres
-        networks:
-            - postgres
+version: "3.12"
 
-    pgadmin:
-        image: dpage/pgadmin4
-        container_name: pgadmin_container
-        environment:
-            PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@pgadmin.org}
-            PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
-        ports:
-            - "${PGADMIN_PORT:-5050}:80"
-        networks:
-            - postgres
+services:
+  postgres:
+    image: postgres:17.2-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=postgres
+    networks:
+      - postgres
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_container
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    networks:
+      - postgres
+  mongo:
+    image: mongo:8.0
+    container_name: mongo
+    command: [ "--replSet", "rs0", "--bind_ip_all", "--port", "27017" ]
+    ports:
+      - "27017:27017"
+    networks:
+      - mongo
+
+  mongo_setup:
+    image: mongo:8.0
+    container_name: mongo_setup
+    depends_on:
+      - mongo
+    command: >
+      bash -c "
+      sleep 5;
+      echo 'Initializing Mongo replica set...';
+      mongosh --host mongo --eval '
+        rs.initiate({
+          _id: \"rs0\",
+          members: [{_id: 0, host: \"mongo:27017\"}]
+        })
+      ';
+      echo 'Replica set initialized.';
+      "
+    networks:
+      - mongo
+
+  mongo-express:
+    image: mongo-express
+    container_name: mongo_express
+    depends_on:
+      - mongo_setup
+    ports:
+      - "8081:8081"
+    environment:
+      # IMPORTANT: Use service name "mongo", port 27017, plus '?replicaSet=rs0'
+      ME_CONFIG_MONGODB_URL: "mongodb://mongo:27017/?replicaSet=rs0"
+    networks:
+      - mongo
 
 networks:
-    postgres:
-        driver: bridge
+  postgres:
+    driver: bridge
+  mongo:
+    driver: bridge
 
 volumes:
-    postgres:
-    pgadmin:
-        driver: local
+  postgres:
+  pgadmin:
+    driver: local
+  mongo1_data:
+  mongo1_config:
