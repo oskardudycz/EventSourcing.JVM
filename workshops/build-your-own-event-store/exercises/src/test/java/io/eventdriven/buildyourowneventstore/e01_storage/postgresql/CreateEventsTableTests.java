@@ -4,6 +4,7 @@ import io.eventdriven.buildyourowneventstore.EventStore;
 import io.eventdriven.buildyourowneventstore.PgEventStore;
 import io.eventdriven.buildyourowneventstore.tools.PostgresTest;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static io.eventdriven.buildyourowneventstore.tools.PostgresSchemaProvider.Column.*;
@@ -35,6 +36,7 @@ public class CreateEventsTableTests extends PostgresTest {
   /**
    * Verifies if Stream table was created
    */
+  @Tag("Exercise")
   @Test
   public void eventsTable_ShouldBeCreated() {
     var eventsTable = schemaProvider.getTable(EventsTableName);
@@ -46,6 +48,7 @@ public class CreateEventsTableTests extends PostgresTest {
   /**
    * Verifies if Stream table has Stream id column of type UUID
    */
+  @Tag("Exercise")
   @Test
   public void eventsTable_ShouldHave_StreamIdColumn() {
     var streamIdColumn = schemaProvider
@@ -60,6 +63,7 @@ public class CreateEventsTableTests extends PostgresTest {
   /**
    * Verifies if Stream table has StreamPosition column of type bigint
    */
+  @Tag("Exercise")
   @Test
   public void eventsTable_ShouldHave_StreamPositionColumn_WithLongType() {
     var streamPositionColumn = schemaProvider
@@ -74,6 +78,7 @@ public class CreateEventsTableTests extends PostgresTest {
   /**
    * Verifies if Stream table has GlobalPosition column of type bigint
    */
+  @Tag("Exercise")
   @Test
   public void eventsTable_ShouldHave_GlobalPositionColumn_WithLongType() {
     var globalPositionColumn = schemaProvider
@@ -88,6 +93,7 @@ public class CreateEventsTableTests extends PostgresTest {
   /**
    * Verifies if Stream table has id column of type UUID
    */
+  @Tag("Exercise")
   @Test
   public void eventsTable_ShouldHave_IdColumn() {
     var idColumn = schemaProvider
@@ -102,6 +108,7 @@ public class CreateEventsTableTests extends PostgresTest {
   /**
    * Verifies if Stream table has data column of type JSONB
    */
+  @Tag("Exercise")
   @Test
   public void eventsTable_ShouldHave_DataColumn() {
     var dataColumn = schemaProvider
@@ -116,6 +123,7 @@ public class CreateEventsTableTests extends PostgresTest {
   /**
    * Verifies if Stream table has data column of type JSONB
    */
+  @Tag("Exercise")
   @Test
   public void eventsTable_ShouldHave_MetadataColumn() {
     var dataColumn = schemaProvider
@@ -130,6 +138,7 @@ public class CreateEventsTableTests extends PostgresTest {
   /**
    * Verifies if Stream table has Type column of type String
    */
+  @Tag("Exercise")
   @Test
   public void eventsTable_ShouldHave_TypeColumn_WithStringType() {
     var typeColumn = schemaProvider
@@ -144,6 +153,7 @@ public class CreateEventsTableTests extends PostgresTest {
   /**
    * Verifies if Stream table has Version column of type Timestamp with time zone
    */
+  @Tag("Exercise")
   @Test
   public void eventsTable_ShouldHave_CreatedColumn_WithLongType() {
     var createdColumn = schemaProvider
