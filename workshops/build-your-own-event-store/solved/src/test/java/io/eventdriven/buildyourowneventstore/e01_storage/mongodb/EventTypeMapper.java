@@ -14,9 +14,9 @@ public interface EventTypeMapper {
     private final Map<Class, String> typeNameMap = new HashMap<>();
 
     public String toName(Class eventType) {
-      return.typeNameMap.computeIfAbsent(
+      return typeNameMap.computeIfAbsent(
         eventType,
-        c -> c.getTypeName().replace("$", "__")
+        c -> c.getTypeName()
       );
     }
 
@@ -25,7 +25,7 @@ public interface EventTypeMapper {
         eventTypeName,
         c -> {
           try {
-            return Optional.of(Class.forName(eventTypeName.replace("__", "$")));
+            return Optional.of(Class.forName(eventTypeName));
           } catch (ClassNotFoundException e) {
             return Optional.empty();
           }
