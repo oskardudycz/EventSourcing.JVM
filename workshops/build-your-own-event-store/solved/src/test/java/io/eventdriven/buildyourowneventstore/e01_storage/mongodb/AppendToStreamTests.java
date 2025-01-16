@@ -3,13 +3,14 @@ package io.eventdriven.buildyourowneventstore.e01_storage.mongodb;
 import bankaccounts.BankAccount;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
-import org.bson.Document;
+import io.eventdriven.buildyourowneventstore.e01_storage.mongodb.event.EventDataCodec;
+import io.eventdriven.buildyourowneventstore.e01_storage.mongodb.event.EventEnvelope;
+import io.eventdriven.buildyourowneventstore.e01_storage.mongodb.event.EventMetadata;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.testcontainers.shaded.org.yaml.snakeyaml.events.Event;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,10 +22,15 @@ import static com.mongodb.client.model.Filters.eq;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class AppendToStreamTests {
   private MongoClient nativeClient;
+  private EventDataCodec codec;
 
   @BeforeAll
   public void setup() {
     nativeClient = NativeMongoConfig.createClient();
+    codec = new EventDataCodec(
+      nativeClient.getCodecRegistry(),
+      EventTypeMapper.DEFAULT
+    );
   }
 
   @AfterAll
@@ -52,7 +58,7 @@ public class AppendToStreamTests {
 
     var events = rawDoc.events();
 
-    var e = events.get(0).getEvent(nativeClient.getCodecRegistry());
+    var e = events.get(0).getEvent(codec);
 
     System.out.println("Raw from DB => " + rawDoc);
 //
@@ -93,7 +99,7 @@ public class AppendToStreamTests {
           1L,
           streamName
         ),
-        nativeClient.getCodecRegistry()
+        codec
       )
     );
 

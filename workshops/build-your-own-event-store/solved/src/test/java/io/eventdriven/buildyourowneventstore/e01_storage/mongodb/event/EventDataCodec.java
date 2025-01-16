@@ -1,5 +1,6 @@
-package io.eventdriven.buildyourowneventstore.e01_storage.mongodb;
+package io.eventdriven.buildyourowneventstore.e01_storage.mongodb.event;
 
+import io.eventdriven.buildyourowneventstore.e01_storage.mongodb.EventTypeMapper;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
 import org.bson.BsonDocumentWriter;
@@ -34,15 +35,14 @@ public class EventDataCodec {
   }
 
   public <Event> Event decode(
-    final Class<Event> type,
     String eventTypeName,
     Document data
   ) {
-    //var eventClass = eventTypeMapper.toClass(eventTypeName);
-    var codec = codecRegistry.get(type);
+    var eventClass = eventTypeMapper.toClass(eventTypeName).get();
+    var codec = codecRegistry.get(eventClass);
 
-    var reader = new BsonDocumentReader(data.toBsonDocument(type, codecRegistry));
-    return codec.decode(reader, DecoderContext.builder().build());
+    var reader = new BsonDocumentReader(data.toBsonDocument(eventClass, codecRegistry));
+    return (Event)codec.decode(reader, DecoderContext.builder().build());
   }
 }
 
