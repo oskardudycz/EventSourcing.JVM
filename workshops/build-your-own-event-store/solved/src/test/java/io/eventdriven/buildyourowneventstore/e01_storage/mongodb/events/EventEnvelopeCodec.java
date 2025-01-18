@@ -1,4 +1,4 @@
-package io.eventdriven.buildyourowneventstore.e01_storage.mongodb.event;
+package io.eventdriven.buildyourowneventstore.e01_storage.mongodb.events;
 
 import org.bson.BsonReader;
 import org.bson.BsonWriter;

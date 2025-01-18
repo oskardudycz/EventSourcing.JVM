@@ -1,6 +1,5 @@
-package io.eventdriven.buildyourowneventstore.e01_storage.mongodb.event;
+package io.eventdriven.buildyourowneventstore.e01_storage.mongodb.events;
 
-import io.eventdriven.buildyourowneventstore.e01_storage.mongodb.EventTypeMapper;
 import org.bson.codecs.Codec;
 import org.bson.codecs.configuration.CodecProvider;
 import org.bson.codecs.configuration.CodecRegistry;

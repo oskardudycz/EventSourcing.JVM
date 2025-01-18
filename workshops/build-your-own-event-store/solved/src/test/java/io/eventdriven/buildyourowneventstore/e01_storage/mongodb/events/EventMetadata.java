@@ -1,4 +1,4 @@
-package io.eventdriven.buildyourowneventstore.e01_storage.mongodb.event;
+package io.eventdriven.buildyourowneventstore.e01_storage.mongodb.events;
 
 public record EventMetadata(
   String eventId,
