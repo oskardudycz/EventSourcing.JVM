@@ -30,9 +30,9 @@ public class CreateAppendFunctionTests extends PostgresTest {
 
   @Test
   public void appendEventFunction_WhenStreamDoesNotExist_CreateNewStream_And_AppendNewEvent() {
-    var bankAccountId = UUID.randomUUID();
+    var bankAccountId = UUID.randomUUID().toString();
     var accountNumber = "PL61 1090 1014 0000 0712 1981 2874";
-    var clientId = UUID.randomUUID();
+    var clientId = UUID.randomUUID().toString();
     var currencyISOCOde = "PLN";
 
     var event = new BankAccountOpened(
@@ -49,7 +49,7 @@ public class CreateAppendFunctionTests extends PostgresTest {
     var wasStreamCreated = querySingleSql(
       dbConnection,
       "select exists (select 1 as exist from streams where id = ?::uuid) as exist",
-      setStringParam(bankAccountId.toString()),
+      setStringParam(bankAccountId),
       rs -> getBoolean(rs, "exist")
     );
     assertTrue(wasStreamCreated);
@@ -57,7 +57,7 @@ public class CreateAppendFunctionTests extends PostgresTest {
     var wasEventAppended = querySingleSql(
       dbConnection,
       "select exists (select 1 from events where stream_id = ?::uuid) as exist",
-      setStringParam(bankAccountId.toString()),
+      setStringParam(bankAccountId),
       rs -> getBoolean(rs, "exist")
     );
     assertTrue(wasEventAppended);

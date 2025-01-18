@@ -4,7 +4,7 @@ import io.eventdriven.buildyourowneventstore.e01_storage.EventStore;
 
 import java.sql.Connection;
 
-import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.exectuteSql;
+import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.executeSql;
 
 public class PostgreSQLEventStore implements EventStore {
   private final Connection dbConnection;
@@ -15,8 +15,8 @@ public class PostgreSQLEventStore implements EventStore {
 
   @Override
   public void init() {
-    exectuteSql(dbConnection, createStreamsTableSql);
-    exectuteSql(dbConnection, createEventsTableSql);
+    executeSql(dbConnection, createStreamsTableSql);
+    executeSql(dbConnection, createEventsTableSql);
   }
 
   private final String createStreamsTableSql = """

@@ -1,4 +1,4 @@
-package io.eventdriven.buildyourowneventstore.e01_storage.mongodb.events;
+package io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events;
 
 import org.bson.Document;
 
@@ -14,6 +14,15 @@ public record EventEnvelope(
     EventDataCodec codec
   ) {
     var encoded = codec.encode(type, data);
+    return new EventEnvelope(encoded.typeName(), encoded.document(), metadata);
+  }
+
+  public static <Event> EventEnvelope of(
+    Event data,
+    EventMetadata metadata,
+    EventDataCodec codec
+  ) {
+    var encoded = codec.encode(data);
     return new EventEnvelope(encoded.typeName(), encoded.document(), metadata);
   }
 

@@ -28,9 +28,9 @@ public class TimeTravellingTests extends PostgresTest {
 
   @Test
   public void aggregateStream_ShouldReturnSpecifiedVersionOfTheStream() {
-    var bankAccountId = UUID.randomUUID();
+    var bankAccountId = UUID.randomUUID().toString();
     var accountNumber = "PL61 1090 1014 0000 0712 1981 2874";
-    var clientId = UUID.randomUUID();
+    var clientId = UUID.randomUUID().toString();
     var currencyISOCOde = "PLN";
     var createdAt = LocalDateTime.now();
     var version = 0;
@@ -44,10 +44,10 @@ public class TimeTravellingTests extends PostgresTest {
       version
     );
 
-    var cashierId = UUID.randomUUID();
+    var cashierId = UUID.randomUUID().toString();
     var depositRecorded = new DepositRecorded(bankAccountId, 100, cashierId, LocalDateTime.now(), ++version);
 
-    var atmId = UUID.randomUUID();
+    var atmId = UUID.randomUUID().toString();
     var cashWithdrawn = new CashWithdrawnFromATM(bankAccountId, 50, atmId, LocalDateTime.now(), ++version);
 
     eventStore.appendEvents(
