@@ -1,6 +1,6 @@
 package io.eventdriven.buildyourowneventstore.e01_storage.mongodb;
 
-import io.eventdriven.buildyourowneventstore.e01_storage.mongodb.event.EventEnvelope;
+import io.eventdriven.buildyourowneventstore.e01_storage.mongodb.events.EventEnvelope;
 import org.bson.types.ObjectId;
 
 import java.util.List;

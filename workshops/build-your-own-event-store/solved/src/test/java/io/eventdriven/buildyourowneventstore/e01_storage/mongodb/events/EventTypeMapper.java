@@ -1,4 +1,4 @@
-package io.eventdriven.buildyourowneventstore.e01_storage.mongodb;
+package io.eventdriven.buildyourowneventstore.e01_storage.mongodb.events;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -1,6 +1,5 @@
-package io.eventdriven.buildyourowneventstore.e01_storage.mongodb.event;
+package io.eventdriven.buildyourowneventstore.e01_storage.mongodb.events;
 
-import io.eventdriven.buildyourowneventstore.e01_storage.mongodb.EventTypeMapper;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
 import org.bson.BsonDocumentWriter;
