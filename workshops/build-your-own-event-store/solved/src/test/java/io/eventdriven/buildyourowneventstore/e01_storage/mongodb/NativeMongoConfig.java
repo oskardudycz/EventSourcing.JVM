@@ -21,9 +21,12 @@ public class NativeMongoConfig {
 
   public static MongoClient createClient() {
     CodecRegistry codecRegistry = fromRegistries(
-      CodecRegistries.fromCodecs(new UuidCodec(UuidRepresentation.STANDARD)), // Explicitly add UUIDCodec
       MongoClientSettings.getDefaultCodecRegistry(),
-      fromProviders(PojoCodecProvider.builder().automatic(true).build())
+      CodecRegistries.fromCodecs(new UuidCodec(UuidRepresentation.STANDARD)),
+      fromProviders(
+        // new EventEnvelopeCodecProvider(),
+        PojoCodecProvider.builder().automatic(true).build()
+      )
     );
 
     MongoClientSettings settings = MongoClientSettings.builder()

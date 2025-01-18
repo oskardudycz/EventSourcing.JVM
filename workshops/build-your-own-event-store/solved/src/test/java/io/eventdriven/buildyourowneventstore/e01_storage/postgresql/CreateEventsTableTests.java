@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CreateEventsTableTests extends PostgresTest {
-  protected static PostgreSQLEventStore eventStore;
   private final String EventsTableName = "events";
 
   private final String streamIdColumnName = "stream_id";
@@ -24,7 +23,7 @@ public class CreateEventsTableTests extends PostgresTest {
   @BeforeAll
   public void setup() {
     // Create Event Store
-    eventStore = new PostgreSQLEventStore(dbConnection);
+    var eventStore = new PostgreSQLEventStore(dbConnection);
 
     // Initialize Event Store
     eventStore.init();
