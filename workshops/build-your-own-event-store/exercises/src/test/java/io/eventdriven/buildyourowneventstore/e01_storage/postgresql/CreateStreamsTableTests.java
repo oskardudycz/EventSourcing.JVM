@@ -1,6 +1,7 @@
 package io.eventdriven.buildyourowneventstore.e01_storage.postgresql;
 
 import io.eventdriven.buildyourowneventstore.tools.PostgresTest;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -9,66 +10,75 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CreateStreamsTableTests extends PostgresTest {
-    private final String streamsTableName = "streams";
+  private final String streamsTableName = "streams";
 
-    private final String idColumnName = "id";
-    private final String typeColumnName = "type";
-    private final String streamPositionColumnName = "stream_position";
+  private final String idColumnName = "id";
+  private final String typeColumnName = "type";
+  private final String streamPositionColumnName = "stream_position";
 
-    /**
-     * Verifies if Stream table was created
-     */
-    @Tag("Exercise")
-    @Test
-    public void streamsTable_ShouldBeCreated() {
-        var streamsTable = schemaProvider.getTable(streamsTableName);
+  @BeforeAll
+  public void setup() {
+    // Create Event Store
+    var eventStore = new PostgreSQLEventStore(dbConnection);
 
-        assertTrue(streamsTable.isPresent());
-        assertEquals(streamsTableName, streamsTable.get().getName());
-    }
+    // Initialize Event Store
+    eventStore.init();
+  }
 
-    /**
-     * Verifies if Stream table has id column of type UUID
-     */
-    @Tag("Exercise")
-    @Test
-    public void streamsTable_ShouldHave_IdColumn() {
-        var idColumn = schemaProvider
-            .getTable(streamsTableName)
-            .flatMap(table -> table.getColumn(idColumnName));
+  /**
+   * Verifies if Stream table was created
+   */
+  @Tag("Exercise")
+  @Test
+  public void streamsTable_ShouldBeCreated() {
+    var streamsTable = schemaProvider.getTable(streamsTableName);
 
-        assertTrue(idColumn.isPresent());
-        assertEquals(idColumnName, idColumn.get().getName());
-        assertEquals(uuidType, idColumn.get().getType());
-    }
+    assertTrue(streamsTable.isPresent());
+    assertEquals(streamsTableName, streamsTable.get().getName());
+  }
 
-    /**
-     * Verifies if Stream table has Type column of type String
-     */
-    @Tag("Exercise")
-    @Test
-    public void streamsTable_ShouldHave_TypeColumn_WithStringType() {
-        var typeColumn = schemaProvider
-            .getTable(streamsTableName)
-            .flatMap(table -> table.getColumn(typeColumnName));
+  /**
+   * Verifies if Stream table has id column of type UUID
+   */
+  @Tag("Exercise")
+  @Test
+  public void streamsTable_ShouldHave_IdColumn() {
+    var idColumn = schemaProvider
+      .getTable(streamsTableName)
+      .flatMap(table -> table.getColumn(idColumnName));
 
-        assertTrue(typeColumn.isPresent());
-        assertEquals(typeColumnName, typeColumn.get().getName());
-        assertEquals(textType, typeColumn.get().getType());
-    }
+    assertTrue(idColumn.isPresent());
+    assertEquals(idColumnName, idColumn.get().getName());
+    assertEquals(uuidType, idColumn.get().getType());
+  }
 
-    /**
-     * Verifies if Stream table has StreamPosition column of type Long
-     */
-    @Tag("Exercise")
-    @Test
-    public void streamsTable_ShouldHave_StreamPositionColumn_WithLongType() {
-        var streamPositionColumn = schemaProvider
-            .getTable(streamsTableName)
-            .flatMap(table -> table.getColumn(streamPositionColumnName));
+  /**
+   * Verifies if Stream table has Type column of type String
+   */
+  @Tag("Exercise")
+  @Test
+  public void streamsTable_ShouldHave_TypeColumn_WithStringType() {
+    var typeColumn = schemaProvider
+      .getTable(streamsTableName)
+      .flatMap(table -> table.getColumn(typeColumnName));
 
-        assertTrue(streamPositionColumn.isPresent());
-        assertEquals(streamPositionColumnName, streamPositionColumn.get().getName());
-        assertEquals(bigintType, streamPositionColumn.get().getType());
-    }
+    assertTrue(typeColumn.isPresent());
+    assertEquals(typeColumnName, typeColumn.get().getName());
+    assertEquals(textType, typeColumn.get().getType());
+  }
+
+  /**
+   * Verifies if Stream table has StreamPosition column of type Long
+   */
+  @Tag("Exercise")
+  @Test
+  public void streamsTable_ShouldHave_StreamPositionColumn_WithLongType() {
+    var streamPositionColumn = schemaProvider
+      .getTable(streamsTableName)
+      .flatMap(table -> table.getColumn(streamPositionColumnName));
+
+    assertTrue(streamPositionColumn.isPresent());
+    assertEquals(streamPositionColumnName, streamPositionColumn.get().getName());
+    assertEquals(bigintType, streamPositionColumn.get().getType());
+  }
 }

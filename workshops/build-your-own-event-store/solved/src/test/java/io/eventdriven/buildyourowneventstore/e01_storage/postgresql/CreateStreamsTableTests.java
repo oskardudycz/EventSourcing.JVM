@@ -1,6 +1,7 @@
 package io.eventdriven.buildyourowneventstore.e01_storage.postgresql;
 
 import io.eventdriven.buildyourowneventstore.tools.PostgresTest;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static io.eventdriven.buildyourowneventstore.tools.PostgresSchemaProvider.Column.*;
@@ -13,6 +14,15 @@ public class CreateStreamsTableTests extends PostgresTest {
   private final String idColumnName = "id";
   private final String typeColumnName = "type";
   private final String streamPositionColumnName = "stream_position";
+
+  @BeforeAll
+  public void setup() {
+    // Create Event Store
+    var eventStore = new PostgreSQLEventStore(dbConnection);
+
+    // Initialize Event Store
+    eventStore.init();
+  }
 
   /**
    * Verifies if Stream table was created

@@ -5,6 +5,7 @@ import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
 import org.bson.BsonDocumentWriter;
 import org.bson.Document;
+import org.bson.codecs.Codec;
 import org.bson.codecs.DecoderContext;
 import org.bson.codecs.EncoderContext;
 import org.bson.codecs.configuration.CodecRegistry;
@@ -19,6 +20,19 @@ public class EventDataCodec {
   }
 
   public record DecodedData(String typeName, Document document) {
+  }
+
+  public DecodedData encode(
+    Object data
+  ) {
+    @SuppressWarnings("unchecked")
+    var codec = (Codec<Object>) codecRegistry.get(data.getClass());
+
+    var bsonDocument = new BsonDocument();
+    var writer = new BsonDocumentWriter(bsonDocument);
+    codec.encode(writer, data, EncoderContext.builder().isEncodingCollectibleDocument(true).build());
+
+    return new DecodedData(eventTypeMapper.toName(data.getClass()), new Document(bsonDocument));
   }
 
   public <Event> DecodedData encode(

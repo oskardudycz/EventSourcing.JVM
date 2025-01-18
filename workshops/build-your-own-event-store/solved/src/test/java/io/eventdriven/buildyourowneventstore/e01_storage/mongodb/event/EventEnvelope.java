@@ -1,12 +1,6 @@
 package io.eventdriven.buildyourowneventstore.e01_storage.mongodb.event;
 
-import org.bson.BsonDocument;
-import org.bson.BsonDocumentReader;
-import org.bson.BsonDocumentWriter;
 import org.bson.Document;
-import org.bson.codecs.DecoderContext;
-import org.bson.codecs.EncoderContext;
-import org.bson.codecs.configuration.CodecRegistry;
 
 public record EventEnvelope(
   String type,
