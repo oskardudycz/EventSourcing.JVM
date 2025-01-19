@@ -2,6 +2,7 @@ package io.eventdriven.buildyourowneventstore.e04_event_store_methods.postgresql
 
 import io.eventdriven.buildyourowneventstore.EventTypeMapper;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
 
 import java.sql.Connection;
 import java.time.LocalDateTime;
@@ -28,9 +29,8 @@ public class PostgreSQLEventStore implements EventStore {
   }
 
   @Override
-  public <Stream> void appendEvents(
-    Class<Stream> streamClass,
-    String streamId,
+  public void appendEvents(
+    StreamName streamName,
     Long expectedVersion,
     Object... events
   ) {
@@ -45,8 +45,8 @@ public class PostgreSQLEventStore implements EventStore {
             setStringParam(ps, 1, UUID.randomUUID().toString());
             setStringParam(ps, 2, serialize(event));
             setStringParam(ps, 3, EventTypeMapper.toName(event.getClass()));
-            setStringParam(ps, 4, streamId);
-            setStringParam(ps, 5, streamClass.getTypeName());
+            setStringParam(ps, 4, streamName.streamId());
+            setStringParam(ps, 5, streamName.streamType());
             setLong(ps, 6, expectedVersion);
           },
           rs -> getBoolean(rs, "succeeded")
@@ -59,9 +59,8 @@ public class PostgreSQLEventStore implements EventStore {
   }
 
   @Override
-  public <Stream> List<Object> getEvents(
-    Class<Stream> streamClass,
-    String streamId,
+  public List<Object> getEvents(
+    StreamName streamName,
     Long atStreamVersion,
     LocalDateTime atTimestamp
   ) {
@@ -82,7 +81,7 @@ public class PostgreSQLEventStore implements EventStore {
       getStreamSql,
       ps -> {
         var index = 1;
-        setStringParam(ps, index++, streamId.toString());
+        setStringParam(ps, index++, streamName.streamId());
         if(atStreamVersion != null)
           setLong(ps, index++, atStreamVersion);
         if(atTimestamp != null)

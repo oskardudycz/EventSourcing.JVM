@@ -5,6 +5,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.*;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventDataCodec;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventEnvelope;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventMetadata;
@@ -40,9 +41,10 @@ public class MongoDBEventStore implements EventStore {
   }
 
   @Override
-  public <Stream> void appendEvents(Class<Stream> streamClass, String streamId, Long expectedVersion, Object... events) {
-    var streamType = toStreamType(streamClass);
-    var streamName = toStreamName(streamType, streamId);
+  public void appendEvents(StreamName streamName, Long expectedVersion, Object... events) {
+    var streamType = streamName.streamType();
+    var streamId = streamName.streamId();
+    var streamNameValue = streamName.toString();
 
     // Resolve collection
     var collection = collectionFor(streamType);
@@ -54,7 +56,7 @@ public class MongoDBEventStore implements EventStore {
     if (expectedVersion != null) {
       currentVersion = expectedVersion;
     } else {
-      var stream = collection.find(Filters.eq("streamName", streamName))
+      var stream = collection.find(Filters.eq("streamName", streamNameValue))
         .projection(Projections.include("metadata.streamPosition"))
         .first();
 
@@ -73,16 +75,16 @@ public class MongoDBEventStore implements EventStore {
             UUID.randomUUID().toString(),
             eventTypeMapper.toName(event.getClass()),
             currentVersion + index + 1,
-            streamName
+            streamNameValue
           ),
           eventDataCodec
         );
       }).toList();
 
     // Append events upserting the document
-    collection.updateOne(
+    var result = collection.updateOne(
       Filters.and(
-        Filters.eq("streamName", streamName),
+        Filters.eq("streamName", streamNameValue),
         Filters.eq("metadata.streamPosition", currentVersion)
       ),
       Updates.combine(
@@ -91,7 +93,7 @@ public class MongoDBEventStore implements EventStore {
         // Increment stream position
         Updates.inc("metadata.streamPosition", events.length),
         // Set default metadata on insert
-        Updates.setOnInsert("streamName", streamName),
+        Updates.setOnInsert("streamName", streamNameValue),
         Updates.setOnInsert("metadata.streamId", streamId),
         Updates.setOnInsert("metadata.streamType", streamType),
         Updates.setOnInsert("metadata.createdAt", now),
@@ -100,18 +102,20 @@ public class MongoDBEventStore implements EventStore {
       ),
       upsert
     );
+
+    if (result.getModifiedCount() == 0L && result.getUpsertedId() == null)
+      throw new IllegalStateException("Expected version did not match the stream version!");
   }
 
   @Override
-  public <Stream> List<Object> getEvents(Class<Stream> streamClass, String streamId, Long atStreamVersion, LocalDateTime atTimestamp) {
-    var streamType = toStreamType(streamClass);
-    var streamName = toStreamName(streamType, streamId);
+  public List<Object> getEvents(StreamName streamName, Long atStreamVersion, LocalDateTime atTimestamp) {
+    var streamType = streamName.streamType();
 
     // Resolve collection
     var collection = collectionFor(streamType);
 
     // Read events from the stream document
-    var stream = collection.find(Filters.eq("streamName", streamName))
+    var stream = collection.find(Filters.eq("streamName", streamName.toString()))
       .projection(Projections.include("events"))
       .first();
 
@@ -124,14 +128,6 @@ public class MongoDBEventStore implements EventStore {
 
   private MongoCollection<EventStream> collectionFor(String streamType) {
     return database.getCollection(streamType, EventStream.class);
-  }
-
-  private static <Stream> String toStreamType(Class<Stream> streamClass) {
-    return streamClass.getCanonicalName().replace(".", "-");
-  }
-
-  private static String toStreamName(String streamType, String streamId) {
-    return streamType + ":" + streamId;
   }
 
   private final static UpdateOptions upsert = new UpdateOptions().upsert(true);

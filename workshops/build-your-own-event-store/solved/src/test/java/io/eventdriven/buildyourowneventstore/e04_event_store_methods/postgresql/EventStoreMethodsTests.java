@@ -2,6 +2,7 @@ package io.eventdriven.buildyourowneventstore.e04_event_store_methods.postgresql
 
 import bankaccounts.BankAccount;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
 import io.eventdriven.buildyourowneventstore.tools.PostgresTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -51,13 +52,14 @@ public class EventStoreMethodsTests extends PostgresTest {
     var atmId = UUID.randomUUID().toString();
     var cashWithdrawn = new CashWithdrawnFromATM(bankAccountId, 50, atmId, now, ++version);
 
+    var streamName = StreamName.of(BankAccount.class, bankAccountId);
+
     eventStore.appendEvents(
-      BankAccount.class,
-      bankAccountId,
+      streamName,
       bankAccountCreated, depositRecorded, cashWithdrawn
     );
 
-    var events = eventStore.getEvents(BankAccount.class, bankAccountId);
+    var events = eventStore.getEvents(streamName);
 
     assertEquals(3, events.size());
 
