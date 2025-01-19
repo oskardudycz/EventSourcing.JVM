@@ -6,31 +6,27 @@ import java.util.List;
 public interface EventStore {
   void init();
 
-  default <Stream> void appendEvents(
-    Class<Stream> streamClass,
-    String streamId,
+  default void appendEvents(
+    StreamName streamName,
     Object... events
   ) {
-    appendEvents(streamClass, streamId, null, events);
+    appendEvents(streamName, null, events);
   }
 
-  <Stream> void appendEvents(
-    Class<Stream> streamClass,
-    String streamId,
+  void appendEvents(
+    StreamName streamName,
     Long expectedVersion,
     Object... events
   );
 
-  default <Stream>  List<Object> getEvents(
-    Class<Stream> streamClass,
-    String streamId
+  default List<Object> getEvents(
+    StreamName streamName
   ) {
-    return getEvents(streamClass, streamId, null, null);
+    return getEvents(streamName, null, null);
   }
 
-  <Stream> List<Object> getEvents(
-    Class<Stream> streamClass,
-    String streamId,
+  List<Object> getEvents(
+    StreamName streamName,
     Long atStreamVersion,
     LocalDateTime atTimestamp
   );
