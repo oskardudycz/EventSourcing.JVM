@@ -1,4 +1,4 @@
-package io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb;
+package io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.event_as_document;
 
 import bankaccounts.BankAccount;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
@@ -21,7 +21,7 @@ public class EventStoreMethodsTests extends MongoDBTest {
   @BeforeAll
   public void setup() {
     // Create Event Store
-    eventStore = new MongoDBEventStore(mongoClient, databaseName);
+    eventStore = new MongoDBEventStore(mongoClient, getFreshDatabase().getName());
 
     // Initialize Event Store
     eventStore.init();
