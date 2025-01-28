@@ -35,7 +35,7 @@ public class PgEventStore implements EventStore {
       for (var event : events) {
         boolean succeeded = querySingleSql(
           connection,
-          "SELECT append_event(?::uuid, ?::jsonb, ?, ?::uuid, ?, ?) AS succeeded",
+          "SELECT append_event(?::text, ?::jsonb, ?, ?::text, ?, ?) AS succeeded",
           ps -> {
             setStringParam(ps, 1, UUID.randomUUID().toString());
             setStringParam(ps, 2, serialize(event));
@@ -65,7 +65,7 @@ public class PgEventStore implements EventStore {
     var getStreamSql = """
       SELECT id, data, stream_id, type, version, created
       FROM events
-      WHERE stream_id = ?::uuid
+      WHERE stream_id = ?::text
       """
       + atStreamCondition
       + atTimestampCondition
@@ -97,7 +97,7 @@ public class PgEventStore implements EventStore {
 
   private final String createStreamsTableSql = """
     CREATE TABLE IF NOT EXISTS streams(
-        id             UUID                      NOT NULL    PRIMARY KEY,
+        id             text                      NOT NULL    PRIMARY KEY,
         type           TEXT                      NOT NULL,
         version        BIGINT                    NOT NULL
     );
@@ -105,9 +105,9 @@ public class PgEventStore implements EventStore {
 
   private final String createEventsTableSql = """
     CREATE TABLE IF NOT EXISTS events(
-          id             UUID                      NOT NULL    PRIMARY KEY,
+          id             text                      NOT NULL    PRIMARY KEY,
           data           JSONB                     NOT NULL,
-          stream_id      UUID                      NOT NULL,
+          stream_id      text                      NOT NULL,
           type           TEXT                      NOT NULL,
           version        BIGINT                    NOT NULL,
           created        timestamp with time zone  NOT NULL    default (now()),
@@ -118,10 +118,10 @@ public class PgEventStore implements EventStore {
 
   private final String createAppendFunctionSql = """
     CREATE OR REPLACE FUNCTION append_event(
-        id uuid,
+        id text,
         data jsonb,
         type text,
-        stream_id uuid,
+        stream_id text,
         stream_type text,
         expected_stream_version bigint default null
     ) RETURNS boolean

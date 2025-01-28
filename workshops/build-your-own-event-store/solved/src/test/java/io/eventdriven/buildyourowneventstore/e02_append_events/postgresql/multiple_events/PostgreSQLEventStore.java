@@ -8,7 +8,6 @@ import java.sql.Connection;
 import java.util.Arrays;
 import java.util.UUID;
 
-import static io.eventdriven.buildyourowneventstore.JsonEventSerializer.serialize;
 import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.*;
 
 public class PostgreSQLEventStore implements EventStore {
@@ -53,9 +52,9 @@ public class PostgreSQLEventStore implements EventStore {
 
       boolean succeeded = querySingleSql(
         connection,
-        "SELECT append_event(?::uuid[], ?::jsonb[], ?::jsonb[], ?::text[], ?::uuid, ?, ?) AS succeeded",
+        "SELECT append_event(?::text[], ?::jsonb[], ?::jsonb[], ?::text[], ?::text, ?, ?) AS succeeded",
         ps -> {
-          setArrayOf(dbConnection, ps, 1, "uuid", ids);
+          setArrayOf(dbConnection, ps, 1, "text", ids);
           setArrayOf(dbConnection, ps, 2, "jsonb", eventData);
           setArrayOf(dbConnection, ps, 3, "jsonb", eventMetadata);
           setArrayOf(dbConnection, ps, 4, "text", eventTypes);
@@ -74,7 +73,7 @@ public class PostgreSQLEventStore implements EventStore {
 
   private final String createStreamsTableSql = """
     CREATE TABLE IF NOT EXISTS streams(
-        id               UUID                      NOT NULL    PRIMARY KEY,
+        id               TEXT                      NOT NULL    PRIMARY KEY,
         type             TEXT                      NOT NULL,
         stream_position  BIGINT                    NOT NULL
     );
@@ -84,10 +83,10 @@ public class PostgreSQLEventStore implements EventStore {
     CREATE SEQUENCE IF NOT EXISTS global_event_position;
 
     CREATE TABLE IF NOT EXISTS events(
-          stream_id        UUID                      NOT NULL,
+          stream_id        TEXT                      NOT NULL,
           stream_position  BIGINT                    NOT NULL,
           global_position  BIGINT                    DEFAULT nextval('global_event_position'),
-          id               UUID                      NOT NULL,
+          id               TEXT                      NOT NULL,
           data             JSONB                     NOT NULL,
           metadata         JSONB                     DEFAULT '{}',
           type             TEXT                      NOT NULL,
@@ -99,11 +98,11 @@ public class PostgreSQLEventStore implements EventStore {
 
   private final String createAppendFunctionSql = """
     CREATE OR REPLACE FUNCTION append_event(
-        ids_array uuid[],
+        ids_array TEXT[],
         data_array jsonb[],
         metadata_array jsonb[],
         types_array text[],
-        stream_id uuid,
+        stream_id TEXT,
         stream_type text,
         expected_stream_position bigint default null
     ) RETURNS boolean
@@ -111,6 +110,7 @@ public class PostgreSQLEventStore implements EventStore {
         AS $$
         DECLARE
             current_stream_position int;
+            updated_rows int;
         BEGIN
             -- get current stream stream position
             SELECT
@@ -137,6 +137,18 @@ public class PostgreSQLEventStore implements EventStore {
             -- increment current stream position
             current_stream_position := current_stream_position + 1;
 
+            -- update stream position
+            UPDATE streams as s
+                SET stream_position = current_stream_position
+            WHERE
+                s.id = stream_id;
+
+            get diagnostics updated_rows = row_count;
+
+            IF updated_rows = 0 THEN
+                RETURN FALSE;
+            END IF;
+
             -- append event
             INSERT INTO events
                 (id, data, metadata, stream_id, type, stream_position)
@@ -153,12 +165,6 @@ public class PostgreSQLEventStore implements EventStore {
                 metadata_array,
                 types_array
             ) WITH ORDINALITY AS t(id, data, metadata, type);
-
-            -- update stream position
-            UPDATE streams as s
-                SET stream_position = current_stream_position
-            WHERE
-                s.id = stream_id;
 
             RETURN TRUE;
         END;

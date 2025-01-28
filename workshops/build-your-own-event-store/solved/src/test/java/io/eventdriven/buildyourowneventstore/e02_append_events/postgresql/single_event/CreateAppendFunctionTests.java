@@ -47,7 +47,7 @@ public class CreateAppendFunctionTests extends PostgresTest {
 
     var wasStreamCreated = querySingleSql(
       dbConnection,
-      "select exists (select 1 as exist from streams where id = ?::uuid) as exist",
+      "select exists (select 1 as exist from streams where id = ?) as exist",
       setStringParam(bankAccountId),
       rs -> getBoolean(rs, "exist")
     );
@@ -55,7 +55,7 @@ public class CreateAppendFunctionTests extends PostgresTest {
 
     var wasEventAppended = querySingleSql(
       dbConnection,
-      "select exists (select 1 from events where stream_id = ?::uuid) as exist",
+      "select exists (select 1 from events where stream_id = ?) as exist",
       setStringParam(bankAccountId),
       rs -> getBoolean(rs, "exist")
     );

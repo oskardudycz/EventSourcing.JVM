@@ -41,7 +41,7 @@ public class CreateEventsTableTests extends PostgresTest {
   }
 
   /**
-   * Verifies if Stream table has Stream id column of type UUID
+   * Verifies if Stream table has Stream id column of type TEXT
    */
   @Test
   public void eventsTable_ShouldHave_StreamIdColumn() {
@@ -51,7 +51,7 @@ public class CreateEventsTableTests extends PostgresTest {
 
     assertTrue(streamIdColumn.isPresent());
     assertEquals(streamIdColumnName, streamIdColumn.get().getName());
-    assertEquals(uuidType, streamIdColumn.get().getType());
+    assertEquals(textType, streamIdColumn.get().getType());
   }
 
   /**
@@ -83,7 +83,7 @@ public class CreateEventsTableTests extends PostgresTest {
   }
 
   /**
-   * Verifies if Stream table has id column of type UUID
+   * Verifies if Stream table has id column of type TEXT
    */
   @Test
   public void eventsTable_ShouldHave_IdColumn() {
@@ -93,7 +93,7 @@ public class CreateEventsTableTests extends PostgresTest {
 
     assertTrue(idColumn.isPresent());
     assertEquals(idColumnName, idColumn.get().getName());
-    assertEquals(uuidType, idColumn.get().getType());
+    assertEquals(textType, idColumn.get().getType());
   }
 
   /**

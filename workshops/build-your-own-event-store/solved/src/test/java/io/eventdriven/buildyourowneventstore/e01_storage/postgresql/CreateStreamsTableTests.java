@@ -36,7 +36,7 @@ public class CreateStreamsTableTests extends PostgresTest {
   }
 
   /**
-   * Verifies if Stream table has id column of type UUID
+   * Verifies if Stream table has id column of type TEXT
    */
   @Test
   public void streamsTable_ShouldHave_IdColumn() {
@@ -46,7 +46,7 @@ public class CreateStreamsTableTests extends PostgresTest {
 
     assertTrue(idColumn.isPresent());
     assertEquals(idColumnName, idColumn.get().getName());
-    assertEquals(uuidType, idColumn.get().getType());
+    assertEquals(textType, idColumn.get().getType());
   }
 
   /**

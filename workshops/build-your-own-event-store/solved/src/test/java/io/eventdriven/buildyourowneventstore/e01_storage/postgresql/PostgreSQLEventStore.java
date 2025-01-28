@@ -21,7 +21,7 @@ public class PostgreSQLEventStore implements EventStore {
 
   private final String createStreamsTableSql = """
     CREATE TABLE IF NOT EXISTS streams(
-        id               UUID                      NOT NULL    PRIMARY KEY,
+        id               TEXT                      NOT NULL    PRIMARY KEY,
         type             TEXT                      NOT NULL,
         stream_position  BIGINT                    NOT NULL
     );
@@ -31,10 +31,10 @@ public class PostgreSQLEventStore implements EventStore {
     CREATE SEQUENCE IF NOT EXISTS global_event_position;
 
     CREATE TABLE IF NOT EXISTS events(
-          stream_id        UUID                      NOT NULL,
+          stream_id        TEXT                      NOT NULL,
           stream_position  BIGINT                    NOT NULL,
           global_position  BIGINT                    DEFAULT nextval('global_event_position'),
-          id               UUID                      NOT NULL,
+          id               TEXT                      NOT NULL,
           data             JSONB                     NOT NULL,
           metadata         JSONB                     NOT NULL,
           type             TEXT                      NOT NULL,

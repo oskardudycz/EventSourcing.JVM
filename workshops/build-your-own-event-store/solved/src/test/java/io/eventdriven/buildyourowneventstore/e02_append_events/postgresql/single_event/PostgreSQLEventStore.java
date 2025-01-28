@@ -36,7 +36,7 @@ public class PostgreSQLEventStore implements EventStore {
       for (var event : events) {
         boolean succeeded = querySingleSql(
           connection,
-          "SELECT append_event(?::uuid, ?::jsonb, ?::jsonb, ?, ?::uuid, ?, ?) AS succeeded",
+          "SELECT append_event(?::TEXT, ?::jsonb, ?::jsonb, ?, ?::TEXT, ?, ?) AS succeeded",
           ps -> {
             setStringParam(ps, 1, UUID.randomUUID().toString());
             setStringParam(ps, 2, serialize(event));
@@ -57,7 +57,7 @@ public class PostgreSQLEventStore implements EventStore {
 
   private final String createStreamsTableSql = """
     CREATE TABLE IF NOT EXISTS streams(
-        id               UUID                      NOT NULL    PRIMARY KEY,
+        id               TEXT                      NOT NULL    PRIMARY KEY,
         type             TEXT                      NOT NULL,
         stream_position  BIGINT                    NOT NULL
     );
@@ -67,10 +67,10 @@ public class PostgreSQLEventStore implements EventStore {
     CREATE SEQUENCE IF NOT EXISTS global_event_position;
 
     CREATE TABLE IF NOT EXISTS events(
-          stream_id        UUID                      NOT NULL,
+          stream_id        TEXT                      NOT NULL,
           stream_position  BIGINT                    NOT NULL,
           global_position  BIGINT                    DEFAULT nextval('global_event_position'),
-          id               UUID                      NOT NULL,
+          id               TEXT                      NOT NULL,
           data             JSONB                     NOT NULL,
           metadata         JSONB                     DEFAULT '{}',
           type             TEXT                      NOT NULL,
@@ -82,11 +82,11 @@ public class PostgreSQLEventStore implements EventStore {
 
   private final String createAppendFunctionSql = """
     CREATE OR REPLACE FUNCTION append_event(
-        id uuid,
+        id TEXT,
         data jsonb,
         metadata jsonb,
-        type text,
-        stream_id uuid,
+        type TEXT,
+        stream_id TEXT,
         stream_type text,
         expected_stream_position bigint default null
     ) RETURNS boolean
@@ -94,6 +94,7 @@ public class PostgreSQLEventStore implements EventStore {
         AS $$
         DECLARE
             current_stream_position int;
+            updated_rows int;
         BEGIN
             -- get current stream stream position
             SELECT
@@ -120,17 +121,23 @@ public class PostgreSQLEventStore implements EventStore {
             -- increment current stream position
             current_stream_position := current_stream_position + 1;
 
-            -- append event
-            INSERT INTO events
-                (id, data, metadata, stream_id, type, stream_position)
-            VALUES
-                (id, data, metadata, stream_id, type, current_stream_position);
-
             -- update stream position
             UPDATE streams as s
                 SET stream_position = current_stream_position
             WHERE
                 s.id = stream_id;
+
+            get diagnostics updated_rows = row_count;
+
+            IF updated_rows = 0 THEN
+                RETURN FALSE;
+            END IF;
+
+            -- append event
+            INSERT INTO events
+                (id, data, metadata, stream_id, type, stream_position)
+            VALUES
+                (id, data, metadata, stream_id, type, current_stream_position);
 
             RETURN TRUE;
         END;
