@@ -1,9 +1,11 @@
-package io.eventdriven.buildyourowneventstore.e02_append_events.postgresql;
+package io.eventdriven.buildyourowneventstore.e02_append_events.postgresql.multiple_events;
 
 import io.eventdriven.buildyourowneventstore.EventTypeMapper;
+import io.eventdriven.buildyourowneventstore.JsonEventSerializer;
 import io.eventdriven.buildyourowneventstore.e02_append_events.EventStore;
 
 import java.sql.Connection;
+import java.util.Arrays;
 import java.util.UUID;
 
 import static io.eventdriven.buildyourowneventstore.JsonEventSerializer.serialize;
@@ -33,24 +35,40 @@ public class PostgreSQLEventStore implements EventStore {
 
     runInTransaction(dbConnection, connection ->
     {
-      for (var event : events) {
-        boolean succeeded = querySingleSql(
-          connection,
-          "SELECT append_event(?::uuid, ?::jsonb, ?, ?::uuid, ?, ?) AS succeeded",
-          ps -> {
-            setStringParam(ps, 1, UUID.randomUUID().toString());
-            setStringParam(ps, 2, serialize(event));
-            setStringParam(ps, 3, EventTypeMapper.toName(event.getClass()));
-            setStringParam(ps, 4, streamId.toString());
-            setStringParam(ps, 5, streamClass.getTypeName());
-            setLong(ps, 6, expectedStreamPosition);
-          },
-          rs -> getBoolean(rs, "succeeded")
-        );
+      var ids = Arrays.stream(events)
+        .map(_ -> UUID.randomUUID().toString())
+        .toArray(String[]::new);
 
-        if (!succeeded)
-          throw new IllegalStateException("Expected stream position did not match the current stream position!");
-      }
+      var eventData = Arrays.stream(events)
+        .map(JsonEventSerializer::serialize)
+        .toArray(String[]::new);
+
+      var eventMetadata = Arrays.stream(events)
+        .map(_ -> "{}")
+        .toArray(String[]::new);
+
+      var eventTypes = Arrays.stream(events)
+        .map(event -> EventTypeMapper.toName(event.getClass()))
+        .toArray(String[]::new);
+
+      boolean succeeded = querySingleSql(
+        connection,
+        "SELECT append_event(?::uuid[], ?::jsonb[], ?::jsonb[], ?::text[], ?::uuid, ?, ?) AS succeeded",
+        ps -> {
+          setArrayOf(dbConnection, ps, 1, "uuid", ids);
+          setArrayOf(dbConnection, ps, 2, "jsonb", eventData);
+          setArrayOf(dbConnection, ps, 3, "jsonb", eventMetadata);
+          setArrayOf(dbConnection, ps, 4, "text", eventTypes);
+          setStringParam(ps, 5, streamId);
+          setStringParam(ps, 6, streamClass.getTypeName());
+          setLong(ps, 7, expectedStreamPosition);
+        },
+        rs -> getBoolean(rs, "succeeded")
+      );
+
+      if (!succeeded)
+        throw new IllegalStateException("Expected stream position did not match the current stream position!");
+
     });
   }
 
@@ -81,9 +99,10 @@ public class PostgreSQLEventStore implements EventStore {
 
   private final String createAppendFunctionSql = """
     CREATE OR REPLACE FUNCTION append_event(
-        id uuid,
-        data jsonb,
-        type text,
+        ids_array uuid[],
+        data_array jsonb[],
+        metadata_array jsonb[],
+        types_array text[],
         stream_id uuid,
         stream_type text,
         expected_stream_position bigint default null
@@ -120,9 +139,20 @@ public class PostgreSQLEventStore implements EventStore {
 
             -- append event
             INSERT INTO events
-                (id, data, stream_id, type, stream_position)
-            VALUES
-                (id, data::jsonb, stream_id, type, current_stream_position);
+                (id, data, metadata, stream_id, type, stream_position)
+            SELECT
+                id,
+                data,
+                metadata,
+                stream_id,
+                type,
+                current_stream_position + row_number() OVER (ORDER BY ordinality)
+            FROM unnest(
+                ids_array,
+                data_array,
+                metadata_array,
+                types_array
+            ) WITH ORDINALITY AS t(id, data, metadata, type);
 
             -- update stream position
             UPDATE streams as s

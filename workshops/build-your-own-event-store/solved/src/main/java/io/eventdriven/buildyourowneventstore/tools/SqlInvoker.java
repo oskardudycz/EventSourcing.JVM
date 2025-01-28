@@ -1,5 +1,7 @@
 package io.eventdriven.buildyourowneventstore.tools;
 
+import org.postgresql.util.PGobject;
+
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -121,6 +123,15 @@ public final class SqlInvoker {
       }
 
       ps.setTimestamp(index, java.sql.Timestamp.valueOf(value));
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static void setArrayOf(Connection dbConnection, PreparedStatement ps, int index, String columnType, Object[] value) {
+    try {
+      var array = dbConnection.createArrayOf(columnType, value);
+      ps.setArray(index, array);
     } catch (SQLException e) {
       throw new RuntimeException(e);
     }

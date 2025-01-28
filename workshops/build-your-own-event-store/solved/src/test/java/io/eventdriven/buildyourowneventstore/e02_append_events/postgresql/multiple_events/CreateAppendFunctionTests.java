@@ -1,4 +1,4 @@
-package io.eventdriven.buildyourowneventstore.e02_append_events.postgresql;
+package io.eventdriven.buildyourowneventstore.e02_append_events.postgresql.multiple_events;
 
 import bankaccounts.BankAccount;
 import io.eventdriven.buildyourowneventstore.e02_append_events.EventStore;
