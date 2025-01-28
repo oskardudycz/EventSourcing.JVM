@@ -96,7 +96,7 @@ public class EventStoreMethodsTests extends MongoDBTest {
         var change = insertFuture.get(5, TimeUnit.SECONDS);
         var updateChange = updateFuture.get(5, TimeUnit.SECONDS);
 
-        assertEquals(3, events.size());
+        assertEquals(6, events.size());
 
         assertEquals(bankAccountCreated, findFirstOfType(BankAccountOpened.class, events));
         assertEquals(depositRecorded, findFirstOfType(DepositRecorded.class, events));

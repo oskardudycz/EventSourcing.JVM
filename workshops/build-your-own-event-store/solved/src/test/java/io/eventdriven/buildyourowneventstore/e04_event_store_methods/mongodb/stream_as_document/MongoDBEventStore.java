@@ -12,6 +12,9 @@ import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.str
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.stream_as_document.events.EventMetadata;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.stream_as_document.events.EventTypeMapper;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.stream_as_document.streams.EventStream;
+import org.bson.BsonDocumentReader;
+import org.bson.codecs.Codec;
+import org.bson.codecs.DecoderContext;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -24,177 +27,185 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
 public class MongoDBEventStore implements EventStore {
-    private final MongoClient mongoClient;
-    private final MongoDatabase database;
-    private final EventDataCodec eventDataCodec;
-    private final EventTypeMapper eventTypeMapper;
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+  private final MongoClient mongoClient;
+  private final MongoDatabase database;
+  private final EventDataCodec eventDataCodec;
+  private final Codec<EventEnvelope> eventEnvelopeCodec;
+  private final EventTypeMapper eventTypeMapper;
+  private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
 
-    public MongoDBEventStore(MongoClient mongoClient, String databaseName) {
-        this.mongoClient = mongoClient;
-        database = this.mongoClient.getDatabase(databaseName);
-        eventTypeMapper = EventTypeMapper.DEFAULT;
-        eventDataCodec = new EventDataCodec(mongoClient.getCodecRegistry(), eventTypeMapper);
+  public MongoDBEventStore(MongoClient mongoClient, String databaseName) {
+    this.mongoClient = mongoClient;
+    database = this.mongoClient.getDatabase(databaseName);
+    eventTypeMapper = EventTypeMapper.DEFAULT;
+
+    var codecRegistry = mongoClient.getCodecRegistry();
+    eventDataCodec = new EventDataCodec(codecRegistry, eventTypeMapper);
+    eventEnvelopeCodec = codecRegistry.get(EventEnvelope.class);
+  }
+
+  @Override
+  public void init() {
+    database.createCollection("streams", new CreateCollectionOptions());
+
+    var collection = database.getCollection("streams");
+    collection.createIndex(Indexes.ascending("streamName"), new IndexOptions().unique(true));
+  }
+
+  @Override
+  public void appendEvents(StreamName streamName, Long expectedVersion, Object... events) {
+    var streamType = streamName.streamType();
+    var streamId = streamName.streamId();
+    var streamNameValue = streamName.toString();
+
+    // Resolve collection
+    var collection = collectionFor(streamType);
+
+    var now = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
+
+    long currentVersion;
+
+    if (expectedVersion != null) {
+      currentVersion = expectedVersion;
+    } else {
+      var stream = collection.find(Filters.eq("streamName", streamNameValue))
+        .projection(Projections.include("metadata.streamPosition"))
+        .first();
+
+      currentVersion = stream != null ?
+        stream.metadata().streamPosition()
+        : 0L;
     }
 
-    @Override
-    public void init() {
-        database.createCollection("streams", new CreateCollectionOptions());
+    var envelopes = IntStream.range(0, events.length)
+      .mapToObj(index -> {
+        var event = events[index];
 
-        var collection = database.getCollection("streams");
-        collection.createIndex(Indexes.ascending("streamName"), new IndexOptions().unique(true));
-    }
-
-    @Override
-    public void appendEvents(StreamName streamName, Long expectedVersion, Object... events) {
-        var streamType = streamName.streamType();
-        var streamId = streamName.streamId();
-        var streamNameValue = streamName.toString();
-
-        // Resolve collection
-        var collection = collectionFor(streamType);
-
-        var now = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
-
-        long currentVersion;
-
-        if (expectedVersion != null) {
-            currentVersion = expectedVersion;
-        } else {
-            var stream = collection.find(Filters.eq("streamName", streamNameValue))
-                    .projection(Projections.include("metadata.streamPosition"))
-                    .first();
-
-            currentVersion = stream != null ?
-                    stream.metadata().streamPosition()
-                    : 0L;
-        }
-
-        var envelopes = IntStream.range(0, events.length)
-                .mapToObj(index -> {
-                    var event = events[index];
-
-                    return EventEnvelope.of(
-                            event,
-                            new EventMetadata(
-                                    UUID.randomUUID().toString(),
-                                    eventTypeMapper.toName(event.getClass()),
-                                    currentVersion + index + 1,
-                                    streamNameValue
-                            ),
-                            eventDataCodec
-                    );
-                }).toList();
-
-        // Append events upserting the document
-        var result = collection.updateOne(
-                Filters.and(
-                        Filters.eq("streamName", streamNameValue),
-                        Filters.eq("metadata.streamPosition", currentVersion)
-                ),
-                Updates.combine(
-                        // Append events
-                        Updates.pushEach("events", envelopes),
-                        // Increment stream position
-                        Updates.inc("metadata.streamPosition", events.length),
-                        // Set default metadata on insert
-                        Updates.setOnInsert("streamName", streamNameValue),
-                        Updates.setOnInsert("metadata.streamId", streamId),
-                        Updates.setOnInsert("metadata.streamType", streamType),
-                        Updates.setOnInsert("metadata.createdAt", now),
-                        // Update metadata
-                        Updates.set("metadata.updatedAt", now)
-                ),
-                upsert
+        return EventEnvelope.of(
+          event,
+          new EventMetadata(
+            UUID.randomUUID().toString(),
+            eventTypeMapper.toName(event.getClass()),
+            currentVersion + index + 1,
+            streamNameValue
+          ),
+          eventDataCodec
         );
+      }).toList();
 
-        if (result.getModifiedCount() == 0L && result.getUpsertedId() == null)
-            throw new IllegalStateException("Expected version did not match the stream version!");
-    }
+    // Append events upserting the document
+    var result = collection.updateOne(
+      Filters.and(
+        Filters.eq("streamName", streamNameValue),
+        Filters.eq("metadata.streamPosition", currentVersion)
+      ),
+      Updates.combine(
+        // Append events
+        Updates.pushEach("events", envelopes),
+        // Increment stream position
+        Updates.inc("metadata.streamPosition", events.length),
+        // Set default metadata on insert
+        Updates.setOnInsert("streamName", streamNameValue),
+        Updates.setOnInsert("metadata.streamId", streamId),
+        Updates.setOnInsert("metadata.streamType", streamType),
+        Updates.setOnInsert("metadata.createdAt", now),
+        // Update metadata
+        Updates.set("metadata.updatedAt", now)
+      ),
+      upsert
+    );
 
-    @Override
-    public List<Object> getEvents(StreamName streamName, Long atStreamVersion, LocalDateTime atTimestamp) {
-        var streamType = streamName.streamType();
+    if (result.getModifiedCount() == 0L && result.getUpsertedId() == null)
+      throw new IllegalStateException("Expected version did not match the stream version!");
+  }
 
-        // Resolve collection
-        var collection = collectionFor(streamType);
+  @Override
+  public List<Object> getEvents(StreamName streamName, Long atStreamVersion, LocalDateTime atTimestamp) {
+    var streamType = streamName.streamType();
 
-        // Read events from the stream document
-        var stream = collection.find(Filters.eq("streamName", streamName.toString()))
-                .projection(Projections.include("events"))
-                .first();
+    // Resolve collection
+    var collection = collectionFor(streamType);
 
-        return stream != null ?
-                stream.events().stream().map(eventEnvelope ->
-                        eventEnvelope.getEvent(eventDataCodec)
-                ).toList()
-                : Collections.emptyList();
-    }
+    // Read events from the stream document
+    var stream = collection.find(Filters.eq("streamName", streamName.toString()))
+      .projection(Projections.include("events"))
+      .first();
 
-    public <Type> void subscribe(Class<Type> streamType, Consumer<EventEnvelope[]> handler) {
-        executorService.execute(() -> {
-            var collection = collectionFor(StreamType.of(streamType));
+    return stream != null ?
+      stream.events().stream().map(eventEnvelope ->
+        eventEnvelope.getEvent(eventDataCodec)
+      ).toList()
+      : Collections.emptyList();
+  }
 
-            var pipeline = Collections.singletonList(
-                    Aggregates.project(Projections.fields(
-                            Projections.include("events"),
-                            Projections.excludeId() // Optionally exclude the root `_id`
-                    ))
-            );
+  public <Type> void subscribe(Class<Type> streamType, Consumer<EventEnvelope[]> handler) {
+    executorService.execute(() -> {
+      var collection = collectionFor(StreamType.of(streamType));
 
-            try (var cursor = collection.watch().cursor()) {
-                while (cursor.hasNext()) {
-                    var change = cursor.next();
+      var pipeline = Collections.singletonList(
+        Aggregates.project(Projections.fields(
+          Projections.include("events"),
+          Projections.excludeId() // Optionally exclude the root `_id`
+        ))
+      );
 
-                    var operationType = change.getOperationType();
+      try (var cursor = collection.watch().cursor()) {
+        while (cursor.hasNext()) {
+          var change = cursor.next();
 
-                    if (operationType == null)
-                        continue;
+          var operationType = change.getOperationType();
 
-                    switch (operationType.getValue()) {
-                        case "insert" -> {
-                            var fullDocument = change.getFullDocument();
-                            if (fullDocument != null) {
-                                var events = fullDocument
-                                        .events()
-                                        .stream()
-                                        .map(eventEnvelope -> eventEnvelope.getEvent(eventDataCodec))
-                                        .toArray(EventEnvelope[]::new);
-                                handler.accept(events);
-                            }
-                        }
-                        case "update" -> {
-                            var updateDescription = change.getUpdateDescription();
+          if (operationType == null)
+            continue;
 
-                            if (updateDescription == null)
-                                continue;
-
-                            var updatedFields = updateDescription.getUpdatedFields();
-
-                            if (updatedFields == null)
-                                continue;
-
-                            if (updatedFields.containsKey("events")) {
-                                var eventsBson = updatedFields.getArray("events");
-
-//                            var events = eventsBson
-//                                    .stream()
-//                                    .map(eventEnvelope -> eventEnvelope.getEvent(eventDataCodec))
-//                                    .toArray();
-//
-//                            handler.accept(events);
-                            }
-                        }
-                    }
-                }
+          switch (operationType.getValue()) {
+            case "insert" -> {
+              var fullDocument = change.getFullDocument();
+              if (fullDocument != null) {
+                var events = fullDocument
+                  .events()
+                  .toArray(EventEnvelope[]::new);
+                handler.accept(events);
+              }
             }
-        });
-    }
+            case "update" -> {
+              var updateDescription = change.getUpdateDescription();
 
-    private MongoCollection<EventStream> collectionFor(String streamType) {
-        return database.getCollection(streamType, EventStream.class);
-    }
+              if (updateDescription == null)
+                continue;
 
-    private final static UpdateOptions upsert = new UpdateOptions().upsert(true);
+              var updatedFields = updateDescription.getUpdatedFields();
+
+              if (updatedFields == null)
+                continue;
+
+              var events = updatedFields.entrySet().stream()
+                .filter(e -> e.getKey().startsWith("events."))
+                .map(kv -> kv.getValue())
+                .map(bsonEvent ->
+                  eventEnvelopeCodec.decode(
+                    new BsonDocumentReader(bsonEvent.asDocument()),
+                    DecoderContext.builder().build()
+                  )
+                )
+                .toArray(EventEnvelope[]::new);
+
+              if (events.length > 0) {
+                handler.accept(events);
+              }
+            }
+          }
+        }
+      } catch (Exception ex) {
+        System.out.println(ex.getMessage());
+      }
+    });
+  }
+
+  private MongoCollection<EventStream> collectionFor(String streamType) {
+    return database.getCollection(streamType, EventStream.class);
+  }
+
+  private final static UpdateOptions upsert = new UpdateOptions().upsert(true);
 }
