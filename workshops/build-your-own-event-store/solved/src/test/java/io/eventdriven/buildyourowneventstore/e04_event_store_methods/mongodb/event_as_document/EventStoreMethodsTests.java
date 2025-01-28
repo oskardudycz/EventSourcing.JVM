@@ -1,9 +1,13 @@
 package io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.event_as_document;
 
 import bankaccounts.BankAccount;
+import com.mongodb.client.MongoChangeStreamCursor;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
 import io.eventdriven.buildyourowneventstore.tools.mongodb.MongoDBTest;
+import org.bson.Document;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -11,24 +15,28 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static bankaccounts.BankAccount.Event.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class EventStoreMethodsTests extends MongoDBTest {
-  protected static EventStore eventStore;
+  protected static MongoDBEventStore eventStore;
+  protected MongoDatabase mongoDatabase;
 
   @BeforeAll
   public void setup() {
     // Create Event Store
-    eventStore = new MongoDBEventStore(mongoClient, getFreshDatabase().getName());
+    mongoDatabase = getFreshDatabase();
+    eventStore = new MongoDBEventStore(mongoClient, mongoDatabase.getName());
 
     // Initialize Event Store
     eventStore.init();
   }
 
   @Test
-  public void getEvents_ShouldReturnAppendedEvents() {
+  public void getEvents_ShouldReturnAppendedEvents() throws Exception {
     var now = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
 
     var bankAccountId = UUID.randomUUID().toString();
@@ -54,10 +62,24 @@ public class EventStoreMethodsTests extends MongoDBTest {
 
     var streamName = StreamName.of(BankAccount.class, bankAccountId);
 
+    var eventsCollection = mongoDatabase.getCollection("events");
+
+    var changeFuture = new CompletableFuture<ChangeStreamDocument<Document>>();
+
+    new Thread(() -> {
+      try (var cursor = eventsCollection.watch().cursor()) {
+        if (cursor.hasNext()) {
+          changeFuture.complete(cursor.next());
+        }
+      }
+    }).start();
+
     eventStore.appendEvents(
       streamName,
       bankAccountCreated, depositRecorded, cashWithdrawn
     );
+
+    var change = changeFuture.get(5, TimeUnit.SECONDS);
 
     var events = eventStore.getEvents(streamName);
 

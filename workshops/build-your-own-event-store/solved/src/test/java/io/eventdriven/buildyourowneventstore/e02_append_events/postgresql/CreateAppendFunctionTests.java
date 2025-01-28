@@ -1,8 +1,7 @@
-package io.eventdriven.buildyourowneventstore.e03_create_append_event_function;
+package io.eventdriven.buildyourowneventstore.e02_append_events.postgresql;
 
 import bankaccounts.BankAccount;
-import io.eventdriven.buildyourowneventstore.EventStore;
-import io.eventdriven.buildyourowneventstore.PgEventStore;
+import io.eventdriven.buildyourowneventstore.e02_append_events.EventStore;
 import io.eventdriven.buildyourowneventstore.tools.PostgresTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -20,7 +19,7 @@ public class CreateAppendFunctionTests extends PostgresTest {
   @BeforeAll
   public void setup() {
     // Create Event Store
-    eventStore = new PgEventStore(dbConnection);
+    eventStore = new PostgreSQLEventStore(dbConnection);
 
     // Initialize Event Store
     eventStore.init();
