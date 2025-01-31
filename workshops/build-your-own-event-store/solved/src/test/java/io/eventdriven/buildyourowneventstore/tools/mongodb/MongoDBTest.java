@@ -9,6 +9,7 @@ import org.junit.jupiter.api.TestInstance;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class MongoDBTest {
   protected static MongoClient mongoClient;
+  private static final int maxDatabaseLength = 63;
 
   @BeforeAll
   public void setupConnection() {
@@ -22,8 +23,10 @@ public abstract class MongoDBTest {
       .getName()
       .replace("io.eventdriven.buildyourowneventstore", "")
       .replace(".", "-")
-      .substring(0, 63)
       .toLowerCase();
+
+    if (databaseName.length() >= maxDatabaseLength)
+      databaseName = databaseName.substring(0, maxDatabaseLength);
 
     return getFreshDatabase(databaseName);
   }

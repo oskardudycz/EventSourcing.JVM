@@ -1,14 +1,17 @@
-package io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.stream_as_document;
+package io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb;
 
 import bankaccounts.BankAccount;
 import com.mongodb.client.MongoDatabase;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventEnvelope;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.BatchingPolicy;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.EventSubscriptionSettings;
 import io.eventdriven.buildyourowneventstore.tools.mongodb.MongoDBTest;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -18,26 +21,19 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Stream;
 
 import static bankaccounts.BankAccount.Event.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class EventStoreMethodsTests extends MongoDBTest {
-  protected static MongoDBEventStore eventStore;
   protected MongoDatabase mongoDatabase;
 
-  @BeforeAll
-  public void setup() {
-    // Create Event Store
-    mongoDatabase = getFreshDatabase();
-    eventStore = new MongoDBEventStore(mongoClient, mongoDatabase.getName());
-
-    // Initialize Event Store
-    eventStore.init();
-  }
-
-  @Test
-  public void getEvents_ShouldReturnAppendedEvents() throws ExecutionException, InterruptedException, TimeoutException {
+  @ParameterizedTest
+  @MethodSource("eventStoreImplementations")
+  public void getEvents_ShouldReturnAppendedEvents(MongoDBEventStore.Storage storage) throws ExecutionException, InterruptedException, TimeoutException {
+    var eventStore = createEventStore(storage);
     var now = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
 
     var bankAccountId = UUID.randomUUID().toString();
@@ -99,5 +95,28 @@ public class EventStoreMethodsTests extends MongoDBTest {
       .map(sc -> (Event) sc)
       .findFirst()
       .get();
+  }
+
+  @BeforeAll
+  public void setup() {
+    // Create fresh database
+    mongoDatabase = getFreshDatabase();
+  }
+
+  Stream<MongoDBEventStore.Storage> eventStoreImplementations() {
+    return Stream.of(
+      MongoDBEventStore.Storage.EventAsDocument,
+      MongoDBEventStore.Storage.StoreAsDocument
+    );
+  }
+
+  MongoDBEventStore createEventStore(MongoDBEventStore.Storage storage) {
+    var mongoDatabase = getFreshDatabase();
+
+    var eventStore = MongoDBEventStore.with(storage, mongoClient, mongoDatabase.getName());
+
+    eventStore.init();
+
+    return eventStore;
   }
 }

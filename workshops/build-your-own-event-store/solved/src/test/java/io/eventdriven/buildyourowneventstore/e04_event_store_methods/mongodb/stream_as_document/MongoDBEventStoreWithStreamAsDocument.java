@@ -7,7 +7,7 @@ import com.mongodb.client.model.*;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamType;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.MongoDBEventStore;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventDataCodec;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventEnvelope;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventMetadata;
@@ -25,10 +25,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
-public class MongoDBEventStore implements EventStore {
+public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore {
   private final MongoClient mongoClient;
   private final MongoDatabase database;
   private final EventDataCodec eventDataCodec;
@@ -36,7 +35,7 @@ public class MongoDBEventStore implements EventStore {
   private final EventTypeMapper eventTypeMapper;
 
 
-  public MongoDBEventStore(MongoClient mongoClient, String databaseName) {
+  public MongoDBEventStoreWithStreamAsDocument(MongoClient mongoClient, String databaseName) {
     this.mongoClient = mongoClient;
     database = this.mongoClient.getDatabase(databaseName);
     eventTypeMapper = EventTypeMapper.DEFAULT;

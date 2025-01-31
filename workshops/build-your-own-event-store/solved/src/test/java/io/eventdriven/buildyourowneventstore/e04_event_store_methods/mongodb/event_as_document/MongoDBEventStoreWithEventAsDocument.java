@@ -7,6 +7,7 @@ import com.mongodb.client.model.*;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.MongoDBEventStore;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.event_as_document.streams.EventStream;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventDataCodec;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventEnvelope;
@@ -25,13 +26,13 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
-public class MongoDBEventStore implements EventStore {
+public class MongoDBEventStoreWithEventAsDocument implements MongoDBEventStore {
   private final MongoClient mongoClient;
   private final MongoDatabase database;
   private final EventDataCodec eventDataCodec;
   private final EventTypeMapper eventTypeMapper;
 
-  public MongoDBEventStore(MongoClient mongoClient, String databaseName) {
+  public MongoDBEventStoreWithEventAsDocument(MongoClient mongoClient, String databaseName) {
     this.mongoClient = mongoClient;
     this.mongoClient.getDatabase(databaseName).drop();
     database = this.mongoClient.getDatabase(databaseName);
@@ -151,7 +152,7 @@ public class MongoDBEventStore implements EventStore {
       () -> MongoEventStreamCursor.from(
         eventsCollection(),
         filterSubscription(settings.streamType()),
-        MongoDBEventStore::extractEvents
+        MongoDBEventStoreWithEventAsDocument::extractEvents
       ),
       settings
     );
