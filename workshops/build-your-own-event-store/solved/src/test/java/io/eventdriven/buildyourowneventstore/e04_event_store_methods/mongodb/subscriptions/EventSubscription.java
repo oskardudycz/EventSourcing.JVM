@@ -4,26 +4,58 @@ import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.eve
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public class EventSubscription implements AutoCloseable {
   private final BlockingQueue<EventEnvelope> queue;
   private final AtomicBoolean running = new AtomicBoolean(true);
-  private final Thread consumerThread;
+  private final EventSubscriptionSettings settings;
+  private final BiConsumer<EventSubscriptionSettings, Consumer<EventEnvelope>> listenToChanges;
+  private final ExecutorService executor;
 
   EventSubscription(
-    BlockingQueue<EventEnvelope> queue,
-    EventSubscriptionSettings settings
+    EventSubscriptionSettings settings,
+    BiConsumer<EventSubscriptionSettings, Consumer<EventEnvelope>> listenToChanges
   ) {
-    this.queue = queue;
-    this.consumerThread = new Thread(() ->
-      consumeWithPolicy(settings));
-    this.consumerThread.start();
+    if (settings.handler() == null) {
+      throw new IllegalArgumentException("At least one handler must be provided");
+    }
+    this.queue = new LinkedBlockingQueue<>();
+    this.settings = settings;
+    this.listenToChanges = listenToChanges;
+    this.executor = Executors.newFixedThreadPool(2);
   }
 
-  private void consumeWithPolicy(EventSubscriptionSettings settings) {
+  public void start() {
+    executor.submit(this::listen);
+    executor.submit(this::consume);
+  }
+
+  private void listen() {
+    while (running.get()) {
+      try {
+        listenToChanges.accept(settings, e -> {
+          try {
+            queue.put(e);
+          } catch (InterruptedException ex) {
+            throw new RuntimeException(ex);
+          }
+        });
+      } catch (Exception ex) {
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+          break;
+        }
+      }
+    }
+  }
+
+  private void consume() {
     var policy = settings.policy();
     var handler = settings.handler();
 
@@ -55,6 +87,10 @@ public class EventSubscription implements AutoCloseable {
   @Override
   public void close() {
     running.set(false);
-    consumerThread.interrupt();
+    try {
+      executor.awaitTermination(5, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 }

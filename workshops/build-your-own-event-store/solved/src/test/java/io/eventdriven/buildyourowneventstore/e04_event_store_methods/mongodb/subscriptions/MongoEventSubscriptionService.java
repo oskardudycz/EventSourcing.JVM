@@ -10,6 +10,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class MongoEventSubscriptionService<TDocument> {
@@ -44,35 +45,20 @@ public class MongoEventSubscriptionService<TDocument> {
     }
 
     public EventSubscription subscribe(EventSubscriptionSettings settings) {
-        BlockingQueue<EventEnvelope> queue = new LinkedBlockingQueue<>();
 
-        executorService.execute(() -> {
-            while (true) {
-                try {
-                    listenToChanges(settings.streamType(), queue);
-                } catch (Exception ex) {
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
-            }
-        });
+        var subscription = new EventSubscription(settings, this::listenToChanges);
 
-        return new EventSubscription(queue, settings);
+        subscription.start();
+
+        return subscription;
     }
 
-    private void listenToChanges(String streamType, BlockingQueue<EventEnvelope> queue) {
-        var watch = streamsCollection.watch(filterSubscription.apply(streamType));
+    private void listenToChanges(EventSubscriptionSettings settings, Consumer<EventEnvelope> put) {
+        var watch = streamsCollection.watch(filterSubscription.apply(settings.streamType()));
 
         try (var cursor = new MongoEventStreamCursor<>(watch, extractEvents)) {
             while (cursor.hasNext()) {
-                var events = cursor.next();
-                for (EventEnvelope event : events) {
-                    queue.put(event);
-                }
+                cursor.next().forEach(put);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
