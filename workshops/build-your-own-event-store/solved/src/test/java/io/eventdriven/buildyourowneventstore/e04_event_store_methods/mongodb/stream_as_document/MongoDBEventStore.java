@@ -7,11 +7,12 @@ import com.mongodb.client.model.*;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamType;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.stream_as_document.events.EventDataCodec;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.stream_as_document.events.EventEnvelope;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.stream_as_document.events.EventMetadata;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.stream_as_document.events.EventTypeMapper;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventDataCodec;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventEnvelope;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventMetadata;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventTypeMapper;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.stream_as_document.streams.EventStream;
+import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
 import org.bson.codecs.Codec;
 import org.bson.codecs.DecoderContext;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -143,14 +145,17 @@ public class MongoDBEventStore implements EventStore {
     executorService.execute(() -> {
       var collection = collectionFor(StreamType.of(streamType));
 
-      var pipeline = Collections.singletonList(
-        Aggregates.project(Projections.fields(
-          Projections.include("events"),
-          Projections.excludeId() // Optionally exclude the root `_id`
-        ))
+      var pipeline = List.of(
+        Aggregates.match(
+          Filters.or(
+            Filters.eq("operationType", "insert"),
+            Filters.eq("operationType", "update")
+            // TODO: filtering only for events
+          )
+        )
       );
 
-      try (var cursor = collection.watch().cursor()) {
+      try (var cursor = collection.watch(pipeline).cursor()) {
         while (cursor.hasNext()) {
           var change = cursor.next();
 
@@ -182,7 +187,7 @@ public class MongoDBEventStore implements EventStore {
 
               var events = updatedFields.entrySet().stream()
                 .filter(e -> e.getKey().startsWith("events."))
-                .map(kv -> kv.getValue())
+                .map(Map.Entry::getValue)
                 .map(bsonEvent ->
                   eventEnvelopeCodec.decode(
                     new BsonDocumentReader(bsonEvent.asDocument()),
@@ -199,6 +204,7 @@ public class MongoDBEventStore implements EventStore {
         }
       } catch (Exception ex) {
         System.out.println(ex.getMessage());
+        throw new RuntimeException(ex);
       }
     });
   }

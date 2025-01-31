@@ -1,13 +1,12 @@
 package io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.event_as_document;
 
 import bankaccounts.BankAccount;
-import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.changestream.ChangeStreamDocument;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventEnvelope;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.BatchingPolicy;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.EventSubscription;
 import io.eventdriven.buildyourowneventstore.tools.mongodb.MongoDBTest;
-import org.bson.Document;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -16,7 +15,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static bankaccounts.BankAccount.Event.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -36,7 +38,7 @@ public class EventStoreMethodsTests extends MongoDBTest {
   }
 
   @Test
-  public void getEvents_ShouldReturnAppendedEvents() throws Exception {
+  public void getEvents_ShouldReturnAppendedEvents() throws ExecutionException, InterruptedException, TimeoutException {
     var now = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
 
     var bankAccountId = UUID.randomUUID().toString();
@@ -62,32 +64,35 @@ public class EventStoreMethodsTests extends MongoDBTest {
 
     var streamName = StreamName.of(BankAccount.class, bankAccountId);
 
-    var eventsCollection = mongoDatabase.getCollection("events");
+    var eventsFuture = new CompletableFuture<List<EventEnvelope>>();
 
-    var changeFuture = new CompletableFuture<ChangeStreamDocument<Document>>();
+    try (var _ = eventStore.subscribe(
+      BankAccount.class,
+      eventsFuture::complete,
+      BatchingPolicy.ofSize(6))
+    ) {
 
-    new Thread(() -> {
-      try (var cursor = eventsCollection.watch().cursor()) {
-        if (cursor.hasNext()) {
-          changeFuture.complete(cursor.next());
-        }
-      }
-    }).start();
+      eventStore.appendEvents(
+        streamName,
+        bankAccountCreated, depositRecorded, cashWithdrawn
+      );
 
-    eventStore.appendEvents(
-      streamName,
-      bankAccountCreated, depositRecorded, cashWithdrawn
-    );
+      eventStore.appendEvents(
+        streamName,
+        bankAccountCreated, depositRecorded, cashWithdrawn
+      );
 
-    var change = changeFuture.get(5, TimeUnit.SECONDS);
+      var events = eventStore.getEvents(streamName);
 
-    var events = eventStore.getEvents(streamName);
+      var updateChange = eventsFuture.get(5, TimeUnit.SECONDS);
 
-    assertEquals(3, events.size());
+      assertEquals(6, updateChange.size());
+      assertEquals(6, events.size());
 
-    assertEquals(bankAccountCreated, findFirstOfType(BankAccountOpened.class, events));
-    assertEquals(depositRecorded, findFirstOfType(DepositRecorded.class, events));
-    assertEquals(cashWithdrawn, findFirstOfType(CashWithdrawnFromATM.class, events));
+      assertEquals(bankAccountCreated, findFirstOfType(BankAccountOpened.class, events));
+      assertEquals(depositRecorded, findFirstOfType(DepositRecorded.class, events));
+      assertEquals(cashWithdrawn, findFirstOfType(CashWithdrawnFromATM.class, events));
+    }
   }
 
   private <Event> Event findFirstOfType(Class<Event> type, List<Object> events) {

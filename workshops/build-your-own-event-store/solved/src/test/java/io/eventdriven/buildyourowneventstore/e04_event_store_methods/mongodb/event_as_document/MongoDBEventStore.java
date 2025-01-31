@@ -6,17 +6,22 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.*;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.event_as_document.events.EventDataCodec;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.event_as_document.events.EventEnvelope;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.event_as_document.events.EventMetadata;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.event_as_document.events.EventTypeMapper;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.event_as_document.streams.EventStream;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventDataCodec;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventEnvelope;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventMetadata;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventTypeMapper;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.BatchingPolicy;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.EventSubscription;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.MongoEventSubscriptionService;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
 public class MongoDBEventStore implements EventStore {
@@ -24,6 +29,7 @@ public class MongoDBEventStore implements EventStore {
   private final MongoDatabase database;
   private final EventDataCodec eventDataCodec;
   private final EventTypeMapper eventTypeMapper;
+  private MongoEventSubscriptionService eventSubscriptionService;
 
   public MongoDBEventStore(MongoClient mongoClient, String databaseName) {
     this.mongoClient = mongoClient;
@@ -49,6 +55,11 @@ public class MongoDBEventStore implements EventStore {
         Indexes.ascending("metadata.streamName", "metadata.streamPosition"),
         new IndexOptions().unique(true)
       );
+
+    eventSubscriptionService = new MongoEventSubscriptionService(
+      eventsCollection(),
+      Executors.newSingleThreadExecutor()
+    );
   }
 
   @Override
@@ -138,6 +149,29 @@ public class MongoDBEventStore implements EventStore {
       .stream()
       .map(eventEnvelope -> eventEnvelope.getEvent(eventDataCodec))
       .toList();
+  }
+
+  public <Type> EventSubscription<Type> subscribe(
+    Class<Type> streamType,
+    Consumer<List<EventEnvelope>> handler
+  ) {
+    return eventSubscriptionService.subscribe(
+      streamType,
+      handler,
+      BatchingPolicy.DEFAULT
+    );
+  }
+
+  public <Type> EventSubscription<Type> subscribe(
+    Class<Type> streamType,
+    Consumer<List<EventEnvelope>> handler,
+    BatchingPolicy batchingPolicy
+  ) {
+    return eventSubscriptionService.subscribe(
+      streamType,
+      handler,
+      batchingPolicy
+    );
   }
 
   private MongoCollection<EventStream> streamsCollection() {
