@@ -14,6 +14,7 @@ import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.eve
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventTypeMapper;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.BatchingPolicy;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.EventSubscription;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.EventSubscriptionSettings;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.MongoEventSubscriptionService;
 import org.bson.conversions.Bson;
 
@@ -60,7 +61,7 @@ public class MongoDBEventStore implements EventStore {
         new IndexOptions().unique(true)
       );
 
-    eventSubscriptionService = new MongoEventSubscriptionService<EventEnvelope>(
+    eventSubscriptionService = new MongoEventSubscriptionService<>(
       eventsCollection(),
       MongoDBEventStore::filterSubscription,
       MongoDBEventStore::extractEvents
@@ -156,27 +157,8 @@ public class MongoDBEventStore implements EventStore {
       .toList();
   }
 
-  public <Type> EventSubscription subscribe(
-    Class<Type> streamType,
-    Consumer<List<EventEnvelope>> handler
-  ) {
-    return eventSubscriptionService.subscribe(
-      streamType,
-      handler,
-      BatchingPolicy.DEFAULT
-    );
-  }
-
-  public <Type> EventSubscription subscribe(
-    Class<Type> streamType,
-    Consumer<List<EventEnvelope>> handler,
-    BatchingPolicy batchingPolicy
-  ) {
-    return eventSubscriptionService.subscribe(
-      streamType,
-      handler,
-      batchingPolicy
-    );
+  public EventSubscription subscribe(EventSubscriptionSettings settings) {
+    return eventSubscriptionService.subscribe(settings);
   }
 
   private static List<? extends Bson> filterSubscription(String streamType) {

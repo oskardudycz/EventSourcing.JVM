@@ -6,6 +6,7 @@ import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventEnvelope;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.BatchingPolicy;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.EventSubscription;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.EventSubscriptionSettings;
 import io.eventdriven.buildyourowneventstore.tools.mongodb.MongoDBTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -66,12 +67,11 @@ public class EventStoreMethodsTests extends MongoDBTest {
 
     var eventsFuture = new CompletableFuture<List<EventEnvelope>>();
 
-    try (var _ = eventStore.subscribe(
-      BankAccount.class,
-      eventsFuture::complete,
-      BatchingPolicy.ofSize(6))
-    ) {
+    var settings = EventSubscriptionSettings.get()
+      .filterWithStreamType(BankAccount.class)
+      .handleBatch(eventsFuture::complete, BatchingPolicy.ofSize(6));
 
+    try (var _ = eventStore.subscribe(settings)) {
       eventStore.appendEvents(
         streamName,
         bankAccountCreated, depositRecorded, cashWithdrawn

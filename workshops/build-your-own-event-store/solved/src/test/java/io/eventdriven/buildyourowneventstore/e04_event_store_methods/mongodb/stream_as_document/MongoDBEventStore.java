@@ -15,6 +15,7 @@ import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.eve
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.stream_as_document.streams.EventStream;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.BatchingPolicy;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.EventSubscription;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.EventSubscriptionSettings;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.MongoEventSubscriptionService;
 import org.bson.BsonDocumentReader;
 import org.bson.codecs.Codec;
@@ -27,8 +28,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
@@ -145,27 +144,12 @@ public class MongoDBEventStore implements EventStore {
   }
 
 
-  public <Type> EventSubscription subscribe(
-    Class<Type> streamType,
-    Consumer<List<EventEnvelope>> handler
-  ) {
+  public <Type> EventSubscription subscribe(EventSubscriptionSettings settings) {
     return new MongoEventSubscriptionService<>(
-      collectionFor(StreamType.of(streamType)),
+      collectionFor(settings.streamType()),
       MongoDBEventStore::filterSubscription,
       this::extractEvents
-    ).subscribe(streamType, handler, BatchingPolicy.DEFAULT);
-  }
-
-  public <Type> EventSubscription subscribe(
-    Class<Type> streamType,
-    Consumer<List<EventEnvelope>> handler,
-    BatchingPolicy batchingPolicy
-  ) {
-    return new MongoEventSubscriptionService<>(
-      collectionFor(StreamType.of(streamType)),
-      MongoDBEventStore::filterSubscription,
-      this::extractEvents
-    ).subscribe(streamType, handler, batchingPolicy);
+    ).subscribe(settings);
   }
 
   private static List<? extends Bson> filterSubscription(String streamType) {
