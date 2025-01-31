@@ -2,8 +2,10 @@ package io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.su
 
 import com.mongodb.client.ChangeStreamIterable;
 import com.mongodb.client.MongoChangeStreamCursor;
+import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventEnvelope;
+import org.bson.conversions.Bson;
 
 import java.util.List;
 import java.util.function.Function;
@@ -33,5 +35,14 @@ public class MongoEventStreamCursor<TDocument> implements WatchCursor<List<Event
   @Override
   public void close() {
     changeStreamCursor.close();
+  }
+
+  public static <TDocument> MongoEventStreamCursor<TDocument> from(
+    MongoCollection<TDocument> streamsCollection,
+    List<? extends Bson> filter,
+    Function<ChangeStreamDocument<TDocument>, List<EventEnvelope>> extractEvents
+  ){
+    var watch = streamsCollection.watch(filter);
+    return new MongoEventStreamCursor<>(watch, extractEvents);
   }
 }

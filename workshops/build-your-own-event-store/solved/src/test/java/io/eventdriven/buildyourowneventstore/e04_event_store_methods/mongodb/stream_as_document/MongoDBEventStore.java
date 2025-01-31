@@ -13,10 +13,7 @@ import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.eve
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventMetadata;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventTypeMapper;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.stream_as_document.streams.EventStream;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.BatchingPolicy;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.EventSubscription;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.EventSubscriptionSettings;
-import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.MongoEventSubscriptionService;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.*;
 import org.bson.BsonDocumentReader;
 import org.bson.codecs.Codec;
 import org.bson.codecs.DecoderContext;
@@ -143,16 +140,22 @@ public class MongoDBEventStore implements EventStore {
       : Collections.emptyList();
   }
 
+  public EventSubscription subscribe(EventSubscriptionSettings settings) {
+    var subscription = new EventSubscription(
+      () -> MongoEventStreamCursor.from(
+        collectionFor(settings.streamType()),
+        filterSubscription(),
+        this::extractEvents
+      ),
+      settings
+    );
 
-  public <Type> EventSubscription subscribe(EventSubscriptionSettings settings) {
-    return new MongoEventSubscriptionService<>(
-      collectionFor(settings.streamType()),
-      MongoDBEventStore::filterSubscription,
-      this::extractEvents
-    ).subscribe(settings);
+    subscription.start();
+
+    return subscription;
   }
 
-  private static List<? extends Bson> filterSubscription(String streamType) {
+  private static List<? extends Bson> filterSubscription() {
     return List.of(
       Aggregates.match(
         Filters.or(
