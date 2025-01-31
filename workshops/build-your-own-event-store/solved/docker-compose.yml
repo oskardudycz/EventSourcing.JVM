@@ -1,5 +1,3 @@
-version: "3.12"
-
 services:
   postgres:
     image: postgres:17.2-alpine
