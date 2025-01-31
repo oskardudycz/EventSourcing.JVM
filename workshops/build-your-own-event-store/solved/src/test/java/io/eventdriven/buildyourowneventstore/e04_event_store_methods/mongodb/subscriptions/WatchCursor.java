@@ -2,4 +2,4 @@ package io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.su
 
 import java.util.Iterator;
 
-interface WatchCursor<T> extends Iterator<T>, AutoCloseable {}
+public interface WatchCursor<T> extends Iterator<T>, AutoCloseable {}

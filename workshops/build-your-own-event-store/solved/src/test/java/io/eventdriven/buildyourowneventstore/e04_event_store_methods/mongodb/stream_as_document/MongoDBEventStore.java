@@ -4,6 +4,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.*;
+import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamType;
@@ -12,10 +13,13 @@ import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.eve
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventMetadata;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventTypeMapper;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.stream_as_document.streams.EventStream;
-import org.bson.BsonDocument;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.BatchingPolicy;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.EventSubscription;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.MongoEventSubscriptionService;
 import org.bson.BsonDocumentReader;
 import org.bson.codecs.Codec;
 import org.bson.codecs.DecoderContext;
+import org.bson.conversions.Bson;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -34,7 +38,6 @@ public class MongoDBEventStore implements EventStore {
   private final EventDataCodec eventDataCodec;
   private final Codec<EventEnvelope> eventEnvelopeCodec;
   private final EventTypeMapper eventTypeMapper;
-  private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
 
   public MongoDBEventStore(MongoClient mongoClient, String databaseName) {
@@ -141,72 +144,82 @@ public class MongoDBEventStore implements EventStore {
       : Collections.emptyList();
   }
 
-  public <Type> void subscribe(Class<Type> streamType, Consumer<EventEnvelope[]> handler) {
-    executorService.execute(() -> {
-      var collection = collectionFor(StreamType.of(streamType));
 
-      var pipeline = List.of(
-        Aggregates.match(
-          Filters.or(
-            Filters.eq("operationType", "insert"),
-            Filters.eq("operationType", "update")
-            // TODO: filtering only for events
-          )
+  public <Type> EventSubscription subscribe(
+    Class<Type> streamType,
+    Consumer<List<EventEnvelope>> handler
+  ) {
+    return new MongoEventSubscriptionService<>(
+      collectionFor(StreamType.of(streamType)),
+      MongoDBEventStore::filterSubscription,
+      this::extractEvents
+    ).subscribe(streamType, handler, BatchingPolicy.DEFAULT);
+  }
+
+  public <Type> EventSubscription subscribe(
+    Class<Type> streamType,
+    Consumer<List<EventEnvelope>> handler,
+    BatchingPolicy batchingPolicy
+  ) {
+    return new MongoEventSubscriptionService<>(
+      collectionFor(StreamType.of(streamType)),
+      MongoDBEventStore::filterSubscription,
+      this::extractEvents
+    ).subscribe(streamType, handler, batchingPolicy);
+  }
+
+  private static List<? extends Bson> filterSubscription(String streamType) {
+    return List.of(
+      Aggregates.match(
+        Filters.or(
+          Filters.eq("operationType", "insert"),
+          Filters.eq("operationType", "update")
+          // TODO: filtering only for events
         )
-      );
+      )
+    );
+  }
 
-      try (var cursor = collection.watch(pipeline).cursor()) {
-        while (cursor.hasNext()) {
-          var change = cursor.next();
+  private List<EventEnvelope> extractEvents(ChangeStreamDocument<EventStream> change) {
+    var operationType = change.getOperationType();
 
-          var operationType = change.getOperationType();
+    if (operationType == null)
+      return List.of();
 
-          if (operationType == null)
-            continue;
+    switch (operationType.getValue()) {
+      case "insert" -> {
+        var fullDocument = change.getFullDocument();
+        if (fullDocument == null)
+          return List.of();
 
-          switch (operationType.getValue()) {
-            case "insert" -> {
-              var fullDocument = change.getFullDocument();
-              if (fullDocument != null) {
-                var events = fullDocument
-                  .events()
-                  .toArray(EventEnvelope[]::new);
-                handler.accept(events);
-              }
-            }
-            case "update" -> {
-              var updateDescription = change.getUpdateDescription();
-
-              if (updateDescription == null)
-                continue;
-
-              var updatedFields = updateDescription.getUpdatedFields();
-
-              if (updatedFields == null)
-                continue;
-
-              var events = updatedFields.entrySet().stream()
-                .filter(e -> e.getKey().startsWith("events."))
-                .map(Map.Entry::getValue)
-                .map(bsonEvent ->
-                  eventEnvelopeCodec.decode(
-                    new BsonDocumentReader(bsonEvent.asDocument()),
-                    DecoderContext.builder().build()
-                  )
-                )
-                .toArray(EventEnvelope[]::new);
-
-              if (events.length > 0) {
-                handler.accept(events);
-              }
-            }
-          }
-        }
-      } catch (Exception ex) {
-        System.out.println(ex.getMessage());
-        throw new RuntimeException(ex);
+        return fullDocument.events();
       }
-    });
+      case "update" -> {
+        var updateDescription = change.getUpdateDescription();
+
+        if (updateDescription == null)
+          return List.of();
+
+        var updatedFields = updateDescription.getUpdatedFields();
+
+        if (updatedFields == null)
+          return List.of();
+
+        return updatedFields.entrySet().stream()
+          .filter(e -> e.getKey().startsWith("events."))
+          .map(Map.Entry::getValue)
+          .map(bsonEvent ->
+            eventEnvelopeCodec.decode(
+              new BsonDocumentReader(bsonEvent.asDocument()),
+              DecoderContext.builder().build()
+            )
+          )
+          .toList();
+      }
+      default -> {
+        return List.of();
+      }
+    }
   }
 
   private MongoCollection<EventStream> collectionFor(String streamType) {

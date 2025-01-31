@@ -1,8 +1,6 @@
 package io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions;
 
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.Aggregates;
-import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamType;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventEnvelope;
@@ -11,21 +9,58 @@ import org.bson.conversions.Bson;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
+import java.util.function.Function;
 
-public class MongoEventSubscriptionService {
-  private final ExecutorService executorService;
-  private final MongoCollection<EventEnvelope> eventsCollection;
+public class MongoEventSubscriptionService<TDocument> {
+  protected final MongoCollection<TDocument> streamsCollection;
+  private final Function<String, List<? extends Bson>> filterSubscription;
+  private final Function<ChangeStreamDocument<TDocument>, List<EventEnvelope>> extractEvents;
+  protected final ExecutorService executorService;
 
-  public MongoEventSubscriptionService(MongoCollection<EventEnvelope> eventsCollection, ExecutorService executorService) {
-    this.eventsCollection = eventsCollection;
+  public MongoEventSubscriptionService(
+    MongoCollection<TDocument> streamsCollection,
+    Function<String, List<? extends Bson>> filterSubscription,
+    Function<ChangeStreamDocument<TDocument>, List<EventEnvelope>> extractEvents
+  ) {
+    this(
+      streamsCollection,
+      filterSubscription,
+      extractEvents,
+      Executors.newSingleThreadExecutor()
+    );
+  }
+
+  public MongoEventSubscriptionService(
+    MongoCollection<TDocument> streamsCollection,
+    Function<String, List<? extends Bson>> filterSubscription,
+    Function<ChangeStreamDocument<TDocument>, List<EventEnvelope>> extractEvents,
+    ExecutorService executorService
+  ) {
+    this.streamsCollection = streamsCollection;
+    this.filterSubscription = filterSubscription;
+    this.extractEvents = extractEvents;
     this.executorService = executorService;
   }
 
-  public <Type> EventSubscription<Type> subscribe(
+  public <Type> EventSubscription subscribe(
+    Class<Type> streamType,
+    Consumer<EventEnvelope> messageHandler
+  ) {
+    return subscribe(streamType, messageHandler, null, BatchingPolicy.ofSize(1));
+  }
+
+  public <Type> EventSubscription subscribe(
+    Class<Type> streamType,
+    Consumer<List<EventEnvelope>> batchHandler,
+    BatchingPolicy policy
+  ) {
+    return subscribe(streamType, null, batchHandler, policy);
+  }
+
+  protected <Type> EventSubscription subscribe(
     Class<Type> streamType,
     Consumer<EventEnvelope> messageHandler,
     Consumer<List<EventEnvelope>> batchHandler,
@@ -43,7 +78,7 @@ public class MongoEventSubscriptionService {
           listenToChanges(streamType, queue);
         } catch (Exception ex) {
           try {
-            Thread.sleep(5000);
+            Thread.sleep(1000);
           } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             break;
@@ -52,81 +87,21 @@ public class MongoEventSubscriptionService {
       }
     });
 
-    return new EventSubscription<>(queue, messageHandler, batchHandler, policy);
+    return new EventSubscription(queue, messageHandler, batchHandler, policy);
   }
 
   private <Type> void listenToChanges(Class<Type> streamType, BlockingQueue<EventEnvelope> queue) {
-    String streamName = StreamType.of(streamType);
-    Pattern pattern = Pattern.compile("^" + Pattern.quote(streamName));
+    var watch = streamsCollection.watch(filterSubscription.apply(StreamType.of(streamType)));
 
-    var pipeline = List.of(
-      Aggregates.match(
-        Filters.and(
-          Filters.eq("operationType", "insert"),
-          Filters.regex("fullDocument.metadata.streamName", pattern)
-        )
-      )
-    );
-
-    try (WatchCursor<ChangeStreamDocument<EventEnvelope>> cursor = watchChanges(pipeline)) {
+    try (var cursor = new MongoEventStreamCursor<>(watch, extractEvents)) {
       while (cursor.hasNext()) {
-        var change = cursor.next();
-        var event = extractEvent(change);
-        if (event != null) {
+        var events = cursor.next();
+        for (EventEnvelope event : events) {
           queue.put(event);
         }
       }
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-  }
-
-  private WatchCursor<ChangeStreamDocument<EventEnvelope>> watchChanges(List<?> pipeline) {
-    @SuppressWarnings("unchecked")
-    List<Bson> bsonPipeline = (List<Bson>) pipeline;
-
-    var cursor = eventsCollection.watch(bsonPipeline)
-      .maxAwaitTime(10, TimeUnit.SECONDS)
-      .cursor();
-
-    return new WatchCursor<>() {
-      @Override
-      public boolean hasNext() {
-        return cursor.hasNext();
-      }
-
-      @Override
-      public ChangeStreamDocument<EventEnvelope> next() {
-        return cursor.next();
-      }
-
-      @Override
-      public void close() {
-        cursor.close();
-      }
-    };
-  }
-
-  private EventEnvelope extractEvent(ChangeStreamDocument<EventEnvelope> change) {
-    var operationType = change.getOperationType();
-
-    if (operationType == null) {
-      return null;
-    }
-
-    return change.getFullDocument();
-  }
-
-  public <Type> EventSubscription<Type> subscribe(
-    Class<Type> streamType,
-    Consumer<EventEnvelope> messageHandler) {
-    return subscribe(streamType, messageHandler, null, BatchingPolicy.ofSize(1));
-  }
-
-  public <Type> EventSubscription<Type> subscribe(
-    Class<Type> streamType,
-    Consumer<List<EventEnvelope>> batchHandler,
-    BatchingPolicy policy) {
-    return subscribe(streamType, null, batchHandler, policy);
   }
 }

@@ -4,6 +4,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.*;
+import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.event_as_document.streams.EventStream;
@@ -14,6 +15,7 @@ import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.eve
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.BatchingPolicy;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.EventSubscription;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.MongoEventSubscriptionService;
+import org.bson.conversions.Bson;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -22,6 +24,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 public class MongoDBEventStore implements EventStore {
@@ -29,7 +33,7 @@ public class MongoDBEventStore implements EventStore {
   private final MongoDatabase database;
   private final EventDataCodec eventDataCodec;
   private final EventTypeMapper eventTypeMapper;
-  private MongoEventSubscriptionService eventSubscriptionService;
+  private MongoEventSubscriptionService<EventEnvelope> eventSubscriptionService;
 
   public MongoDBEventStore(MongoClient mongoClient, String databaseName) {
     this.mongoClient = mongoClient;
@@ -56,9 +60,10 @@ public class MongoDBEventStore implements EventStore {
         new IndexOptions().unique(true)
       );
 
-    eventSubscriptionService = new MongoEventSubscriptionService(
+    eventSubscriptionService = new MongoEventSubscriptionService<EventEnvelope>(
       eventsCollection(),
-      Executors.newSingleThreadExecutor()
+      MongoDBEventStore::filterSubscription,
+      MongoDBEventStore::extractEvents
     );
   }
 
@@ -151,7 +156,7 @@ public class MongoDBEventStore implements EventStore {
       .toList();
   }
 
-  public <Type> EventSubscription<Type> subscribe(
+  public <Type> EventSubscription subscribe(
     Class<Type> streamType,
     Consumer<List<EventEnvelope>> handler
   ) {
@@ -162,7 +167,7 @@ public class MongoDBEventStore implements EventStore {
     );
   }
 
-  public <Type> EventSubscription<Type> subscribe(
+  public <Type> EventSubscription subscribe(
     Class<Type> streamType,
     Consumer<List<EventEnvelope>> handler,
     BatchingPolicy batchingPolicy
@@ -172,6 +177,28 @@ public class MongoDBEventStore implements EventStore {
       handler,
       batchingPolicy
     );
+  }
+
+  private static List<? extends Bson> filterSubscription(String streamType) {
+    return List.of(
+      Aggregates.match(
+        Filters.and(
+          Filters.eq("operationType", "insert"),
+          Filters.regex(
+            "fullDocument.metadata.streamName",
+            Pattern.compile("^" + Pattern.quote(streamType))
+          )
+        )
+      )
+    );
+  }
+
+  private static List<EventEnvelope> extractEvents(ChangeStreamDocument<EventEnvelope> change) {
+    var eventEnvelope = change.getFullDocument();
+
+    return (eventEnvelope != null) ?
+      List.of(change.getFullDocument())
+      : List.of();
   }
 
   private MongoCollection<EventStream> streamsCollection() {

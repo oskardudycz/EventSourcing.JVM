@@ -4,6 +4,7 @@ import bankaccounts.BankAccount;
 import com.mongodb.client.MongoDatabase;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.events.EventEnvelope;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.subscriptions.BatchingPolicy;
 import io.eventdriven.buildyourowneventstore.tools.mongodb.MongoDBTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -62,42 +63,35 @@ public class EventStoreMethodsTests extends MongoDBTest {
 
     var streamName = StreamName.of(BankAccount.class, bankAccountId);
 
-    var insertFuture = new CompletableFuture<EventEnvelope[]>();
-    AtomicReference<Integer> i = new AtomicReference<>(0);
-    var updateFuture = new CompletableFuture<EventEnvelope[]>();
+    var eventsFuture = new CompletableFuture<List<EventEnvelope>>();
 
-    eventStore.subscribe(BankAccount.class, (events) -> {
-      if (i.get() == 0)
-        insertFuture.complete(events);
-      else
-        updateFuture.complete(events);
+    try (var _ = eventStore.subscribe(
+      BankAccount.class,
+      eventsFuture::complete,
+      BatchingPolicy.ofSize(6))
+    ) {
 
-      i.set(i.get() + 1);
-    });
+      eventStore.appendEvents(
+        streamName,
+        bankAccountCreated, depositRecorded, cashWithdrawn
+      );
 
-    eventStore.appendEvents(
-      streamName,
-      bankAccountCreated, depositRecorded, cashWithdrawn
-    );
+      eventStore.appendEvents(
+        streamName,
+        bankAccountCreated, depositRecorded, cashWithdrawn
+      );
 
-    eventStore.appendEvents(
-      streamName,
-      bankAccountCreated, depositRecorded, cashWithdrawn
-    );
+      var events = eventStore.getEvents(streamName);
 
-    var events = eventStore.getEvents(streamName);
+      var updateChange = eventsFuture.get(5, TimeUnit.SECONDS);
 
+      assertEquals(6, updateChange.size());
+      assertEquals(6, events.size());
 
-    var change = insertFuture.get(5, TimeUnit.SECONDS);
-    var updateChange = updateFuture.get(5, TimeUnit.SECONDS);
-
-    assertEquals(3, change.length);
-    assertEquals(3, updateChange.length);
-    assertEquals(6, events.size());
-
-    assertEquals(bankAccountCreated, findFirstOfType(BankAccountOpened.class, events));
-    assertEquals(depositRecorded, findFirstOfType(DepositRecorded.class, events));
-    assertEquals(cashWithdrawn, findFirstOfType(CashWithdrawnFromATM.class, events));
+      assertEquals(bankAccountCreated, findFirstOfType(BankAccountOpened.class, events));
+      assertEquals(depositRecorded, findFirstOfType(DepositRecorded.class, events));
+      assertEquals(cashWithdrawn, findFirstOfType(CashWithdrawnFromATM.class, events));
+    }
   }
 
   private <Event> Event findFirstOfType(Class<Event> type, List<Object> events) {

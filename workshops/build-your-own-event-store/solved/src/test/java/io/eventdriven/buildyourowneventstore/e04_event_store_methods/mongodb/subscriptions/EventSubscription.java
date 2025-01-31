@@ -9,15 +9,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
-public class EventSubscription<Type> implements AutoCloseable {
+public class EventSubscription implements AutoCloseable {
   private final BlockingQueue<EventEnvelope> queue;
   private final AtomicBoolean running = new AtomicBoolean(true);
   private final Thread consumerThread;
 
-  EventSubscription(BlockingQueue<EventEnvelope> queue,
-                    Consumer<EventEnvelope> messageHandler,
-                    Consumer<List<EventEnvelope>> batchHandler,
-                    BatchingPolicy policy) {
+  EventSubscription(
+    BlockingQueue<EventEnvelope> queue,
+    Consumer<EventEnvelope> messageHandler,
+    Consumer<List<EventEnvelope>> batchHandler,
+    BatchingPolicy policy
+  ) {
     this.queue = queue;
     this.consumerThread = new Thread(() ->
       consumeWithPolicy(messageHandler, batchHandler, policy));
