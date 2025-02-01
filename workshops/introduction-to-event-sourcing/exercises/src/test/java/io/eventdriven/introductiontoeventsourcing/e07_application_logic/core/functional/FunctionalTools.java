@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.core.functional;
+package io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.functional;
 
 import java.util.HashSet;
 import java.util.LinkedHashMap;

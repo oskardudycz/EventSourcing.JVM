@@ -1,8 +1,8 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts;
 
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.core.functional.Tuple;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.eventStoreDB.EventStore;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.http.ETag;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.functional.Tuple;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.eventStoreDB.EventStore;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.ETag;
 
 import java.util.List;
 import java.util.Optional;

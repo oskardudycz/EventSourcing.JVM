@@ -1,6 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.mutable.app.shoppingcarts;
 
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.core.entities.Aggregate;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.entities.Aggregate;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.mutable.app.shoppingcarts.productItems.ProductPriceCalculator;
 
 import java.time.OffsetDateTime;

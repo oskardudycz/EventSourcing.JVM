@@ -2,7 +2,7 @@ package io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb
 
 import io.eventdriven.eventstores.StreamName;
 import io.eventdriven.eventstores.mongodb.MongoDBEventStore;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.core.entities.EntityNotFoundException;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.entities.EntityNotFoundException;
 
 import java.util.ArrayList;
 import java.util.List;

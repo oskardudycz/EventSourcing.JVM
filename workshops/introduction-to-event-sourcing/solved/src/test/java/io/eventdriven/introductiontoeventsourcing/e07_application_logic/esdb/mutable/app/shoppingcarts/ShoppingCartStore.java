@@ -1,7 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts;
 
 import io.eventdriven.eventstores.StreamName;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.entities.EntityNotFoundException;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.entities.EntityNotFoundException;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.eventstore.EsdbEventStore;
 
 import java.util.List;
