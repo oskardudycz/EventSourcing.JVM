@@ -3,7 +3,7 @@ package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mu
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.ECommerceApplication;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.api.ShoppingCartsRequests.ProductItemRequest;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.tests.api.builders.ShoppingCartRestBuilder;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.testing.ApiSpecification;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

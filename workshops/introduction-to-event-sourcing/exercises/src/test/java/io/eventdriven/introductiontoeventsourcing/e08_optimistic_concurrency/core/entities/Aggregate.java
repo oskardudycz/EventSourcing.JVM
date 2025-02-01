@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.entities;
+package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.entities;
 
 import java.util.LinkedList;
 import java.util.List;

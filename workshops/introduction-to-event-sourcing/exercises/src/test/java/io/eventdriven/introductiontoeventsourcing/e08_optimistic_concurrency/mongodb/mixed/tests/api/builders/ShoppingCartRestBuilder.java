@@ -3,7 +3,7 @@ package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mo
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.api.ShoppingCartsRequests.AddProduct;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.api.ShoppingCartsRequests.Open;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.api.ShoppingCartsRequests.ProductItemRequest;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.http.ETag;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.ETag;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.*;
 

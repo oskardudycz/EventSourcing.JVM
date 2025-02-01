@@ -1,5 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts;
 
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts.productItems.ProductPriceCalculator;
 
 import java.time.OffsetDateTime;
@@ -41,7 +42,7 @@ public class ShoppingCart {
     evolve(event);
   }
 
-  public static Entry<ShoppingCartEvent, ShoppingCart> open(UUID shoppingCartId, UUID clientId) {
+  public static Entry<io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts.ShoppingCartEvent, ShoppingCart> open(UUID shoppingCartId, UUID clientId) {
     var event = new ShoppingCartOpened(
       shoppingCartId,
       clientId
@@ -106,11 +107,11 @@ public class ShoppingCart {
 
   public boolean hasEnough(PricedProductItem productItem) {
     var currentQuantity = productItems.stream()
-      .filter(pi -> pi.productId().equals(productItem.productId()))
-      .mapToInt(PricedProductItem::quantity)
+      .filter(pi -> pi.getProductId().equals(productItem.getProductId()))
+      .mapToInt(PricedProductItem::getQuantity)
       .sum();
 
-    return currentQuantity >= productItem.quantity();
+    return currentQuantity >= productItem.getQuantity();
   }
 
   public UUID id() {
@@ -158,16 +159,16 @@ public class ShoppingCart {
 
   private ProductItemAddedToShoppingCart apply(ProductItemAddedToShoppingCart event) {
     var pricedProductItem = event.productItem();
-    var productId = pricedProductItem.productId();
-    var quantityToAdd = pricedProductItem.quantity();
+    var productId = pricedProductItem.getProductId();
+    var quantityToAdd = pricedProductItem.getQuantity();
 
     productItems.stream()
-      .filter(pi -> pi.productId().equals(productId))
+      .filter(pi -> pi.getProductId().equals(productId))
       .findAny()
       .ifPresentOrElse(
         current -> productItems.set(
           productItems.indexOf(current),
-          new PricedProductItem(current.productId(), current.quantity() + quantityToAdd, current.unitPrice())
+          new PricedProductItem(current.getProductId(), current.getQuantity() + quantityToAdd, current.getUnitPrice())
         ),
         () -> productItems.add(pricedProductItem)
       );
@@ -176,16 +177,16 @@ public class ShoppingCart {
 
   private ProductItemRemovedFromShoppingCart apply(ProductItemRemovedFromShoppingCart event) {
     var pricedProductItem = event.productItem();
-    var productId = pricedProductItem.productId();
-    var quantityToRemove = pricedProductItem.quantity();
+    var productId = pricedProductItem.getProductId();
+    var quantityToRemove = pricedProductItem.getQuantity();
 
     productItems.stream()
-      .filter(pi -> pi.productId().equals(productId))
+      .filter(pi -> pi.getProductId().equals(productId))
       .findAny()
       .ifPresent(
         current -> productItems.set(
           productItems.indexOf(current),
-          new PricedProductItem(current.productId(), current.quantity() - quantityToRemove, current.unitPrice())
+          new PricedProductItem(current.getProductId(), current.getQuantity() - quantityToRemove, current.getUnitPrice())
         )
       );
 

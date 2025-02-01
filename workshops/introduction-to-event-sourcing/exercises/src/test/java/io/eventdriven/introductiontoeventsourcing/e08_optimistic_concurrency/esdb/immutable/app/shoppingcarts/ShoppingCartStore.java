@@ -1,6 +1,10 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts;
 
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.eventStoreDB.EventStore;
+import io.eventdriven.eventstores.StreamName;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.entities.EntityNotFoundException;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.eventstore.EsdbEventStore;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCart;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCartEvent;
 
 import java.util.List;
 import java.util.Optional;
@@ -8,36 +12,43 @@ import java.util.UUID;
 import java.util.function.Function;
 
 public class ShoppingCartStore {
-  private final EventStore eventStore;
+  private final EsdbEventStore eventStore;
 
-  public ShoppingCartStore(EventStore eventStore) {
+  public ShoppingCartStore(EsdbEventStore eventStore) {
     this.eventStore = eventStore;
   }
 
   public Optional<ShoppingCart> get(UUID id) {
-    return eventStore.aggregateStream(
-      ShoppingCartEvent.class,
-      ShoppingCart::evolve,
+    var result = eventStore.aggregateStream(
       ShoppingCart::initial,
+      ShoppingCart::evolve,
       toStreamName(id)
     );
+
+    return result.streamExists() ?
+      Optional.of(result.state())
+      : Optional.empty();
   }
 
   public void add(UUID id, ShoppingCartEvent event) {
-    eventStore.add(toStreamName(id), new Object[]{event});
+    eventStore.appendToStream(toStreamName(id), List.of(event));
   }
 
   public void getAndUpdate(UUID id, Function<ShoppingCart, ShoppingCartEvent> handle) {
     eventStore.getAndUpdate(
-      ShoppingCartEvent.class,
-      ShoppingCart::evolve,
       ShoppingCart::initial,
+      ShoppingCart::evolve,
       toStreamName(id),
-      (state) -> List.of(handle.apply(state))
+      (state) -> {
+        if (state.status() == null)
+          throw new EntityNotFoundException();
+
+        return List.of(handle.apply(state));
+      }
     );
   }
 
-  private String toStreamName(UUID id) {
-    return "shopping_cart-" + id.toString();
+  private StreamName toStreamName(UUID id) {
+    return new StreamName("shopping_cart", id.toString());
   }
 }

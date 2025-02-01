@@ -1,16 +1,11 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.api.controllers;
 
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.http.ETag;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.api.ShoppingCartsRequests;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.shoppingcarts.ShoppingCart;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.shoppingcarts.ShoppingCartStore;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.shoppingcarts.productItems.ProductPriceCalculator;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -58,8 +53,7 @@ class ShoppingCartsController {
   @PostMapping("{id}/products")
   ResponseEntity<Void> addProduct(
     @PathVariable UUID id,
-    @RequestBody ShoppingCartsRequests.AddProduct request,
-    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
+    @RequestBody ShoppingCartsRequests.AddProduct request
   ) {
     if (request.productItem() == null)
       throw new IllegalArgumentException("Product Item has to be defined");
@@ -85,8 +79,7 @@ class ShoppingCartsController {
     @PathVariable UUID id,
     @PathVariable UUID productId,
     @RequestParam @NotNull Integer quantity,
-    @RequestParam @NotNull Double price,
-    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
+    @RequestParam @NotNull Double price
   ) {
     store.getAndUpdate(
       id,
@@ -106,8 +99,7 @@ class ShoppingCartsController {
 
   @PutMapping("{id}")
   ResponseEntity<Void> confirmCart(
-    @PathVariable UUID id,
-    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
+    @PathVariable UUID id
   ) {
     store.getAndUpdate(
       id,
@@ -121,8 +113,7 @@ class ShoppingCartsController {
 
   @DeleteMapping("{id}")
   ResponseEntity<Void> cancelCart(
-    @PathVariable UUID id,
-    @RequestHeader(name = HttpHeaders.IF_MATCH) @Parameter(in = ParameterIn.HEADER, required = true, schema = @Schema(type = "string")) @NotNull ETag ifMatch
+    @PathVariable UUID id
   ) {
     store.getAndUpdate(
       id,
@@ -141,10 +132,7 @@ class ShoppingCartsController {
     var result = store.get(id);
 
     return result
-      .map(s -> ResponseEntity
-        .ok()
-        .body(s)
-      )
+      .map(s -> ResponseEntity.ok().body(s))
       .orElse(ResponseEntity.notFound().build());
   }
 }
