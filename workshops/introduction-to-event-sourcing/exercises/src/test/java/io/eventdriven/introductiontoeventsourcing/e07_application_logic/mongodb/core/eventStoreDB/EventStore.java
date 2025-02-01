@@ -40,11 +40,11 @@ public class EventStore {
     throw new RuntimeException();
   }
 
-  public <State extends Aggregate> void add(String streamName, State aggregate) {
-    add(streamName, aggregate.dequeueUncommittedEvents().toArray());
+  public <State extends Aggregate> void appendToStream(String streamName, State aggregate) {
+    appendToStream(streamName, aggregate.dequeueUncommittedEvents().toArray());
   }
 
-  public void add(String streamName, Object[] events) {
+  public void appendToStream(String streamName, Object[] events) {
     throw new RuntimeException();
   }
 

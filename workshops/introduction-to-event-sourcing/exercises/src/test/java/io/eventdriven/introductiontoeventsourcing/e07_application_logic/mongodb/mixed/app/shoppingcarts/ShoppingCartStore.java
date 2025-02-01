@@ -27,7 +27,7 @@ public class ShoppingCartStore {
   }
 
   public void add(UUID id, ShoppingCartEvent event) {
-    eventStore.add(toStreamName(id), new Object[]{event});
+    eventStore.appendToStream(toStreamName(id), new Object[]{event});
   }
 
   public void getAndUpdate(UUID id, Function<ShoppingCart, ShoppingCartEvent> handle) {

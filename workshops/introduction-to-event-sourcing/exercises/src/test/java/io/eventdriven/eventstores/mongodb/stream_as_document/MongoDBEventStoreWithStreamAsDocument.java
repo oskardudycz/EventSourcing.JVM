@@ -12,7 +12,9 @@ import io.eventdriven.eventstores.mongodb.events.EventEnvelope;
 import io.eventdriven.eventstores.mongodb.events.EventMetadata;
 import io.eventdriven.eventstores.mongodb.events.EventTypeMapper;
 import io.eventdriven.eventstores.mongodb.stream_as_document.streams.EventStream;
-import io.eventdriven.eventstores.mongodb.subscriptions.*;
+import io.eventdriven.eventstores.mongodb.subscriptions.EventSubscription;
+import io.eventdriven.eventstores.mongodb.subscriptions.EventSubscriptionSettings;
+import io.eventdriven.eventstores.mongodb.subscriptions.MongoEventStreamCursor;
 import org.bson.BsonDocumentReader;
 import org.bson.codecs.Codec;
 import org.bson.codecs.DecoderContext;
@@ -20,7 +22,6 @@ import org.bson.conversions.Bson;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -122,7 +123,7 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
   }
 
   @Override
-  public List<Object> readStream(StreamName streamName) {
+  public ReadStreamResult readStream(StreamName streamName) {
     var streamType = streamName.streamType();
 
     // Resolve collection
@@ -130,14 +131,18 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
 
     // Read events from the stream document
     var stream = collection.find(Filters.eq("streamName", streamName.toString()))
-      .projection(Projections.include("events"))
+      .projection(Projections.include("events", "metadata.streamPosition"))
       .first();
 
-    return stream != null ?
-      stream.events().stream().map(eventEnvelope ->
-        eventEnvelope.getEvent(eventDataCodec)
-      ).toList()
-      : Collections.emptyList();
+    if (stream == null) {
+      return new ReadStreamResult(0, List.of());
+    }
+
+    var events = stream.events().stream()
+      .map(eventEnvelope -> eventEnvelope.getEvent(eventDataCodec))
+      .toList();
+
+    return new ReadStreamResult(stream.metadata().streamPosition(), events);
   }
 
   public EventSubscription subscribe(EventSubscriptionSettings settings) {

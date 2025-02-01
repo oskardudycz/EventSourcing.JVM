@@ -135,15 +135,25 @@ public class MongoDBEventStoreWithEventAsDocument implements MongoDBEventStore {
   }
 
   @Override
-  public List<Object> readStream(StreamName streamName) {
+  public ReadStreamResult readStream(StreamName streamName) {
     var eventsCollection = eventsCollection();
 
-    return eventsCollection
+    var stream = streamsCollection().find(Filters.eq("streamName", streamName.toString()))
+      .projection(Projections.include("metadata.streamPosition"))
+      .first();
+
+    if(stream == null) {
+      return new ReadStreamResult(0, List.of());
+    }
+
+    var events = eventsCollection
       .find(Filters.eq("metadata.streamName", streamName.toString()))
       .into(new ArrayList<>())
       .stream()
       .map(eventEnvelope -> eventEnvelope.getEvent(eventDataCodec))
       .toList();
+
+    return new ReadStreamResult(stream.metadata().streamPosition(), events);
   }
 
   public EventSubscription subscribe(EventSubscriptionSettings settings) {

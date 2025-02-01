@@ -1,40 +1,55 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts;
 
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.eventStoreDB.EventStore;
+import io.eventdriven.eventstores.StreamName;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.eventstore.EsdbEventStore;
 
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 
 public class ShoppingCartStore {
-  private final EventStore eventStore;
+  private final EsdbEventStore eventStore;
 
-  public ShoppingCartStore(EventStore eventStore) {
+  public ShoppingCartStore(EsdbEventStore eventStore) {
     this.eventStore = eventStore;
   }
 
   public Optional<ShoppingCart> get(UUID id) {
-    return eventStore.aggregateStream(
-      ShoppingCartEvent.class,
+    var result = eventStore.<ShoppingCart, ShoppingCartEvent>aggregateStream(
       ShoppingCart::initial,
+      (cart, event) -> {
+        cart.evolve(event);
+        return cart;
+      },
       toStreamName(id)
     );
+
+    return result.streamExists() ?
+      Optional.of(result.state())
+      : Optional.empty();
   }
 
   public void add(UUID id, ShoppingCart shoppingCart) {
-    eventStore.add(toStreamName(id), shoppingCart);
+    eventStore.appendToStream(toStreamName(id), shoppingCart);
   }
 
   public void getAndUpdate(UUID id, Consumer<ShoppingCart> handle) {
     eventStore.getAndUpdate(
-      ShoppingCartEvent.class,
       ShoppingCart::initial,
+      (state, event) -> {
+        state.evolve(event);
+        return state;
+      },
       toStreamName(id),
-      handle
+      (state) -> {
+        handle.accept(state);
+
+        return state.dequeueUncommittedEvents();
+      }
     );
   }
 
-  private String toStreamName(UUID id) {
-    return "shopping_cart-" + id.toString();
+  private StreamName toStreamName(UUID id) {
+    return new StreamName("shopping_cart", id.toString());
   }
 }

@@ -70,7 +70,8 @@ public class EventStoreMethodsTests extends MongoDBTest {
         bankAccountCreated, depositRecorded, cashWithdrawn
       );
 
-      var events = eventStore.readStream(streamName);
+      var result = eventStore.readStream(streamName);
+      var events = result.events();
 
       var updateChange = eventsFuture.get(5, TimeUnit.SECONDS);
 
