@@ -7,7 +7,6 @@ import io.eventdriven.eventstores.StreamName;
 
 import java.sql.Connection;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,23 +32,23 @@ public class PostgreSQLEventStore implements EventStore {
   public AppendResult appendToStream(
     StreamName streamName,
     Long expectedStreamPosition,
-    Object... events
+    List<Object> events
   ) {
     return runInTransaction(dbConnection, connection ->
     {
-      var ids = Arrays.stream(events)
+      var ids = events.stream()
         .map(_ -> UUID.randomUUID().toString())
         .toArray(String[]::new);
 
-      var eventData = Arrays.stream(events)
+      var eventData = events.stream()
         .map(JsonEventSerializer::serialize)
         .toArray(String[]::new);
 
-      var eventMetadata = Arrays.stream(events)
+      var eventMetadata = events.stream()
         .map(_ -> "{}")
         .toArray(String[]::new);
 
-      var eventTypes = Arrays.stream(events)
+      var eventTypes = events.stream()
         .map(event -> EventTypeMapper.toName(event.getClass()))
         .toArray(String[]::new);
 
@@ -71,7 +70,7 @@ public class PostgreSQLEventStore implements EventStore {
       if (!succeeded)
         throw new IllegalStateException("Expected stream position did not match the current stream position!");
 
-      var nextExpectedPosition = (expectedStreamPosition != null? expectedStreamPosition: 0)+ events.length;
+      var nextExpectedPosition = (expectedStreamPosition != null? expectedStreamPosition: 0)+ events.size();
 
       return new AppendResult(nextExpectedPosition);
     });

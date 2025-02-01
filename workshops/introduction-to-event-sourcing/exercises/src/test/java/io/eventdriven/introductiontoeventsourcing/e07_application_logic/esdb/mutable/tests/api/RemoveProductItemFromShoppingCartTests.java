@@ -9,12 +9,9 @@ import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.tes
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.UUID;
-import java.util.stream.Stream;
 
 @SpringBootTest(classes = ECommerceApplication.class,
   webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -47,7 +44,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   @Tag("Exercise")
   @Test
   public void removeProductItem_succeeds_forNotAllProductsAndExistingShoppingCart() {
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity() - 1))
+    given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity() - 1))
       .when(DELETE("/%s/products".formatted(shoppingCartId)))
       .then(OK);
   }
@@ -55,7 +52,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   @Tag("Exercise")
   @Test
   public void removeProductItem_succeeds_forAllProductsAndExistingShoppingCart() {
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity()))
+    given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
       .when(DELETE("/%s/products".formatted(shoppingCartId)))
       .then(OK);
   }
@@ -73,7 +70,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   public void removeProductItem_fails_withNotFound_forNotExistingShoppingCart() {
     var notExistingId = UUID.randomUUID();
 
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity()))
+    given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
       .when(DELETE("/%s/products".formatted(notExistingId)))
       .then(NOT_FOUND);
   }
@@ -85,7 +82,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       ShoppingCartRestBuilder.of(restTemplate, port)
         .build(cart -> cart.withClientId(clientId).confirmed());
 
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity()))
+    given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
       .when(DELETE("/%s/products".formatted(result.id())))
       .then(CONFLICT);
   }
@@ -97,7 +94,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       ShoppingCartRestBuilder.of(restTemplate, port)
         .build(builder -> builder.withClientId(clientId).canceled());
 
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity()))
+    given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
       .when(DELETE("/%s/products".formatted(result.id())))
       .then(CONFLICT);
   }

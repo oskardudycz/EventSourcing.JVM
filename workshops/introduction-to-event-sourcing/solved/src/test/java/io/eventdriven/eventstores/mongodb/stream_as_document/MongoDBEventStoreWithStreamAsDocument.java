@@ -55,7 +55,7 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
   }
 
   @Override
-  public AppendResult appendToStream(StreamName streamName, Long expectedVersion, Object... events) {
+  public AppendResult appendToStream(StreamName streamName, Long expectedVersion, List<Object> events) {
     var streamType = streamName.streamType();
     var streamId = streamName.streamId();
     var streamNameValue = streamName.toString();
@@ -79,9 +79,9 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
         : 0L;
     }
 
-    var envelopes = IntStream.range(0, events.length)
+    var envelopes = IntStream.range(0, events.size())
       .mapToObj(index -> {
-        var event = events[index];
+        var event = events.get(index);
 
         return EventEnvelope.of(
           event,
@@ -105,7 +105,7 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
         // Append events
         Updates.pushEach("events", envelopes),
         // Increment stream position
-        Updates.inc("metadata.streamPosition", events.length),
+        Updates.inc("metadata.streamPosition", events.size()),
         // Set default metadata on insert
         Updates.setOnInsert("streamName", streamNameValue),
         Updates.setOnInsert("metadata.streamId", streamId),
@@ -121,7 +121,7 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
       throw new IllegalStateException("Expected version did not match the stream version!");
 
 
-    return new AppendResult(currentStreamPosition + events.length);
+    return new AppendResult(currentStreamPosition + events.size());
   }
 
   @Override

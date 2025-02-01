@@ -15,6 +15,6 @@ public class FakeProductPriceCalculator implements ProductPriceCalculator {
   }
 
   public PricedProductItem calculate(ProductItem productItem) {
-    return new PricedProductItem(productItem.productId(), productItem.quantity(), value);
+    return new PricedProductItem(productItem.getProductId(), productItem.getQuantity(), value);
   }
 }

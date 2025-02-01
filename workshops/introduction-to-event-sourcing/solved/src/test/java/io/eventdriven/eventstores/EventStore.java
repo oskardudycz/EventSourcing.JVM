@@ -1,5 +1,6 @@
 package io.eventdriven.eventstores;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -10,7 +11,7 @@ public interface EventStore {
 
   default AppendResult appendToStream(
     StreamName streamName,
-    Object... events
+    List<Object> events
   ) {
     return appendToStream(streamName, null, events);
   }
@@ -18,7 +19,7 @@ public interface EventStore {
   AppendResult appendToStream(
     StreamName streamName,
     Long expectedStreamPosition,
-    Object... events
+    List<Object> events
   );
 
   ReadStreamResult readStream(StreamName streamName);
@@ -56,7 +57,7 @@ public interface EventStore {
       return new AppendResult(aggregationResult.currentStreamPosition());
     }
 
-    return appendToStream(streamName, events);
+    return appendToStream(streamName, aggregationResult.currentStreamPosition, new ArrayList<>(events));
   }
 
   record AppendResult(long nextExpectedStreamPosition) {
@@ -76,7 +77,7 @@ public interface EventStore {
     State state
   ) {
     public boolean streamExists() {
-      return currentStreamPosition == 0;
+      return currentStreamPosition > 0;
     }
   }
 }

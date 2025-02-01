@@ -1,8 +1,11 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mutable.app.shoppingcarts;
 
 import io.eventdriven.eventstores.StreamName;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.entities.EntityNotFoundException;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.eventstore.EsdbEventStore;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -30,7 +33,7 @@ public class ShoppingCartStore {
   }
 
   public void add(UUID id, ShoppingCart shoppingCart) {
-    eventStore.appendToStream(toStreamName(id), shoppingCart);
+    eventStore.appendToStream(toStreamName(id),  new ArrayList<>(shoppingCart.dequeueUncommittedEvents()));
   }
 
   public void getAndUpdate(UUID id, Consumer<ShoppingCart> handle) {
@@ -42,6 +45,9 @@ public class ShoppingCartStore {
       },
       toStreamName(id),
       (state) -> {
+        if (state.status() == null)
+          throw new EntityNotFoundException();
+
         handle.accept(state);
 
         return state.dequeueUncommittedEvents();

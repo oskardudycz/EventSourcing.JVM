@@ -77,7 +77,7 @@ public class GettingStateFromEventsTests extends MongoDBTest {
 
   static EventStore.AppendResult appendEvents(MongoDBEventStore eventStore, StreamName streamName, Object[] events) {
     // 1. Add logic here
-    return eventStore.appendToStream(streamName, events);
+    return eventStore.appendToStream(streamName, Arrays.stream(events).toList());
   }
 
   static ShoppingCart getShoppingCart(MongoDBEventStore eventStore, StreamName streamName) {

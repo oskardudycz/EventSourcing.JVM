@@ -107,10 +107,10 @@ public class ShoppingCart {
   public boolean hasEnough(PricedProductItem productItem) {
     var currentQuantity = productItems.stream()
       .filter(pi -> pi.productId().equals(productItem.productId()))
-      .mapToInt(PricedProductItem::quantity)
+      .mapToInt(PricedProductItem::getQuantity)
       .sum();
 
-    return currentQuantity >= productItem.quantity();
+    return currentQuantity >= productItem.getQuantity();
   }
 
   public UUID id() {
@@ -159,7 +159,7 @@ public class ShoppingCart {
   private ProductItemAddedToShoppingCart apply(ProductItemAddedToShoppingCart event) {
     var pricedProductItem = event.productItem();
     var productId = pricedProductItem.productId();
-    var quantityToAdd = pricedProductItem.quantity();
+    var quantityToAdd = pricedProductItem.getQuantity();
 
     productItems.stream()
       .filter(pi -> pi.productId().equals(productId))
@@ -167,7 +167,7 @@ public class ShoppingCart {
       .ifPresentOrElse(
         current -> productItems.set(
           productItems.indexOf(current),
-          new PricedProductItem(current.productId(), current.quantity() + quantityToAdd, current.unitPrice())
+          new PricedProductItem(current.productId(), current.getQuantity() + quantityToAdd, current.getUnitPrice())
         ),
         () -> productItems.add(pricedProductItem)
       );
@@ -177,7 +177,7 @@ public class ShoppingCart {
   private ProductItemRemovedFromShoppingCart apply(ProductItemRemovedFromShoppingCart event) {
     var pricedProductItem = event.productItem();
     var productId = pricedProductItem.productId();
-    var quantityToRemove = pricedProductItem.quantity();
+    var quantityToRemove = pricedProductItem.getQuantity();
 
     productItems.stream()
       .filter(pi -> pi.productId().equals(productId))
@@ -185,7 +185,7 @@ public class ShoppingCart {
       .ifPresent(
         current -> productItems.set(
           productItems.indexOf(current),
-          new PricedProductItem(current.productId(), current.quantity() - quantityToRemove, current.unitPrice())
+          new PricedProductItem(current.productId(), current.getQuantity() - quantityToRemove, current.getUnitPrice())
         )
       );
 

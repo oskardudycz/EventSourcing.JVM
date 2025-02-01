@@ -5,15 +5,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.eventdriven.eventstores.EventStore;
 import io.eventdriven.eventstores.StreamName;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.entities.Aggregate;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 public class EsdbEventStore implements EventStore {
   private final EventStoreDBClient eventStore;
@@ -53,7 +49,7 @@ public class EsdbEventStore implements EventStore {
   }
 
   @Override
-  public AppendResult appendToStream(StreamName streamName, Long expectedStreamPosition, Object... events) {
+  public AppendResult appendToStream(StreamName streamName, Long expectedStreamPosition, List<Object> events) {
     try {
       var expectedRevision = expectedStreamPosition != null ?
         ExpectedRevision.expectedRevision(expectedStreamPosition)
@@ -62,7 +58,7 @@ public class EsdbEventStore implements EventStore {
       var result = eventStore.appendToStream(
         streamName.toString(),
         AppendToStreamOptions.get().expectedRevision(expectedRevision),
-        Arrays.stream(events).map(this::serialize).iterator()
+        events.stream().map(this::serialize).iterator()
       ).get();
 
       return new AppendResult(result.getNextExpectedRevision().toRawLong());

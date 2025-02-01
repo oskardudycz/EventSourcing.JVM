@@ -9,6 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.UUID;
 
 import static io.eventdriven.introductiontoeventsourcing.e03_appending_event.mongodb.AppendingEventsTests.ShoppingCartEvent.*;
@@ -61,7 +62,7 @@ public class AppendingEventsTests extends MongoDBTest {
 
   private EventStore.AppendResult appendEvents(MongoDBEventStore eventStore, StreamName streamName, Object[] events) {
     // 1. Add logic here
-    return eventStore.appendToStream(streamName, events);
+    return eventStore.appendToStream(streamName, Arrays.stream(events).toList());
   }
 
   @ParameterizedTest

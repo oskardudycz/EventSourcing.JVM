@@ -56,7 +56,7 @@ public class EventStoreMethodsTests extends PostgresTest {
 
     eventStore.appendToStream(
       streamName,
-      bankAccountCreated, depositRecorded, cashWithdrawn
+      List.of(bankAccountCreated, depositRecorded, cashWithdrawn)
     );
 
     var result = eventStore.readStream(streamName);
