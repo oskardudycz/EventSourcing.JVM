@@ -1,11 +1,22 @@
 package io.eventdriven.buildyourowneventstore.e04_event_store_methods.postgresql;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.eventdriven.buildyourowneventstore.EventTypeMapper;
 import io.eventdriven.buildyourowneventstore.JsonEventSerializer;
-import io.eventdriven.buildyourowneventstore.e02_append_events.EventStore;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
+import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
 
+import java.io.IOException;
 import java.sql.Connection;
+import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.*;
@@ -25,9 +36,8 @@ public class PostgreSQLEventStore implements EventStore {
   }
 
   @Override
-  public <Stream> void appendEvents(
-    Class<Stream> streamClass,
-    String streamId,
+  public void appendEvents(
+    StreamName streamName,
     Long expectedStreamPosition,
     Object... events
   ) {
@@ -58,8 +68,8 @@ public class PostgreSQLEventStore implements EventStore {
           setArrayOf(dbConnection, ps, 2, "jsonb", eventData);
           setArrayOf(dbConnection, ps, 3, "jsonb", eventMetadata);
           setArrayOf(dbConnection, ps, 4, "text", eventTypes);
-          setStringParam(ps, 5, streamId);
-          setStringParam(ps, 6, streamClass.getTypeName());
+          setStringParam(ps, 5, streamName.streamId());
+          setStringParam(ps, 6, streamName.streamType());
           setLong(ps, 7, expectedStreamPosition);
         },
         rs -> getBoolean(rs, "succeeded")
@@ -69,6 +79,77 @@ public class PostgreSQLEventStore implements EventStore {
         throw new IllegalStateException("Expected stream position did not match the current stream position!");
 
     });
+  }
+
+  @Override
+  public List<Object> getEvents(
+    StreamName streamName,
+    Long atStreamPosition,
+    LocalDateTime atTimestamp
+  ) {
+    var atStreamCondition = atStreamPosition != null ? "AND stream_position <= ?" : "";
+    var atTimestampCondition = atTimestamp != null ? "AND created <= ?" : "";
+
+    var getStreamSql = """
+      SELECT id, data, stream_id, type, stream_position, created
+      FROM events
+      WHERE stream_id = ?
+      """
+      + atStreamCondition
+      + atTimestampCondition
+      + " ORDER BY stream_position";
+
+    var events = querySql(
+      dbConnection,
+      getStreamSql,
+      ps -> {
+        var index = 1;
+        setStringParam(ps, index++, streamName.streamId());
+        if (atStreamPosition != null)
+          setLong(ps, index++, atStreamPosition);
+        if (atTimestamp != null)
+          setLocalDateTime(ps, index, atTimestamp);
+      },
+      rs -> {
+        var eventTypeName = getString(rs, "type");
+        return deserialize(
+          EventTypeMapper.toClass(eventTypeName).get(),
+          eventTypeName,
+          getString(rs, "data")
+        ).get();
+      }
+    );
+
+    // TODO: This should read the position from Streams table
+    return events;
+  }
+
+  public static final ObjectMapper mapper =
+    new JsonMapper()
+      .registerModule(new JavaTimeModule())
+      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+      .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+
+  public static String serialize(Object event) {
+    try {
+      return mapper.writeValueAsString(event);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static <Event> Optional<Event> deserialize(Class<Event> eventClass, String eventType, String payload) {
+    try {
+
+      var result = mapper.readValue(payload, eventClass);
+
+      if (result == null)
+        return Optional.empty();
+
+      return Optional.of(result);
+    } catch (IOException e) {
+      return Optional.empty();
+    }
   }
 
   private final String createStreamsTableSql = """
