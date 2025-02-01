@@ -1,6 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.api.controllers;
 
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.http.ETag;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.ETag;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.api.ShoppingCartsRequests;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.shoppingcarts.ShoppingCart;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.shoppingcarts.ShoppingCartStore;

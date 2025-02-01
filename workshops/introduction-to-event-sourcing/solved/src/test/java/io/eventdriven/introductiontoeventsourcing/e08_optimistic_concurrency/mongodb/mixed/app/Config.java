@@ -1,10 +1,9 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app;
 
-import com.eventstore.dbclient.EventStoreDBClient;
-import com.eventstore.dbclient.EventStoreDBClientSettings;
-import com.eventstore.dbclient.EventStoreDBConnectionString;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.eventStoreDB.EventStore;
+import com.mongodb.client.MongoClient;
+import io.eventdriven.eventstores.mongodb.MongoDBEventStore;
+import io.eventdriven.eventstores.mongodb.config.NativeMongoConfig;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.GlobalExceptionHandler;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.serializer.DefaultSerializer;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts.ShoppingCartStore;
@@ -17,6 +16,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Scope;
 import org.springframework.web.context.annotation.ApplicationScope;
 
+import static io.eventdriven.eventstores.mongodb.MongoDBEventStore.Storage;
+
 @Configuration
 class Config {
   @Bean
@@ -26,20 +27,14 @@ class Config {
 
   @Bean
   @Scope("singleton")
-  EventStoreDBClient eventStoreDBClient(@Value("${mongodb.connectionstring}") String connectionString) {
-    try {
-      EventStoreDBClientSettings settings = EventStoreDBConnectionString.parseOrThrow(connectionString);
-
-      return EventStoreDBClient.create(settings);
-    } catch (Throwable e) {
-      throw new RuntimeException(e);
-    }
+  MongoClient mongoDBClient(@Value("${mongodb.connectionstring}") String connectionString) {
+    return NativeMongoConfig.createClient(connectionString);
   }
 
   @Bean
   @Scope("singleton")
-  EventStore eventStore(EventStoreDBClient eventStoreDBClient, ObjectMapper mapper) {
-    return new EventStore(eventStoreDBClient, mapper);
+  MongoDBEventStore eventStore(MongoClient mongoClient) {
+    return MongoDBEventStore.with(Storage.EventAsDocument, mongoClient, "e08_optimistic_concurrency_mongodb_mixed");
   }
 
   @Bean
@@ -51,13 +46,13 @@ class Config {
 
   @Bean
   @Scope("singleton")
-  public static ShoppingCartStore shoppingCartStore(EventStore eventStore) {
+  public static ShoppingCartStore shoppingCartStore(MongoDBEventStore eventStore) {
     return new ShoppingCartStore(eventStore);
   }
 
   @Primary
   @Bean
-  public GlobalExceptionHandler restResponseEntityExceptionHandler (){
+  public GlobalExceptionHandler restResponseEntityExceptionHandler() {
     return new GlobalExceptionHandler();
   }
 }

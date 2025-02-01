@@ -70,18 +70,16 @@ public class MongoDBEventStoreWithEventAsDocument implements MongoDBEventStore {
     var now = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
 
     return mongoClient.startSession().withTransaction(() -> {
-      long currentStreamPosition;
-      if (expectedStreamPosition != null) {
-        currentStreamPosition = expectedStreamPosition;
-      } else {
-        var stream = streamsCollection.find(Filters.eq("streamName", streamNameValue))
-          .projection(Projections.include("metadata.streamPosition"))
-          .first();
+      var stream = streamsCollection.find(Filters.eq("streamName", streamNameValue))
+        .projection(Projections.include("metadata.streamPosition"))
+        .first();
 
-        currentStreamPosition = stream != null ?
-          stream.metadata().streamPosition()
-          : 0L;
-      }
+      long currentStreamPosition = stream != null ?
+        stream.metadata().streamPosition()
+        : 0L;
+
+      if (expectedStreamPosition != null && currentStreamPosition != expectedStreamPosition)
+        throw new InvalidExpectedStreamPositionException(streamName.toString(), expectedStreamPosition);
 
       var envelopes = IntStream.range(0, events.size())
         .mapToObj(index -> {
@@ -121,14 +119,14 @@ public class MongoDBEventStoreWithEventAsDocument implements MongoDBEventStore {
       );
 
       if (streamUpdateResult.getModifiedCount() == 0L && streamUpdateResult.getUpsertedId() == null)
-        throw new IllegalStateException("Expected version did not match the stream version!");
+        throw new InvalidExpectedStreamPositionException(streamName.toString(), expectedStreamPosition);
 
       var eventAppendResult = eventsCollection.insertMany(
         envelopes
       );
 
       if (eventAppendResult.getInsertedIds().size() != envelopes.size())
-        throw new IllegalStateException("Expected version did not match the stream version!");
+        throw new InvalidExpectedStreamPositionException(streamName.toString(), expectedStreamPosition);
 
       return new AppendResult(currentStreamPosition + events.size());
     });

@@ -5,10 +5,10 @@ import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esd
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
-import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems.ProductItem;
 import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCartEvent.*;
 import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCartService.ShoppingCartCommand.*;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems.ProductItem;
 
 public class ShoppingCartService {
   public sealed interface ShoppingCartCommand {

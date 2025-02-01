@@ -1,5 +1,7 @@
 package io.eventdriven.eventstores;
 
+import com.eventstore.dbclient.ExpectedRevision;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
@@ -47,6 +49,24 @@ public interface EventStore {
     Supplier<State> getInitial,
     BiFunction<State, Event, State> evolve,
     StreamName streamName,
+    Long expectedStreamPosition,
+    Function<State, List<Event>> handle
+  ) {
+    var aggregationResult = aggregateStream(getInitial, evolve, streamName);
+
+    var events = handle.apply(aggregationResult.state());
+
+    if (events.isEmpty()) {
+      return new AppendResult(aggregationResult.currentStreamPosition());
+    }
+
+    return appendToStream(streamName, expectedStreamPosition, new ArrayList<>(events));
+  }
+
+  default <State, Event> AppendResult getAndUpdate(
+    Supplier<State> getInitial,
+    BiFunction<State, Event, State> evolve,
+    StreamName streamName,
     Function<State, List<Event>> handle
   ) {
     var aggregationResult = aggregateStream(getInitial, evolve, streamName);
@@ -78,6 +98,26 @@ public interface EventStore {
   ) {
     public boolean streamExists() {
       return currentStreamPosition > 0;
+    }
+  }
+
+  class InvalidExpectedStreamPositionException extends RuntimeException {
+    private final String streamName;
+    private final Long expectedStreamPosition;
+
+    public InvalidExpectedStreamPositionException(String streamName, Long expectedStreamPosition) {
+      super(String.format("Expected %s but got other instead", expectedStreamPosition));
+
+      this.streamName = streamName;
+      this.expectedStreamPosition = expectedStreamPosition;
+    }
+
+    public String getStreamName() {
+      return this.streamName;
+    }
+
+    public Long getExpectedStreamPosition() {
+      return this.expectedStreamPosition;
     }
   }
 }

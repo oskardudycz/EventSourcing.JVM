@@ -55,7 +55,7 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
   }
 
   @Override
-  public AppendResult appendToStream(StreamName streamName, Long expectedVersion, List<Object> events) {
+  public AppendResult appendToStream(StreamName streamName, Long expectedStreamPosition, List<Object> events) {
     var streamType = streamName.streamType();
     var streamId = streamName.streamId();
     var streamNameValue = streamName.toString();
@@ -65,19 +65,16 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
 
     var now = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
 
-    long currentStreamPosition;
+    var stream = collection.find(Filters.eq("streamName", streamNameValue))
+      .projection(Projections.include("metadata.streamPosition"))
+      .first();
 
-    if (expectedVersion != null) {
-      currentStreamPosition = expectedVersion;
-    } else {
-      var stream = collection.find(Filters.eq("streamName", streamNameValue))
-        .projection(Projections.include("metadata.streamPosition"))
-        .first();
+    long currentStreamPosition = stream != null ?
+      stream.metadata().streamPosition()
+      : 0L;
 
-      currentStreamPosition = stream != null ?
-        stream.metadata().streamPosition()
-        : 0L;
-    }
+    if (expectedStreamPosition != null && currentStreamPosition != expectedStreamPosition)
+      throw new InvalidExpectedStreamPositionException(streamName.toString(), expectedStreamPosition);
 
     var envelopes = IntStream.range(0, events.size())
       .mapToObj(index -> {
@@ -118,7 +115,7 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
     );
 
     if (result.getModifiedCount() == 0L && result.getUpsertedId() == null)
-      throw new IllegalStateException("Expected version did not match the stream version!");
+      throw new InvalidExpectedStreamPositionException(streamName.toString(), expectedStreamPosition);
 
 
     return new AppendResult(currentStreamPosition + events.size());

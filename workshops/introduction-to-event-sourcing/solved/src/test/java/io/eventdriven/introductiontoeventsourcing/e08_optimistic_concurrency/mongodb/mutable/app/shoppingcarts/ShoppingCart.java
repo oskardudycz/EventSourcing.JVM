@@ -107,11 +107,11 @@ public class ShoppingCart extends Aggregate<ShoppingCartEvent> {
 
   public boolean hasEnough(PricedProductItem productItem) {
     var currentQuantity = productItems.stream()
-      .filter(pi -> pi.productId().equals(productItem.productId()))
-      .mapToInt(PricedProductItem::quantity)
+      .filter(pi -> pi.getProductId().equals(productItem.getProductId()))
+      .mapToInt(PricedProductItem::getQuantity)
       .sum();
 
-    return currentQuantity >= productItem.quantity();
+    return currentQuantity >= productItem.getQuantity();
   }
   public void evolve(ShoppingCartEvent event) {
     switch (event) {
@@ -134,11 +134,11 @@ public class ShoppingCart extends Aggregate<ShoppingCartEvent> {
 
   private void apply(ProductItemAddedToShoppingCart event) {
     var pricedProductItem = event.productItem();
-    var productId = pricedProductItem.productId();
-    var quantityToAdd = pricedProductItem.quantity();
+    var productId = pricedProductItem.getProductId();
+    var quantityToAdd = pricedProductItem.getQuantity();
 
     productItems.stream()
-      .filter(pi -> pi.productId().equals(productId))
+      .filter(pi -> pi.getProductId().equals(productId))
       .findAny()
       .ifPresentOrElse(
         current -> current.add(quantityToAdd),
@@ -148,11 +148,11 @@ public class ShoppingCart extends Aggregate<ShoppingCartEvent> {
 
   private void apply(ProductItemRemovedFromShoppingCart event) {
     var pricedProductItem = event.productItem();
-    var productId = pricedProductItem.productId();
-    var quantityToRemove = pricedProductItem.quantity();
+    var productId = pricedProductItem.getProductId();
+    var quantityToRemove = pricedProductItem.getQuantity();
 
     productItems.stream()
-      .filter(pi -> pi.productId().equals(productId))
+      .filter(pi -> pi.getProductId().equals(productId))
       .findAny()
       .ifPresentOrElse(
         current -> current.subtract(quantityToRemove),

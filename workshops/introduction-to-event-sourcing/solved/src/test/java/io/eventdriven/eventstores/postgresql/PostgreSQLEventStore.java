@@ -68,7 +68,7 @@ public class PostgreSQLEventStore implements EventStore {
       );
 
       if (!succeeded)
-        throw new IllegalStateException("Expected stream position did not match the current stream position!");
+        throw new InvalidExpectedStreamPositionException(streamName.toString(), expectedStreamPosition);
 
       var nextExpectedPosition = (expectedStreamPosition != null? expectedStreamPosition: 0)+ events.size();
 
