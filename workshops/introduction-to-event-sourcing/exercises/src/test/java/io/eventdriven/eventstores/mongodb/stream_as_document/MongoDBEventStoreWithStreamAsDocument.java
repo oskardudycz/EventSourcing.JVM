@@ -53,7 +53,7 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
   }
 
   @Override
-  public void appendEvents(StreamName streamName, Long expectedVersion, Object... events) {
+  public AppendResult appendToStream(StreamName streamName, Long expectedStreamPosition, Object... events) {
     var streamType = streamName.streamType();
     var streamId = streamName.streamId();
     var streamNameValue = streamName.toString();
@@ -63,16 +63,16 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
 
     var now = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
 
-    long currentVersion;
+    long currentStreamPosition;
 
-    if (expectedVersion != null) {
-      currentVersion = expectedVersion;
+    if (expectedStreamPosition != null) {
+      currentStreamPosition = expectedStreamPosition;
     } else {
       var stream = collection.find(Filters.eq("streamName", streamNameValue))
         .projection(Projections.include("metadata.streamPosition"))
         .first();
 
-      currentVersion = stream != null ?
+      currentStreamPosition = stream != null ?
         stream.metadata().streamPosition()
         : 0L;
     }
@@ -86,7 +86,7 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
           new EventMetadata(
             UUID.randomUUID().toString(),
             eventTypeMapper.toName(event.getClass()),
-            currentVersion + index + 1,
+            currentStreamPosition + index + 1,
             streamNameValue
           ),
           eventDataCodec
@@ -97,7 +97,7 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
     var result = collection.updateOne(
       Filters.and(
         Filters.eq("streamName", streamNameValue),
-        Filters.eq("metadata.streamPosition", currentVersion)
+        Filters.eq("metadata.streamPosition", currentStreamPosition)
       ),
       Updates.combine(
         // Append events
@@ -117,10 +117,12 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
 
     if (result.getModifiedCount() == 0L && result.getUpsertedId() == null)
       throw new IllegalStateException("Expected version did not match the stream version!");
+
+    return new AppendResult(currentStreamPosition + events.length);
   }
 
   @Override
-  public List<Object> getEvents(StreamName streamName, Long atStreamVersion, LocalDateTime atTimestamp) {
+  public List<Object> readStream(StreamName streamName) {
     var streamType = streamName.streamType();
 
     // Resolve collection

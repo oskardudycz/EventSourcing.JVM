@@ -32,7 +32,7 @@ public class EventStoreMethodsTests extends MongoDBTest {
   @ParameterizedTest
   @MethodSource("eventStoreImplementations")
   public void getEvents_ShouldReturnAppendedEvents(MongoDBEventStore.Storage storage) throws ExecutionException, InterruptedException, TimeoutException {
-    var eventStore = createEventStore(storage);
+    var eventStore = getMongoEventStoreWith(storage);
     var now = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
 
     var bankAccountId = UUID.randomUUID().toString();
@@ -65,17 +65,17 @@ public class EventStoreMethodsTests extends MongoDBTest {
       .handleBatch(eventsFuture::complete, BatchingPolicy.ofSize(6));
 
     try (var _ = eventStore.subscribe(settings)) {
-      eventStore.appendEvents(
+      eventStore.appendToStream(
         streamName,
         bankAccountCreated, depositRecorded, cashWithdrawn
       );
 
-      eventStore.appendEvents(
+      eventStore.appendToStream(
         streamName,
         bankAccountCreated, depositRecorded, cashWithdrawn
       );
 
-      var events = eventStore.getEvents(streamName);
+      var events = eventStore.readStream(streamName);
 
       var updateChange = eventsFuture.get(5, TimeUnit.SECONDS);
 
@@ -107,15 +107,5 @@ public class EventStoreMethodsTests extends MongoDBTest {
       MongoDBEventStore.Storage.EventAsDocument,
       MongoDBEventStore.Storage.StoreAsDocument
     );
-  }
-
-  MongoDBEventStore createEventStore(MongoDBEventStore.Storage storage) {
-    var mongoDatabase = getFreshDatabase();
-
-    var eventStore = MongoDBEventStore.with(storage, mongoClient, mongoDatabase.getName());
-
-    eventStore.init();
-
-    return eventStore;
   }
 }

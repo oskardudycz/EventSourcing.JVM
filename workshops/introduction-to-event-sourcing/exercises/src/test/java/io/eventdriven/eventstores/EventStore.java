@@ -1,6 +1,5 @@
 package io.eventdriven.eventstores;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -9,37 +8,27 @@ import java.util.function.Supplier;
 public interface EventStore {
   void init();
 
-  default void appendEvents(
+  default AppendResult appendToStream(
     StreamName streamName,
     Object... events
   ) {
-    appendEvents(streamName, null, events);
+    return appendToStream(streamName, null, events);
   }
 
-  void appendEvents(
+  AppendResult appendToStream(
     StreamName streamName,
-    Long expectedVersion,
+    Long expectedStreamPosition,
     Object... events
   );
 
-  default List<Object> getEvents(
-    StreamName streamName
-  ) {
-    return getEvents(streamName, null, null);
-  }
-
-  List<Object> getEvents(
-    StreamName streamName,
-    Long atStreamVersion,
-    LocalDateTime atTimestamp
-  );
+  List<Object> readStream(StreamName streamName);
 
   default <Stream, Event> Optional<Stream> aggregateStream(
     Supplier<Stream> getDefault,
     BiFunction<Stream, Event, Stream> evolve,
     StreamName streamName
   ) {
-    var events = getEvents(streamName);
+    var events = readStream(streamName);
 
     if (events.isEmpty()) {
       return Optional.empty();
@@ -52,5 +41,8 @@ public interface EventStore {
     }
 
     return Optional.of(aggregate);
+  }
+
+  record AppendResult(long nextExpectedStreamPosition) {
   }
 }
