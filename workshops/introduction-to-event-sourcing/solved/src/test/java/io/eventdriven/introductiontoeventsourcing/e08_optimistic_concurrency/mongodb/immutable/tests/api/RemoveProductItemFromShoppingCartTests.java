@@ -1,13 +1,14 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.immutable.tests.api;
 
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.immutable.app.api.ShoppingCartsRequests.ProductItemRequest;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.ETag;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.immutable.app.ECommerceApplication;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.immutable.app.api.ShoppingCartsRequests.ProductItemRequest;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.immutable.app.shoppingcarts.ShoppingCart;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.immutable.app.shoppingcarts.productItems.ProductItems;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.immutable.tests.api.builders.ShoppingCartRestBuilder;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -43,12 +44,14 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
     product = getResult.getBody().productItems().get(0);
   }
 
+
   @Test
   public void removeProductItem_succeeds_forNotAllProductsAndExistingShoppingCart() {
     given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity() - 1))
       .when(DELETE("/%s/products".formatted(shoppingCartId), eTag))
       .then(OK);
   }
+
 
   @Test
   public void removeProductItem_succeeds_forAllProductsAndExistingShoppingCart() {
@@ -57,12 +60,14 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       .then(OK);
   }
 
+
   @Test
   public void removeProductItem_fails_withMethodNotAllowed_forMissingShoppingCartId() {
     given(() -> "")
       .when(DELETE("/%s/products".formatted(shoppingCartId), eTag))
       .then(METHOD_NOT_ALLOWED);
   }
+
 
   @Test
   public void removeProductItem_fails_withNotFound_forNotExistingShoppingCart() {
@@ -72,6 +77,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       .when(DELETE("/%s/products".formatted(notExistingId), eTag))
       .then(NOT_FOUND);
   }
+
 
   @Test
   public void removeProductItem_fails_withConflict_forConfirmedShoppingCart() {
@@ -84,6 +90,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       .then(CONFLICT);
   }
 
+
   @Test
   public void removeProductItem_fails_withConflict_forCanceledShoppingCart() {
     var result =
@@ -94,6 +101,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       .when(DELETE("/%s/products".formatted(result.id()), result.eTag()))
       .then(CONFLICT);
   }
+
 
   @Test
   public void removeProductItem_fails_withPreconditionFailed_forWrongETag() {

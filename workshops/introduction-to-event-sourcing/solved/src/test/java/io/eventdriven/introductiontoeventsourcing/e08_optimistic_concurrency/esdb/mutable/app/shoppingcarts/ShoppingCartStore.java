@@ -1,48 +1,74 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mutable.app.shoppingcarts;
 
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.functional.Tuple;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.eventStoreDB.EventStore;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.http.ETag;
+import io.eventdriven.eventstores.StreamName;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.entities.EntityNotFoundException;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.functional.Tuple;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.ETag;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.eventstore.EsdbEventStore;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 
 public class ShoppingCartStore {
-  private final EventStore eventStore;
+  private final EsdbEventStore eventStore;
 
-  public ShoppingCartStore(EventStore eventStore) {
+  public ShoppingCartStore(EsdbEventStore eventStore) {
     this.eventStore = eventStore;
   }
 
   public Optional<Tuple<ShoppingCart, ETag>> get(UUID id) {
-    return eventStore.aggregateStream(
-        ShoppingCartEvent.class,
-        ShoppingCart::initial,
-        toStreamName(id)
-      )
-      .map(r -> new Tuple<>(r.first(), ETag.weak(r.second())));
+    var result = eventStore.<ShoppingCart, ShoppingCartEvent>aggregateStream(
+      ShoppingCart::initial,
+      (cart, event) -> {
+        cart.evolve(event);
+        return cart;
+      },
+      toStreamName(id)
+    );
+
+    return result.streamExists() ?
+      Optional.of(new Tuple<>(result.state(), ETag.weak(result.currentStreamPosition())))
+      : Optional.empty();
   }
 
   public ETag add(UUID id, ShoppingCart shoppingCart) {
     return ETag.weak(
-      eventStore.add(toStreamName(id), shoppingCart)
+      eventStore.appendToStream(toStreamName(id), List.copyOf(shoppingCart.dequeueUncommittedEvents()))
+        .nextExpectedStreamPosition()
     );
   }
 
-  public ETag getAndUpdate(UUID id, ETag eTag, Consumer<ShoppingCart> handle) {
+  public ETag getAndUpdate(
+    UUID id,
+    ETag expectedVersion,
+    Consumer<ShoppingCart> handle
+  ) {
     return ETag.weak(
-      eventStore.getAndUpdate(
-        ShoppingCartEvent.class,
-        ShoppingCart::initial,
-        toStreamName(id),
-        eTag.toLong(),
-        handle
-      )
+      eventStore
+        .getAndUpdate(
+          ShoppingCart::initial,
+          (state, event) -> {
+            state.evolve(event);
+            return state;
+          },
+          toStreamName(id),
+          expectedVersion.toLong(),
+          (state) -> {
+            if (state.status() == null)
+              throw new EntityNotFoundException();
+
+            handle.accept(state);
+
+            return state.dequeueUncommittedEvents();
+          }
+        )
+        .nextExpectedStreamPosition()
     );
   }
 
-  private String toStreamName(UUID id) {
-    return "shopping_cart-" + id.toString();
+  private StreamName toStreamName(UUID id) {
+    return new StreamName("shopping_cart", id.toString());
   }
 }

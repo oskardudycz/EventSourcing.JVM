@@ -1,11 +1,12 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.tests.api;
 
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.api.ShoppingCartsRequests.ProductItemRequest;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.ETag;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.ECommerceApplication;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.api.ShoppingCartsRequests.ProductItemRequest;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.tests.api.builders.ShoppingCartRestBuilder;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -32,12 +33,14 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
     eTag = result.eTag();
   }
 
+
   @Test
   public void confirm_succeeds_forValidDataAndExistingShoppingCart() {
     given(() -> shoppingCartId)
       .when(PUT(eTag))
       .then(OK);
   }
+
 
   @Test
   public void confirm_succeeds_forValidDataAndNonEmptyExistingShoppingCart() {
@@ -53,12 +56,14 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
       .then(OK);
   }
 
+
   @Test
   public void confirm_fails_withNotFound_forMissingShoppingCartId() {
     given(() -> "")
       .when(PUT(eTag))
       .then(NOT_FOUND);
   }
+
 
   @Test
   public void confirm_fails_withNotFound_forNotExistingShoppingCart() {
@@ -68,6 +73,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
       .when(PUT(eTag))
       .then(NOT_FOUND);
   }
+
 
   @Test
   public void confirm_fails_withConflict_forConfirmedShoppingCart() {
@@ -80,6 +86,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
       .then(CONFLICT);
   }
 
+
   @Test
   public void confirm_fails_withConflict_forCanceledShoppingCart() {
     var result =
@@ -90,6 +97,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
       .when(PUT(result.eTag()))
       .then(CONFLICT);
   }
+
 
   @Test
   public void confirm_fails_withPreconditionFailed_forWrongETag() {

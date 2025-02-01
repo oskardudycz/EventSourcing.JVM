@@ -1,14 +1,15 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.tests.api;
 
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.api.ShoppingCartsRequests.AddProduct;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.api.ShoppingCartsRequests.ProductItemRequest;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.ETag;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.ECommerceApplication;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.api.ShoppingCartsRequests.AddProduct;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.api.ShoppingCartsRequests.ProductItemRequest;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.tests.api.builders.ShoppingCartRestBuilder;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.testing.ApiSpecification;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -41,6 +42,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
     eTag = result.eTag();
   }
 
+
   @Test
   public void addProductItem_succeeds_forValidDataAndExistingShoppingCart() {
     given(() ->
@@ -51,6 +53,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
       .when(POST("/%s/products".formatted(shoppingCartId), eTag))
       .then(OK);
   }
+
 
   @Test
   public void addProductItem_succeeds_forValidDataAndNonEmptyExistingShoppingCart() {
@@ -70,6 +73,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
       .then(OK);
   }
 
+
   @ParameterizedTest
   @MethodSource("invalidBodiesProvider")
   public void addProductItem_fails_withBadRequest_forInvalidBody(HttpEntity<String> invalidBody) {
@@ -77,6 +81,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
       .when(POST)
       .then(BAD_REQUEST);
   }
+
 
   @Test
   public void addProductItem_fails_withNotFound_forNotExistingShoppingCart() {
@@ -90,6 +95,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
       .when(POST("/%s/products".formatted(notExistingId), eTag))
       .then(NOT_FOUND);
   }
+
 
   @Test
   public void addProductItem_fails_withConflict_forConfirmedShoppingCart() {
@@ -106,6 +112,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
       .then(CONFLICT);
   }
 
+
   @Test
   public void addProductItem_fails_withConflict_forCanceledShoppingCart() {
     var result =
@@ -120,6 +127,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
       .when(POST("/%s/products".formatted(result.id()), result.eTag()))
       .then(CONFLICT);
   }
+
 
   @Test
   public void addProductItem_fails_withPreconditionFailed_forWrongETag() {
