@@ -22,7 +22,7 @@ public class ShoppingCartStore {
   }
 
   public void add(UUID id, ShoppingCart shoppingCart) {
-    eventStore.add(toStreamName(id), shoppingCart);
+    eventStore.appendToStream(toStreamName(id), shoppingCart);
   }
 
   public void getAndUpdate(UUID id, Consumer<ShoppingCart> handle) {

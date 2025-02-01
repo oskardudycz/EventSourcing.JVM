@@ -125,7 +125,7 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
   }
 
   @Override
-  public List<Object> readStream(StreamName streamName) {
+  public ReadStreamResult readStream(StreamName streamName) {
     var streamType = streamName.streamType();
 
     // Resolve collection
@@ -133,14 +133,18 @@ public class MongoDBEventStoreWithStreamAsDocument implements MongoDBEventStore 
 
     // Read events from the stream document
     var stream = collection.find(Filters.eq("streamName", streamName.toString()))
-      .projection(Projections.include("events"))
+      .projection(Projections.include("events", "metadata.streamPosition"))
       .first();
 
-    return stream != null ?
-      stream.events().stream().map(eventEnvelope ->
-        eventEnvelope.getEvent(eventDataCodec)
-      ).toList()
-      : Collections.emptyList();
+    if (stream == null) {
+      return new ReadStreamResult(0, List.of());
+    }
+
+    var events = stream.events().stream()
+      .map(eventEnvelope -> eventEnvelope.getEvent(eventDataCodec))
+      .toList();
+
+    return new ReadStreamResult(stream.metadata().streamPosition(), events);
   }
 
   public EventSubscription subscribe(EventSubscriptionSettings settings) {

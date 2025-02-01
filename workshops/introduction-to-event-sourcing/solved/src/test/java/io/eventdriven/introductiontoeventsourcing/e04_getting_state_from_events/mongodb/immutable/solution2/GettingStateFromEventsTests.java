@@ -205,7 +205,7 @@ public class GettingStateFromEventsTests extends MongoDBTest {
       ShoppingCart::empty,
       ShoppingCart::evolve,
       streamName
-    );
+    ).state();
   }
 
   @ParameterizedTest

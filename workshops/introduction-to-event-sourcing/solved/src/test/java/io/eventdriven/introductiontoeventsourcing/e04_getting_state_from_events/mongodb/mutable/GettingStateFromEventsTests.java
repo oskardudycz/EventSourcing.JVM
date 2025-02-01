@@ -247,7 +247,7 @@ public class GettingStateFromEventsTests extends MongoDBTest {
         return shoppingCart;
       },
       streamName
-    );
+    ).state();
   }
 
   @ParameterizedTest

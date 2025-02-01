@@ -1,8 +1,8 @@
 package io.eventdriven.eventstores.postgresql;
 
-import io.eventdriven.eventstores.testing.bankaccounts.BankAccount;
 import io.eventdriven.eventstores.EventStore;
 import io.eventdriven.eventstores.StreamName;
+import io.eventdriven.eventstores.testing.bankaccounts.BankAccount;
 import io.eventdriven.eventstores.testing.tools.postgresql.PostgresTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -59,7 +59,8 @@ public class EventStoreMethodsTests extends PostgresTest {
       bankAccountCreated, depositRecorded, cashWithdrawn
     );
 
-    var events = eventStore.readStream(streamName);
+    var result = eventStore.readStream(streamName);
+    var events = result.events();
 
     assertEquals(3, events.size());
 

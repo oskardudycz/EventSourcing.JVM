@@ -78,11 +78,11 @@ public class PostgreSQLEventStore implements EventStore {
   }
 
   @Override
-  public List<Object> readStream(StreamName streamName) {
+  public ReadStreamResult readStream(StreamName streamName) {
     return readStream(streamName, null, null);
   }
 
-  public List<Object> readStream(
+  public ReadStreamResult readStream(
     StreamName streamName,
     Long atStreamPosition,
     LocalDateTime atTimestamp
@@ -99,7 +99,7 @@ public class PostgreSQLEventStore implements EventStore {
       + atTimestampCondition
       + " ORDER BY stream_position";
 
-    return querySql(
+    var events = querySql(
       dbConnection,
       getStreamSql,
       ps -> {
@@ -119,6 +119,9 @@ public class PostgreSQLEventStore implements EventStore {
         ).get();
       }
     );
+
+    // TODO: This should read the position from Streams table
+    return new ReadStreamResult(events.size(), events);
   }
 
   private final String createStreamsTableSql = """

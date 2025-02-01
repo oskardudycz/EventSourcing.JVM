@@ -4,7 +4,7 @@ import com.eventstore.dbclient.EventStoreDBClient;
 import com.eventstore.dbclient.EventStoreDBClientSettings;
 import com.eventstore.dbclient.EventStoreDBConnectionString;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.eventStoreDB.EventStore;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.eventstore.EsdbEventStore;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.http.GlobalExceptionHandler;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.core.serializer.DefaultSerializer;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.ShoppingCartStore;
@@ -38,8 +38,8 @@ class Config {
 
   @Bean
   @Scope("singleton")
-  EventStore eventStore(EventStoreDBClient eventStoreDBClient, ObjectMapper mapper) {
-    return new EventStore(eventStoreDBClient, mapper);
+  EsdbEventStore eventStore(EventStoreDBClient eventStoreDBClient, ObjectMapper mapper) {
+    return new EsdbEventStore(eventStoreDBClient, mapper);
   }
 
   @Bean
@@ -51,7 +51,7 @@ class Config {
 
   @Bean
   @Scope("singleton")
-  public static ShoppingCartStore shoppingCartStore(EventStore eventStore) {
+  public static ShoppingCartStore shoppingCartStore(EsdbEventStore eventStore) {
     return new ShoppingCartStore(eventStore);
   }
 

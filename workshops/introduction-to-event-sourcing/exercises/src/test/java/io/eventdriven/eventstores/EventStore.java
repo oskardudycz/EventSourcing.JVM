@@ -1,8 +1,8 @@
 package io.eventdriven.eventstores;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public interface EventStore {
@@ -21,28 +21,62 @@ public interface EventStore {
     Object... events
   );
 
-  List<Object> readStream(StreamName streamName);
+  ReadStreamResult readStream(StreamName streamName);
 
-  default <Stream, Event> Optional<Stream> aggregateStream(
-    Supplier<Stream> getDefault,
-    BiFunction<Stream, Event, Stream> evolve,
+  default <State, Event> StreamAggregationResult<State> aggregateStream(
+    Supplier<State> getInitial,
+    BiFunction<State, Event, State> evolve,
     StreamName streamName
   ) {
-    var events = readStream(streamName);
+    var readResult = readStream(streamName);
 
-    if (events.isEmpty()) {
-      return Optional.empty();
+    var state = getInitial.get();
+
+    for (var event : readResult.events()) {
+      state = evolve.apply(state, (Event) event);
     }
 
-    var aggregate = getDefault.get();
+    return new StreamAggregationResult<>(
+      readResult.currentStreamPosition,
+      state
+    );
+  }
 
-    for (var event : events) {
-      aggregate = evolve.apply(aggregate, (Event) event);
+  default <State, Event> AppendResult getAndUpdate(
+    Supplier<State> getInitial,
+    BiFunction<State, Event, State> evolve,
+    StreamName streamName,
+    Function<State, List<Event>> handle
+  ) {
+    var aggregationResult = aggregateStream(getInitial, evolve, streamName);
+
+    var events = handle.apply(aggregationResult.state());
+
+    if(events.isEmpty()) {
+      return new AppendResult(aggregationResult.currentStreamPosition());
     }
 
-    return Optional.of(aggregate);
+    return appendToStream(streamName, events);
   }
 
   record AppendResult(long nextExpectedStreamPosition) {
+  }
+
+  record ReadStreamResult(
+    long currentStreamPosition,
+    List<Object> events
+  ) {
+    public boolean streamExists() {
+      return currentStreamPosition == 0;
+    }
+  }
+
+  record StreamAggregationResult<State>(
+    long currentStreamPosition,
+    State state
+  ) {
+    public boolean streamExists() {
+      return currentStreamPosition == 0;
+    }
   }
 }
