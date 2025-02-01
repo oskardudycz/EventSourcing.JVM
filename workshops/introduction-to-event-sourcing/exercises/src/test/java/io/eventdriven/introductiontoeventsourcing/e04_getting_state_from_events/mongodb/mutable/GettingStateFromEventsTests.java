@@ -9,6 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -178,7 +179,7 @@ public class GettingStateFromEventsTests extends MongoDBTest {
 
   static EventStore.AppendResult appendEvents(MongoDBEventStore eventStore, StreamName streamName, Object[] events) {
     // 1. Add logic here
-    return eventStore.appendToStream(streamName, events);
+    return eventStore.appendToStream(streamName, Arrays.stream(events).toList());
   }
 
   static ShoppingCart getShoppingCart(MongoDBEventStore eventStore, StreamName streamName) {

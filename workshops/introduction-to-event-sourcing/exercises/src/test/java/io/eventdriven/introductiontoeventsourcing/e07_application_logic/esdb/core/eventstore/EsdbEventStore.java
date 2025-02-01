@@ -53,7 +53,7 @@ public class EsdbEventStore implements EventStore {
   }
 
   @Override
-  public AppendResult appendToStream(StreamName streamName, Long expectedStreamPosition, Object... events) {
+  public AppendResult appendToStream(StreamName streamName, Long expectedStreamPosition, List<Object> events) {
     try {
       var expectedRevision = expectedStreamPosition != null ?
         ExpectedRevision.expectedRevision(expectedStreamPosition)
@@ -62,7 +62,7 @@ public class EsdbEventStore implements EventStore {
       var result = eventStore.appendToStream(
         streamName.toString(),
         AppendToStreamOptions.get().expectedRevision(expectedRevision),
-        Arrays.stream(events).map(this::serialize).iterator()
+        events.stream().map(this::serialize).iterator()
       ).get();
 
       return new AppendResult(result.getNextExpectedRevision().toRawLong());

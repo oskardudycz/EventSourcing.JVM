@@ -14,7 +14,7 @@ public final class ProductItems {
 
     public ProductItem(){}
 
-    public UUID productId() {
+    public UUID getProductId() {
       return productId;
     }
 
@@ -22,7 +22,7 @@ public final class ProductItems {
       this.productId = productId;
     }
 
-    public int quantity() {
+    public int getQuantity() {
       return quantity;
     }
 
@@ -52,8 +52,8 @@ public final class ProductItems {
 
     public PricedProductItem(){}
 
-    private double totalAmount() {
-      return quantity() * unitPrice();
+    private double getTotalAmount() {
+      return getQuantity() * getUnitPrice();
     }
 
     public UUID productId() {
@@ -64,7 +64,7 @@ public final class ProductItems {
       this.productId = productId;
     }
 
-    public double unitPrice() {
+    public double getUnitPrice() {
       return unitPrice;
     }
 
@@ -72,7 +72,7 @@ public final class ProductItems {
       this.unitPrice = unitPrice;
     }
 
-    public int quantity() {
+    public int getQuantity() {
       return quantity;
     }
 

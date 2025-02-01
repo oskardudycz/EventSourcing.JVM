@@ -67,12 +67,12 @@ public class EventStoreMethodsTests extends MongoDBTest {
     try (var _ = eventStore.subscribe(settings)) {
       eventStore.appendToStream(
         streamName,
-        bankAccountCreated, depositRecorded, cashWithdrawn
+        List.of(bankAccountCreated, depositRecorded, cashWithdrawn)
       );
 
       eventStore.appendToStream(
         streamName,
-        bankAccountCreated, depositRecorded, cashWithdrawn
+        List.of(bankAccountCreated, depositRecorded, cashWithdrawn)
       );
 
       var result = eventStore.readStream(streamName);
