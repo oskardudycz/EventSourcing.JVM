@@ -1,24 +1,22 @@
 package io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.mongodb.immutable.solution1;
 
-import com.eventstore.dbclient.EventStoreDBClient;
-import com.eventstore.dbclient.ReadStreamOptions;
-import com.eventstore.dbclient.ResolvedEvent;
-import io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.mongodb.tools.EventStoreDBTest;
-import org.junit.jupiter.api.Test;
+import io.eventdriven.eventstores.EventStore;
+import io.eventdriven.eventstores.StreamName;
+import io.eventdriven.eventstores.mongodb.MongoDBEventStore;
+import io.eventdriven.eventstores.testing.tools.mongodb.MongoDBTest;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
-import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 import static io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.mongodb.immutable.FunctionalTools.groupingByOrdered;
 import static io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.mongodb.immutable.solution1.GettingStateFromEventsTests.ShoppingCartEvent.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class GettingStateFromEventsTests extends EventStoreDBTest {
+public class GettingStateFromEventsTests extends MongoDBTest {
   public sealed interface ShoppingCartEvent {
     record ShoppingCartOpened(
       UUID shoppingCartId,
@@ -77,108 +75,90 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
     Canceled
   }
 
-  static ShoppingCart getShoppingCart(EventStoreDBClient eventStore, String streamName) {
+  static EventStore.AppendResult appendEvents(MongoDBEventStore eventStore, StreamName streamName, Object[] events) {
     // 1. Add logic here
-   ShoppingCart shoppingCart = null;
+    return eventStore.appendToStream(streamName, events);
+  }
 
-
-    for (var event : getEvents(eventStore, streamName)) {
-      switch (event) {
-        case ShoppingCartOpened opened -> shoppingCart = new ShoppingCart(
-          opened.shoppingCartId(),
-          opened.clientId(),
-          ShoppingCartStatus.Pending,
-          new PricedProductItem[]{},
-          null,
-          null
-        );
-        case ProductItemAddedToShoppingCart productItemAdded ->
-          shoppingCart = new ShoppingCart(
+  static ShoppingCart getShoppingCart(MongoDBEventStore eventStore, StreamName streamName) {
+    // 1. Add logic here
+    return eventStore.<ShoppingCart, ShoppingCartEvent>aggregateStream(
+      () -> null,
+      (shoppingCart, event) -> {
+        switch (event) {
+          case ShoppingCartOpened opened -> shoppingCart = new ShoppingCart(
+            opened.shoppingCartId(),
+            opened.clientId(),
+            ShoppingCartStatus.Pending,
+            new PricedProductItem[]{},
+            null,
+            null
+          );
+          case ProductItemAddedToShoppingCart productItemAdded ->
+            shoppingCart = new ShoppingCart(
+              shoppingCart.id(),
+              shoppingCart.clientId(),
+              shoppingCart.status(),
+              Stream.concat(Arrays.stream(shoppingCart.productItems()), Stream.of(productItemAdded.productItem()))
+                .collect(groupingByOrdered(PricedProductItem::productId))
+                .entrySet().stream()
+                .map(group -> group.getValue().size() == 1 ?
+                  group.getValue().get(0) :
+                  new PricedProductItem(
+                    group.getKey(),
+                    group.getValue().stream().mapToInt(PricedProductItem::quantity).sum(),
+                    group.getValue().get(0).unitPrice()
+                  )
+                )
+                .toArray(PricedProductItem[]::new),
+              shoppingCart.confirmedAt(),
+              shoppingCart.canceledAt()
+            );
+          case ProductItemRemovedFromShoppingCart productItemRemoved ->
+            shoppingCart = new ShoppingCart(
+              shoppingCart.id(),
+              shoppingCart.clientId(),
+              shoppingCart.status(),
+              Arrays.stream(shoppingCart.productItems())
+                .map(pi -> pi.productId().equals(productItemRemoved.productItem().productId()) ?
+                  new PricedProductItem(
+                    pi.productId(),
+                    pi.quantity() - productItemRemoved.productItem().quantity(),
+                    pi.unitPrice()
+                  )
+                  : pi
+                )
+                .filter(pi -> pi.quantity > 0)
+                .toArray(PricedProductItem[]::new),
+              shoppingCart.confirmedAt(),
+              shoppingCart.canceledAt()
+            );
+          case ShoppingCartConfirmed confirmed -> shoppingCart = new ShoppingCart(
             shoppingCart.id(),
             shoppingCart.clientId(),
-            shoppingCart.status(),
-            Stream.concat(Arrays.stream(shoppingCart.productItems()), Stream.of(productItemAdded.productItem()))
-              .collect(groupingByOrdered(PricedProductItem::productId))
-              .entrySet().stream()
-              .map(group -> group.getValue().size() == 1 ?
-                group.getValue().get(0) :
-                new PricedProductItem(
-                  group.getKey(),
-                  group.getValue().stream().mapToInt(PricedProductItem::quantity).sum(),
-                  group.getValue().get(0).unitPrice()
-                )
-              )
-              .toArray(PricedProductItem[]::new),
-            shoppingCart.confirmedAt(),
+            ShoppingCartStatus.Confirmed,
+            shoppingCart.productItems(),
+            confirmed.confirmedAt(),
             shoppingCart.canceledAt()
           );
-        case ProductItemRemovedFromShoppingCart productItemRemoved ->
-          shoppingCart = new ShoppingCart(
+          case ShoppingCartCanceled canceled -> shoppingCart = new ShoppingCart(
             shoppingCart.id(),
             shoppingCart.clientId(),
-            shoppingCart.status(),
-            Arrays.stream(shoppingCart.productItems())
-              .map(pi -> pi.productId().equals(productItemRemoved.productItem().productId()) ?
-                new PricedProductItem(
-                  pi.productId(),
-                  pi.quantity() - productItemRemoved.productItem().quantity(),
-                  pi.unitPrice()
-                )
-                : pi
-              )
-              .filter(pi -> pi.quantity > 0)
-              .toArray(PricedProductItem[]::new),
+            ShoppingCartStatus.Canceled,
+            shoppingCart.productItems(),
             shoppingCart.confirmedAt(),
-            shoppingCart.canceledAt()
+            canceled.canceledAt()
           );
-        case ShoppingCartConfirmed confirmed -> shoppingCart = new ShoppingCart(
-          shoppingCart.id(),
-          shoppingCart.clientId(),
-          ShoppingCartStatus.Confirmed,
-          shoppingCart.productItems(),
-          confirmed.confirmedAt(),
-          shoppingCart.canceledAt()
-        );
-        case ShoppingCartCanceled canceled -> shoppingCart = new ShoppingCart(
-          shoppingCart.id(),
-          shoppingCart.clientId(),
-          ShoppingCartStatus.Canceled,
-          shoppingCart.productItems(),
-          shoppingCart.confirmedAt(),
-          canceled.canceledAt()
-        );
-      }
-    }
-
-    return shoppingCart;
+        }
+        return shoppingCart;
+      },
+      streamName
+    );
   }
 
-  static List<ShoppingCartEvent> getEvents(EventStoreDBClient eventStore, String streamName) {
-    // 1. Add logic here
-    try {
-      return eventStore.readStream(streamName, ReadStreamOptions.get()).get()
-        .getEvents().stream()
-        .map(GettingStateFromEventsTests::deserialize)
-        .filter(ShoppingCartEvent.class::isInstance)
-        .map(ShoppingCartEvent.class::cast)
-        .toList();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public static Object deserialize(ResolvedEvent resolvedEvent) {
-    try {
-      var eventClass = Class.forName(
-        resolvedEvent.getOriginalEvent().getEventType());
-      return mapper.readValue(resolvedEvent.getEvent().getEventData(), eventClass);
-    } catch (IOException | ClassNotFoundException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  @Test
-  public void gettingState_ForSequenceOfEvents_ShouldSucceed() throws ExecutionException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("mongoEventStorages")
+  public void appendingEvents_forSequenceOfEvents_shouldSucceed(MongoDBEventStore.Storage storage) {
     var shoppingCartId = UUID.randomUUID();
     var clientId = UUID.randomUUID();
     var shoesId = UUID.randomUUID();
@@ -197,9 +177,11 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
         new ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
 
-    var streamName = "shopping_cart-%s".formatted(shoppingCartId);
+    var streamName = new StreamName("shopping_cart", shoppingCartId.toString());
 
-    appendEvents(eventStore, streamName, events).get();
+    var eventStore = getMongoEventStoreWith(storage);
+
+    appendEvents(eventStore, streamName, events);
 
     var shoppingCart = getShoppingCart(eventStore, streamName);
 

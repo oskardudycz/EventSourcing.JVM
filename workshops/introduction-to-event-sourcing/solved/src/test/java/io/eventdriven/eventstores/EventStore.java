@@ -1,7 +1,6 @@
 package io.eventdriven.eventstores;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
@@ -23,24 +22,20 @@ public interface EventStore {
 
   List<Object> readStream(StreamName streamName);
 
-  default <Stream, Event> Optional<Stream> aggregateStream(
-    Supplier<Stream> getDefault,
-    BiFunction<Stream, Event, Stream> evolve,
+  default <State, Event> State aggregateStream(
+    Supplier<State> getDefault,
+    BiFunction<State, Event, State> evolve,
     StreamName streamName
   ) {
     var events = readStream(streamName);
 
-    if (events.isEmpty()) {
-      return Optional.empty();
-    }
-
-    var aggregate = getDefault.get();
+    var state = getDefault.get();
 
     for (var event : events) {
-      aggregate = evolve.apply(aggregate, (Event) event);
+      state = evolve.apply(state, (Event) event);
     }
 
-    return Optional.of(aggregate);
+    return state;
   }
 
   record AppendResult(long nextExpectedStreamPosition) {
