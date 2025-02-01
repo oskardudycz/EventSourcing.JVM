@@ -64,10 +64,10 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
     }
 
     private double totalAmount() {
-      return quantity() * unitPrice();
+      return getQuantity() * getUnitPrice();
     }
 
-    public UUID productId() {
+    public UUID getProductId() {
       return productId;
     }
 
@@ -75,7 +75,7 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
       this.productId = productId;
     }
 
-    public double unitPrice() {
+    public double getUnitPrice() {
       return unitPrice;
     }
 
@@ -83,7 +83,7 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
       this.unitPrice = unitPrice;
     }
 
-    public int quantity() {
+    public int getQuantity() {
       return quantity;
     }
 
@@ -142,11 +142,11 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
 
     private void apply(ProductItemAddedToShoppingCart event) {
       var pricedProductItem = event.productItem();
-      var productId = pricedProductItem.productId();
-      var quantityToAdd = pricedProductItem.quantity();
+      var productId = pricedProductItem.getProductId();
+      var quantityToAdd = pricedProductItem.getQuantity();
 
       productItems.stream()
-        .filter(pi -> pi.productId().equals(productId))
+        .filter(pi -> pi.getProductId().equals(productId))
         .findAny()
         .ifPresentOrElse(
           current -> current.add(quantityToAdd),
@@ -156,11 +156,11 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
 
     private void apply(ProductItemRemovedFromShoppingCart event) {
       var pricedProductItem = event.productItem();
-      var productId = pricedProductItem.productId();
-      var quantityToRemove = pricedProductItem.quantity();
+      var productId = pricedProductItem.getProductId();
+      var quantityToRemove = pricedProductItem.getQuantity();
 
       productItems.stream()
-        .filter(pi -> pi.productId().equals(productId))
+        .filter(pi -> pi.getProductId().equals(productId))
         .findAny()
         .ifPresentOrElse(
           current -> current.subtract(quantityToRemove),

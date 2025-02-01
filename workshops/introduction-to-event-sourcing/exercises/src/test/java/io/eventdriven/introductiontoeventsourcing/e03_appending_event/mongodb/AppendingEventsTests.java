@@ -1,8 +1,10 @@
 package io.eventdriven.introductiontoeventsourcing.e03_appending_event.mongodb;
 
 import io.eventdriven.eventstores.EventStore;
+import io.eventdriven.eventstores.StreamName;
 import io.eventdriven.eventstores.mongodb.MongoDBEventStore;
 import io.eventdriven.eventstores.testing.tools.mongodb.MongoDBTest;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -58,11 +60,12 @@ public class AppendingEventsTests extends MongoDBTest {
     }
   }
 
-  private EventStore.AppendResult appendEvents(MongoDBEventStore eventStore, String streamName, Object[] events) {
+  static EventStore.AppendResult appendEvents(MongoDBEventStore eventStore, StreamName streamName, Object[] events) {
     // 1. Add logic here
     throw new RuntimeException("Not implemented!");
   }
 
+  @Tag("Exercise")
   @ParameterizedTest
   @MethodSource("mongoEventStorages")
   public void appendingEvents_forSequenceOfEvents_shouldSucceed(MongoDBEventStore.Storage storage) {
@@ -86,7 +89,7 @@ public class AppendingEventsTests extends MongoDBTest {
 
     var eventStore = getMongoEventStoreWith(storage);
 
-    var streamName = "shopping_cart-%s".formatted(shoppingCartId);
+    var streamName = new StreamName("shopping_cart", shoppingCartId.toString());
 
     var nextExpectedStreamPosition = assertDoesNotThrow(() -> {
       var result = appendEvents(eventStore, streamName, events);

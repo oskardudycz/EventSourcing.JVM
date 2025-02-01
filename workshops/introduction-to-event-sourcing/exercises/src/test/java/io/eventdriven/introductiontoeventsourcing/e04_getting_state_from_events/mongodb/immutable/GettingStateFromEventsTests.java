@@ -1,18 +1,20 @@
 package io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.mongodb.immutable;
 
-import com.eventstore.dbclient.EventStoreDBClient;
-import io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.mongodb.tools.EventStoreDBTest;
+import io.eventdriven.eventstores.EventStore;
+import io.eventdriven.eventstores.StreamName;
+import io.eventdriven.eventstores.mongodb.MongoDBEventStore;
+import io.eventdriven.eventstores.testing.tools.mongodb.MongoDBTest;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 
 import static io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.mongodb.immutable.GettingStateFromEventsTests.ShoppingCartEvent.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class GettingStateFromEventsTests extends EventStoreDBTest {
+public class GettingStateFromEventsTests extends MongoDBTest {
   public sealed interface ShoppingCartEvent {
     record ShoppingCartOpened(
       UUID shoppingCartId,
@@ -71,14 +73,20 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
     Canceled
   }
 
-  static ShoppingCart getShoppingCart(EventStoreDBClient eventStore, String streamName) {
+  static EventStore.AppendResult appendEvents(MongoDBEventStore eventStore, StreamName streamName, Object[] events) {
+    // 1. Add logic here
+    return eventStore.appendToStream(streamName, events);
+  }
+
+  static ShoppingCart getShoppingCart(MongoDBEventStore eventStore, StreamName streamName) {
     // 1. Add logic here
     throw new RuntimeException("Not implemented!");
   }
 
   @Tag("Exercise")
-  @Test
-  public void gettingState_ForSequenceOfEvents_ShouldSucceed() throws ExecutionException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("mongoEventStorages")
+  public void appendingEvents_forSequenceOfEvents_shouldSucceed(MongoDBEventStore.Storage storage) {
     var shoppingCartId = UUID.randomUUID();
     var clientId = UUID.randomUUID();
     var shoesId = UUID.randomUUID();
@@ -97,9 +105,11 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
         new ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
 
-    var streamName = "shopping_cart-%s".formatted(shoppingCartId);
+    var streamName = new StreamName("shopping_cart", shoppingCartId.toString());
 
-    appendEvents(eventStore, streamName, events).get();
+    var eventStore = getMongoEventStoreWith(storage);
+
+    appendEvents(eventStore, streamName, events);
 
     var shoppingCart = getShoppingCart(eventStore, streamName);
 

@@ -4,12 +4,13 @@ import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import io.eventdriven.eventstores.mongodb.codecs.OffsetDateTimeCodec;
 import org.bson.UuidRepresentation;
+import org.bson.codecs.configuration.CodecRegistries;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.codecs.pojo.PojoCodecProvider;
 
-import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
-import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
+import static org.bson.codecs.configuration.CodecRegistries.*;
 
 public class NativeMongoConfig {
   public static MongoClient createClient() {
@@ -19,6 +20,7 @@ public class NativeMongoConfig {
   public static MongoClient createClient(String connectionString) {
     CodecRegistry codecRegistry = fromRegistries(
       MongoClientSettings.getDefaultCodecRegistry(),
+      fromCodecs(new OffsetDateTimeCodec()),
       fromProviders(PojoCodecProvider.builder().automatic(true).build())
     );
 
