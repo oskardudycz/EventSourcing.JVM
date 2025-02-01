@@ -5,7 +5,7 @@ import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.mutable.app.shoppingcarts.ShoppingCart;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.mutable.app.shoppingcarts.productItems.ProductItems;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.mutable.tests.api.builders.ShoppingCartRestBuilder;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.testing.ApiSpecification;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

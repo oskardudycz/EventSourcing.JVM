@@ -2,14 +2,14 @@ package io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb
 
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.mutable.app.ECommerceApplication;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.mutable.app.api.ShoppingCartsRequests;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.testing.ApiSpecification;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.testing.ApiSpecification;
 import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.testing.HttpEntityUtils.toHttpEntity;
+import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.testing.HttpEntityUtils.toHttpEntity;
 
 @SpringBootTest(classes = ECommerceApplication.class,
   webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)

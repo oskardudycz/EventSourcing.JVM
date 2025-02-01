@@ -6,7 +6,7 @@ import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mon
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts.ShoppingCart;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts.productItems.ProductItems;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.tests.api.builders.ShoppingCartRestBuilder;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.testing.ApiSpecification;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

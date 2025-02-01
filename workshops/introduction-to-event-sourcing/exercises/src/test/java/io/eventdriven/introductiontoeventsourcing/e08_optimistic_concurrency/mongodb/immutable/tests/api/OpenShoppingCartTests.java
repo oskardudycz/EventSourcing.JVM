@@ -2,7 +2,7 @@ package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mo
 
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.immutable.app.ECommerceApplication;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.immutable.app.api.ShoppingCartsRequests;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.testing.ApiSpecification;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.testing.ApiSpecification;
 import org.json.JSONObject;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -10,7 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.testing.HttpEntityUtils.toHttpEntity;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.testing.HttpEntityUtils.toHttpEntity;
 
 @SpringBootTest(classes = ECommerceApplication.class,
   webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)

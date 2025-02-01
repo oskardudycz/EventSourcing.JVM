@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.testing;
+package io.eventdriven.introductiontoeventsourcing.e07_application_logic.testing;
 
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;

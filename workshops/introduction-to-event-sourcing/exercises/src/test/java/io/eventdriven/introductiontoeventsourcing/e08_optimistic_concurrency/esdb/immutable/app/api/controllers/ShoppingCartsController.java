@@ -1,6 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.api.controllers;
 
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.http.ETag;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.ETag;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.api.ShoppingCartsRequests;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCart;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCartStore;
@@ -13,7 +13,6 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.lang.Nullable;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 

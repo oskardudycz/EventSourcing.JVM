@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.http;
+package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 

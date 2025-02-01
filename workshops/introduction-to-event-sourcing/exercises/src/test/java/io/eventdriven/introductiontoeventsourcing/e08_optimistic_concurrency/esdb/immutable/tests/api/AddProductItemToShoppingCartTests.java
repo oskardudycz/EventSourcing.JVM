@@ -1,10 +1,10 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.tests.api;
 
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.ECommerceApplication;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.http.ETag;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.ETag;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.tests.api.builders.ShoppingCartRestBuilder;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.api.ShoppingCartsRequests.*;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.testing.ApiSpecification;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.testing.ApiSpecification;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,7 +18,7 @@ import org.springframework.http.HttpEntity;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.testing.HttpEntityUtils.toHttpEntity;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.testing.HttpEntityUtils.toHttpEntity;
 
 @SpringBootTest(classes = ECommerceApplication.class,
   webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)

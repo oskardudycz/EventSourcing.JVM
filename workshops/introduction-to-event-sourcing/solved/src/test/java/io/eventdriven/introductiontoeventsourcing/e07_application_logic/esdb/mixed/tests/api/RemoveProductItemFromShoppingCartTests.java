@@ -5,15 +5,12 @@ import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mix
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.shoppingcarts.productItems.ProductItems;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.tests.api.builders.ShoppingCartRestBuilder;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.mixed.app.api.ShoppingCartsRequests.ProductItemRequest;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.esdb.testing.ApiSpecification;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.UUID;
-import java.util.stream.Stream;
 
 @SpringBootTest(classes = ECommerceApplication.class,
   webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)

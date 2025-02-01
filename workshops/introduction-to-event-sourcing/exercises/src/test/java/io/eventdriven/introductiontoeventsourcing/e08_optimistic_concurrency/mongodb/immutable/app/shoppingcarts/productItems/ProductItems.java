@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.functional.FunctionalTools.groupingByOrdered;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.functional.FunctionalTools.groupingByOrdered;
 
 public record ProductItems(
   PricedProductItem[] values

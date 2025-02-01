@@ -4,9 +4,9 @@ import com.eventstore.dbclient.EventStoreDBClient;
 import com.eventstore.dbclient.EventStoreDBClientSettings;
 import com.eventstore.dbclient.EventStoreDBConnectionString;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.eventStoreDB.EventStore;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.http.GlobalExceptionHandler;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.serializer.DefaultSerializer;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.core.eventstore.EsdbEventStore;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.GlobalExceptionHandler;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.serializer.DefaultSerializer;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCartStore;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.FakeProductPriceCalculator;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductPriceCalculator;
@@ -38,8 +38,8 @@ class Config {
 
   @Bean
   @Scope("singleton")
-  EventStore eventStore(EventStoreDBClient eventStoreDBClient, ObjectMapper mapper) {
-    return new EventStore(eventStoreDBClient, mapper);
+  EsdbEventStore eventStore(EventStoreDBClient eventStoreDBClient, ObjectMapper mapper) {
+    return new EsdbEventStore(eventStoreDBClient, mapper);
   }
 
   @Bean
@@ -51,7 +51,7 @@ class Config {
 
   @Bean
   @Scope("singleton")
-  public static ShoppingCartStore shoppingCartStore(EventStore eventStore) {
+  public static ShoppingCartStore shoppingCartStore(EsdbEventStore eventStore) {
     return new ShoppingCartStore(eventStore);
   }
 

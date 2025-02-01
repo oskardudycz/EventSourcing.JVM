@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.testing;
+package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.testing;
 
 
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.ETag;

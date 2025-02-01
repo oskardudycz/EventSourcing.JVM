@@ -1,14 +1,15 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts;
 
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCart;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductPriceCalculator;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
-import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems.ProductItem;
 import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCartEvent.*;
 import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCartService.ShoppingCartCommand.*;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.productItems.ProductItems.ProductItem;
 
 public class ShoppingCartService {
   public sealed interface ShoppingCartCommand {
@@ -51,7 +52,7 @@ public class ShoppingCartService {
   public static ProductItemAddedToShoppingCart handle(
     ProductPriceCalculator productPriceCalculator,
     AddProductItemToShoppingCart command,
-    ShoppingCart shoppingCart
+    io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCart shoppingCart
   ) {
     if (shoppingCart.isClosed())
       throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(shoppingCart.status()));
@@ -68,7 +69,7 @@ public class ShoppingCartService {
 
   public static ProductItemRemovedFromShoppingCart handle(
     RemoveProductItemFromShoppingCart command,
-    ShoppingCart shoppingCart
+    io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCart shoppingCart
   ) {
     if (shoppingCart.isClosed())
       throw new IllegalStateException("Adding product item for cart in '%s' status is not allowed.".formatted(shoppingCart.status()));
@@ -81,7 +82,7 @@ public class ShoppingCartService {
     );
   }
 
-  public static ShoppingCartConfirmed handle(ConfirmShoppingCart command, ShoppingCart shoppingCart) {
+  public static ShoppingCartConfirmed handle(ConfirmShoppingCart command, io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.immutable.app.shoppingcarts.ShoppingCart shoppingCart) {
     if (shoppingCart.isClosed())
       throw new IllegalStateException("Confirming cart in '%s' status is not allowed.".formatted(shoppingCart.status()));
 

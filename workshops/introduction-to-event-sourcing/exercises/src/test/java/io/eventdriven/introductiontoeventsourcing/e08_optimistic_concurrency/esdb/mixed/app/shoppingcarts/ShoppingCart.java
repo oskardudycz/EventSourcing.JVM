@@ -1,5 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mixed.app.shoppingcarts;
 
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mixed.app.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mixed.app.shoppingcarts.productItems.ProductPriceCalculator;
 
 import java.time.OffsetDateTime;
@@ -41,7 +42,7 @@ public class ShoppingCart {
     evolve(event);
   }
 
-  public static Entry<ShoppingCartEvent, ShoppingCart> open(UUID shoppingCartId, UUID clientId) {
+  public static Entry<io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.esdb.mixed.app.shoppingcarts.ShoppingCartEvent, ShoppingCart> open(UUID shoppingCartId, UUID clientId) {
     var event = new ShoppingCartOpened(
       shoppingCartId,
       clientId

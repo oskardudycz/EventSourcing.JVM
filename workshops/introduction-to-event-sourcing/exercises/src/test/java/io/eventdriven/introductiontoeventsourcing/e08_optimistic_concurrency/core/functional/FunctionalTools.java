@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.functional;
+package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.functional;
 
 import java.util.HashSet;
 import java.util.LinkedHashMap;

@@ -1,10 +1,10 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.tests.api;
 
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.api.ShoppingCartsRequests.ProductItemRequest;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.http.ETag;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.ETag;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.ECommerceApplication;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.tests.api.builders.ShoppingCartRestBuilder;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.testing.ApiSpecification;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;

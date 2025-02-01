@@ -1,12 +1,12 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.tests.api;
 
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.api.ShoppingCartsRequests.ProductItemRequest;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.http.ETag;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.ETag;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.ECommerceApplication;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts.ShoppingCart;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts.productItems.ProductItems;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.tests.api.builders.ShoppingCartRestBuilder;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.testing.ApiSpecification;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.testing.ApiSpecification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   @Tag("Exercise")
   @Test
   public void removeProductItem_succeeds_forNotAllProductsAndExistingShoppingCart() {
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity() - 1))
+    given(() -> "%s?price=%s&getQuantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity() - 1))
       .when(DELETE("/%s/products".formatted(shoppingCartId), eTag))
       .then(OK);
   }
@@ -55,7 +55,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   @Tag("Exercise")
   @Test
   public void removeProductItem_succeeds_forAllProductsAndExistingShoppingCart() {
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity()))
+    given(() -> "%s?price=%s&getQuantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
       .when(DELETE("/%s/products".formatted(shoppingCartId), eTag))
       .then(OK);
   }
@@ -73,7 +73,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   public void removeProductItem_fails_withNotFound_forNotExistingShoppingCart() {
     var notExistingId = UUID.randomUUID();
 
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity()))
+    given(() -> "%s?price=%s&getQuantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
       .when(DELETE("/%s/products".formatted(notExistingId), eTag))
       .then(NOT_FOUND);
   }
@@ -85,7 +85,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       ShoppingCartRestBuilder.of(restTemplate, port)
         .build(cart -> cart.withClientId(clientId).confirmed());
 
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity()))
+    given(() -> "%s?price=%s&getQuantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
       .when(DELETE("/%s/products".formatted(result.id()), result.eTag()))
       .then(CONFLICT);
   }
@@ -97,7 +97,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
       ShoppingCartRestBuilder.of(restTemplate, port)
         .build(builder -> builder.withClientId(clientId).canceled());
 
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity()))
+    given(() -> "%s?price=%s&getQuantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
       .when(DELETE("/%s/products".formatted(result.id()), result.eTag()))
       .then(CONFLICT);
   }
@@ -107,7 +107,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   public void removeProductItem_fails_withPreconditionFailed_forWrongETag() {
     var wrongETag = ETag.weak(999);
 
-    given(() -> "%s?price=%s&quantity=%s".formatted(product.productId(), product.unitPrice(), product.quantity()))
+    given(() -> "%s?price=%s&getQuantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
       .when(DELETE("/%s/products".formatted(shoppingCartId), wrongETag))
       .then(PRECONDITION_FAILED);
   }

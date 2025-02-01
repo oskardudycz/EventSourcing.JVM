@@ -1,5 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts.productItems;
 
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts.productItems.ProductPriceCalculator;
+
 import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts.productItems.ProductItems.PricedProductItem;
 import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.shoppingcarts.productItems.ProductItems.ProductItem;
 
@@ -15,6 +17,6 @@ public class FakeProductPriceCalculator implements ProductPriceCalculator {
   }
 
   public PricedProductItem calculate(ProductItem productItem) {
-    return new PricedProductItem(productItem.productId(), productItem.quantity(), value);
+    return new PricedProductItem(productItem.getProductId(), productItem.getQuantity(), value);
   }
 }
