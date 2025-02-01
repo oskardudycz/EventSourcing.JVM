@@ -1,13 +1,11 @@
 package io.eventdriven.eventstores.mongodb;
 
 import io.eventdriven.eventstores.testing.bankaccounts.BankAccount;
-import com.mongodb.client.MongoDatabase;
 import io.eventdriven.eventstores.StreamName;
 import io.eventdriven.eventstores.mongodb.events.EventEnvelope;
 import io.eventdriven.eventstores.mongodb.subscriptions.BatchingPolicy;
 import io.eventdriven.eventstores.mongodb.subscriptions.EventSubscriptionSettings;
 import io.eventdriven.eventstores.testing.tools.mongodb.MongoDBTest;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -20,19 +18,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Stream;
 
 import static io.eventdriven.eventstores.testing.bankaccounts.BankAccount.Event.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class EventStoreMethodsTests extends MongoDBTest {
-  protected MongoDatabase mongoDatabase;
-
   @ParameterizedTest
-  @MethodSource("eventStoreImplementations")
+  @MethodSource("mongoEventStorages")
   public void getEvents_ShouldReturnAppendedEvents(MongoDBEventStore.Storage storage) throws ExecutionException, InterruptedException, TimeoutException {
-    var eventStore = createEventStore(storage);
+    var eventStore = getMongoEventStoreWith(storage);
     var now = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
 
     var bankAccountId = UUID.randomUUID().toString();
@@ -65,17 +60,17 @@ public class EventStoreMethodsTests extends MongoDBTest {
       .handleBatch(eventsFuture::complete, BatchingPolicy.ofSize(6));
 
     try (var _ = eventStore.subscribe(settings)) {
-      eventStore.appendEvents(
+      eventStore.appendToStream(
         streamName,
         bankAccountCreated, depositRecorded, cashWithdrawn
       );
 
-      eventStore.appendEvents(
+      eventStore.appendToStream(
         streamName,
         bankAccountCreated, depositRecorded, cashWithdrawn
       );
 
-      var events = eventStore.getEvents(streamName);
+      var events = eventStore.readStream(streamName);
 
       var updateChange = eventsFuture.get(5, TimeUnit.SECONDS);
 
@@ -94,28 +89,5 @@ public class EventStoreMethodsTests extends MongoDBTest {
       .map(sc -> (Event) sc)
       .findFirst()
       .get();
-  }
-
-  @BeforeAll
-  public void setup() {
-    // Create fresh database
-    mongoDatabase = getFreshDatabase();
-  }
-
-  Stream<MongoDBEventStore.Storage> eventStoreImplementations() {
-    return Stream.of(
-      MongoDBEventStore.Storage.EventAsDocument,
-      MongoDBEventStore.Storage.StoreAsDocument
-    );
-  }
-
-  MongoDBEventStore createEventStore(MongoDBEventStore.Storage storage) {
-    var mongoDatabase = getFreshDatabase();
-
-    var eventStore = MongoDBEventStore.with(storage, mongoClient, mongoDatabase.getName());
-
-    eventStore.init();
-
-    return eventStore;
   }
 }

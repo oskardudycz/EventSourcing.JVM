@@ -44,14 +44,16 @@ public final class SqlInvoker {
     }
   }
 
-  public static void runInTransaction(
+  public static <T> T runInTransaction(
     Connection dbConnection,
-    Consumer<Connection> callback
+    Function<Connection, T> callback
   ) {
     try {
       dbConnection.setAutoCommit(false);
-      callback.accept(dbConnection);
+      var result = callback.apply(dbConnection);
       dbConnection.commit();
+
+      return result;
     } catch (SQLException e) {
       try {
         dbConnection.rollback();

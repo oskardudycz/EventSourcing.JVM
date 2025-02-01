@@ -1,14 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e03_appending_event.mongodb;
 
-import com.eventstore.dbclient.*;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.eventdriven.eventstores.EventStore;
-import io.eventdriven.eventstores.StreamName;
 import io.eventdriven.eventstores.mongodb.MongoDBEventStore;
 import io.eventdriven.eventstores.testing.tools.mongodb.MongoDBTest;
 import org.junit.jupiter.api.TestInstance;
@@ -16,7 +8,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.OffsetDateTime;
-import java.util.Arrays;
 import java.util.UUID;
 
 import static io.eventdriven.introductiontoeventsourcing.e03_appending_event.mongodb.AppendingEventsTests.ShoppingCartEvent.*;
@@ -67,19 +58,9 @@ public class AppendingEventsTests extends MongoDBTest {
     }
   }
 
-  public static final ObjectMapper mapper =
-    new JsonMapper()
-      .registerModule(new JavaTimeModule())
-      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-      .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-      .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false);
-
   private EventStore.AppendResult appendEvents(MongoDBEventStore eventStore, String streamName, Object[] events) {
     // 1. Add logic here
-    return eventStore.appendToStream(
-      StreamName.of(streamName),
-      events
-    );
+    throw new RuntimeException("Not implemented!");
   }
 
   @ParameterizedTest

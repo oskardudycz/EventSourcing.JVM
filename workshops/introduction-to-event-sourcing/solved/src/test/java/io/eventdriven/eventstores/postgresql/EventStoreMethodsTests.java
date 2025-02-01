@@ -54,12 +54,12 @@ public class EventStoreMethodsTests extends PostgresTest {
 
     var streamName = StreamName.of(BankAccount.class, bankAccountId);
 
-    eventStore.appendEvents(
+    eventStore.appendToStream(
       streamName,
       bankAccountCreated, depositRecorded, cashWithdrawn
     );
 
-    var events = eventStore.getEvents(streamName);
+    var events = eventStore.readStream(streamName);
 
     assertEquals(3, events.size());
 
