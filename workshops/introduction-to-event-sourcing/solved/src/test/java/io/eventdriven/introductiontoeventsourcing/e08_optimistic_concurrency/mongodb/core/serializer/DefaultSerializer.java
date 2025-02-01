@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.serializer;
+package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.serializer;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;

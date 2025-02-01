@@ -1,11 +1,11 @@
-package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.eventStoreDB;
+package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.eventStoreDB;
 
 import com.eventstore.dbclient.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.entities.Aggregate;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.entities.EntityNotFoundException;
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.functional.Tuple;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.entities.Aggregate;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.entities.EntityNotFoundException;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.functional.Tuple;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -19,7 +19,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.functional.FunctionalTools.FoldLeft.foldLeft;
+import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.functional.FunctionalTools.FoldLeft.foldLeft;
 
 public class EventStore {
   private final EventStoreDBClient eventStore;

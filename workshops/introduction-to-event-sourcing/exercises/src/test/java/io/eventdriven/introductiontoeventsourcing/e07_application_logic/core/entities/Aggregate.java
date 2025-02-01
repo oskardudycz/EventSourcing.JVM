@@ -1,4 +1,4 @@
-package io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.core.entities;
+package io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.entities;
 
 import java.util.LinkedList;
 import java.util.List;

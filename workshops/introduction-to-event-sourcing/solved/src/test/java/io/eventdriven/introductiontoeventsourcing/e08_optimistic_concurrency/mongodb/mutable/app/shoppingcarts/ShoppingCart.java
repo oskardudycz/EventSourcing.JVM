@@ -1,6 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.shoppingcarts;
 
-import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.core.entities.Aggregate;
+import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.entities.Aggregate;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mutable.app.shoppingcarts.productItems.ProductPriceCalculator;
 
 import java.time.OffsetDateTime;

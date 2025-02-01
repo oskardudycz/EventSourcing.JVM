@@ -1,8 +1,8 @@
-package io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.core.http;
+package io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.http;
 
 import com.eventstore.dbclient.StreamNotFoundException;
 import com.eventstore.dbclient.WrongExpectedVersionException;
-import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.core.entities.EntityNotFoundException;
+import io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.entities.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
