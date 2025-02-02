@@ -31,21 +31,26 @@ Read also more in my article [Introduction to Event Sourcing - Self Paced Kit](h
 2. [Getting State from events](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e02_getting_state_from_events).
 3. Appending Events:
    * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e03_appending_event/esdb)
+   * [MongoDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e03_appending_event/mongodb)
    * _TODO: Axon Server_
-4. Getting State from events
-   * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e04_getting_state_from_events)
+4. Getting State from events read from event store:
+   * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e04_getting_state_from_events/esdb)
+   * [MongoDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e04_getting_state_from_events/mongodb)
    * _TODO: Axon Server_
 5. Business logic:
    * [General](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e05_business_logic)
-   * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e06_business_logic/esdb)
-   * _TODO: Axon Server_
+   * [Slimmed](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e06_business_logic_slimmed)
+5. Application logic with WebApi in Spring Boot:
+   * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e07_application_logic/esdb)
+   * [MongoDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e07_application_logic/mongodb)
 6. Optimistic Concurrency:
-   * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e07_optimistic_concurrency/esdb)
+   * [EventStoreDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e08_optimistic_concurrency/esdb)
+   * [MongoDB](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e08_optimistic_concurrency/mongodb)
    * _TODO: Axon Server_
 7. Projections:
-   * [General](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e08_projections_singlestream)
-   * [Idempotency](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e09_projections_singlestream_idempotency)
-   * [Eventual Consistency](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e10_projections_singlestream_eventual_consistency)
+   * [General](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e09_projections_singlestream)
+   * [Idempotency](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e10_projections_singlestream_idempotency)
+   * [Eventual Consistency](./exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e11_projections_singlestream_eventual_consistency)
 
 ## Prerequisites
 
