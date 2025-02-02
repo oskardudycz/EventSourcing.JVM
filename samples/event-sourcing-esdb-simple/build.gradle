@@ -40,7 +40,7 @@ dependencies {
   implementation 'org.springframework.boot:spring-boot-starter-log4j2:3.2.5'
 
   // EventStoreDB client
-  implementation 'com.eventstore:db-client-java:5.3.2'
+  implementation 'com.eventstore:db-client-java:5.4.3'
 
 
   // Postgres and JPA for read models
