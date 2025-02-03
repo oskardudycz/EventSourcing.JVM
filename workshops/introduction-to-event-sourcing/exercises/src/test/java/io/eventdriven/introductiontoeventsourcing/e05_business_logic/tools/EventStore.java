@@ -16,7 +16,7 @@ import java.util.*;
 public class EventStore {
   private final Map<UUID, List<EventEnvelope>> events = new HashMap<>();
 
-  public void appendToStream(UUID streamId, Object[]... newEvents) {
+  public void appendToStream(UUID streamId, Object[] newEvents) {
     events.compute(streamId, (stream, events) -> {
       if (events == null)
         events = new ArrayList<>();

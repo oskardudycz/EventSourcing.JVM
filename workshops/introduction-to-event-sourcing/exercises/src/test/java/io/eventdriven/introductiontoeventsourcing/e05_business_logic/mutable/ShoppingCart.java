@@ -23,7 +23,7 @@ public class ShoppingCart {
   private List<PricedProductItem> productItems;
   private OffsetDateTime confirmedAt;
   private OffsetDateTime canceledAt;
-  private final ShoppingCartEvent[] uncommittedEvents = new ShoppingCartEvent[0];
+  private final List<Object> uncommittedEvents = List.of();
 
   public ShoppingCart(UUID id, UUID clientId, Status status, List<PricedProductItem> productItems, OffsetDateTime confirmedAt, OffsetDateTime canceledAt) {
     this.id = id;
@@ -171,7 +171,7 @@ public class ShoppingCart {
     this.canceledAt = canceledAt;
   }
 
-  public ShoppingCartEvent[] uncommittedEvents() {
-    return uncommittedEvents;
+  public Object[] uncommittedEvents() {
+    return uncommittedEvents.toArray();
   }
 }
