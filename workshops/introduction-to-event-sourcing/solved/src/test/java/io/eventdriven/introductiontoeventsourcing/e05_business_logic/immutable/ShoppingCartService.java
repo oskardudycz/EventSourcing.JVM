@@ -58,8 +58,6 @@ public class ShoppingCartService {
 
     var pricedProductItem = productPriceCalculator.calculate(command.productItem);
 
-    shoppingCart.productItems().add(pricedProductItem);
-
     return new ProductItemAddedToShoppingCart(
       command.shoppingCartId,
       pricedProductItem
