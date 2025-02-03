@@ -69,9 +69,15 @@ configurations {
   all*.exclude group: 'spring-boot-starter-test', module: 'junit'
 }
 
+def isCi = project.hasProperty('ci') && project.property('ci') == 'true'
+
 tasks.named('test') {
-  useJUnitPlatform {
-    excludeTags 'Exercise'
+  doFirst {
+    useJUnitPlatform {
+      if (isCi) {
+        excludeTags 'Exercise'
+      }
+    }
   }
 }
 
