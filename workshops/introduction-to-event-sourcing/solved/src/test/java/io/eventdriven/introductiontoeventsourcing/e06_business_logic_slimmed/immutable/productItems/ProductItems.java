@@ -19,7 +19,7 @@ public class ProductItems {
   public ProductItems add(PricedProductItem productItem) {
     var newValues = new HashMap<>(values);
 
-    newValues.compute(key((productItem)), (_, currentQuantity) ->
+    newValues.compute(key((productItem)), (id, currentQuantity) ->
       Optional.ofNullable(currentQuantity).orElse(0) + productItem.quantity
     );
 
@@ -29,7 +29,7 @@ public class ProductItems {
   public ProductItems remove(PricedProductItem productItem) {
     var newValues = new HashMap<>(values);
 
-    newValues.compute(key((productItem)), (_, currentQuantity) ->
+    newValues.compute(key((productItem)), (id, currentQuantity) ->
       Optional.ofNullable(currentQuantity).orElse(0) - productItem.quantity
     );
 

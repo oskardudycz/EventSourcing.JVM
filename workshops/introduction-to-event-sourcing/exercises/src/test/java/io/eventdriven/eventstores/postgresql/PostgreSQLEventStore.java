@@ -37,7 +37,7 @@ public class PostgreSQLEventStore implements EventStore {
     return runInTransaction(dbConnection, connection ->
     {
       var ids = events.stream()
-        .map(_ -> UUID.randomUUID().toString())
+        .map(e -> UUID.randomUUID().toString())
         .toArray(String[]::new);
 
       var eventData = events.stream()
@@ -45,7 +45,7 @@ public class PostgreSQLEventStore implements EventStore {
         .toArray(String[]::new);
 
       var eventMetadata = events.stream()
-        .map(_ -> "{}")
+        .map(e -> "{}")
         .toArray(String[]::new);
 
       var eventTypes = events.stream()

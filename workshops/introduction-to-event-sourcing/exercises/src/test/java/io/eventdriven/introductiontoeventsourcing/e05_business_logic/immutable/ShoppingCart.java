@@ -1,7 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e05_business_logic.immutable;
 
 import io.eventdriven.introductiontoeventsourcing.e05_business_logic.immutable.ProductItems.ProductItems;
-import io.eventdriven.introductiontoeventsourcing.e05_business_logic.immutable.ShoppingCartEvent;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -37,7 +36,7 @@ public record ShoppingCart(
         null,
         null
       );
-      case ProductItemAddedToShoppingCart(_, var productItem) ->
+      case ProductItemAddedToShoppingCart(var cartId, var productItem) ->
         new ShoppingCart(
           state.id,
           state.clientId,
@@ -46,7 +45,7 @@ public record ShoppingCart(
           state.confirmedAt,
           state.canceledAt
         );
-      case ProductItemRemovedFromShoppingCart(_, var productItem) ->
+      case ProductItemRemovedFromShoppingCart(var cartId, var productItem) ->
         new ShoppingCart(
           state.id,
           state.clientId,
@@ -55,7 +54,7 @@ public record ShoppingCart(
           state.confirmedAt,
           state.canceledAt
         );
-      case ShoppingCartConfirmed _ ->
+      case ShoppingCartConfirmed confirmed ->
         new ShoppingCart(
           state.id,
           state.clientId,
@@ -64,7 +63,7 @@ public record ShoppingCart(
           state.confirmedAt,
           state.canceledAt
         );
-      case ShoppingCartCanceled _ ->
+      case ShoppingCartCanceled confirmed ->
         new ShoppingCart(
           state.id,
           state.clientId,

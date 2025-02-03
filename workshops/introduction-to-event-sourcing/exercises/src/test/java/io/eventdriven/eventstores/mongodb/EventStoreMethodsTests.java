@@ -59,7 +59,7 @@ public class EventStoreMethodsTests extends MongoDBTest {
       .filterWithStreamType(BankAccount.class)
       .handleBatch(eventsFuture::complete, BatchingPolicy.ofSize(6));
 
-    try (var _ = eventStore.subscribe(settings)) {
+    try (var subscription = eventStore.subscribe(settings)) {
       eventStore.appendToStream(
         streamName,
         List.of(bankAccountCreated, depositRecorded, cashWithdrawn)

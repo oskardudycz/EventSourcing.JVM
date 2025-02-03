@@ -56,21 +56,21 @@ public sealed interface ShoppingCart {
 
   static ShoppingCart evolve(ShoppingCart state, Event event) {
     return switch (when(state, event)) {
-      case When(Initial _, Event.Opened _) ->
+      case When(Initial initial, Event.Opened opened) ->
         new Pending(ProductItems.empty());
 
       case When(
         Pending(var productItems),
-        Event.ProductItemAdded(_, var productItem, _)
+        Event.ProductItemAdded(var id, var productItem, var addedAt)
       ) -> new Pending(productItems.add(productItem));
 
       case When(
         Pending(var productItems),
-        Event.ProductItemRemoved(_, var productItem, _)
+        Event.ProductItemRemoved(var id, var productItem, var removedAt)
       ) -> new Pending(productItems.remove(productItem));
 
-      case When(Pending _, Event.Confirmed _),
-           When(Pending _, Event.Canceled _) -> new Closed();
+      case When(Pending pending, Event.Confirmed confirmed) -> new Closed();
+      case When(Pending pending, Event.Canceled canceled) -> new Closed();
 
       default -> state;
     };

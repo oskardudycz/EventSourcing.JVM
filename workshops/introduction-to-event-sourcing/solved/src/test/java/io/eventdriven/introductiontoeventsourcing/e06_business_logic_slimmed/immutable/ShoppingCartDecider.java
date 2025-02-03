@@ -49,11 +49,11 @@ public class ShoppingCartDecider {
 
   public static ShoppingCart.Event decide(Command command, ShoppingCart state) {
     return switch (on(state, command)) {
-      case On(Initial _, Open(var id, var clientId, var now)) ->
+      case On(Initial initial, Open(var id, var clientId, var now)) ->
         new Opened(id, clientId, now);
 
       case On(
-        Pending _,
+        Pending pending,
         AddProductItem(var id, var productItem, var now)
       ) -> new ProductItemAdded(id, productItem, now);
 
@@ -67,10 +67,10 @@ public class ShoppingCartDecider {
         yield new ProductItemRemoved(id, productItem, now);
       }
 
-      case On(Pending _, Confirm(var id, var now)) ->
+      case On(Pending pending, Confirm(var id, var now)) ->
         new Confirmed(id, now);
 
-      case On(Pending _, Cancel(var id, var now)) ->
+      case On(Pending pending, Cancel(var id, var now)) ->
         new Canceled(id, now);
 
       default -> throw new IllegalStateException(

@@ -39,7 +39,7 @@ public record ShoppingCart(
         null,
         null
       );
-      case ProductItemAddedToShoppingCart(_, var productItem) ->
+      case ProductItemAddedToShoppingCart(var cartId, var productItem) ->
         new ShoppingCart(
           state.id,
           state.clientId,
@@ -48,7 +48,7 @@ public record ShoppingCart(
           state.confirmedAt,
           state.canceledAt
         );
-      case ProductItemRemovedFromShoppingCart(_, var productItem) ->
+      case ProductItemRemovedFromShoppingCart(var cartId, var productItem) ->
         new ShoppingCart(
           state.id,
           state.clientId,
@@ -57,7 +57,7 @@ public record ShoppingCart(
           state.confirmedAt,
           state.canceledAt
         );
-      case ShoppingCartConfirmed _ ->
+      case ShoppingCartConfirmed confirmed ->
         new ShoppingCart(
           state.id,
           state.clientId,
@@ -66,7 +66,7 @@ public record ShoppingCart(
           state.confirmedAt,
           state.canceledAt
         );
-      case ShoppingCartCanceled _ ->
+      case ShoppingCartCanceled canceled ->
         new ShoppingCart(
           state.id,
           state.clientId,
