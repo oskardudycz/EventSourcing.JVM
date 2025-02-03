@@ -56,7 +56,7 @@ public final class ProductItems {
       return getQuantity() * getUnitPrice();
     }
 
-    public UUID productId() {
+    public UUID getProductId() {
       return productId;
     }
 
