@@ -54,6 +54,8 @@ public class AppendingEventsTests {
     }
   }
 
+  private ESDBSerializer serializer = new ESDBSerializer();
+
   private CompletableFuture<WriteResult> appendEvents(EventStoreDBClient eventStore, String streamName, Object[] events)
   {
     // 1. Add logic here
