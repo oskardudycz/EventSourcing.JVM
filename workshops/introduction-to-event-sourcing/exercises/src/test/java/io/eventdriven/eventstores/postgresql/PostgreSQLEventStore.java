@@ -161,9 +161,13 @@ public class PostgreSQLEventStore implements EventStore {
         LANGUAGE plpgsql
         AS $$
         DECLARE
+            events_count int;
             current_stream_position int;
             updated_rows int;
         BEGIN
+            -- Calculate number of events
+            events_count := array_length(ids_array, 1);
+
             -- get current stream stream position
             SELECT
                 stream_position INTO current_stream_position
@@ -186,12 +190,9 @@ public class PostgreSQLEventStore implements EventStore {
                 RETURN FALSE;
             END IF;
 
-            -- increment current stream position
-            current_stream_position := current_stream_position + 1;
-
             -- update stream position
             UPDATE streams as s
-                SET stream_position = current_stream_position
+                SET stream_position = current_stream_position + events_count
             WHERE
                 s.id = stream_id;
 
