@@ -165,6 +165,8 @@ public class GettingStateFromEventsTests extends EventStoreDBTest {
     Canceled
   }
 
+  private ESDBSerializer serializer = new ESDBSerializer();
+  
   static ShoppingCart getShoppingCart(EventStoreDBClient eventStore, String streamName) {
     // 1. Add logic here
     throw new RuntimeException("Not implemented!");
