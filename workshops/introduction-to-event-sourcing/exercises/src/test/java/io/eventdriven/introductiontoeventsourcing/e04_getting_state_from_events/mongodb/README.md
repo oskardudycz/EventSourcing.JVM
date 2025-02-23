@@ -1,4 +1,4 @@
-# Exercise 04 - Getting the current entity state from events using EventStoreDB
+# Exercise 04 - Getting the current entity state from events using MongoDB
 
 Having a defined structure of events and an entity representing the shopping cart from the [first exercise](../../e01_events_definition), fill a `getShoppingCart` function that will rebuild the current state from events.
 
@@ -11,10 +11,10 @@ There are two variations:
 Select your preferred approach (or both) to solve this use case. If needed you can modify entities or events.
 
 ## Prerequisites
-Run [docker-compose](../../../../../../../../docker-compose.yml) script from the main workshop repository to start EventStoreDB instance.
+Run [docker-compose](../../../../../../../../docker-compose.yml) script from the main workshop repository to start MongoDB instance.
 
 ```shell
 docker compose up
 ```
 
-After that you can use EventStoreDB UI to see how streams and events look like. It's available at: http://localhost:2113/.
+After that you can use MongoDB UI to see how streams and events look like. It's available at: http://localhost:8081/.

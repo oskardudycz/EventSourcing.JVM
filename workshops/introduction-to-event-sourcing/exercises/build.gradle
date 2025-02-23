@@ -34,6 +34,8 @@ dependencies {
   implementation 'org.springframework.retry:spring-retry:2.0.7'
   // Swagger
   implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
+  // For PostgreSQL Event Store
+  implementation 'org.springframework.boot:spring-boot-starter-jdbc'
 
   // Serialisation
   implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'

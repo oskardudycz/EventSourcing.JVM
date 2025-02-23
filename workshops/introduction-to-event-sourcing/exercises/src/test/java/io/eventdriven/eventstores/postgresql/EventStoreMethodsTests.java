@@ -3,7 +3,7 @@ package io.eventdriven.eventstores.postgresql;
 import io.eventdriven.eventstores.EventStore;
 import io.eventdriven.eventstores.StreamName;
 import io.eventdriven.eventstores.testing.bankaccounts.BankAccount;
-import io.eventdriven.eventstores.testing.tools.postgresql.PostgresTest;
+import io.eventdriven.eventstores.testing.tools.postgresql.PostgreSQLTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -15,7 +15,7 @@ import java.util.UUID;
 import static io.eventdriven.eventstores.testing.bankaccounts.BankAccount.Event.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class EventStoreMethodsTests extends PostgresTest {
+public class EventStoreMethodsTests extends PostgreSQLTest {
   protected static EventStore eventStore;
 
   @BeforeAll
