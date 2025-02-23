@@ -17,9 +17,9 @@ This time you'll use EventStoreDB or MongoDB instead of the mocked one. Run `doc
 
 There are three variations:
 
-1. Classical, mutable aggregates: [EventStoreDB](./esdb/mutable/), [MongoDB](./mongodb/mutable/),
-2. Mixed approach, mutable aggregates, returning events from methods: [EventStoreDB](./esdb/mixed/), [MongoDB](./mongodb/mixed/),
-3. Immutable, with functional command handlers composition and entities as data model: [EventStoreDB](./esdb/immutable/), [MongoDB](./mongodb/immutable/),
+1. Classical, mutable aggregates: [EventStoreDB](./esdb/mutable/), [PostgreSQL](./postgresql/mutable/), [MongoDB](./mongodb/mutable/),
+2. Mixed approach, mutable aggregates, returning events from methods: [EventStoreDB](./esdb/mixed/), [PostgreSQL](./postgresql/mixed/), [MongoDB](./mongodb/mixed/),
+3. Immutable, with functional command handlers composition and entities as data model: [EventStoreDB](./esdb/immutable/), [PostgreSQL](./postgresql/immutable/), [MongoDB](./mongodb/immutable/),
 
 Select your preferred approach (or both) to solve this use case.
 

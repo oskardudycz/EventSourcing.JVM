@@ -14,7 +14,7 @@ import static io.eventdriven.eventstores.JsonEventSerializer.deserialize;
 import static io.eventdriven.eventstores.postgresql.tools.SqlInvoker.*;
 
 
-public class PostgreSQLEventStore implements EventStore {
+public class PostgreSQLEventStore  implements EventStore, AutoCloseable {
   private final Connection dbConnection;
 
   public PostgreSQLEventStore(Connection dbConnection) {
@@ -26,6 +26,11 @@ public class PostgreSQLEventStore implements EventStore {
     executeSql(dbConnection, createStreamsTableSql);
     executeSql(dbConnection, createEventsTableSql);
     executeSql(dbConnection, createAppendFunctionSql);
+  }
+
+  @Override
+  public void close() throws Exception {
+    dbConnection.close();
   }
 
   @Override
