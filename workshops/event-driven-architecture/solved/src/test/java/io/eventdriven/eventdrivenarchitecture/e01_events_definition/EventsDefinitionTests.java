@@ -1,4 +1,4 @@
-package io.eventdriven.eventdrivenarchitecture.e01_events_definition.solution2;
+package io.eventdriven.eventdrivenarchitecture.e01_events_definition;
 
 import org.junit.jupiter.api.Test;
 
@@ -8,41 +8,38 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static io.eventdriven.eventdrivenarchitecture.e01_events_definition.solution2.EventsDefinitionTests.ShoppingCartEvent.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class EventsDefinitionTests {
   // 1. Define your events and entity here
-  public sealed interface ShoppingCartEvent {
-    record ShoppingCartOpened(
-      UUID shoppingCartId,
-      UUID clientId
-    ) implements ShoppingCartEvent {
-    }
+  record ShoppingCartOpened(
+    UUID shoppingCartId,
+    UUID clientId
+  ) {
+  }
 
-    record ProductItemAddedToShoppingCart(
-      UUID shoppingCartId,
-      PricedProductItem productItem
-    ) implements ShoppingCartEvent {
-    }
+  record ProductItemAddedToShoppingCart(
+    UUID shoppingCartId,
+    PricedProductItem productItem
+  ) {
+  }
 
-    record ProductItemRemovedFromShoppingCart(
-      UUID shoppingCartId,
-      PricedProductItem productItem
-    ) implements ShoppingCartEvent {
-    }
+  record ProductItemRemovedFromShoppingCart(
+    UUID shoppingCartId,
+    PricedProductItem productItem
+  ) {
+  }
 
-    record ShoppingCartConfirmed(
-      UUID shoppingCartId,
-      OffsetDateTime confirmedAt
-    ) implements ShoppingCartEvent {
-    }
+  record ShoppingCartConfirmed(
+    UUID shoppingCartId,
+    OffsetDateTime confirmedAt
+  ) {
+  }
 
-    record ShoppingCartCanceled(
-      UUID shoppingCartId,
-      OffsetDateTime canceledAt
-    ) implements ShoppingCartEvent {
-    }
+  record ShoppingCartCanceled(
+    UUID shoppingCartId,
+    OffsetDateTime canceledAt
+  ) {
   }
 
   // VALUE OBJECTS
@@ -51,7 +48,8 @@ public class EventsDefinitionTests {
     private double unitPrice;
     private int quantity;
 
-    public PricedProductItem(){}
+    public PricedProductItem() {
+    }
 
     public PricedProductItem(UUID productId, int quantity, double unitPrice) {
       this.setProductId(productId);
@@ -183,20 +181,49 @@ public class EventsDefinitionTests {
   }
 
   @Test
-  public void allEventTypes_ShouldBeDefined() {
-    var shoppingCartId = UUID.randomUUID();
-    var clientId = UUID.randomUUID();
-    var pairOfShoes = new PricedProductItem(UUID.randomUUID(), 1, 100);
+  public void guestStayAccountEventTypes_AreDefined() {
+    // Given
+    var guestStayId = UUID.randomUUID();
+    var groupCheckoutId = UUID.randomUUID();
 
-    var events = new ShoppingCartEvent[]
+
+    // When
+    var events = new Object[]
       {
-        new ShoppingCartOpened(shoppingCartId, clientId),
-        new ProductItemAddedToShoppingCart(shoppingCartId, pairOfShoes),
-        new ProductItemRemovedFromShoppingCart(shoppingCartId, pairOfShoes),
-        new ShoppingCartConfirmed(shoppingCartId, OffsetDateTime.now()),
-        new ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
+        new GuestStayAccountEvent.GuestCheckedIn(guestStayId, OffsetDateTime.now()),
+        new GuestStayAccountEvent.ChargeRecorded(guestStayId, 100, OffsetDateTime.now()),
+        new GuestStayAccountEvent.PaymentRecorded(guestStayId, 100, OffsetDateTime.now()),
+        new GuestStayAccountEvent.GuestCheckedOut(guestStayId, OffsetDateTime.now(), groupCheckoutId),
+        new GuestStayAccountEvent.GuestCheckoutFailed(guestStayId,
+          GuestStayAccountEvent.GuestCheckoutFailed.Reason.InvalidState, OffsetDateTime.now(),
+          groupCheckoutId)
       };
 
+    // Then
+    final int expectedEventTypesCount = 5;
+    assertEquals(expectedEventTypesCount, events.length);
+    assertEquals(expectedEventTypesCount, Arrays.stream(events).collect(Collectors.groupingBy(Object::getClass)).size());
+  }
+
+
+  @Test
+  public void groupCheckoutEventTypes_AreDefined() {
+    // Given
+    var groupCheckoutId = UUID.randomUUID();
+    var guestStayIds = new UUID[]{UUID.randomUUID(), UUID.randomUUID()};
+    var clerkId = UUID.randomUUID();
+
+    // When
+    var events = new Object[]
+      {
+        new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStayIds, OffsetDateTime.now()),
+        new GroupCheckoutEvent.GuestCheckoutCompleted(groupCheckoutId, guestStayIds[0], OffsetDateTime.now()),
+        new GroupCheckoutEvent.GuestCheckoutFailed(groupCheckoutId, guestStayIds[1], OffsetDateTime.now()),
+        new GroupCheckoutEvent.GroupCheckoutFailed(groupCheckoutId, new UUID[]{guestStayIds[0]}, new UUID[]{guestStayIds[1]}, OffsetDateTime.now()),
+        new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStayIds, OffsetDateTime.now())
+      };
+
+    // Then
     final int expectedEventTypesCount = 5;
     assertEquals(expectedEventTypesCount, events.length);
     assertEquals(expectedEventTypesCount, Arrays.stream(events).collect(Collectors.groupingBy(Object::getClass)).size());
