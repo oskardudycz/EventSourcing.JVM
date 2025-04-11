@@ -1,0 +1,84 @@
+plugins {
+  id 'java'
+  id 'org.springframework.boot' version '3.4.2'
+  id 'io.spring.dependency-management' version '1.1.7'
+}
+
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(22)
+  }
+}
+
+bootJar {
+  enabled = false
+}
+
+jar {
+  enabled = true
+}
+
+group = 'io.event-driven'
+version = '0.0.1-SNAPSHOT'
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  // Spring Boot Web
+  implementation 'org.springframework.boot:spring-boot-starter-web:3.4.2'
+  // Validation
+  implementation 'org.springframework.boot:spring-boot-starter-validation:3.4.2'
+  // Retry policy
+  implementation 'org.springframework.retry:spring-retry:2.0.7'
+  // Swagger
+  implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
+  // For PostgreSQL Event Store
+  implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+
+  // Serialisation
+  implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
+  implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2'
+  implementation 'com.fasterxml.jackson.core:jackson-core:2.17.2'
+
+  // Postgres client
+  implementation 'org.postgresql:postgresql:42.7.3'
+
+  // MongoDB client
+  implementation 'org.mongodb:mongodb-driver-sync:5.2.1'
+
+  // EventStoreDB client
+  implementation 'com.eventstore:db-client-java:5.4.3'
+
+  // Logging
+  implementation 'org.springframework.boot:spring-boot-starter-log4j2:3.4.2'
+  implementation 'org.apache.logging.log4j:log4j-api:2.23.1'
+  implementation 'org.apache.logging.log4j:log4j-core:2.23.1'
+  implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.23.1'
+
+  // Test frameworks
+  testImplementation 'org.springframework.boot:spring-boot-starter-test:3.4.2'
+
+  testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
+  testImplementation 'com.fasterxml.jackson.core:jackson-core:2.17.2'
+  testImplementation 'org.assertj:assertj-core:3.25.3'
+  testImplementation 'org.testcontainers:mongodb:1.20.0'
+}
+
+configurations {
+  all*.exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+  all*.exclude group: 'spring-boot-starter-test', module: 'junit'
+}
+
+tasks.named('test') {
+  useJUnitPlatform {
+    excludeTags 'Exercise'
+  }
+}
+
+test {
+  useJUnitPlatform()
+  testLogging.showStandardStreams = true
+  testLogging.exceptionFormat = 'full'
+}
