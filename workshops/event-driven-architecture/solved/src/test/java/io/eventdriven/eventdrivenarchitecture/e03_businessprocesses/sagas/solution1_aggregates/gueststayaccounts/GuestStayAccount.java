@@ -1,12 +1,12 @@
-package io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution1_aggregates.gueststayaccounts;
+package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.gueststayaccounts;
 
-import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution1_aggregates.core.AbstractAggregate;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.core.AbstractAggregate;
 import org.springframework.lang.Nullable;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import static io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution1_aggregates.gueststayaccounts.GuestStayAccountEvent.*;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.gueststayaccounts.GuestStayAccountEvent.*;
 
 public class GuestStayAccount  extends AbstractAggregate<GuestStayAccountEvent, UUID> {
   private enum Status {
