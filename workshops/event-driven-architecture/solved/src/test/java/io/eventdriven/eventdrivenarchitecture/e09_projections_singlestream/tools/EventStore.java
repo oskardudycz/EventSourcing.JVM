@@ -7,8 +7,8 @@ import static io.eventdriven.eventdrivenarchitecture.e09_projections_singlestrea
 import static io.eventdriven.eventdrivenarchitecture.e09_projections_singlestream.tools.EventEnvelopeBase.EventMetadata;
 
 public class EventStore {
-  private final Map<String, List<Consumer<EventEnvelopeBase>>> handlers = new HashMap<>();
-  private final Map<UUID, List<EventEnvelopeBase>> events = new HashMap<>();
+  private final Map<String, List<Consumer<EventEnvelopeBase>>> handlers = new LinkedHashMap<>();
+  private final Map<UUID, List<EventEnvelopeBase>> events = new LinkedHashMap<>();
 
   public <Event> void append(UUID streamId, Event event) {
     events.compute(streamId, (stream, events) -> {

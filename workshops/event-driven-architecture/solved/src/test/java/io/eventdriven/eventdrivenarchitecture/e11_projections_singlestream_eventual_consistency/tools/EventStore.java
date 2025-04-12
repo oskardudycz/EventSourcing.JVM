@@ -7,8 +7,8 @@ import static io.eventdriven.eventdrivenarchitecture.e11_projections_singlestrea
 import static io.eventdriven.eventdrivenarchitecture.e11_projections_singlestream_eventual_consistency.tools.EventEnvelopeBase.EventMetadata;
 
 public class EventStore {
-  private final Map<String, List<Consumer<EventEnvelopeBase>>> handlers = new HashMap<>();
-  private final Map<UUID, List<EventEnvelopeBase>> events = new HashMap<>();
+  private final Map<String, List<Consumer<EventEnvelopeBase>>> handlers = new LinkedHashMap<>();
+  private final Map<UUID, List<EventEnvelopeBase>> events = new LinkedHashMap<>();
 
   private final Random random = new Random();
 

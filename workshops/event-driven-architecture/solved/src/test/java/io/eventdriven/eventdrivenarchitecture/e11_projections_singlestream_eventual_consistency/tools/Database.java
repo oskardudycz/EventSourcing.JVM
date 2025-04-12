@@ -19,7 +19,7 @@ public class Database {
   public record DataWrapper(Object data, OffsetDateTime validFrom) {
   }
 
-  private final Map<String, List<DataWrapper>> storage = new HashMap<>();
+  private final Map<String, List<DataWrapper>> storage = new LinkedHashMap<>();
   private final Random random = new Random();
 
   private static final ObjectMapper mapper =
