@@ -1,14 +1,14 @@
 package io.eventdriven.eventstores;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
 public final class EventTypeMapper {
   private static final EventTypeMapper instance = new EventTypeMapper();
 
-  private final Map<String, Optional<Class>> typeMap = new HashMap<>();
-  private final Map<Class, String> typeNameMap = new HashMap<>();
+  private final Map<String, Optional<Class>> typeMap = new LinkedHashMap<>();
+  private final Map<Class, String> typeNameMap = new LinkedHashMap<>();
 
   public static String toName(Class eventType) {
     return instance.typeNameMap.computeIfAbsent(

@@ -1,6 +1,6 @@
 package io.eventdriven.eventstores.mongodb.events;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -10,8 +10,8 @@ public interface EventTypeMapper {
   Optional<Class> toClass(String eventTypeName);
 
   EventTypeMapper DEFAULT = new EventTypeMapper() {
-    private final Map<String, Optional<Class>> typeMap = new HashMap<>();
-    private final Map<Class, String> typeNameMap = new HashMap<>();
+    private final Map<String, Optional<Class>> typeMap = new LinkedHashMap<>();
+    private final Map<Class, String> typeNameMap = new LinkedHashMap<>();
 
     public String toName(Class eventType) {
       return typeNameMap.computeIfAbsent(

@@ -1,116 +1,116 @@
 services:
-    #######################################################
-    #  EventStoreDB
-    #######################################################
-    eventstore.db:
-#        image: eventstore/eventstore:23.10.1-bookworm-slim
-        # use this image if you're running ARM-based proc like Apple M1
-        image: eventstore/eventstore:23.10.0-alpha-arm64v8
-        environment:
-            - EVENTSTORE_CLUSTER_SIZE=1
-            - EVENTSTORE_RUN_PROJECTIONS=All
-            - EVENTSTORE_START_STANDARD_PROJECTIONS=true
-            - EVENTSTORE_EXT_TCP_PORT=1113
-            - EVENTSTORE_HTTP_PORT=2113
-            - EVENTSTORE_INSECURE=true
-            - EVENTSTORE_ENABLE_EXTERNAL_TCP=true
-            - EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP=true
-        ports:
-            - '1113:1113'
-            - '2113:2113'
-        volumes:
-            -   type: volume
-                source: eventstore-volume-data
-                target: /var/lib/eventstore
-            -   type: volume
-                source: eventstore-volume-logs
-                target: /var/log/eventstore
-        networks:
-            - esdb_network
+  #######################################################
+  #  EventStoreDB
+  #######################################################
+  eventstore.db:
+    # image: eventstore/eventstore:23.10.1-bookworm-slim
+    # use this image if you're running ARM-based proc like Apple M1
+    image: eventstore/eventstore:23.10.0-alpha-arm64v8
+    environment:
+      - EVENTSTORE_CLUSTER_SIZE=1
+      - EVENTSTORE_RUN_PROJECTIONS=All
+      - EVENTSTORE_START_STANDARD_PROJECTIONS=true
+      - EVENTSTORE_EXT_TCP_PORT=1113
+      - EVENTSTORE_HTTP_PORT=2113
+      - EVENTSTORE_INSECURE=true
+      - EVENTSTORE_ENABLE_EXTERNAL_TCP=true
+      - EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP=true
+    ports:
+      - '1113:1113'
+      - '2113:2113'
+    volumes:
+      -   type: volume
+          source: eventstore-volume-data
+          target: /var/lib/eventstore
+      -   type: volume
+          source: eventstore-volume-logs
+          target: /var/log/eventstore
+    networks:
+      - esdb_network
 
 
   #######################################################
   #  PostgreSQL
   #######################################################
-    postgres:
-      image: postgres:17.2-alpine
-      ports:
-        - "5432:5432"
-      environment:
-        - POSTGRES_DB=postgres
-        - POSTGRES_PASSWORD=postgres
-      networks:
-        - postgres
+  postgres:
+    image: postgres:17.2-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=postgres
+    networks:
+      - postgres
 
-    pgadmin:
-      image: dpage/pgadmin4
-      container_name: pgadmin_container
-      environment:
-        PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@pgadmin.org}
-        PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
-      ports:
-        - "${PGADMIN_PORT:-5050}:80"
-      networks:
-        - postgres
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_container
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    networks:
+      - postgres
 
   #######################################################
   #  MongoDB
   #######################################################
-    mongo:
-      image: mongo:8.0
-      container_name: mongo
-      command: [ "--replSet", "rs0", "--bind_ip_all", "--port", "27017" ]
-      ports:
-        - "27017:27017"
-      networks:
-        - mongo
+  mongo:
+    image: mongo:8.0
+    container_name: mongo
+    command: [ "--replSet", "rs0", "--bind_ip_all", "--port", "27017" ]
+    ports:
+      - "27017:27017"
+    networks:
+      - mongo
 
-    mongo_setup:
-      image: mongo:8.0
-      container_name: mongo_setup
-      depends_on:
-        - mongo
-      command: >
-        bash -c "
-        sleep 5;
-        echo 'Initializing Mongo replica set...';
-        mongosh --host mongo --eval '
-          rs.initiate({
-            _id: \"rs0\",
-            members: [{_id: 0, host: \"mongo:27017\"}]
-          })
-        ';
-        echo 'Replica set initialized.';
-        "
-      networks:
-        - mongo
+  mongo_setup:
+    image: mongo:8.0
+    container_name: mongo_setup
+    depends_on:
+      - mongo
+    command: >
+      bash -c "
+      sleep 5;
+      echo 'Initializing Mongo replica set...';
+      mongosh --host mongo --eval '
+        rs.initiate({
+          _id: \"rs0\",
+          members: [{_id: 0, host: \"mongo:27017\"}]
+        })
+      ';
+      echo 'Replica set initialized.';
+      "
+    networks:
+      - mongo
 
-    mongo-express:
-      image: mongo-express
-      container_name: mongo_express
-      depends_on:
-        - mongo_setup
-      ports:
-        - "8081:8081"
-      environment:
-        # IMPORTANT: Use service name "mongo", port 27017, plus '?replicaSet=rs0'
-        ME_CONFIG_MONGODB_URL: "mongodb://mongo:27017/?replicaSet=rs0"
-      networks:
-        - mongo
+  mongo-express:
+    image: mongo-express
+    container_name: mongo_express
+    depends_on:
+      - mongo_setup
+    ports:
+      - "8081:8081"
+    environment:
+      # IMPORTANT: Use service name "mongo", port 27017, plus '?replicaSet=rs0'
+      ME_CONFIG_MONGODB_URL: "mongodb://mongo:27017/?replicaSet=rs0"
+    networks:
+      - mongo
 
 networks:
-    esdb_network:
-        driver: bridge
-    postgres:
-      driver: bridge
-    mongo:
-      driver: bridge
+  esdb_network:
+    driver: bridge
+  postgres:
+    driver: bridge
+  mongo:
+    driver: bridge
 
 volumes:
-    eventstore-volume-data:
-    eventstore-volume-logs:
-    postgres:
-    pgadmin:
-      driver: local
-    mongo1_data:
-    mongo1_config:
+  eventstore-volume-data:
+  eventstore-volume-logs:
+  postgres:
+  pgadmin:
+    driver: local
+  mongo1_data:
+  mongo1_config:

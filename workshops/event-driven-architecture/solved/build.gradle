@@ -62,7 +62,7 @@ dependencies {
 
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
   testImplementation 'com.fasterxml.jackson.core:jackson-core:2.17.2'
-  testImplementation 'org.assertj:assertj-core:3.25.3'
+  testImplementation 'org.assertj:assertj-core:3.26.3'
   testImplementation 'org.testcontainers:mongodb:1.20.0'
   testImplementation 'net.datafaker:datafaker:2.3.0'
 }
@@ -72,9 +72,15 @@ configurations {
   all*.exclude group: 'spring-boot-starter-test', module: 'junit'
 }
 
+def isCi = project.hasProperty('ci') && project.property('ci') == 'true'
+
 tasks.named('test') {
-  useJUnitPlatform {
-    excludeTags 'Exercise'
+  doFirst {
+    useJUnitPlatform {
+      if (isCi) {
+        excludeTags 'Exercise'
+      }
+    }
   }
 }
 

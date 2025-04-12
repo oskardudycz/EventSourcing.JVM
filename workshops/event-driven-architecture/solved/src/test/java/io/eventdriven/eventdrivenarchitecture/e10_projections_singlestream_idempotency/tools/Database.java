@@ -10,14 +10,14 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.eventdriven.eventdrivenarchitecture.e10_projections_singlestream_idempotency.Projections;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 
 public class Database {
-  private final Map<String, Object> storage = new HashMap<>();
+  private final Map<String, Object> storage = new LinkedHashMap<>();
 
   private static final ObjectMapper mapper =
     new JsonMapper()
