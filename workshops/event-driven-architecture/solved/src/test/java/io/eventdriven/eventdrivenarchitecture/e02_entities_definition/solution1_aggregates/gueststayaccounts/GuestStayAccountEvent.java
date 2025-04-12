@@ -42,8 +42,8 @@ public sealed interface GuestStayAccountEvent {
     UUID groupCheckoutId
   ) implements GuestStayAccountEvent {
     public enum Reason {
-      InvalidState,
-      BalanceNotSettled
+      INVALID_STATE,
+      BALANCE_NOT_SETTLED
     }
   }
 }

@@ -1,4 +1,4 @@
-package io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core;
+package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;

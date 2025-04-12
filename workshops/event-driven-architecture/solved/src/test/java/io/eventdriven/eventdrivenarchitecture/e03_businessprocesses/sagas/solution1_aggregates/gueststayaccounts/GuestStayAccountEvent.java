@@ -1,4 +1,4 @@
-package io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts;
+package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.gueststayaccounts;
 
 import org.springframework.lang.Nullable;
 
