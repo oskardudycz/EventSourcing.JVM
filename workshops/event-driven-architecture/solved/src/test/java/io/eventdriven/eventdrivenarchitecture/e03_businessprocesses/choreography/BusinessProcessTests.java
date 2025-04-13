@@ -1,13 +1,13 @@
-package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers;
+package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography;
 
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.groupcheckouts.GroupCheckoutEvent;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.groupcheckouts.GroupCheckoutFacade;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.gueststayaccounts.GuestStayAccountEvent;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.gueststayaccounts.GuestStayAccountFacade;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.CommandBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.groupcheckouts.GroupCheckoutEvent;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.groupcheckouts.GroupCheckoutFacade;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.gueststayaccounts.GuestStayAccountEvent;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.gueststayaccounts.GuestStayAccountFacade;
 import net.datafaker.Faker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,10 +15,10 @@ import org.junit.jupiter.api.Test;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.*;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.groupcheckouts.GroupCheckoutsConfig.configureGroupCheckouts;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.gueststayaccounts.GuestStayAccountFacade.GuestStayAccountCommand.*;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.gueststayaccounts.GuestStayAccountsConfig.configureGuestStayAccounts;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.groupcheckouts.GroupCheckoutDecider.GroupCheckoutCommand.*;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.groupcheckouts.GroupCheckoutsConfig.configureGroupCheckouts;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.gueststayaccounts.GuestStayAccountsConfig.configureGuestStayAccounts;
 
 public class BusinessProcessTests {
 
@@ -45,7 +45,7 @@ public class BusinessProcessTests {
     eventBus.use(publishedMessages::catchMessage);
     commandBus.use(publishedMessages::catchMessage);
 
-    configureGroupCheckouts(eventBus, groupCheckoutFacade);
+    configureGroupCheckouts(eventBus, commandBus, groupCheckoutFacade);
     configureGuestStayAccounts(commandBus, guestStayFacade);
   }
 
