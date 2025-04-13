@@ -15,8 +15,8 @@ public sealed interface SagaResult {
     return new Command<>(command);
   }
 
-  static <T> Event<T> Publish(T command) {
-    return new Event<>(command);
+  static <T> Event<T> Publish(T event) {
+    return new Event<>(event);
   }
 
   None Ignore = new None();
