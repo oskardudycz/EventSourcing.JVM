@@ -1,0 +1,57 @@
+name: Workshop - Event Driven Architecture - Solved
+
+on:
+  # run it on push to the default repository branch
+  push:
+    branches: [main]
+    paths:
+      - "workshops/event-driven-architecture/solved/**"
+  # run it during pull request
+  pull_request:
+    paths:
+      - "workshops/event-driven-architecture/solved/**"
+
+defaults:
+  run:
+    working-directory: workshops/event-driven-architecture/solved
+
+jobs:
+  build-and-test-code:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    strategy:
+      # define the test matrix
+      matrix:
+        java-version: [22]
+
+    steps:
+      - name: Check Out Repo
+        uses: actions/checkout@v4
+
+      - name: Start containers
+        run: docker compose up -d
+
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: "adopt"
+          cache: gradle
+          
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build with Gradle
+        run: ./gradlew build -Pci=true
+
+      - name: Archive test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Test report
+          path: ./workshops/event-driven-architecture/solved/build/test-results/test
+
+      - name: Stop containers
+        if: always()
+        run: docker compose down
