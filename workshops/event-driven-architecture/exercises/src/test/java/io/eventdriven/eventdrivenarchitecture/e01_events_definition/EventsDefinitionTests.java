@@ -35,6 +35,7 @@ public class EventsDefinitionTests {
 
 
   @Test
+  @Tag("Exercise")
   public void groupCheckoutEventTypes_AreDefined() {
     // Given
     var groupCheckoutId = UUID.randomUUID();
