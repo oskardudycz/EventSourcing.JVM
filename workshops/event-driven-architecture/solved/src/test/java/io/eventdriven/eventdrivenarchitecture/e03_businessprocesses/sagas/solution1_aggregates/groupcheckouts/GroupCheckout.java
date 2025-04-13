@@ -1,6 +1,6 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.groupcheckouts;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.core.AbstractAggregate;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.AbstractAggregate;
 
 import java.time.OffsetDateTime;
 import java.util.*;

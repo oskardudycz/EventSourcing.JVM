@@ -1,12 +1,13 @@
-package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.groupcheckouts;
+package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.groupcheckouts;
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.CommandBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.core.SagaResult;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.gueststayaccounts.GuestStayAccountEvent;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.*;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
 
 import java.util.Arrays;
+
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.groupcheckouts.GroupCheckoutDecider.GroupCheckoutCommand.*;
 
 public final class GroupCheckoutsConfig {
   public static void configureGroupCheckouts(

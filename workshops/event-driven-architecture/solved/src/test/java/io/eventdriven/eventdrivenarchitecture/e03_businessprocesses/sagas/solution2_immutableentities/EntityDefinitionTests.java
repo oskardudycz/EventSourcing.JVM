@@ -3,10 +3,8 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solut
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayFacade;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayFacade.GroupCheckoutCommand;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayFacade.GuestStayAccountCommand;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.groupcheckouts.GroupCheckoutEvent;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccountFacade;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
 import net.datafaker.Faker;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,7 +18,7 @@ public class EntityDefinitionTests {
   private Database database;
   private EventBus eventBus;
   private MessageCatcher publishedEvents;
-  private GuestStayFacade guestStayFacade;
+  private GuestStayAccountFacade guestStayFacade;
   private Faker faker;
   private OffsetDateTime now;
 
@@ -29,7 +27,7 @@ public class EntityDefinitionTests {
     database = new Database();
     eventBus = new EventBus();
     publishedEvents = new MessageCatcher();
-    guestStayFacade = new GuestStayFacade(database, eventBus);
+    guestStayFacade = new GuestStayAccountFacade(database, eventBus);
     faker = new Faker();
     now = OffsetDateTime.now();
     eventBus.use(publishedEvents::catchMessage);
@@ -149,29 +147,6 @@ public class EntityDefinitionTests {
         now,
         null
       )
-    );
-  }
-
-  @Test
-  public void groupCheckoutForMultipleGuestStay_ShouldBeInitiated() {
-    // Given
-    UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
-
-    guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStays[0], now.minusDays(1)));
-    guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStays[1], now.minusDays(1)));
-    guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStays[2], now.minusDays(1)));
-    publishedEvents.reset();
-    // And
-    var groupCheckoutId = UUID.randomUUID();
-    var clerkId = UUID.randomUUID();
-    var command = new GroupCheckoutCommand.InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
-
-    // When
-    guestStayFacade.initiateGroupCheckout(command);
-
-    // Then
-    publishedEvents.shouldReceiveSingleEvent(
-      new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now)
     );
   }
 }

@@ -4,11 +4,13 @@ import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.Datab
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.EventBus;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.groupcheckouts.GroupCheckoutEvent;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccount;
+import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.*;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccount.*;
+import static io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.decide;
 
 public class GuestStayFacade {
   private final Database database;
@@ -20,7 +22,7 @@ public class GuestStayFacade {
   }
 
   public void checkInGuest(GuestStayAccountCommand.CheckInGuest command) {
-    var checkedIn = GuestStayAccount.checkIn(command.guestStayId(), command.now());
+    var checkedIn = decide(command, INITIAL);
 
     database.store(command.guestStayId(), evolve(INITIAL, checkedIn));
     eventBus.publish(new Object[]{checkedIn});
@@ -30,7 +32,7 @@ public class GuestStayFacade {
     var account = database.get(GuestStayAccount.class, command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
-    var chargeRecorded = account.recordCharge(command.amount(), command.now());
+    var chargeRecorded = decide(command, account);
 
     database.store(command.guestStayId(), evolve(account, chargeRecorded));
     eventBus.publish(new Object[]{chargeRecorded});
@@ -40,7 +42,7 @@ public class GuestStayFacade {
     var account = database.get(GuestStayAccount.class, command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
-    var recordPayment = account.recordPayment(command.amount(), command.now());
+    var recordPayment = decide(command, account);
 
     database.store(command.guestStayId(), evolve(account, recordPayment));
     eventBus.publish(new Object[]{recordPayment});
@@ -50,7 +52,7 @@ public class GuestStayFacade {
     var account = database.get(GuestStayAccount.class, command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
-    var checkedOut = account.checkout(command.now(), command.groupCheckOutId());
+    var checkedOut = decide(command, account);
 
     database.store(command.guestStayId(), evolve(account, checkedOut));
     eventBus.publish(new Object[]{checkedOut});
@@ -65,38 +67,6 @@ public class GuestStayFacade {
         command.now()
       )}
     );
-  }
-
-  public sealed interface GuestStayAccountCommand {
-    record CheckInGuest(
-      UUID guestStayId,
-      OffsetDateTime now
-    ) implements GuestStayAccountCommand {
-    }
-
-    record RecordCharge(
-      UUID guestStayId,
-      double amount,
-      OffsetDateTime now
-    ) implements GuestStayAccountCommand {
-    }
-
-    record RecordPayment(
-      UUID guestStayId,
-      double amount,
-      OffsetDateTime now
-    ) implements GuestStayAccountCommand {
-    }
-
-    record CheckOutGuest(
-      UUID guestStayId,
-      OffsetDateTime now,
-      UUID groupCheckOutId
-    ) implements GuestStayAccountCommand {
-      public CheckOutGuest(UUID guestStayId, OffsetDateTime now) {
-        this(guestStayId, now, null);
-      }
-    }
   }
 
   public sealed interface GroupCheckoutCommand {

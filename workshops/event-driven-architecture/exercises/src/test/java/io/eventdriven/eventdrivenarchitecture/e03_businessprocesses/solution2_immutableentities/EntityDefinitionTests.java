@@ -1,12 +1,11 @@
-package io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities;
+package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities;
 
-import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.EventBus;
-import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.EventCatcher;
-import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.GuestStayFacade.GroupCheckoutCommand;
-import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand;
-import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.groupcheckouts.GroupCheckoutEvent;
-import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccountFacade;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand;
 import net.datafaker.Faker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,12 +13,13 @@ import org.junit.jupiter.api.Test;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+
 public class EntityDefinitionTests {
 
   private Database database;
   private EventBus eventBus;
-  private EventCatcher publishedEvents;
-  private GuestStayFacade guestStayFacade;
+  private MessageCatcher publishedEvents;
+  private GuestStayAccountFacade guestStayFacade;
   private Faker faker;
   private OffsetDateTime now;
 
@@ -27,8 +27,8 @@ public class EntityDefinitionTests {
   public void setUp() {
     database = new Database();
     eventBus = new EventBus();
-    publishedEvents = new EventCatcher();
-    guestStayFacade = new GuestStayFacade(database, eventBus);
+    publishedEvents = new MessageCatcher();
+    guestStayFacade = new GuestStayAccountFacade(database, eventBus);
     faker = new Faker();
     now = OffsetDateTime.now();
     eventBus.use(publishedEvents::catchMessage);
@@ -148,29 +148,6 @@ public class EntityDefinitionTests {
         now,
         null
       )
-    );
-  }
-
-  @Test
-  public void groupCheckoutForMultipleGuestStay_ShouldBeInitiated() {
-    // Given
-    UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
-
-    guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStays[0], now.minusDays(1)));
-    guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStays[1], now.minusDays(1)));
-    guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStays[2], now.minusDays(1)));
-    publishedEvents.reset();
-    // And
-    var groupCheckoutId = UUID.randomUUID();
-    var clerkId = UUID.randomUUID();
-    var command = new GroupCheckoutCommand.InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
-
-    // When
-    guestStayFacade.initiateGroupCheckout(command);
-
-    // Then
-    publishedEvents.shouldReceiveSingleEvent(
-      new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now)
     );
   }
 }
