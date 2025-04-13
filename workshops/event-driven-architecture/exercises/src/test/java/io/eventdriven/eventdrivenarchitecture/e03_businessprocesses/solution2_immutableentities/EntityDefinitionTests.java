@@ -8,6 +8,7 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_im
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand;
 import net.datafaker.Faker;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
@@ -35,6 +36,7 @@ public class EntityDefinitionTests {
   }
 
   @Test
+  @Tag("Exercise")
   public void checkingInGuest_Succeeds() {
     // Given
     var guestStayId = UUID.randomUUID();
@@ -49,6 +51,7 @@ public class EntityDefinitionTests {
   }
 
   @Test
+  @Tag("Exercise")
   public void recordingChargeForCheckedInGuest_Succeeds() {
     // Given
     var guestStayId = UUID.randomUUID();
@@ -66,6 +69,7 @@ public class EntityDefinitionTests {
   }
 
   @Test
+  @Tag("Exercise")
   public void recordingPaymentForCheckedInGuest_Succeeds() {
     // Given
     var guestStayId = UUID.randomUUID();
@@ -83,6 +87,7 @@ public class EntityDefinitionTests {
   }
 
   @Test
+  @Tag("Exercise")
   public void recordingPaymentForCheckedInGuestWithCharge_Succeeds() {
     // Given
     var guestStayId = UUID.randomUUID();
@@ -101,6 +106,7 @@ public class EntityDefinitionTests {
   }
 
   @Test
+  @Tag("Exercise")
   public void checkingOutGuestWithSettledBalance_Succeeds() {
     // Given
     var guestStayId = UUID.randomUUID();
@@ -121,6 +127,7 @@ public class EntityDefinitionTests {
   }
 
   @Test
+  @Tag("Exercise")
   public void checkingOutGuestWithUnsettledBalance_FailsWithGuestCheckoutFailed() {
     // Given
     var guestStayId = UUID.randomUUID();

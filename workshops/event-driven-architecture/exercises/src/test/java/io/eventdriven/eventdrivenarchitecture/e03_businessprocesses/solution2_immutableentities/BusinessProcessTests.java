@@ -10,6 +10,7 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_im
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccountFacade;
 import net.datafaker.Faker;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
@@ -50,6 +51,7 @@ public class BusinessProcessTests {
   }
 
   @Test
+  @Tag("Exercise")
   public void groupCheckoutForMultipleGuestStayWithoutPaymentsAndCharges_ShouldComplete() {
     // Given
     UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
@@ -86,6 +88,7 @@ public class BusinessProcessTests {
   }
 
   @Test
+  @Tag("Exercise")
   public void groupCheckoutForMultipleGuestStayWithAllStaysSettled_ShouldComplete() {
     // Given
     UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
@@ -136,6 +139,7 @@ public class BusinessProcessTests {
   }
 
   @Test
+  @Tag("Exercise")
   public void groupCheckoutForMultipleGuestStayWithOneSettledAndRestUnsettled_ShouldFail() {
     // Given
     UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
@@ -194,6 +198,7 @@ public class BusinessProcessTests {
   }
 
   @Test
+  @Tag("Exercise")
   public void groupCheckoutForMultipleGuestStayWithAllUnsettled_ShouldFail() {
     // Given
     UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
