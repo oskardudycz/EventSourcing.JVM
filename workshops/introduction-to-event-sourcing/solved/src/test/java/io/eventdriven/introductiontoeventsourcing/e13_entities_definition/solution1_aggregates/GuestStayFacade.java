@@ -1,7 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution1_aggregates;
 
 import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.Database;
-import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.EventBus;
+import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution1_aggregates.groupcheckouts.GroupCheckoutEvent;
 import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution1_aggregates.gueststayaccounts.GuestStayAccount;
 
@@ -10,18 +10,18 @@ import java.util.UUID;
 
 public class GuestStayFacade {
   private final Database database;
-  private final EventBus eventBus;
+  private final EventStore eventStore;
 
-  public GuestStayFacade(Database database, EventBus eventBus) {
+  public GuestStayFacade(Database database, EventStore eventStore) {
     this.database = database;
-    this.eventBus = eventBus;
+    this.eventStore = eventStore;
   }
 
   public void checkInGuest(GuestStayAccountCommand.CheckInGuest command) {
     var account = GuestStayAccount.checkIn(command.guestStayId(), command.now());
 
     database.store(command.guestStayId(), account);
-    eventBus.publish(account.dequeueUncommittedEvents());
+    eventStore.appendToStream(account.dequeueUncommittedEvents());
   }
 
   public void recordCharge(GuestStayAccountCommand.RecordCharge command) {
@@ -31,7 +31,7 @@ public class GuestStayFacade {
     account.recordCharge(command.amount(), command.now());
 
     database.store(command.guestStayId(), account);
-    eventBus.publish(account.dequeueUncommittedEvents());
+    eventStore.appendToStream(account.dequeueUncommittedEvents());
   }
 
   public void recordPayment(GuestStayAccountCommand.RecordPayment command) {
@@ -41,7 +41,7 @@ public class GuestStayFacade {
     account.recordPayment(command.amount(), command.now());
 
     database.store(command.guestStayId(), account);
-    eventBus.publish(account.dequeueUncommittedEvents());
+    eventStore.appendToStream(account.dequeueUncommittedEvents());
   }
 
   public void checkOutGuest(GuestStayAccountCommand.CheckOutGuest command) {
@@ -51,11 +51,11 @@ public class GuestStayFacade {
     account.checkout(command.now(), command.groupCheckOutId());
 
     database.store(command.guestStayId(), account);
-    eventBus.publish(account.dequeueUncommittedEvents());
+    eventStore.appendToStream(account.dequeueUncommittedEvents());
   }
 
   public void initiateGroupCheckout(GroupCheckoutCommand.InitiateGroupCheckout command) {
-    eventBus.publish(new Object[]{
+    eventStore.appendToStream(new Object[]{
       new GroupCheckoutEvent.GroupCheckoutInitiated(
         command.groupCheckoutId(),
         command.clerkId(),

@@ -1,7 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.choreography.gueststayaccounts;
 
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.Database;
-import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventBus;
+import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.choreography.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.CheckInGuest;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.choreography.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.CheckOutGuest;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.choreography.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.RecordCharge;
@@ -13,18 +13,18 @@ import static io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.c
 
 public class GuestStayAccountFacade {
   private final Database database;
-  private final EventBus eventBus;
+  private final EventStore eventStore;
 
-  public GuestStayAccountFacade(Database database, EventBus eventBus) {
+  public GuestStayAccountFacade(Database database, EventStore eventStore) {
     this.database = database;
-    this.eventBus = eventBus;
+    this.eventStore = eventStore;
   }
 
   public void checkInGuest(CheckInGuest command) {
     var checkedIn = decide(command, INITIAL);
 
     database.store(command.guestStayId(), evolve(INITIAL, checkedIn));
-    eventBus.publish(new Object[]{checkedIn});
+    eventStore.appendToStream(new Object[]{checkedIn});
   }
 
   public void recordCharge(RecordCharge command) {
@@ -34,7 +34,7 @@ public class GuestStayAccountFacade {
     var chargeRecorded = decide(command, account);
 
     database.store(command.guestStayId(), evolve(account, chargeRecorded));
-    eventBus.publish(new Object[]{chargeRecorded});
+    eventStore.appendToStream(new Object[]{chargeRecorded});
   }
 
   public void recordPayment(RecordPayment command) {
@@ -44,7 +44,7 @@ public class GuestStayAccountFacade {
     var recordPayment = decide(command, account);
 
     database.store(command.guestStayId(), evolve(account, recordPayment));
-    eventBus.publish(new Object[]{recordPayment});
+    eventStore.appendToStream(new Object[]{recordPayment});
   }
 
   public void checkOutGuest(CheckOutGuest command) {
@@ -54,6 +54,6 @@ public class GuestStayAccountFacade {
     var checkedOut = decide(command, account);
 
     database.store(command.guestStayId(), evolve(account, checkedOut));
-    eventBus.publish(new Object[]{checkedOut});
+    eventStore.appendToStream(new Object[]{checkedOut});
   }
 }

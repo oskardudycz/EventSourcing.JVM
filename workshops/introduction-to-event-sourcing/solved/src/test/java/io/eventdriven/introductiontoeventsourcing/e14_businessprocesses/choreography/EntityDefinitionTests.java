@@ -3,7 +3,7 @@ package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.choreog
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.choreography.gueststayaccounts.GuestStayAccountEvent;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.choreography.gueststayaccounts.GuestStayAccountFacade;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.Database;
-import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventBus;
+import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.MessageCatcher;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.choreography.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand;
 import net.datafaker.Faker;
@@ -16,7 +16,7 @@ import java.util.UUID;
 public class EntityDefinitionTests {
 
   private Database database;
-  private EventBus eventBus;
+  private EventStore eventStore;
   private MessageCatcher publishedEvents;
   private GuestStayAccountFacade guestStayFacade;
   private Faker faker;
@@ -25,12 +25,12 @@ public class EntityDefinitionTests {
   @BeforeEach
   public void setUp() {
     database = new Database();
-    eventBus = new EventBus();
+    eventStore = new EventStore();
     publishedEvents = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database, eventBus);
+    guestStayFacade = new GuestStayAccountFacade(database, eventStore);
     faker = new Faker();
     now = OffsetDateTime.now();
-    eventBus.use(publishedEvents::catchMessage);
+    eventStore.use(publishedEvents::catchMessage);
   }
 
   @Test

@@ -1,18 +1,18 @@
 package io.eventdriven.introductiontoeventsourcing.e13_entities_definition;
 
 import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.Database;
-import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.EventBus;
+import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.EventStore;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public class GuestStayFacade {
   private final Database database;
-  private final EventBus eventBus;
+  private final EventStore eventStore;
 
-  public GuestStayFacade(Database database, EventBus eventBus) {
+  public GuestStayFacade(Database database, EventStore eventStore) {
     this.database = database;
-    this.eventBus = eventBus;
+    this.eventStore = eventStore;
   }
 
   public void checkInGuest(GuestStayAccountCommand.CheckInGuest command) {
@@ -29,7 +29,7 @@ public class GuestStayFacade {
     Object[] events = new Object[]{};
 
     database.store(command.guestStayId(), account);
-    eventBus.publish(events);
+    eventStore.appendToStream(events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }
@@ -43,7 +43,7 @@ public class GuestStayFacade {
     Object[] events = new Object[]{};
 
     database.store(command.guestStayId(), account);
-    eventBus.publish(events);
+    eventStore.appendToStream(events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }
@@ -57,7 +57,7 @@ public class GuestStayFacade {
     Object[] events = new Object[]{};
 
     database.store(command.guestStayId(), account);
-    eventBus.publish(events);
+    eventStore.appendToStream(events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }

@@ -1,7 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution1_aggregates;
 
 import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.Database;
-import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.EventBus;
+import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.EventCatcher;
 import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution1_aggregates.GuestStayFacade.GuestStayAccountCommand;
 import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution1_aggregates.GuestStayFacade.GroupCheckoutCommand;
@@ -17,7 +17,7 @@ import java.util.UUID;
 public class EntityDefinitionTests {
 
   private Database database;
-  private EventBus eventBus;
+  private EventStore eventStore;
   private EventCatcher publishedEvents;
   private GuestStayFacade guestStayFacade;
   private Faker faker;
@@ -26,12 +26,12 @@ public class EntityDefinitionTests {
   @BeforeEach
   public void setUp() {
     database = new Database();
-    eventBus = new EventBus();
+    eventStore = new EventStore();
     publishedEvents = new EventCatcher();
-    guestStayFacade = new GuestStayFacade(database, eventBus);
+    guestStayFacade = new GuestStayFacade(database, eventStore);
     faker = new Faker();
     now = OffsetDateTime.now();
-    eventBus.use(publishedEvents::catchMessage);
+    eventStore.use(publishedEvents::catchMessage);
   }
 
   @Test

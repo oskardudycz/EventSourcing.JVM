@@ -1,7 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.sagas.solution2_immutableentities.groupcheckouts;
 
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.CommandBus;
-import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventBus;
+import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.sagas.core.SagaResult;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
 
@@ -11,11 +11,11 @@ import static io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.s
 
 public final class GroupCheckoutsConfig {
   public static void configureGroupCheckouts(
-    EventBus eventBus,
+    EventStore eventStore,
     CommandBus commandBus,
     GroupCheckoutFacade groupCheckoutFacade
   ) {
-    eventBus
+    eventStore
       .subscribe(GroupCheckoutEvent.GroupCheckoutInitiated.class, (event) ->
         commandBus.send(Arrays.stream(GroupCheckoutSaga.handle(event)).map(SagaResult.Command::message).toArray())
       )
