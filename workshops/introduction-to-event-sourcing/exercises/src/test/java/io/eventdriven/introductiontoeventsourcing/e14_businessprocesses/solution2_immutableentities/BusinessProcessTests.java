@@ -2,7 +2,7 @@ package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.solutio
 
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.CommandBus;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.Database;
-import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventBus;
+import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.MessageCatcher;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.solution2_immutableentities.groupcheckouts.GroupCheckoutEvent;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.solution2_immutableentities.groupcheckouts.GroupCheckoutFacade;
@@ -24,7 +24,7 @@ import static io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.s
 public class BusinessProcessTests {
 
   private Database database;
-  private EventBus eventBus;
+  private EventStore eventStore;
   private CommandBus commandBus;
   private MessageCatcher publishedMessages;
   private GuestStayAccountFacade guestStayFacade;
@@ -35,18 +35,18 @@ public class BusinessProcessTests {
   @BeforeEach
   public void setUp() {
     database = new Database();
-    eventBus = new EventBus();
+    eventStore = new EventStore();
     commandBus = new CommandBus();
     publishedMessages = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database, eventBus);
-    groupCheckoutFacade = new GroupCheckoutFacade(database, eventBus);
+    guestStayFacade = new GuestStayAccountFacade(database, eventStore);
+    groupCheckoutFacade = new GroupCheckoutFacade(database, eventStore);
     faker = new Faker();
     now = OffsetDateTime.now();
 
-    eventBus.use(publishedMessages::catchMessage);
+    eventStore.use(publishedMessages::catchMessage);
     commandBus.use(publishedMessages::catchMessage);
 
-    configureGroupCheckouts(eventBus, commandBus, groupCheckoutFacade);
+    configureGroupCheckouts(eventStore, commandBus, groupCheckoutFacade);
     configureGuestStayAccounts(commandBus, guestStayFacade);
   }
 

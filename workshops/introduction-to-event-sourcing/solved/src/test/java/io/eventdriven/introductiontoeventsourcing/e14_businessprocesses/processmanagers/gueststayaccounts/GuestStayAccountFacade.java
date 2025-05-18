@@ -1,25 +1,25 @@
 package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.processmanagers.gueststayaccounts;
 
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.Database;
-import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventBus;
+import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventStore;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public class GuestStayAccountFacade {
   private final Database database;
-  private final EventBus eventBus;
+  private final EventStore eventStore;
 
-  public GuestStayAccountFacade(Database database, EventBus eventBus) {
+  public GuestStayAccountFacade(Database database, EventStore eventStore) {
     this.database = database;
-    this.eventBus = eventBus;
+    this.eventStore = eventStore;
   }
 
   public void checkInGuest(GuestStayAccountCommand.CheckInGuest command) {
     var account = GuestStayAccount.checkIn(command.guestStayId(), command.now());
 
     database.store(command.guestStayId(), account);
-    eventBus.publish(account.dequeueUncommittedEvents());
+    eventStore.appendToStream(account.dequeueUncommittedEvents());
   }
 
   public void recordCharge(GuestStayAccountCommand.RecordCharge command) {
@@ -29,7 +29,7 @@ public class GuestStayAccountFacade {
     account.recordCharge(command.amount(), command.now());
 
     database.store(command.guestStayId(), account);
-    eventBus.publish(account.dequeueUncommittedEvents());
+    eventStore.appendToStream(account.dequeueUncommittedEvents());
   }
 
   public void recordPayment(GuestStayAccountCommand.RecordPayment command) {
@@ -39,7 +39,7 @@ public class GuestStayAccountFacade {
     account.recordPayment(command.amount(), command.now());
 
     database.store(command.guestStayId(), account);
-    eventBus.publish(account.dequeueUncommittedEvents());
+    eventStore.appendToStream(account.dequeueUncommittedEvents());
   }
 
   public void checkOutGuest(GuestStayAccountCommand.CheckOutGuest command) {
@@ -49,7 +49,7 @@ public class GuestStayAccountFacade {
     account.checkout(command.now(), command.groupCheckOutId());
 
     database.store(command.guestStayId(), account);
-    eventBus.publish(account.dequeueUncommittedEvents());
+    eventStore.appendToStream(account.dequeueUncommittedEvents());
   }
 
   public sealed interface GuestStayAccountCommand {

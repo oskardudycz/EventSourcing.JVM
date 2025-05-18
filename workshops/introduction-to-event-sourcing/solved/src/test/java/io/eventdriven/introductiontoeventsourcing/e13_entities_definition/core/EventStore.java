@@ -6,11 +6,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-public class EventBus {
+public class EventStore {
   private final Map<String, List<Consumer<Object>>> handlers = new ConcurrentHashMap<>();
   private final List<Consumer<Object>> middlewares = new ArrayList<>();
 
-  public void publish(Object[] events) {
+  public void appendToStream(Object[] events) {
     for (Object event : events) {
 
       for (var middleware : middlewares)
@@ -25,7 +25,7 @@ public class EventBus {
     }
   }
 
-  public <Event> EventBus subscribe(Class<Event> eventClass, Consumer<Event> handler) {
+  public <Event> EventStore subscribe(Class<Event> eventClass, Consumer<Event> handler) {
     handlers.compute(eventClass.getTypeName(), (eventType, consumers) -> {
       if (consumers == null)
         consumers = new ArrayList<>();

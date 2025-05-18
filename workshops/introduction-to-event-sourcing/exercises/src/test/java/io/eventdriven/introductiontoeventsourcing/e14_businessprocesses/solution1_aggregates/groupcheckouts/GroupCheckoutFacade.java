@@ -1,7 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.solution1_aggregates.groupcheckouts;
 
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.Database;
-import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventBus;
+import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventStore;
 
 import static io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.solution1_aggregates.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.*;
 
@@ -10,11 +10,11 @@ import java.util.UUID;
 
 public class GroupCheckoutFacade {
   private final Database database;
-  private final EventBus eventBus;
+  private final EventStore eventStore;
 
-  public GroupCheckoutFacade(Database database, EventBus eventBus) {
+  public GroupCheckoutFacade(Database database, EventStore eventStore) {
     this.database = database;
-    this.eventBus = eventBus;
+    this.eventStore = eventStore;
   }
 
   public void initiateGroupCheckout(InitiateGroupCheckout command) {

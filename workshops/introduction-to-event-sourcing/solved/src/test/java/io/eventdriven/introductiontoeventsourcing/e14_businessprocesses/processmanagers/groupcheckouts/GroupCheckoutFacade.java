@@ -2,7 +2,7 @@ package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.process
 
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.CommandBus;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.Database;
-import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventBus;
+import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.processmanagers.core.Message;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.processmanagers.gueststayaccounts.GuestStayAccountEvent;
 
@@ -13,12 +13,12 @@ import static io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.p
 
 public class GroupCheckoutFacade {
   private final Database database;
-  private final EventBus eventBus;
+  private final EventStore eventStore;
   private final CommandBus commandBus;
 
-  public GroupCheckoutFacade(Database database, EventBus eventBus, CommandBus commandBus) {
+  public GroupCheckoutFacade(Database database, EventStore eventStore, CommandBus commandBus) {
     this.database = database;
-    this.eventBus = eventBus;
+    this.eventStore = eventStore;
     this.commandBus = commandBus;
   }
 
@@ -26,7 +26,7 @@ public class GroupCheckoutFacade {
     var groupCheckout = GroupCheckout.handle(command);
 
     database.store(command.groupCheckoutId(), groupCheckout);
-    publish(groupCheckout.dequeueUncommittedMessages());
+    appendToStream(groupCheckout.dequeueUncommittedMessages());
   }
 
   public void recordGuestCheckoutCompletion(GuestStayAccountEvent.GuestCheckedOut event) {
@@ -39,7 +39,7 @@ public class GroupCheckoutFacade {
     groupCheckout.on(event);
 
     database.store(event.groupCheckoutId(), groupCheckout);
-    publish(groupCheckout.dequeueUncommittedMessages());
+    appendToStream(groupCheckout.dequeueUncommittedMessages());
   }
 
   public void recordGuestCheckoutFailure(GuestStayAccountEvent.GuestCheckoutFailed event) {
@@ -49,14 +49,14 @@ public class GroupCheckoutFacade {
     groupCheckout.on(event);
 
     database.store(event.groupCheckoutId(), groupCheckout);
-    publish(groupCheckout.dequeueUncommittedMessages());
+    appendToStream(groupCheckout.dequeueUncommittedMessages());
   }
 
-  void publish(Message[] messages) {
+  void appendToStream(Message[] messages) {
     for (Message message : messages) {
       switch (message) {
         case Message.Command command -> commandBus.send(new Object[]{command.message()});
-        case Message.Event event -> eventBus.publish(new Object[]{event.message()});
+        case Message.Event event -> eventStore.appendToStream(new Object[]{event.message()});
       }
     }
   }

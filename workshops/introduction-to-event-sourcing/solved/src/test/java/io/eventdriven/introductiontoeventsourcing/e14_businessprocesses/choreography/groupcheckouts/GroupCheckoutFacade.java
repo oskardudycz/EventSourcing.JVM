@@ -3,7 +3,7 @@ package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.choreog
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.choreography.gueststayaccounts.GuestStayAccountEvent;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.CommandBus;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.Database;
-import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventBus;
+import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.choreography.gueststayaccounts.GuestStayAccountDecider;
 
 import java.util.Arrays;
@@ -15,12 +15,12 @@ import static io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.c
 
 public class GroupCheckoutFacade {
   private final Database database;
-  private final EventBus eventBus;
+  private final EventStore eventStore;
   private final CommandBus commandBus;
 
-  public GroupCheckoutFacade(Database database, EventBus eventBus, CommandBus commandBus) {
+  public GroupCheckoutFacade(Database database, EventStore eventStore, CommandBus commandBus) {
     this.database = database;
-    this.eventBus = eventBus;
+    this.eventStore = eventStore;
     this.commandBus = commandBus;
   }
 
@@ -28,7 +28,7 @@ public class GroupCheckoutFacade {
     var events = decide(command, INITIAL);
 
     database.store(command.groupCheckoutId(), reduce(events, INITIAL, GroupCheckout::evolve));
-    eventBus.publish(events);
+    eventStore.appendToStream(events);
 
     commandBus.send(
       Arrays.stream(events)
@@ -51,7 +51,7 @@ public class GroupCheckoutFacade {
     );
 
     database.store(event.groupCheckoutId(), reduce(events, groupCheckout, GroupCheckout::evolve));
-    eventBus.publish(events);
+    eventStore.appendToStream(events);
   }
 
   public void recordGuestCheckoutFailure(GuestStayAccountEvent.GuestCheckoutFailed event) {
@@ -64,6 +64,6 @@ public class GroupCheckoutFacade {
     );
 
     database.store(event.groupCheckoutId(), reduce(events, groupCheckout, GroupCheckout::evolve));
-    eventBus.publish(events);
+    eventStore.appendToStream(events);
   }
 }

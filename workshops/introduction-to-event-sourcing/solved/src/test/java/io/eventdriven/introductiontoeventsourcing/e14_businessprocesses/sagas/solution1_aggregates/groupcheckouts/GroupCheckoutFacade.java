@@ -1,7 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.sagas.solution1_aggregates.groupcheckouts;
 
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.Database;
-import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventBus;
+import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventStore;
 
 import static io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.sagas.solution1_aggregates.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.*;
 
@@ -10,11 +10,11 @@ import java.util.UUID;
 
 public class GroupCheckoutFacade {
   private final Database database;
-  private final EventBus eventBus;
+  private final EventStore eventStore;
 
-  public GroupCheckoutFacade(Database database, EventBus eventBus) {
+  public GroupCheckoutFacade(Database database, EventStore eventStore) {
     this.database = database;
-    this.eventBus = eventBus;
+    this.eventStore = eventStore;
   }
 
   public void initiateGroupCheckout(InitiateGroupCheckout command) {
@@ -26,7 +26,7 @@ public class GroupCheckoutFacade {
     );
 
     database.store(command.groupCheckoutId(), groupCheckout);
-    eventBus.publish(groupCheckout.dequeueUncommittedEvents());
+    eventStore.appendToStream(groupCheckout.dequeueUncommittedEvents());
   }
 
   public void recordGuestCheckoutCompletion(RecordGuestCheckoutCompletion command)
@@ -37,7 +37,7 @@ public class GroupCheckoutFacade {
     groupCheckout.recordGuestCheckoutCompletion(command.guestStayId(), command.completedAt());
 
     database.store(command.groupCheckoutId(), groupCheckout);
-    eventBus.publish(groupCheckout.dequeueUncommittedEvents());
+    eventStore.appendToStream(groupCheckout.dequeueUncommittedEvents());
   }
 
   public void recordGuestCheckoutFailure(RecordGuestCheckoutFailure command)
@@ -48,7 +48,7 @@ public class GroupCheckoutFacade {
     groupCheckout.recordGuestCheckoutFailure(command.guestStayId(), command.failedAt());
 
     database.store(command.groupCheckoutId(), groupCheckout);
-    eventBus.publish(groupCheckout.dequeueUncommittedEvents());
+    eventStore.appendToStream(groupCheckout.dequeueUncommittedEvents());
   }
 
   public sealed interface GroupCheckoutCommand {
