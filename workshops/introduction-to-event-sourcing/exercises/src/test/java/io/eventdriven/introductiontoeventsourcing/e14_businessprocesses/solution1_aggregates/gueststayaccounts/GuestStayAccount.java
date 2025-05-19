@@ -24,6 +24,10 @@ public class GuestStayAccount  extends AbstractAggregate<GuestStayAccountEvent, 
     );
   }
 
+  public static GuestStayAccount initial() {
+    return new GuestStayAccount();
+  }
+
   // Default constructor for Jackson
   private GuestStayAccount() {
   }

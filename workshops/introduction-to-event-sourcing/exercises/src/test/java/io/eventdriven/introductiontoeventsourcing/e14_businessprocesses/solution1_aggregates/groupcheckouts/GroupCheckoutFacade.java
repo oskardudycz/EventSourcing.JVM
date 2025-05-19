@@ -9,11 +9,9 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public class GroupCheckoutFacade {
-  private final Database database;
   private final EventStore eventStore;
 
-  public GroupCheckoutFacade(Database database, EventStore eventStore) {
-    this.database = database;
+  public GroupCheckoutFacade(EventStore eventStore) {
     this.eventStore = eventStore;
   }
 

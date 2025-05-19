@@ -1,7 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.solution1_aggregates;
 
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.CommandBus;
-import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.Database;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.MessageCatcher;
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.solution1_aggregates.groupcheckouts.GroupCheckoutFacade;
@@ -22,8 +21,6 @@ import static io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.s
 import static io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.solution1_aggregates.gueststayaccounts.GuestStayAccountsConfig.configureGuestStayAccounts;
 
 public class BusinessProcessTests {
-
-  private Database database;
   private EventStore eventStore;
   private CommandBus commandBus;
   private MessageCatcher publishedMessages;
@@ -34,12 +31,11 @@ public class BusinessProcessTests {
 
   @BeforeEach
   public void setUp() {
-    database = new Database();
     eventStore = new EventStore();
     commandBus = new CommandBus();
     publishedMessages = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database, eventStore);
-    groupCheckoutFacade = new GroupCheckoutFacade(database, eventStore);
+    guestStayFacade = new GuestStayAccountFacade(eventStore);
+    groupCheckoutFacade = new GroupCheckoutFacade(eventStore);
     faker = new Faker();
     now = OffsetDateTime.now();
 

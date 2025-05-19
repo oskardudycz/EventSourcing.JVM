@@ -34,12 +34,11 @@ public class BusinessProcessTests {
 
   @BeforeEach
   public void setUp() {
-    database = new Database();
     eventStore = new EventStore();
     commandBus = new CommandBus();
     publishedMessages = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database, eventStore);
-    groupCheckoutFacade = new GroupCheckoutFacade(database, eventStore);
+    guestStayFacade = new GuestStayAccountFacade(eventStore);
+    groupCheckoutFacade = new GroupCheckoutFacade(eventStore);
     faker = new Faker();
     now = OffsetDateTime.now();
 

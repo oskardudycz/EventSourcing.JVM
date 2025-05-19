@@ -7,11 +7,9 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public class GuestStayFacade {
-  private final Database database;
   private final EventStore eventStore;
 
-  public GuestStayFacade(Database database, EventStore eventStore) {
-    this.database = database;
+  public GuestStayFacade(EventStore eventStore) {
     this.eventStore = eventStore;
   }
 
@@ -21,43 +19,40 @@ public class GuestStayFacade {
   }
 
   public void recordCharge(GuestStayAccountCommand.RecordCharge command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
-      .orElseThrow(() -> new IllegalStateException("Entity not found"));
+//    var account = eventStore.aggregateStream(command.guestStayId(), ...)
+//      .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     // TODO: Fill the implementation calling your entity/aggregate
     // account.doSomething;
     Object[] events = new Object[]{};
 
-    database.store(command.guestStayId(), account);
-    eventStore.appendToStream(events);
+    eventStore.appendToStream(command.guestStayId().toString(), events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }
 
   public void recordPayment(GuestStayAccountCommand.RecordPayment command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
-      .orElseThrow(() -> new IllegalStateException("Entity not found"));
+//    var account = eventStore.aggregateStream(command.guestStayId(), ...)
+//      .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     // TODO: Fill the implementation calling your entity/aggregate
     // account.doSomething;
     Object[] events = new Object[]{};
 
-    database.store(command.guestStayId(), account);
-    eventStore.appendToStream(events);
+    eventStore.appendToStream(command.guestStayId().toString(), events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }
 
   public void checkOutGuest(GuestStayAccountCommand.CheckOutGuest command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
-      .orElseThrow(() -> new IllegalStateException("Entity not found"));
+//    var account = eventStore.aggregateStream(command.guestStayId(), ...)
+//      .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     // TODO: Fill the implementation calling your entity/aggregate
     // account.doSomething;
     Object[] events = new Object[]{};
 
-    database.store(command.guestStayId(), account);
-    eventStore.appendToStream(events);
+    eventStore.appendToStream(command.guestStayId().toString(), events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }

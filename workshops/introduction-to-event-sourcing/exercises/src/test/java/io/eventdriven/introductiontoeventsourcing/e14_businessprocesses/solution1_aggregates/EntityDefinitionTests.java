@@ -28,7 +28,7 @@ public class EntityDefinitionTests {
     database = new Database();
     eventStore = new EventStore();
     publishedEvents = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database, eventStore);
+    guestStayFacade = new GuestStayAccountFacade(eventStore);
     faker = new Faker();
     now = OffsetDateTime.now();
     eventStore.use(publishedEvents::catchMessage);

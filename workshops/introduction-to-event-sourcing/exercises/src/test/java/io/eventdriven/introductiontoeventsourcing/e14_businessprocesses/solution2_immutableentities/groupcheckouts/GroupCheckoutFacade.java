@@ -9,11 +9,9 @@ import java.util.UUID;
 import static io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.solution2_immutableentities.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.*;
 
 public class GroupCheckoutFacade {
-  private final Database database;
   private final EventStore eventStore;
 
-  public GroupCheckoutFacade(Database database, EventStore eventStore) {
-    this.database = database;
+  public GroupCheckoutFacade(EventStore eventStore) {
     this.eventStore = eventStore;
   }
 

@@ -16,8 +16,6 @@ import java.util.UUID;
 
 
 public class EntityDefinitionTests {
-
-  private Database database;
   private EventStore eventStore;
   private MessageCatcher publishedEvents;
   private GuestStayAccountFacade guestStayFacade;
@@ -26,10 +24,9 @@ public class EntityDefinitionTests {
 
   @BeforeEach
   public void setUp() {
-    database = new Database();
     eventStore = new EventStore();
     publishedEvents = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database, eventStore);
+    guestStayFacade = new GuestStayAccountFacade(eventStore);
     faker = new Faker();
     now = OffsetDateTime.now();
     eventStore.use(publishedEvents::catchMessage);
