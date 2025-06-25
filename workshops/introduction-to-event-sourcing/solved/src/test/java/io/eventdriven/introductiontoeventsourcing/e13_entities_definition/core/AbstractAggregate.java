@@ -1,4 +1,6 @@
-package io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution1_aggregates.core;
+package io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core;
+
+import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.Aggregate;
 
 import java.util.LinkedList;
 import java.util.Queue;

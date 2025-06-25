@@ -1,6 +1,8 @@
 package io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution1_aggregates.groupcheckouts;
 
 import java.time.OffsetDateTime;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.UUID;
 
 public sealed interface GroupCheckoutEvent {
@@ -31,6 +33,18 @@ public sealed interface GroupCheckoutEvent {
     UUID[] completedCheckouts,
     OffsetDateTime completedAt
   ) implements GroupCheckoutEvent {
+
+    @Override
+    public boolean equals(Object o) {
+      if (o == null || getClass() != o.getClass()) return false;
+      GroupCheckoutCompleted that = (GroupCheckoutCompleted) o;
+      return Objects.equals(groupCheckoutId, that.groupCheckoutId) && Objects.deepEquals(completedCheckouts, that.completedCheckouts) && Objects.equals(completedAt, that.completedAt);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(groupCheckoutId, Arrays.hashCode(completedCheckouts), completedAt);
+    }
   }
 
   record GroupCheckoutFailed(
@@ -39,5 +53,17 @@ public sealed interface GroupCheckoutEvent {
     UUID[] failedCheckouts,
     OffsetDateTime failedAt
   ) implements GroupCheckoutEvent {
+
+    @Override
+    public boolean equals(Object o) {
+      if (o == null || getClass() != o.getClass()) return false;
+      GroupCheckoutFailed that = (GroupCheckoutFailed) o;
+      return Objects.equals(groupCheckoutId, that.groupCheckoutId) && Objects.deepEquals(failedCheckouts, that.failedCheckouts) && Objects.equals(failedAt, that.failedAt) && Objects.deepEquals(completedCheckouts, that.completedCheckouts);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(groupCheckoutId, Arrays.hashCode(completedCheckouts), Arrays.hashCode(failedCheckouts), failedAt);
+    }
   }
 }
