@@ -35,7 +35,13 @@ dependencies {
   // Swagger
   implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
   // For PostgreSQL Event Store
-  implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+  implementation 'org.springframework.boot:spring-boot-starter-jdbc:3.4.2'
+
+  // RabbitMQ
+  implementation 'org.springframework.boot:spring-boot-starter-amqp:3.4.2'
+
+  // Kafka
+  implementation 'org.springframework.kafka:spring-kafka:3.3.3'
 
   // Serialisation
   implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
@@ -57,13 +63,26 @@ dependencies {
   implementation 'org.apache.logging.log4j:log4j-core:2.23.1'
   implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.23.1'
 
+  // Observability - Micrometer Tracing
+  implementation 'org.springframework.boot:spring-boot-starter-actuator:3.4.2'
+  implementation 'io.micrometer:micrometer-tracing-bridge-otel:1.4.2'
+  implementation 'io.opentelemetry:opentelemetry-exporter-otlp:1.43.0'
+
+  // Micrometer testing
+  testImplementation 'io.micrometer:micrometer-tracing-test'
+  testImplementation 'io.opentelemetry:opentelemetry-sdk-testing:1.43.0'
+
   // Test frameworks
   testImplementation 'org.springframework.boot:spring-boot-starter-test:3.4.2'
+  testImplementation 'org.springframework.boot:spring-boot-testcontainers:3.4.2'
 
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
   testImplementation 'com.fasterxml.jackson.core:jackson-core:2.17.2'
   testImplementation 'org.assertj:assertj-core:3.26.3'
   testImplementation 'org.testcontainers:mongodb:1.20.0'
+  testImplementation 'org.testcontainers:rabbitmq:1.20.0'
+  testImplementation 'org.testcontainers:kafka:1.20.0'
+  testImplementation 'org.testcontainers:junit-jupiter:1.20.0'
   testImplementation 'net.datafaker:datafaker:2.3.0'
 }
 

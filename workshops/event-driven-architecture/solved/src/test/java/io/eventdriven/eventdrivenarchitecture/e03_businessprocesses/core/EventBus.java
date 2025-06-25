@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-public class EventBus {
+public class EventBus implements IEventBus {
   private final Map<String, List<Consumer<Object>>> handlers = new LinkedHashMap<>();
   private final List<Consumer<Object>> middlewares = new ArrayList<>();
 
@@ -26,7 +26,7 @@ public class EventBus {
     }
   }
 
-  public <Event> EventBus subscribe(Class<Event> eventClass, Consumer<Event> handler) {
+  public <Event> IEventBus subscribe(Class<Event> eventClass, Consumer<Event> handler) {
     handlers.compute(eventClass.getTypeName(), (eventType, consumers) -> {
       if (consumers == null)
         consumers = new ArrayList<>();

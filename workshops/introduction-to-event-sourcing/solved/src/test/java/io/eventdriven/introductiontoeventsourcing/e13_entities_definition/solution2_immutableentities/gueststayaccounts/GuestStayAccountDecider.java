@@ -1,32 +1,31 @@
 package io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution2_immutableentities.gueststayaccounts;
 
-import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent.*;
-import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
 import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccount.Status;
+import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent.*;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public final class GuestStayAccountDecider {
-  public static GuestCheckedIn handle(CheckInGuest command) {
+  public static GuestCheckedIn handle(GuestStayAccountCommand.CheckInGuest command) {
     return new GuestCheckedIn(command.guestStayId(), command.now());
   }
 
-  public static ChargeRecorded handle(RecordCharge command, GuestStayAccount state) {
+  public static ChargeRecorded handle(GuestStayAccountCommand.RecordCharge command, GuestStayAccount state) {
     if (state.status() != Status.OPEN)
       throw new RuntimeException("Cannot record charge if status is other than Open");
 
     return new ChargeRecorded(state.id(), command.amount(), command.now());
   }
 
-  public static PaymentRecorded handle(RecordPayment command, GuestStayAccount state) {
+  public static PaymentRecorded handle(GuestStayAccountCommand.RecordPayment command, GuestStayAccount state) {
     if (state.status() != Status.OPEN)
       throw new RuntimeException("Cannot record payment if status is other than Open");
 
     return new PaymentRecorded(state.id(), command.amount(), command.now());
   }
 
-  public static GuestStayAccountEvent handle(CheckOutGuest command, GuestStayAccount state) {
+  public static GuestStayAccountEvent handle(GuestStayAccountCommand.CheckOutGuest command, GuestStayAccount state) {
     if (state.status() != Status.OPEN || !state.isSettled()) {
       return new GuestCheckoutFailed(
         state.id(),
@@ -43,11 +42,11 @@ public final class GuestStayAccountDecider {
   }
 
   public static GuestStayAccountEvent decide(GuestStayAccountCommand command, GuestStayAccount state) {
-    return switch (command){
-      case CheckInGuest checkInGuest -> handle(checkInGuest);
-      case RecordCharge recordCharge -> handle(recordCharge, state);
-      case RecordPayment recordPayment -> handle(recordPayment, state);
-      case CheckOutGuest checkOutGuest -> handle(checkOutGuest, state);
+    return switch (command) {
+      case GuestStayAccountCommand.CheckInGuest checkInGuest -> handle(checkInGuest);
+      case GuestStayAccountCommand.RecordCharge recordCharge -> handle(recordCharge, state);
+      case GuestStayAccountCommand.RecordPayment recordPayment -> handle(recordPayment, state);
+      case GuestStayAccountCommand.CheckOutGuest checkOutGuest -> handle(checkOutGuest, state);
     };
   }
 

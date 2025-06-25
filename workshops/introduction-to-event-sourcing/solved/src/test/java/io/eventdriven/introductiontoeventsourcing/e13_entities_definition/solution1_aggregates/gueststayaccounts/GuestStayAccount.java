@@ -1,6 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution1_aggregates.gueststayaccounts;
 
-import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution1_aggregates.core.AbstractAggregate;
+import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.AbstractAggregate;
 import org.springframework.lang.Nullable;
 
 import java.time.OffsetDateTime;
@@ -22,6 +22,10 @@ public class GuestStayAccount  extends AbstractAggregate<GuestStayAccountEvent, 
       guestStayAccountId,
       openedAt
     );
+  }
+
+  public static GuestStayAccount initial() {
+    return new GuestStayAccount();
   }
 
   // Default constructor for Jackson

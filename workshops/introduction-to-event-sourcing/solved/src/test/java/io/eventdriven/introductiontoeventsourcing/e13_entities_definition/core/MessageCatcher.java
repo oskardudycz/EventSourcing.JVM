@@ -1,12 +1,13 @@
 package io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class EventCatcher {
+public class MessageCatcher {
   public List<Object> published = new ArrayList<>();
 
   public void catchMessage(Object event) {
@@ -17,14 +18,19 @@ public class EventCatcher {
     published.clear();
   }
 
-  public void shouldNotReceiveAnyEvent(){
+  public void shouldNotReceiveAnyEvent() {
     assertThat(published).isEmpty();
   }
 
-  public <Event> void shouldReceiveSingleEvent(Event event)
-  {
+  public <Event> void shouldReceiveSingleEvent(Event event) {
     assertThat(published).hasSize(1);
     assertThat(published).hasOnlyElementsOfTypes(event.getClass()).hasSize(1);
     assertEquals(event, published.getFirst());
+  }
+
+  public void shouldReceiveMessages(Object[] messages) {
+    assertThat(published)
+      .usingRecursiveComparison()
+      .isEqualTo(Arrays.asList(messages));
   }
 }
