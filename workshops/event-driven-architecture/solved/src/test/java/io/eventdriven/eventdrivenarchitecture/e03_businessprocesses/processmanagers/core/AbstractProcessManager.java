@@ -1,5 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.core;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.util.LinkedList;
 import java.util.Queue;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.core.Message.*;
@@ -8,6 +10,7 @@ public abstract class AbstractProcessManager<Event, Id> implements ProcessManage
   protected Id id;
   protected int version = -1;
 
+  @JsonIgnore
   private final Queue<Message> uncommittedMessages = new LinkedList<>();
 
   public Id id() {

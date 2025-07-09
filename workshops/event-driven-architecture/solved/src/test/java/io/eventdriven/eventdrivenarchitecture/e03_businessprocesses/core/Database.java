@@ -14,10 +14,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class Database {
-  private final Map<String, Object> storage = new LinkedHashMap<>();
+  private Map<String, String> storage = new LinkedHashMap<>();
 
   private static final ObjectMapper mapper =
     new JsonMapper()
@@ -28,7 +29,13 @@ public class Database {
       .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
   public <T> void store(UUID id, Object obj) {
-    storage.compute(getId(obj.getClass(), id), (ignore, value) -> obj);
+    storage.compute(getId(obj.getClass(), id), (ignore, value) -> {
+      try {
+        return mapper.writeValueAsString(obj);
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException(e);
+      }
+    });
   }
 
   public <T> void delete(Class<T> typeClass, UUID id) {
@@ -36,18 +43,15 @@ public class Database {
   }
 
   public <T> Optional<T> get(Class<T> typeClass, UUID id) {
-    return Optional.ofNullable(
-      typeClass.cast(
-        storage.compute(getId(typeClass, id), (k, v) ->
-        {
-          try {
-            return v != null ?
-              mapper.readValue(mapper.writeValueAsString(v), typeClass)
-              : null;
-          } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-          }
-        })));
+    var key = getId(typeClass, id);
+    if(!storage.containsKey(key)) {
+      return Optional.empty();
+    }
+    try {
+      return Optional.of(mapper.readValue(storage.get(key), typeClass));
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public <T> void getAndUpdate(Class<T> typeClass, UUID id, Function<T, T> update) {
@@ -59,7 +63,20 @@ public class Database {
              InvocationTargetException | NoSuchMethodException e) {
       throw new RuntimeException(e);
     }
+  }
 
+  public void transaction(Consumer<Database> operations) {
+    var transactionalStorage = new LinkedHashMap<>(this.storage);
+    var transactionalDb = new Database();
+    transactionalDb.storage = transactionalStorage;
+
+    try {
+      operations.accept(transactionalDb);
+      this.storage = transactionalStorage;
+    } catch (Exception e) {
+      // Do nothing, discard transactional changes
+      throw e;
+    }
   }
 
   private static <T> String getId(Class<T> typeClass, UUID id) {
