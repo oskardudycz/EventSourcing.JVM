@@ -1,6 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution2_immutableentities.gueststayaccounts;
 
 import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent.*;
+
 import java.util.UUID;
 
 public record GuestStayAccount(
@@ -16,7 +17,6 @@ public record GuestStayAccount(
   public boolean isSettled() {
     return balance == 0;
   }
-
 
   public static GuestStayAccount evolve(GuestStayAccount state, GuestStayAccountEvent event) {
     return switch (event) {
