@@ -2,6 +2,7 @@ package io.eventdriven.eventdrivenarchitecture.e02_entities_definition;
 
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.EventBus;
+import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.gueststayaccounts.GuestStayAccount;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;

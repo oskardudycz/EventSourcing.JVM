@@ -6,6 +6,7 @@ import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.Event
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.GuestStayFacade.GuestStayAccountCommand;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.GuestStayFacade.GroupCheckoutCommand;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.groupcheckouts.GroupCheckoutEvent;
+import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.gueststayaccounts.GuestStayAccountEvent;
 import net.datafaker.Faker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
