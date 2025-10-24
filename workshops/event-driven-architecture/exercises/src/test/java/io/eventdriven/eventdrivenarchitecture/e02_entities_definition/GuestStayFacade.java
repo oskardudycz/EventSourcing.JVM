@@ -8,11 +8,11 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public class GuestStayFacade {
-  private final Database database;
+  private final Database.Collection<GuestStayAccount> collection;
   private final EventBus eventBus;
 
-  public GuestStayFacade(Database database, EventBus eventBus) {
-    this.database = database;
+  public GuestStayFacade(Database.Collection<GuestStayAccount> collection, EventBus eventBus) {
+    this.collection = collection;
     this.eventBus = eventBus;
   }
 
@@ -22,42 +22,42 @@ public class GuestStayFacade {
   }
 
   public void recordCharge(GuestStayAccountCommand.RecordCharge command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     // TODO: Fill the implementation calling your entity/aggregate
     // account.doSomething;
     Object[] events = new Object[]{};
 
-    database.store(command.guestStayId(), account);
+    collection.store(command.guestStayId(), account);
     eventBus.publish(events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }
 
   public void recordPayment(GuestStayAccountCommand.RecordPayment command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     // TODO: Fill the implementation calling your entity/aggregate
     // account.doSomething;
     Object[] events = new Object[]{};
 
-    database.store(command.guestStayId(), account);
+    collection.store(command.guestStayId(), account);
     eventBus.publish(events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }
 
   public void checkOutGuest(GuestStayAccountCommand.CheckOutGuest command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     // TODO: Fill the implementation calling your entity/aggregate
     // account.doSomething;
     Object[] events = new Object[]{};
 
-    database.store(command.guestStayId(), account);
+    collection.store(command.guestStayId(), account);
     eventBus.publish(events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");

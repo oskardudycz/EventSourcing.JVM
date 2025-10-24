@@ -12,6 +12,12 @@ jar {
   enabled = true
 }
 
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(21)
+  }
+}
+
 group = 'io.event-driven'
 version = '0.0.1-SNAPSHOT'
 

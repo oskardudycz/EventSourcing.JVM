@@ -9,11 +9,11 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solut
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.decide;
 
 public class GuestStayAccountFacade {
-  private final Database database;
+  private final Database.Collection<GuestStayAccount> database;
   private final EventBus eventBus;
 
-  public GuestStayAccountFacade(Database database, EventBus eventBus) {
-    this.database = database;
+  public GuestStayAccountFacade(Database.Collection<GuestStayAccount> collection, EventBus eventBus) {
+    this.database = collection;
     this.eventBus = eventBus;
   }
 
@@ -25,7 +25,7 @@ public class GuestStayAccountFacade {
   }
 
   public void recordCharge(RecordCharge command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = database.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     var chargeRecorded = decide(command, account);
@@ -35,7 +35,7 @@ public class GuestStayAccountFacade {
   }
 
   public void recordPayment(RecordPayment command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = database.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     var recordPayment = decide(command, account);
@@ -45,7 +45,7 @@ public class GuestStayAccountFacade {
   }
 
   public void checkOutGuest(CheckOutGuest command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = database.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     var checkedOut = decide(command, account);
