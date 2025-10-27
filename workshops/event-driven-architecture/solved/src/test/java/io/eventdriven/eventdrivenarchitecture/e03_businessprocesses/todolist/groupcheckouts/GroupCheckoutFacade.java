@@ -14,12 +14,12 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todol
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.FunctionalTools.FoldLeft.reduce;
 
 public class GroupCheckoutFacade {
-  private final Database database;
+  private final Database.Collection<GroupCheckout> collection;
   private final EventBus eventBus;
   private final CommandBus commandBus;
 
-  public GroupCheckoutFacade(Database database, EventBus eventBus, CommandBus commandBus) {
-    this.database = database;
+  public GroupCheckoutFacade(Database.Collection<GroupCheckout> collection, EventBus eventBus, CommandBus commandBus) {
+    this.collection = collection;
     this.eventBus = eventBus;
     this.commandBus = commandBus;
   }
@@ -27,7 +27,7 @@ public class GroupCheckoutFacade {
   public void initiateGroupCheckout(InitiateGroupCheckout command) {
     var events = decide(command, INITIAL);
 
-    database.store(command.groupCheckoutId(), reduce(events, INITIAL, GroupCheckout::evolve));
+    collection.store(command.groupCheckoutId(), reduce(events, INITIAL, GroupCheckout::evolve));
     eventBus.publish(events);
 
     commandBus.send(
@@ -42,7 +42,7 @@ public class GroupCheckoutFacade {
   }
 
   public void recordGuestCheckoutCompletion(GuestStayAccountEvent.GuestCheckedOut event) {
-    final var groupCheckout = database.get(GroupCheckout.class, event.groupCheckoutId())
+    final var groupCheckout = collection.get(event.groupCheckoutId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     var events = decide(
@@ -50,12 +50,12 @@ public class GroupCheckoutFacade {
       groupCheckout
     );
 
-    database.store(event.groupCheckoutId(), reduce(events, groupCheckout, GroupCheckout::evolve));
+    collection.store(event.groupCheckoutId(), reduce(events, groupCheckout, GroupCheckout::evolve));
     eventBus.publish(events);
   }
 
   public void recordGuestCheckoutFailure(GuestStayAccountEvent.GuestCheckoutFailed event) {
-    var groupCheckout = database.get(GroupCheckout.class, event.groupCheckoutId())
+    var groupCheckout = collection.get(event.groupCheckoutId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     var events = decide(
@@ -63,7 +63,7 @@ public class GroupCheckoutFacade {
       groupCheckout
     );
 
-    database.store(event.groupCheckoutId(), reduce(events, groupCheckout, GroupCheckout::evolve));
+    collection.store(event.groupCheckoutId(), reduce(events, groupCheckout, GroupCheckout::evolve));
     eventBus.publish(events);
   }
 }

@@ -3,6 +3,7 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solut
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.gueststayaccounts.GuestStayAccount;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.gueststayaccounts.GuestStayAccountFacade;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.gueststayaccounts.GuestStayAccountFacade.GuestStayAccountCommand;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.gueststayaccounts.GuestStayAccountEvent;
@@ -27,7 +28,7 @@ public class EntityDefinitionTests {
     database = new Database();
     eventBus = new EventBus();
     publishedEvents = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database, eventBus);
+    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), eventBus);
     faker = new Faker();
     now = OffsetDateTime.now();
     eventBus.use(publishedEvents::catchMessage);

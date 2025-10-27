@@ -17,8 +17,6 @@ import java.util.UUID;
 import java.util.function.Function;
 
 public class Database {
-  private final Map<String, Object> storage = new LinkedHashMap<>();
-
   private static final ObjectMapper mapper =
     new JsonMapper()
       .registerModule(new JavaTimeModule())
@@ -27,42 +25,55 @@ public class Database {
       .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
       .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
-  public <T> void store(UUID id, Object obj) {
-    storage.compute(getId(obj.getClass(), id), (ignore, value) -> obj);
+  public <T> Collection<T> collection(Class<T> typeClass) {
+    return new Collection<>(typeClass);
   }
 
-  public <T> void delete(Class<T> typeClass, UUID id) {
-    storage.remove(getId(typeClass, id));
-  }
+  public static class Collection<T> {
+    private final Map<String, Object> storage = new LinkedHashMap<>();
+    private final Class<T> typeClass  ;
 
-  public <T> Optional<T> get(Class<T> typeClass, UUID id) {
-    return Optional.ofNullable(
-      typeClass.cast(
-        storage.compute(getId(typeClass, id), (k, v) ->
-        {
-          try {
-            return v != null ?
-              mapper.readValue(mapper.writeValueAsString(v), typeClass)
-              : null;
-          } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-          }
-        })));
-  }
-
-  public <T> void getAndUpdate(Class<T> typeClass, UUID id, Function<T, T> update) {
-    try {
-      var item = get(typeClass, id).orElse(typeClass.getConstructor().newInstance());
-
-      store(id, update.apply(item));
-    } catch (InstantiationException | IllegalAccessException |
-             InvocationTargetException | NoSuchMethodException e) {
-      throw new RuntimeException(e);
+    public Collection(Class<T> typeClass) {
+      this.typeClass = typeClass;
     }
 
-  }
+    public <T> void store(UUID id, Object obj) {
+      storage.compute(getId(id), (ignore, value) -> obj);
+    }
 
-  private static <T> String getId(Class<T> typeClass, UUID id) {
-    return "%s-%s".formatted(typeClass.getTypeName(), id);
+    public void delete(UUID id) {
+      storage.remove(getId(id));
+    }
+
+    public Optional<T> get(UUID id) {
+      return Optional.ofNullable(
+        typeClass.cast(
+          storage.compute(getId(id), (k, v) ->
+          {
+            try {
+              return v != null ?
+                mapper.readValue(mapper.writeValueAsString(v), typeClass)
+                : null;
+            } catch (JsonProcessingException e) {
+              throw new RuntimeException(e);
+            }
+          })));
+    }
+
+    public void getAndUpdate(UUID id, Function<T, T> update) {
+      try {
+        var item = get(id).orElse(typeClass.getConstructor().newInstance());
+
+        store(id, update.apply(item));
+      } catch (InstantiationException | IllegalAccessException |
+               InvocationTargetException | NoSuchMethodException e) {
+        throw new RuntimeException(e);
+      }
+
+    }
+
+    private String getId(UUID id) {
+      return "%s-%s".formatted(typeClass.getTypeName(), id);
+    }
   }
 }

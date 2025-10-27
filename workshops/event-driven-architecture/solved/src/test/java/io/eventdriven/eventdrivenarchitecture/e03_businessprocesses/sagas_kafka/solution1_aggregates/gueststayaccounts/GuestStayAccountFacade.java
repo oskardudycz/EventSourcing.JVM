@@ -9,48 +9,48 @@ import java.util.UUID;
 
 @Service
 public class GuestStayAccountFacade {
-  private final Database database;
+  private final Database.Collection<GuestStayAccount> collection;
   private final IEventBus eventBus;
 
   public GuestStayAccountFacade(Database database, IEventBus eventBus) {
-    this.database = database;
+    this.collection = database.collection(GuestStayAccount.class);
     this.eventBus = eventBus;
   }
 
   public void checkInGuest(GuestStayAccountCommand.CheckInGuest command) {
     var account = GuestStayAccount.checkIn(command.guestStayId(), command.now());
 
-    database.store(command.guestStayId(), account);
+    collection.store(command.guestStayId(), account);
     eventBus.publish(account.dequeueUncommittedEvents());
   }
 
   public void recordCharge(GuestStayAccountCommand.RecordCharge command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     account.recordCharge(command.amount(), command.now());
 
-    database.store(command.guestStayId(), account);
+    collection.store(command.guestStayId(), account);
     eventBus.publish(account.dequeueUncommittedEvents());
   }
 
   public void recordPayment(GuestStayAccountCommand.RecordPayment command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     account.recordPayment(command.amount(), command.now());
 
-    database.store(command.guestStayId(), account);
+    collection.store(command.guestStayId(), account);
     eventBus.publish(account.dequeueUncommittedEvents());
   }
 
   public void checkOutGuest(GuestStayAccountCommand.CheckOutGuest command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     account.checkout(command.now(), command.groupCheckOutId());
 
-    database.store(command.guestStayId(), account);
+    collection.store(command.guestStayId(), account);
     eventBus.publish(account.dequeueUncommittedEvents());
   }
 

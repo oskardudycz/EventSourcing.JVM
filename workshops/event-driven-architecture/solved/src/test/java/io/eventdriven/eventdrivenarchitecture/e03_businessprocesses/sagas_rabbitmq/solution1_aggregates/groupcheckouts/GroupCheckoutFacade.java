@@ -11,11 +11,11 @@ import java.util.UUID;
 
 @Service
 public class GroupCheckoutFacade {
-  private final Database database;
+  private final Database.Collection<GroupCheckout> collection;
   private final IEventBus eventBus;
 
   public GroupCheckoutFacade(Database database, IEventBus eventBus) {
-    this.database = database;
+    this.collection = database.collection(GroupCheckout.class);
     this.eventBus = eventBus;
   }
 
@@ -27,29 +27,29 @@ public class GroupCheckoutFacade {
       command.now()
     );
 
-    database.store(command.groupCheckoutId(), groupCheckout);
+    collection.store(command.groupCheckoutId(), groupCheckout);
     eventBus.publish(groupCheckout.dequeueUncommittedEvents());
   }
 
   public void recordGuestCheckoutCompletion(RecordGuestCheckoutCompletion command)
   {
-    var groupCheckout = database.get(GroupCheckout.class, command.groupCheckoutId())
+    var groupCheckout = collection.get(command.groupCheckoutId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     groupCheckout.recordGuestCheckoutCompletion(command.guestStayId(), command.completedAt());
 
-    database.store(command.groupCheckoutId(), groupCheckout);
+    collection.store(command.groupCheckoutId(), groupCheckout);
     eventBus.publish(groupCheckout.dequeueUncommittedEvents());
   }
 
   public void recordGuestCheckoutFailure(RecordGuestCheckoutFailure command)
   {
-    var groupCheckout = database.get(GroupCheckout.class, command.groupCheckoutId())
+    var groupCheckout = collection.get(command.groupCheckoutId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     groupCheckout.recordGuestCheckoutFailure(command.guestStayId(), command.failedAt());
 
-    database.store(command.groupCheckoutId(), groupCheckout);
+    collection.store(command.groupCheckoutId(), groupCheckout);
     eventBus.publish(groupCheckout.dequeueUncommittedEvents());
   }
 

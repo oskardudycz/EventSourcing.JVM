@@ -4,6 +4,7 @@ import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.Datab
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.EventBus;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.EventCatcher;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.GuestStayFacade.GroupCheckoutCommand;
+import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccount;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.groupcheckouts.GroupCheckoutEvent;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
@@ -28,7 +29,7 @@ public class EntityDefinitionTests {
     database = new Database();
     eventBus = new EventBus();
     publishedEvents = new EventCatcher();
-    guestStayFacade = new GuestStayFacade(database, eventBus);
+    guestStayFacade = new GuestStayFacade(database.collection(GuestStayAccount.class), eventBus);
     faker = new Faker();
     now = OffsetDateTime.now();
     eventBus.use(publishedEvents::catchMessage);
