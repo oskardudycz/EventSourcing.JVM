@@ -11,48 +11,48 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas
 
 @Service
 public class GuestStayAccountFacade {
-  private final Database database;
+  private final Database.Collection<GuestStayAccount> collection;
   private final IEventBus eventBus;
 
   public GuestStayAccountFacade(Database database, IEventBus eventBus) {
-    this.database = database;
+    this.collection = database.collection(GuestStayAccount.class);
     this.eventBus = eventBus;
   }
 
   public void checkInGuest(CheckInGuest command) {
     var checkedIn = decide(command, INITIAL);
 
-    database.store(command.guestStayId(), evolve(INITIAL, checkedIn));
+    collection.store(command.guestStayId(), evolve(INITIAL, checkedIn));
     eventBus.publish(new Object[]{checkedIn});
   }
 
   public void recordCharge(RecordCharge command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     var chargeRecorded = decide(command, account);
 
-    database.store(command.guestStayId(), evolve(account, chargeRecorded));
+    collection.store(command.guestStayId(), evolve(account, chargeRecorded));
     eventBus.publish(new Object[]{chargeRecorded});
   }
 
   public void recordPayment(RecordPayment command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     var recordPayment = decide(command, account);
 
-    database.store(command.guestStayId(), evolve(account, recordPayment));
+    collection.store(command.guestStayId(), evolve(account, recordPayment));
     eventBus.publish(new Object[]{recordPayment});
   }
 
   public void checkOutGuest(CheckOutGuest command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     var checkedOut = decide(command, account);
 
-    database.store(command.guestStayId(), evolve(account, checkedOut));
+    collection.store(command.guestStayId(), evolve(account, checkedOut));
     eventBus.publish(new Object[]{checkedOut});
   }
 }

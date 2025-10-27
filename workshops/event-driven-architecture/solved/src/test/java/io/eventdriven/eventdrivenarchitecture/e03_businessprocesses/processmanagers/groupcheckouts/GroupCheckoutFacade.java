@@ -12,12 +12,12 @@ import java.util.UUID;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.InitiateGroupCheckout;
 
 public class GroupCheckoutFacade {
-  private final Database database;
+  private final Database.Collection<GroupCheckout> collection;
   private final EventBus eventBus;
   private final CommandBus commandBus;
 
-  public GroupCheckoutFacade(Database database, EventBus eventBus, CommandBus commandBus) {
-    this.database = database;
+  public GroupCheckoutFacade(Database.Collection<GroupCheckout> collection, EventBus eventBus, CommandBus commandBus) {
+    this.collection = collection;
     this.eventBus = eventBus;
     this.commandBus = commandBus;
   }
@@ -25,7 +25,7 @@ public class GroupCheckoutFacade {
   public void initiateGroupCheckout(InitiateGroupCheckout command) {
     var groupCheckout = GroupCheckout.handle(command);
 
-    database.store(command.groupCheckoutId(), groupCheckout);
+    collection.store(command.groupCheckoutId(), groupCheckout);
     publish(groupCheckout.dequeueUncommittedMessages());
   }
 
@@ -33,22 +33,22 @@ public class GroupCheckoutFacade {
     if (event.groupCheckoutId() == null)
       return;
 
-    var groupCheckout = database.get(GroupCheckout.class, event.groupCheckoutId())
+    var groupCheckout = collection.get(event.groupCheckoutId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     groupCheckout.on(event);
 
-    database.store(event.groupCheckoutId(), groupCheckout);
+    collection.store(event.groupCheckoutId(), groupCheckout);
     publish(groupCheckout.dequeueUncommittedMessages());
   }
 
   public void recordGuestCheckoutFailure(GuestStayAccountEvent.GuestCheckoutFailed event) {
-    var groupCheckout = database.get(GroupCheckout.class, event.groupCheckoutId())
+    var groupCheckout = collection.get(event.groupCheckoutId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     groupCheckout.on(event);
 
-    database.store(event.groupCheckoutId(), groupCheckout);
+    collection.store(event.groupCheckoutId(), groupCheckout);
     publish(groupCheckout.dequeueUncommittedMessages());
   }
 
