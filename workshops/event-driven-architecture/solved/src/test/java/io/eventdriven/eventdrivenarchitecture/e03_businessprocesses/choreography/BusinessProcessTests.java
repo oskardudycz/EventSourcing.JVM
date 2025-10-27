@@ -1,7 +1,9 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography;
 
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.groupcheckouts.GroupCheckout;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.groupcheckouts.GroupCheckoutEvent;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.groupcheckouts.GroupCheckoutFacade;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.gueststayaccounts.GuestStayAccount;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.gueststayaccounts.GuestStayAccountEvent;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.gueststayaccounts.GuestStayAccountFacade;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.CommandBus;
@@ -37,8 +39,8 @@ public class BusinessProcessTests {
     eventBus = new EventBus();
     commandBus = new CommandBus();
     publishedMessages = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database, eventBus);
-    groupCheckoutFacade = new GroupCheckoutFacade(database, eventBus, commandBus);
+    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), eventBus);
+    groupCheckoutFacade = new GroupCheckoutFacade(database.collection(GroupCheckout.class), eventBus, commandBus);
     faker = new Faker();
     now = OffsetDateTime.now();
 

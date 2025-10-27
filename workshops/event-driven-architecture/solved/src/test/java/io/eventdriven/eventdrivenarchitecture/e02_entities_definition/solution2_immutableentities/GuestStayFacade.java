@@ -13,48 +13,48 @@ import static io.eventdriven.eventdrivenarchitecture.e02_entities_definition.sol
 import static io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.decide;
 
 public class GuestStayFacade {
-  private final Database database;
+  private final Database.Collection<GuestStayAccount> collection;
   private final EventBus eventBus;
 
-  public GuestStayFacade(Database database, EventBus eventBus) {
-    this.database = database;
+  public GuestStayFacade(Database.Collection<GuestStayAccount> collection, EventBus eventBus) {
+    this.collection = collection;
     this.eventBus = eventBus;
   }
 
   public void checkInGuest(GuestStayAccountCommand.CheckInGuest command) {
     var checkedIn = decide(command, INITIAL);
 
-    database.store(command.guestStayId(), evolve(INITIAL, checkedIn));
+    collection.store(command.guestStayId(), evolve(INITIAL, checkedIn));
     eventBus.publish(new Object[]{checkedIn});
   }
 
   public void recordCharge(GuestStayAccountCommand.RecordCharge command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     var chargeRecorded = decide(command, account);
 
-    database.store(command.guestStayId(), evolve(account, chargeRecorded));
+    collection.store(command.guestStayId(), evolve(account, chargeRecorded));
     eventBus.publish(new Object[]{chargeRecorded});
   }
 
   public void recordPayment(GuestStayAccountCommand.RecordPayment command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     var recordPayment = decide(command, account);
 
-    database.store(command.guestStayId(), evolve(account, recordPayment));
+    collection.store(command.guestStayId(), evolve(account, recordPayment));
     eventBus.publish(new Object[]{recordPayment});
   }
 
   public void checkOutGuest(GuestStayAccountCommand.CheckOutGuest command) {
-    var account = database.get(GuestStayAccount.class, command.guestStayId())
+    var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
     var checkedOut = decide(command, account);
 
-    database.store(command.guestStayId(), evolve(account, checkedOut));
+    collection.store(command.guestStayId(), evolve(account, checkedOut));
     eventBus.publish(new Object[]{checkedOut});
   }
 

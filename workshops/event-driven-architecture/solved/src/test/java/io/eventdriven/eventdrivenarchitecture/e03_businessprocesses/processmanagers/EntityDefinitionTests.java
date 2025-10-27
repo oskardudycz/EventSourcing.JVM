@@ -3,6 +3,7 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmana
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.gueststayaccounts.GuestStayAccount;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.gueststayaccounts.GuestStayAccountEvent;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.gueststayaccounts.GuestStayAccountFacade;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.gueststayaccounts.GuestStayAccountFacade.GuestStayAccountCommand;
@@ -27,7 +28,7 @@ public class EntityDefinitionTests {
     database = new Database();
     eventBus = new EventBus();
     publishedEvents = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database, eventBus);
+    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), eventBus);
     faker = new Faker();
     now = OffsetDateTime.now();
     eventBus.use(publishedEvents::catchMessage);

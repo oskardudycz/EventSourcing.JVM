@@ -6,6 +6,8 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBu
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.groupcheckouts.GroupCheckoutFacade;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.groupcheckouts.GroupCheckoutEvent;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.groupcheckouts.GroupCheckout;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.gueststayaccounts.GuestStayAccount;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.gueststayaccounts.GuestStayAccountEvent;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.gueststayaccounts.GuestStayAccountFacade;
 import net.datafaker.Faker;
@@ -37,8 +39,8 @@ public class BusinessProcessTests {
     eventBus = new EventBus();
     commandBus = new CommandBus();
     publishedMessages = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database, eventBus);
-    groupCheckoutFacade = new GroupCheckoutFacade(database, eventBus);
+    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), eventBus);
+    groupCheckoutFacade = new GroupCheckoutFacade(database.collection(GroupCheckout.class), eventBus);
     faker = new Faker();
     now = OffsetDateTime.now();
 
