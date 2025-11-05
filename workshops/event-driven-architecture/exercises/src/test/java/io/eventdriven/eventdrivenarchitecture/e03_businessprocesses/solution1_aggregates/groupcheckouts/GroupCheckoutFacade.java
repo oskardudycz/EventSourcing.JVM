@@ -9,26 +9,47 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public class GroupCheckoutFacade {
-  private final Database database;
+  private final Database.Collection<GroupCheckout> collection;
   private final EventBus eventBus;
 
   public GroupCheckoutFacade(Database database, EventBus eventBus) {
-    this.database = database;
+    this.collection = database.collection(GroupCheckout.class);
     this.eventBus = eventBus;
   }
 
   public void initiateGroupCheckout(InitiateGroupCheckout command) {
-    throw new RuntimeException("TODO: implement me");
+    // TODO: Fill the implementation calling your entity/aggregate
+    throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }
 
   public void recordGuestCheckoutCompletion(RecordGuestCheckoutCompletion command)
   {
-    throw new RuntimeException("TODO: implement me");
+    var account = collection.get(command.groupCheckoutId())
+      .orElseThrow(() -> new IllegalStateException("Entity not found"));
+
+    // TODO: Fill the implementation calling your entity/aggregate
+    // account.doSomething;
+    Object[] events = new Object[]{};
+
+    collection.store(command.guestStayId(), account);
+    eventBus.publish(events);
+
+    throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }
 
   public void recordGuestCheckoutFailure(RecordGuestCheckoutFailure command)
   {
-    throw new RuntimeException("TODO: implement me");
+    var account = collection.get(command.groupCheckoutId())
+      .orElseThrow(() -> new IllegalStateException("Entity not found"));
+
+    // TODO: Fill the implementation calling your entity/aggregate
+    // account.doSomething;
+    Object[] events = new Object[]{};
+
+    collection.store(command.guestStayId(), account);
+    eventBus.publish(events);
+
+    throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }
 
   public sealed interface GroupCheckoutCommand {

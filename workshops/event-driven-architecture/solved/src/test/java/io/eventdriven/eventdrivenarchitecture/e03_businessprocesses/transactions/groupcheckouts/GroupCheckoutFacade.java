@@ -14,22 +14,24 @@ import java.util.UUID;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.transactions.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
 
 public class GroupCheckoutFacade {
-  private final Database.Collection<GuestStayAccount> collection;
+  private final Database collection;
   private final EventBus eventBus;
 
-  public GroupCheckoutFacade(Database.Collection<GuestStayAccount> collection, EventBus eventBus) {
-    this.collection = collection;
+  public GroupCheckoutFacade(Database database, EventBus eventBus) {
+    this.collection = database;
     this.eventBus = eventBus;
   }
 
   public void initiateGroupCheckout(GroupCheckoutCommand.InitiateGroupCheckout command) {
     collection.transaction(db -> {
       var events = new ArrayList<>();
+      var guestStayAccounts = db.collection(GuestStayAccount.class);
+
       for(var guestStayAccountId: command.guestStayIds()){
-        var account = db.get(guestStayAccountId).orElseThrow();
+        var account = guestStayAccounts.get(guestStayAccountId).orElseThrow();
         var event = GuestStayAccountDecider.decide(new CheckOutGuest(guestStayAccountId, command.now(), command.groupCheckoutId()), account);
 
-        db.store(command.groupCheckoutId(), GuestStayAccount.evolve(account, event));
+        guestStayAccounts.store(command.groupCheckoutId(), GuestStayAccount.evolve(account, event));
         events.add(event);
       }
 
