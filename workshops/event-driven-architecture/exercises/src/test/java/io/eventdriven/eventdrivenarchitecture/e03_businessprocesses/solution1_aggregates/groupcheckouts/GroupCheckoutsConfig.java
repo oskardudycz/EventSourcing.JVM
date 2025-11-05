@@ -9,7 +9,10 @@ public final class GroupCheckoutsConfig {
     CommandBus commandBus,
     GroupCheckoutFacade groupCheckoutFacade
   ) {
-
-    throw new RuntimeException("Configure group checkouts handler here");
+    eventBus.subscribe(GroupCheckoutEvent.GroupCheckoutInitiated.class, (event) -> {
+      throw new RuntimeException("Handle GroupCheckout Initiated event");
+    });
+    // Add other eventBus subscriptions and commandBus handling when needed
+    throw new RuntimeException("Configure group checkouts handlers here");
   }
 }

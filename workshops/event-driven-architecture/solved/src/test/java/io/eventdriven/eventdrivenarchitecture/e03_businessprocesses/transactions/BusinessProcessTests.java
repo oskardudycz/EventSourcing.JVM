@@ -38,8 +38,8 @@ public class BusinessProcessTests {
     eventBus = new EventBus();
     commandBus = new CommandBus();
     publishedMessages = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), eventBus);
-    groupCheckoutFacade = new GroupCheckoutFacade(database.collection(GuestStayAccount.class), eventBus);
+    guestStayFacade = new GuestStayAccountFacade(database, eventBus);
+    groupCheckoutFacade = new GroupCheckoutFacade(database, eventBus);
     faker = new Faker();
     now = OffsetDateTime.now();
 

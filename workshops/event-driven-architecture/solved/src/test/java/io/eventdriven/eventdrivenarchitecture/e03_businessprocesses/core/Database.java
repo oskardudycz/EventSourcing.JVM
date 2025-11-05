@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class Database {
   private static final ObjectMapper mapper =
@@ -27,20 +28,46 @@ public class Database {
       .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
       .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
+
+  private Map<Class, LinkedHashMap<String, Object>> storage = new LinkedHashMap<>();
+
   public <T> Collection<T> collection(Class<T> typeClass) {
-    return new Collection<>(typeClass);
+    return new Collection<>(typeClass, this);
+  }
+
+  public void transaction(Consumer<Database> operations) {
+    var transactionalStorage = this.storage.entrySet().stream()
+      .collect(Collectors.toMap(
+        Map.Entry::getKey,
+        v -> new LinkedHashMap<>(v.getValue())
+      ));
+    var transactionalDb = new Database();
+    transactionalDb.storage = transactionalStorage;
+
+    try {
+      operations.accept(transactionalDb);
+      this.storage = transactionalStorage;
+    } catch (Exception e) {
+      // Do nothing, discard transactional changes
+      System.out.println(e.getMessage());
+      throw e;
+    }
   }
 
   public static class Collection<T> {
-    private Map<String, Object> storage = new LinkedHashMap<>();
-    private final Class<T> typeClass  ;
+    private final Map<String, Object> storage;
+    private final Class<T> typeClass;
 
-    public Collection(Class<T> typeClass) {
+    public Collection(Class<T> typeClass, Database database) {
       this.typeClass = typeClass;
+      this.storage = database.storage.computeIfAbsent(
+        typeClass,
+        _ -> new LinkedHashMap<>()
+      );
     }
 
-    public <T> void store(UUID id, Object obj) {
-      storage.compute(getId(id), (ignore, value) -> obj);
+    public void store(UUID id, Object obj) {
+      storage.compute(getId(id), (ignore, _) -> obj);
     }
 
     public void delete(UUID id) {
@@ -76,20 +103,6 @@ public class Database {
 
     private String getId(UUID id) {
       return "%s-%s".formatted(typeClass.getTypeName(), id);
-    }
-
-    public void transaction(Consumer<Database.Collection<T>> operations) {
-      var transactionalStorage = new LinkedHashMap<>(this.storage);
-      var transactionalDb = new Database.Collection<>(typeClass);
-      transactionalDb.storage = transactionalStorage;
-
-      try {
-        operations.accept(transactionalDb);
-        this.storage = transactionalStorage;
-      } catch (Exception e) {
-        // Do nothing, discard transactional changes
-        throw e;
-      }
     }
   }
 }

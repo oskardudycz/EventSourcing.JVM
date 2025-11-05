@@ -29,7 +29,7 @@ public class EntityDefinitionTests {
     database = new Database();
     eventBus = new EventBus();
     publishedEvents = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), eventBus);
+    guestStayFacade = new GuestStayAccountFacade(database, eventBus);
     faker = new Faker();
     now = OffsetDateTime.now();
     eventBus.use(publishedEvents::catchMessage);

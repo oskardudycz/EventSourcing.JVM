@@ -14,8 +14,8 @@ public class GroupCheckoutFacade {
   private final Database.Collection<GroupCheckout> collection;
   private final IEventBus eventBus;
 
-  public GroupCheckoutFacade(Database.Collection<GroupCheckout> collection, IEventBus eventBus) {
-    this.collection = collection;
+  public GroupCheckoutFacade(Database database, IEventBus eventBus) {
+    this.collection = database.collection(GroupCheckout.class);
     this.eventBus = eventBus;
   }
 

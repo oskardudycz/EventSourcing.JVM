@@ -12,8 +12,8 @@ public class GuestStayAccountFacade {
   private final Database.Collection<GuestStayAccount> database;
   private final EventBus eventBus;
 
-  public GuestStayAccountFacade(Database.Collection<GuestStayAccount> collection, EventBus eventBus) {
-    this.database = collection;
+  public GuestStayAccountFacade(Database database, EventBus eventBus) {
+    this.database = database.collection(GuestStayAccount.class);
     this.eventBus = eventBus;
   }
 
