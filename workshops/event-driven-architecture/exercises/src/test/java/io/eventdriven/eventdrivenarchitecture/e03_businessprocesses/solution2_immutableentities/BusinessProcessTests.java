@@ -6,7 +6,6 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBu
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.groupcheckouts.GroupCheckoutEvent;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.groupcheckouts.GroupCheckoutFacade;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccount;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccountFacade;
 import net.datafaker.Faker;
@@ -75,15 +74,15 @@ public class BusinessProcessTests {
       new CheckOutGuest(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
       new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[0], now),
-      new GroupCheckoutEvent.GuestCheckoutCompleted(groupCheckoutId, guestStays[0], now),
+      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[0], now),
       new CheckOutGuest(guestStays[1], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[1], now, groupCheckoutId),
       new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[1], now),
-      new GroupCheckoutEvent.GuestCheckoutCompleted(groupCheckoutId, guestStays[1], now),
+      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[1], now),
       new CheckOutGuest(guestStays[2], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[2], now, groupCheckoutId),
       new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[2], now),
-      new GroupCheckoutEvent.GuestCheckoutCompleted(groupCheckoutId, guestStays[2], now),
+      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[2], now),
       new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
     });
   }
@@ -126,15 +125,15 @@ public class BusinessProcessTests {
       new CheckOutGuest(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
       new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[0], now),
-      new GroupCheckoutEvent.GuestCheckoutCompleted(groupCheckoutId, guestStays[0], now),
+      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[0], now),
       new CheckOutGuest(guestStays[1], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[1], now, groupCheckoutId),
       new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[1], now),
-      new GroupCheckoutEvent.GuestCheckoutCompleted(groupCheckoutId, guestStays[1], now),
+      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[1], now),
       new CheckOutGuest(guestStays[2], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[2], now, groupCheckoutId),
       new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[2], now),
-      new GroupCheckoutEvent.GuestCheckoutCompleted(groupCheckoutId, guestStays[2], now),
+      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[2], now),
       new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
     });
   }
@@ -178,17 +177,17 @@ public class BusinessProcessTests {
       new CheckOutGuest(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
       new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[0], now),
-      new GroupCheckoutEvent.GuestCheckoutCompleted(groupCheckoutId, guestStays[0], now),
+      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[0], now),
       new CheckOutGuest(guestStays[1], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[1],
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
       new RecordGuestCheckoutFailure(groupCheckoutId, guestStays[1], now),
-      new GroupCheckoutEvent.GuestCheckoutFailed(groupCheckoutId, guestStays[1], now),
+      new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStays[1], now),
       new CheckOutGuest(guestStays[2], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[2],
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
       new RecordGuestCheckoutFailure(groupCheckoutId, guestStays[2], now),
-      new GroupCheckoutEvent.GuestCheckoutFailed(groupCheckoutId, guestStays[2], now),
+      new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStays[2], now),
       new GroupCheckoutEvent.GroupCheckoutFailed(
         groupCheckoutId,
         new UUID[] {guestStays[0]},
@@ -237,17 +236,17 @@ public class BusinessProcessTests {
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[0],
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
       new RecordGuestCheckoutFailure(groupCheckoutId, guestStays[0], now),
-      new GroupCheckoutEvent.GuestCheckoutFailed(groupCheckoutId, guestStays[0], now),
+      new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStays[0], now),
       new CheckOutGuest(guestStays[1], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[1],
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
       new RecordGuestCheckoutFailure(groupCheckoutId, guestStays[1], now),
-      new GroupCheckoutEvent.GuestCheckoutFailed(groupCheckoutId, guestStays[1], now),
+      new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStays[1], now),
       new CheckOutGuest(guestStays[2], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[2],
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
       new RecordGuestCheckoutFailure(groupCheckoutId, guestStays[2], now),
-      new GroupCheckoutEvent.GuestCheckoutFailed(groupCheckoutId, guestStays[2], now),
+      new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStays[2], now),
       new GroupCheckoutEvent.GroupCheckoutFailed(
         groupCheckoutId,
         new UUID[] {},

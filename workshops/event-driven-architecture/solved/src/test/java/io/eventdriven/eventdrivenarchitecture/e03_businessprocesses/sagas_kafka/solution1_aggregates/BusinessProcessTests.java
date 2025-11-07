@@ -99,15 +99,15 @@ public class BusinessProcessTests {
         new CheckOutGuest(guestStays[0], now, groupCheckoutId),
         new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
         new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[0], now),
-        new GroupCheckoutEvent.GuestCheckoutCompleted(groupCheckoutId, guestStays[0], now),
+        new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[0], now),
         new CheckOutGuest(guestStays[1], now, groupCheckoutId),
         new GuestStayAccountEvent.GuestCheckedOut(guestStays[1], now, groupCheckoutId),
         new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[1], now),
-        new GroupCheckoutEvent.GuestCheckoutCompleted(groupCheckoutId, guestStays[1], now),
+        new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[1], now),
         new CheckOutGuest(guestStays[2], now, groupCheckoutId),
         new GuestStayAccountEvent.GuestCheckedOut(guestStays[2], now, groupCheckoutId),
         new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[2], now),
-        new GroupCheckoutEvent.GuestCheckoutCompleted(groupCheckoutId, guestStays[2], now),
+        new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[2], now),
         new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
       }));
   }

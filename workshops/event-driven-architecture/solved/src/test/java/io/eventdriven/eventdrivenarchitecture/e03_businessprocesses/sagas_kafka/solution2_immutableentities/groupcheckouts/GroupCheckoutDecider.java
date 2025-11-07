@@ -31,7 +31,7 @@ public final class GroupCheckoutDecider {
     if (state.status() != CheckoutStatus.INITIATED || state.recordedAlreadyGuestCheckoutWithStatus(guestStayId, CheckoutStatus.COMPLETED))
       return new GroupCheckoutEvent[]{};
 
-    var guestCheckoutCompleted = new GuestCheckoutCompleted(
+    var guestCheckoutCompleted = new GuestCheckoutCompletionRecorded(
       state.id(),
       guestStayId,
       now
@@ -55,7 +55,7 @@ public final class GroupCheckoutDecider {
     if (state.status() != CheckoutStatus.INITIATED || state.recordedAlreadyGuestCheckoutWithStatus(guestStayId, CheckoutStatus.FAILED))
       return new GroupCheckoutEvent[]{};
 
-    var guestCheckoutFailed = new GuestCheckoutFailed(
+    var guestCheckoutFailed = new GuestCheckoutFailureRecorded(
       state.id(),
       guestStayId,
       now

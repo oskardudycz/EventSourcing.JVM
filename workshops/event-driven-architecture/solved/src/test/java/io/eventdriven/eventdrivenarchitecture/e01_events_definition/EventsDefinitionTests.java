@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
 import java.util.Arrays;
-import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -46,8 +45,8 @@ public class EventsDefinitionTests {
     var events = new Object[]
       {
         new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStayIds, OffsetDateTime.now()),
-        new GroupCheckoutEvent.GuestCheckoutCompleted(groupCheckoutId, guestStayIds[0], OffsetDateTime.now()),
-        new GroupCheckoutEvent.GuestCheckoutFailed(groupCheckoutId, guestStayIds[1], OffsetDateTime.now()),
+        new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayIds[0], OffsetDateTime.now()),
+        new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStayIds[1], OffsetDateTime.now()),
         new GroupCheckoutEvent.GroupCheckoutFailed(groupCheckoutId, new UUID[]{guestStayIds[0]}, new UUID[]{guestStayIds[1]}, OffsetDateTime.now()),
         new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStayIds, OffsetDateTime.now())
       };

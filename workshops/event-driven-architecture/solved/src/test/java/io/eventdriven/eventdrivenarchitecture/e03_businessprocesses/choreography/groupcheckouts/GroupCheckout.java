@@ -39,7 +39,7 @@ public record GroupCheckout(
             )),
           CheckoutStatus.INITIATED
         );
-      case GuestCheckoutCompleted guestCheckoutCompleted -> {
+      case GuestCheckoutCompletionRecorded guestCheckoutCompleted -> {
         var guestStayCheckouts = new LinkedHashMap<>(state.guestStayCheckouts());
         guestStayCheckouts.put(guestCheckoutCompleted.guestStayAccountId(), CheckoutStatus.COMPLETED);
 
@@ -49,7 +49,7 @@ public record GroupCheckout(
           state.status()
         );
       }
-      case GuestCheckoutFailed guestCheckoutFailed -> {
+      case GuestCheckoutFailureRecorded guestCheckoutFailed -> {
         var guestStayCheckouts = new LinkedHashMap<>(state.guestStayCheckouts());
         guestStayCheckouts.put(guestCheckoutFailed.guestStayAccountId(), CheckoutStatus.FAILED);
 

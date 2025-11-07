@@ -54,7 +54,7 @@ public class GroupCheckout extends AbstractProcessManager<GroupCheckoutEvent, UU
     if (status != CheckoutStatus.INITIATED || this.guestStayCheckouts.get(guestStayId) == CheckoutStatus.COMPLETED)
       return;
 
-    var guestCheckoutCompleted = new GuestCheckoutCompleted(id(), guestStayId, now);
+    var guestCheckoutCompleted = new GuestCheckoutCompletionRecorded(id(), guestStayId, now);
 
     enqueue(guestCheckoutCompleted);
 
@@ -69,7 +69,7 @@ public class GroupCheckout extends AbstractProcessManager<GroupCheckoutEvent, UU
     if (status != CheckoutStatus.INITIATED || this.guestStayCheckouts.get(guestStayId) == CheckoutStatus.FAILED)
       return;
 
-    var guestCheckoutFailed = new GuestCheckoutFailed(id(), guestStayId, now);
+    var guestCheckoutFailed = new GuestCheckoutFailureRecorded(id(), guestStayId, now);
 
     enqueue(guestCheckoutFailed);
 
@@ -108,10 +108,10 @@ public class GroupCheckout extends AbstractProcessManager<GroupCheckoutEvent, UU
             ));
         this.status = CheckoutStatus.INITIATED;
       }
-      case GuestCheckoutCompleted guestCheckoutCompleted -> {
+      case GuestCheckoutCompletionRecorded guestCheckoutCompleted -> {
         guestStayCheckouts.put(guestCheckoutCompleted.guestStayAccountId(), CheckoutStatus.COMPLETED);
       }
-      case GuestCheckoutFailed guestCheckoutFailed -> {
+      case GuestCheckoutFailureRecorded guestCheckoutFailed -> {
         guestStayCheckouts.put(guestCheckoutFailed.guestStayAccountId(), CheckoutStatus.FAILED);
       }
       case GroupCheckoutCompleted groupCheckoutCompleted -> {

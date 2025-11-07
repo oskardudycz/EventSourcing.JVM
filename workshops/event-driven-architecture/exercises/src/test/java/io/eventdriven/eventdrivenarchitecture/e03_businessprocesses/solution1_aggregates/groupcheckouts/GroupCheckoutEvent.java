@@ -14,14 +14,14 @@ public sealed interface GroupCheckoutEvent {
   ) implements GroupCheckoutEvent {
   }
 
-  record GuestCheckoutCompleted(
+  record GuestCheckoutCompletionRecorded(
     UUID groupCheckoutId,
     UUID guestStayAccountId,
     OffsetDateTime completedAt
   ) implements GroupCheckoutEvent {
   }
 
-  record GuestCheckoutFailed(
+  record GuestCheckoutFailureRecorded(
     UUID groupCheckoutId,
     UUID guestStayAccountId,
     OffsetDateTime failedAt
