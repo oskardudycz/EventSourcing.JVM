@@ -5,6 +5,7 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbit
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.SagaResult.*;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.groupcheckouts.GroupCheckoutDecider.GroupCheckoutCommand.*;
@@ -12,13 +13,13 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas
 
 public final class GroupCheckoutSaga
 {
-  public static Command<CheckOutGuest>[] handle(GroupCheckoutEvent.GroupCheckoutInitiated event) {
+  public static List<Command<CheckOutGuest>> handle(GroupCheckoutEvent.GroupCheckoutInitiated event) {
     return Arrays.stream(event.guestStayAccountIds())
       .map(guestAccountId ->
         Send(
           new CheckOutGuest(guestAccountId, event.initiatedAt(), event.groupCheckoutId())
         )
-      ).toArray(Command[]::new);
+      ).toList();
   }
 
   public static SagaResult handle(GuestStayAccountEvent.GuestCheckedOut event) {

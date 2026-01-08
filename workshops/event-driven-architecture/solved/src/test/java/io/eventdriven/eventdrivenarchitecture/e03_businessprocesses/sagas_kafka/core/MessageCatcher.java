@@ -28,9 +28,7 @@ public class MessageCatcher {
     assertEquals(event, published.getFirst());
   }
 
-  public void shouldReceiveMessages(Object[] messages) {
-    var expectedMessages = Arrays.asList(messages);
-
+  public void shouldReceiveMessages(List<Object> expectedMessages) {
     for (var expectedMessage : expectedMessages) {
       boolean found = published.stream().anyMatch(actualMessage ->
         messagesAreEqual(actualMessage, expectedMessage)

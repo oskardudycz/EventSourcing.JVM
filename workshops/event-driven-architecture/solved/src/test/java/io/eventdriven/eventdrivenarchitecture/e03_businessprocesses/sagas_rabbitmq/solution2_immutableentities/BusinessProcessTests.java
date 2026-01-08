@@ -25,6 +25,7 @@ import org.springframework.test.context.TestPropertySource;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.groupcheckouts.GroupCheckoutDecider.GroupCheckoutCommand.*;
@@ -90,7 +91,7 @@ public class BusinessProcessTests {
 
     // Then - Wait for async saga processing to complete and verify messages
     await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
-      publishedMessages.shouldReceiveMessages(new Object[] {
+      publishedMessages.shouldReceiveMessages(List.of(
         new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
         new CheckOutGuest(guestStays[0], now, groupCheckoutId),
         new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
@@ -105,7 +106,7 @@ public class BusinessProcessTests {
         new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[2], now),
         new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[2], now),
         new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
-      });
+      ));
     });
   }
 
@@ -142,7 +143,7 @@ public class BusinessProcessTests {
 
     // Then - Wait for async saga processing to complete and verify messages
     await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
-      publishedMessages.shouldReceiveMessages(new Object[] {
+      publishedMessages.shouldReceiveMessages(List.of(
         new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
         new CheckOutGuest(guestStays[0], now, groupCheckoutId),
         new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
@@ -157,7 +158,7 @@ public class BusinessProcessTests {
         new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[2], now),
         new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[2], now),
         new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
-      });
+      ));
     });
   }
 
@@ -195,7 +196,7 @@ public class BusinessProcessTests {
 
     // Then - Wait for async saga processing to complete and verify messages
     await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
-      publishedMessages.shouldReceiveMessages(new Object[] {
+      publishedMessages.shouldReceiveMessages(List.of(
         new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
         new CheckOutGuest(guestStays[0], now, groupCheckoutId),
         new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
@@ -217,7 +218,7 @@ public class BusinessProcessTests {
           new UUID[] {guestStays[1], guestStays[2]},
           now
         )
-      });
+      ));
     });
   }
 
@@ -254,7 +255,7 @@ public class BusinessProcessTests {
 
     // Then - Wait for async saga processing to complete and verify messages
     await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
-      publishedMessages.shouldReceiveMessages(new Object[] {
+      publishedMessages.shouldReceiveMessages(List.of(
         new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
         new CheckOutGuest(guestStays[0], now, groupCheckoutId),
         new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[0],
@@ -277,7 +278,7 @@ public class BusinessProcessTests {
           new UUID[] {guestStays[0], guestStays[1], guestStays[2]},
           now
         )
-      });
+      ));
     });
   }
 }

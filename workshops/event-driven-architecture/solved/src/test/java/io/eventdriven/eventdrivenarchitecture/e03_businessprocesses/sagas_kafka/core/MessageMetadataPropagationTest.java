@@ -34,6 +34,7 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -202,11 +203,11 @@ public class MessageMetadataPropagationTest {
     await()
       .atMost(Duration.ofSeconds(100000))
       .untilAsserted(() -> {
-        publishedMessages.shouldReceiveMessages(new Object[]{
+        publishedMessages.shouldReceiveMessages(List.of(
           new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, new UUID[]{guestStayId}, now),
           new CheckOutGuest(guestStayId, now, groupCheckoutId),
-          new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, groupCheckoutId),
-        });
+          new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, groupCheckoutId)
+        ));
 
         assertThat(initiatedMessageId.get()).as("Initiated messageId should be captured").isNotNull();
         assertThat(initiatedCorrelationId.get()).as("Initiated correlationId should be captured").isNotNull();

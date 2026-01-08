@@ -39,7 +39,7 @@ public class MessageBus implements ITestableMessageBus, IEventBus, ICommandBus {
     this.deserializer = deserializer;
   }
 
-  public void send(Object[] commands) {
+  public <Command> void send(List<Command> commands) {
     for (Object command : commands) {
       for (var middleware : middlewares)
         middleware.accept(command);
@@ -58,7 +58,7 @@ public class MessageBus implements ITestableMessageBus, IEventBus, ICommandBus {
     }
   }
 
-  public void publish(Object[] events) {
+  public <Event> void publish(List<Event> events) {
     for (Object event : events) {
       for (var middleware : middlewares)
         middleware.accept(event);

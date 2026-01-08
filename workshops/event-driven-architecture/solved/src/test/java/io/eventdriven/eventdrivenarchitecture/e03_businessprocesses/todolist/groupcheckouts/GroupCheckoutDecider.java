@@ -1,6 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckout.CheckoutStatus;
@@ -21,7 +22,7 @@ public final class GroupCheckoutDecider {
     );
   }
 
-  public static GroupCheckoutEvent[] handle(
+  public static List<GroupCheckoutEvent> handle(
     RecordGuestCheckoutCompletion command,
     GroupCheckout state
   ) {
@@ -29,7 +30,7 @@ public final class GroupCheckoutDecider {
     var now = command.now();
 
     if (state.status() != CheckoutStatus.INITIATED || state.recordedAlreadyGuestCheckoutWithStatus(guestStayId, CheckoutStatus.COMPLETED))
-      return new GroupCheckoutEvent[]{};
+      return List.of();
 
     var guestCheckoutCompleted = new GuestCheckoutCompletionRecorded(
       state.id(),
@@ -40,12 +41,12 @@ public final class GroupCheckoutDecider {
     state = evolve(state, guestCheckoutCompleted);
 
     return state.areAnyOngoingCheckouts() ?
-      new GroupCheckoutEvent[]{guestCheckoutCompleted}
-      : new GroupCheckoutEvent[]{guestCheckoutCompleted, finalize(state, now)};
+      List.of(guestCheckoutCompleted)
+      : List.of(guestCheckoutCompleted, finalize(state, now));
   }
 
 
-  public static GroupCheckoutEvent[] handle(
+  public static List<GroupCheckoutEvent> handle(
     RecordGuestCheckoutFailure command,
     GroupCheckout state
   ) {
@@ -53,7 +54,7 @@ public final class GroupCheckoutDecider {
     var now = command.now();
 
     if (state.status() != CheckoutStatus.INITIATED || state.recordedAlreadyGuestCheckoutWithStatus(guestStayId, CheckoutStatus.FAILED))
-      return new GroupCheckoutEvent[]{};
+      return List.of();
 
     var guestCheckoutFailed = new GuestCheckoutFailureRecorded(
       state.id(),
@@ -64,8 +65,8 @@ public final class GroupCheckoutDecider {
     state = evolve(state, guestCheckoutFailed);
 
     return state.areAnyOngoingCheckouts() ?
-      new GroupCheckoutEvent[]{guestCheckoutFailed}
-      : new GroupCheckoutEvent[]{guestCheckoutFailed, finalize(state, now)};
+      List.of(guestCheckoutFailed)
+      : List.of(guestCheckoutFailed, finalize(state, now));
   }
 
   private static GroupCheckoutEvent finalize(
@@ -88,10 +89,10 @@ public final class GroupCheckoutDecider {
   }
 
 
-  public static GroupCheckoutEvent[] decide(GroupCheckoutCommand command, GroupCheckout state) {
+  public static List<GroupCheckoutEvent> decide(GroupCheckoutCommand command, GroupCheckout state) {
     return switch (command) {
       case InitiateGroupCheckout initiateGroupCheckout ->
-        new GroupCheckoutEvent[]{handle(initiateGroupCheckout)};
+        List.of(handle(initiateGroupCheckout));
       case RecordGuestCheckoutCompletion recordGuestCheckoutCompletion ->
         handle(recordGuestCheckoutCompletion, state);
       case RecordGuestCheckoutFailure recordGuestCheckoutFailure ->

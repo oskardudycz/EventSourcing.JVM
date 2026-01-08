@@ -4,6 +4,8 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Databas
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
 
+import java.util.List;
+
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccount.INITIAL;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccount.evolve;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.decide;
@@ -21,7 +23,7 @@ public class GuestStayAccountFacade {
     var checkedIn = decide(command, INITIAL);
 
     collection.store(command.guestStayId(), evolve(INITIAL, checkedIn));
-    eventBus.publish(new Object[]{checkedIn});
+    eventBus.publish(List.of(checkedIn));
   }
 
   public void recordCharge(RecordCharge command) {
@@ -31,7 +33,7 @@ public class GuestStayAccountFacade {
     var chargeRecorded = decide(command, account);
 
     collection.store(command.guestStayId(), evolve(account, chargeRecorded));
-    eventBus.publish(new Object[]{chargeRecorded});
+    eventBus.publish(List.of(chargeRecorded));
   }
 
   public void recordPayment(RecordPayment command) {
@@ -41,7 +43,7 @@ public class GuestStayAccountFacade {
     var recordPayment = decide(command, account);
 
     collection.store(command.guestStayId(), evolve(account, recordPayment));
-    eventBus.publish(new Object[]{recordPayment});
+    eventBus.publish(List.of(recordPayment));
   }
 
   public void checkOutGuest(CheckOutGuest command) {
@@ -51,6 +53,6 @@ public class GuestStayAccountFacade {
     var checkedOut = decide(command, account);
 
     collection.store(command.guestStayId(), evolve(account, checkedOut));
-    eventBus.publish(new Object[]{checkedOut});
+    eventBus.publish(List.of(checkedOut));
   }
 }

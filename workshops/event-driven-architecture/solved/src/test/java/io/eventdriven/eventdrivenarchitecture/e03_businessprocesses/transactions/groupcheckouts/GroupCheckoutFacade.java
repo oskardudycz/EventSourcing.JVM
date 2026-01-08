@@ -60,7 +60,7 @@ public class GroupCheckoutFacade {
         ));
       }
 
-      eventBus.publish(events.toArray());
+      eventBus.publish(events);
     });
   }
 

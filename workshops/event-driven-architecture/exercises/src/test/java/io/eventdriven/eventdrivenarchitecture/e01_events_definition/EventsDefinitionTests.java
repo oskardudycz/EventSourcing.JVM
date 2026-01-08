@@ -22,15 +22,15 @@ public class EventsDefinitionTests {
 
 
     // When
-    var events = new Object[]
-      {
+    var events = List.of
+      (
         // 2. TODO: Put your sample Guest Stay events here
-      };
+      );
 
     // Then
     final int expectedEventTypesCount = 5;
-    assertEquals(expectedEventTypesCount, events.length);
-    assertEquals(expectedEventTypesCount, Arrays.stream(events).collect(Collectors.groupingBy(Object::getClass)).size());
+    assertEquals(expectedEventTypesCount, events.size());
+    assertEquals(expectedEventTypesCount, events.stream().collect(Collectors.groupingBy(Object::getClass)).size());
   }
 
 
@@ -43,14 +43,14 @@ public class EventsDefinitionTests {
     var clerkId = UUID.randomUUID();
 
     // When
-    var events = new Object[]
-      {
+    var events = List.of
+      (
         // 2. TODO: Put your sample Group Checkout events here
-      };
+      );
 
     // Then
     final int expectedEventTypesCount = 5;
-    assertEquals(expectedEventTypesCount, events.length);
-    assertEquals(expectedEventTypesCount, Arrays.stream(events).collect(Collectors.groupingBy(Object::getClass)).size());
+    assertEquals(expectedEventTypesCount, events.size());
+    assertEquals(expectedEventTypesCount, events.stream().collect(Collectors.groupingBy(Object::getClass)).size());
   }
 }

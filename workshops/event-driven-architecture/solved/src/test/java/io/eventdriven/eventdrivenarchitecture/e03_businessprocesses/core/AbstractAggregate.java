@@ -3,6 +3,7 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Queue;
 
 public abstract class AbstractAggregate<Event, Id> implements Aggregate<Id> {
@@ -16,8 +17,8 @@ public abstract class AbstractAggregate<Event, Id> implements Aggregate<Id> {
     return id;
   }
 
-  public Object[] dequeueUncommittedEvents() {
-    var dequeuedEvents = uncommittedEvents.toArray();
+  public List<Object> dequeueUncommittedEvents() {
+    var dequeuedEvents = uncommittedEvents.stream().toList();
 
     uncommittedEvents.clear();
 

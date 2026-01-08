@@ -28,9 +28,9 @@ public class MessageCatcher {
     assertEquals(event, published.getFirst());
   }
 
-  public void shouldReceiveMessages(Object[] messages) {
+  public void shouldReceiveMessages(List<Object> messages) {
     assertThat(published)
       .usingRecursiveComparison()
-      .isEqualTo(Arrays.asList(messages));
+      .isEqualTo(messages);
   }
 }

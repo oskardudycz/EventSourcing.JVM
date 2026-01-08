@@ -11,7 +11,7 @@ public class CommandBus {
   private final Map<String, Consumer<Object>> handlers = new LinkedHashMap<>();
   private final List<Consumer<Object>> middlewares = new ArrayList<>();
 
-  public void send(Object[] commands) {
+  public <Event> void send(List<Event> commands) {
     for (Object command : commands) {
       var commandHandler = handlers.get(command.getClass().getTypeName());
 

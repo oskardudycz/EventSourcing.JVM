@@ -5,6 +5,7 @@ import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.Event
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.gueststayaccounts.GuestStayAccount;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public class GuestStayFacade {
@@ -27,7 +28,7 @@ public class GuestStayFacade {
 
     // TODO: Fill the implementation calling your entity/aggregate
     // account.doSomething;
-    Object[] events = new Object[]{};
+    var events = List.of();
 
     collection.store(command.guestStayId(), account);
     eventBus.publish(events);
@@ -41,7 +42,7 @@ public class GuestStayFacade {
 
     // TODO: Fill the implementation calling your entity/aggregate
     // account.doSomething;
-    Object[] events = new Object[]{};
+    var events = List.of();
 
     collection.store(command.guestStayId(), account);
     eventBus.publish(events);
@@ -55,7 +56,7 @@ public class GuestStayFacade {
 
     // TODO: Fill the implementation calling your entity/aggregate
     // account.doSomething;
-    Object[] events = new Object[]{};
+    var events = List.of();
 
     collection.store(command.guestStayId(), account);
     eventBus.publish(events);

@@ -19,11 +19,11 @@ public class FunctionalTools {
     }
 
     public static <Entity, Event> Entity reduce(
-      Event[] events,
+      List<Event> events,
       Entity initial,
       BiFunction<Entity, Event, Entity> accumulator
     ) {
-      return Arrays.stream(events).collect(foldLeft(() -> initial, accumulator));
+      return events.stream().collect(foldLeft(() -> initial, accumulator));
     }
 
     public static <Entity, Event> FoldLeft<Entity, Event> foldLeft(

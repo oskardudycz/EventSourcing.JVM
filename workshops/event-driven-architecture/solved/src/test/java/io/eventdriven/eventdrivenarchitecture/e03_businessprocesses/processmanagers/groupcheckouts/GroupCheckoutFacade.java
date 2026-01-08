@@ -7,6 +7,7 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanag
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.gueststayaccounts.GuestStayAccountEvent;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.InitiateGroupCheckout;
@@ -55,8 +56,8 @@ public class GroupCheckoutFacade {
   void publish(Message[] messages) {
     for (Message message : messages) {
       switch (message) {
-        case Message.Command command -> commandBus.send(new Object[]{command.message()});
-        case Message.Event event -> eventBus.publish(new Object[]{event.message()});
+        case Message.Command command -> commandBus.send(List.of(command.message()));
+        case Message.Event event -> eventBus.publish(List.of(event.message()));
       }
     }
   }

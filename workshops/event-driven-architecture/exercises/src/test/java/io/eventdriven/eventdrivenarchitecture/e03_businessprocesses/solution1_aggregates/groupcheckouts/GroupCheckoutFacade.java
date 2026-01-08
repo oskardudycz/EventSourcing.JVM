@@ -6,6 +6,7 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBu
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution1_aggregates.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.*;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public class GroupCheckoutFacade {
@@ -29,7 +30,7 @@ public class GroupCheckoutFacade {
 
     // TODO: Fill the implementation calling your entity/aggregate
     // account.doSomething;
-    Object[] events = new Object[]{};
+    var events = List.of();
 
     collection.store(command.guestStayId(), account);
     eventBus.publish(events);
@@ -44,7 +45,7 @@ public class GroupCheckoutFacade {
 
     // TODO: Fill the implementation calling your entity/aggregate
     // account.doSomething;
-    Object[] events = new Object[]{};
+    var events = List.of();
 
     collection.store(command.guestStayId(), account);
     eventBus.publish(events);

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.transactions.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.InitiateGroupCheckout;
@@ -68,12 +69,12 @@ public class BusinessProcessTests {
     groupCheckoutFacade.initiateGroupCheckout(command);
 
     // Then
-    publishedMessages.shouldReceiveMessages(new Object[] {
+    publishedMessages.shouldReceiveMessages(List.of(
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[1], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[2], now, groupCheckoutId),
       new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
-    });
+    ));
   }
 
   @Test
@@ -108,12 +109,12 @@ public class BusinessProcessTests {
     groupCheckoutFacade.initiateGroupCheckout(command);
 
     // Then
-    publishedMessages.shouldReceiveMessages(new Object[] {
+    publishedMessages.shouldReceiveMessages(List.of(
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[1], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[2], now, groupCheckoutId),
       new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
-    });
+    ));
   }
 
   @Test
@@ -149,7 +150,7 @@ public class BusinessProcessTests {
     groupCheckoutFacade.initiateGroupCheckout(command);
 
     // Then
-    publishedMessages.shouldReceiveMessages(new Object[] {
+    publishedMessages.shouldReceiveMessages(List.of(
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[1],
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
@@ -161,7 +162,7 @@ public class BusinessProcessTests {
         new UUID[] {guestStays[1], guestStays[2]},
         now
       )
-    });
+    ));
   }
 
   @Test
@@ -196,7 +197,7 @@ public class BusinessProcessTests {
     groupCheckoutFacade.initiateGroupCheckout(command);
 
     // Then
-    publishedMessages.shouldReceiveMessages(new Object[] {
+    publishedMessages.shouldReceiveMessages(List.of(
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[0],
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[1],
@@ -209,7 +210,7 @@ public class BusinessProcessTests {
         new UUID[] {guestStays[0], guestStays[1], guestStays[2]},
         now
       )
-    });
+    ));
   }
 }
 

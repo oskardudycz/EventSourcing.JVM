@@ -4,14 +4,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 public class CommandBus implements ICommandBus {
   private final Map<String, Consumer<Object>> handlers = new LinkedHashMap<>();
   private final List<Consumer<Object>> middlewares = new ArrayList<>();
 
-  public void send(Object[] commands) {
+  public <Command> void send(List<Command> commands) {
     for (Object command : commands) {
       var commandHandler = handlers.get(command.getClass().getTypeName());
 
