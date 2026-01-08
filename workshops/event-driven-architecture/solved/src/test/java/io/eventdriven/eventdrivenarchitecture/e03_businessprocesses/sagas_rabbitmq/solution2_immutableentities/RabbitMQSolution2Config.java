@@ -4,7 +4,6 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.IComman
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.IEventBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.groupcheckouts.GroupCheckoutFacade;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.gueststayaccounts.GuestStayAccountFacade;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 
 import jakarta.annotation.PostConstruct;

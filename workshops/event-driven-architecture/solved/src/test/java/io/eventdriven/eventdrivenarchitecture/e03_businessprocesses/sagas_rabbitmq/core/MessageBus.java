@@ -5,7 +5,6 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.IEventB
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.ITestableMessageBus;
 import io.micrometer.tracing.Tracer;
 import org.springframework.amqp.core.Message;
-import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.annotation.QueueBinding;
 import org.springframework.amqp.rabbit.annotation.Queue;
@@ -42,7 +41,7 @@ public class MessageBus implements ITestableMessageBus, IEventBus, ICommandBus {
     this.deserializer = deserializer;
   }
 
-  public void send(Object[] commands) {
+  public <Command> void send(List<Command> commands) {
     for (Object command : commands) {
       for (var middleware : middlewares)
         middleware.accept(command);
@@ -63,7 +62,7 @@ public class MessageBus implements ITestableMessageBus, IEventBus, ICommandBus {
     }
   }
 
-  public void publish(Object[] events) {
+  public <Event> void publish(List<Event> events) {
     for (Object event : events) {
       for (var middleware : middlewares)
         middleware.accept(event);

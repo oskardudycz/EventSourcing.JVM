@@ -10,7 +10,7 @@ public class EventBus {
   private final Map<String, List<Consumer<Object>>> handlers = new ConcurrentHashMap<>();
   private final List<Consumer<Object>> middlewares = new ArrayList<>();
 
-  public void publish(Object[] events) {
+  public void publish(List<Object> events) {
     for (Object event : events) {
 
       for (var middleware : middlewares)

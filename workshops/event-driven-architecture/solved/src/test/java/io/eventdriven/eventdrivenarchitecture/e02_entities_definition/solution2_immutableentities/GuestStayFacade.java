@@ -7,6 +7,7 @@ import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.*;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccount.*;
@@ -25,7 +26,7 @@ public class GuestStayFacade {
     var checkedIn = decide(command, INITIAL);
 
     collection.store(command.guestStayId(), evolve(INITIAL, checkedIn));
-    eventBus.publish(new Object[]{checkedIn});
+    eventBus.publish(List.of(checkedIn));
   }
 
   public void recordCharge(GuestStayAccountCommand.RecordCharge command) {
@@ -35,7 +36,7 @@ public class GuestStayFacade {
     var chargeRecorded = decide(command, account);
 
     collection.store(command.guestStayId(), evolve(account, chargeRecorded));
-    eventBus.publish(new Object[]{chargeRecorded});
+    eventBus.publish(List.of(chargeRecorded));
   }
 
   public void recordPayment(GuestStayAccountCommand.RecordPayment command) {
@@ -45,7 +46,7 @@ public class GuestStayFacade {
     var recordPayment = decide(command, account);
 
     collection.store(command.guestStayId(), evolve(account, recordPayment));
-    eventBus.publish(new Object[]{recordPayment});
+    eventBus.publish(List.of(recordPayment));
   }
 
   public void checkOutGuest(GuestStayAccountCommand.CheckOutGuest command) {
@@ -55,18 +56,18 @@ public class GuestStayFacade {
     var checkedOut = decide(command, account);
 
     collection.store(command.guestStayId(), evolve(account, checkedOut));
-    eventBus.publish(new Object[]{checkedOut});
+    eventBus.publish(List.of(checkedOut));
   }
 
   public void initiateGroupCheckout(GroupCheckoutCommand.InitiateGroupCheckout command) {
-    eventBus.publish(new Object[]{
+    eventBus.publish(List.of(
       new GroupCheckoutEvent.GroupCheckoutInitiated(
         command.groupCheckoutId(),
         command.clerkId(),
         command.guestStayIds(),
         command.now()
-      )}
-    );
+      )
+    ));
   }
 
   public sealed interface GroupCheckoutCommand {

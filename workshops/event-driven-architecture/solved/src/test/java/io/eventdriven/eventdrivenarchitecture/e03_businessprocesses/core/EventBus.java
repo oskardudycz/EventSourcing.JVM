@@ -11,7 +11,7 @@ public class EventBus implements IEventBus {
   private final Map<String, List<Consumer<Object>>> handlers = new LinkedHashMap<>();
   private final List<Consumer<Object>> middlewares = new ArrayList<>();
 
-  public void publish(Object[] events) {
+  public <Event> void publish(List<Event> events) {
     for (Object event : events) {
 
       for (var middleware : middlewares)

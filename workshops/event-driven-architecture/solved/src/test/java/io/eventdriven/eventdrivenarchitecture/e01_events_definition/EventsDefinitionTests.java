@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -17,8 +18,8 @@ public class EventsDefinitionTests {
     var groupCheckoutId = UUID.randomUUID();
 
     // When
-    var events = new Object[]
-      {
+    var events = List.of
+      (
         new GuestStayAccountEvent.GuestCheckedIn(guestStayId, OffsetDateTime.now()),
         new GuestStayAccountEvent.ChargeRecorded(guestStayId, 100, OffsetDateTime.now()),
         new GuestStayAccountEvent.PaymentRecorded(guestStayId, 100, OffsetDateTime.now()),
@@ -26,12 +27,12 @@ public class EventsDefinitionTests {
         new GuestStayAccountEvent.GuestCheckoutFailed(guestStayId,
           GuestStayAccountEvent.GuestCheckoutFailed.Reason.InvalidState, OffsetDateTime.now(),
           groupCheckoutId)
-      };
+      );
 
     // Then
     final int expectedEventTypesCount = 5;
-    assertEquals(expectedEventTypesCount, events.length);
-    assertEquals(expectedEventTypesCount, Arrays.stream(events).collect(Collectors.groupingBy(Object::getClass)).size());
+    assertEquals(expectedEventTypesCount, events.size());
+    assertEquals(expectedEventTypesCount, events.stream().collect(Collectors.groupingBy(Object::getClass)).size());
   }
 
   @Test
@@ -42,18 +43,18 @@ public class EventsDefinitionTests {
     var clerkId = UUID.randomUUID();
 
     // When
-    var events = new Object[]
-      {
+    var events = List.of
+      (
         new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStayIds, OffsetDateTime.now()),
         new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayIds[0], OffsetDateTime.now()),
         new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStayIds[1], OffsetDateTime.now()),
         new GroupCheckoutEvent.GroupCheckoutFailed(groupCheckoutId, new UUID[]{guestStayIds[0]}, new UUID[]{guestStayIds[1]}, OffsetDateTime.now()),
         new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStayIds, OffsetDateTime.now())
-      };
+      );
 
     // Then
     final int expectedEventTypesCount = 5;
-    assertEquals(expectedEventTypesCount, events.length);
-    assertEquals(expectedEventTypesCount, Arrays.stream(events).collect(Collectors.groupingBy(Object::getClass)).size());
+    assertEquals(expectedEventTypesCount, events.size());
+    assertEquals(expectedEventTypesCount, events.stream().collect(Collectors.groupingBy(Object::getClass)).size());
   }
 }

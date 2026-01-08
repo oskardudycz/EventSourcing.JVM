@@ -31,13 +31,13 @@ public class GroupCheckoutFacade {
     eventBus.publish(events);
 
     commandBus.send(
-      Arrays.stream(events)
+      events.stream()
         .filter(GroupCheckoutEvent.GroupCheckoutInitiated.class::isInstance)
         .map(GroupCheckoutEvent.GroupCheckoutInitiated.class::cast)
         .flatMap(e ->
           Arrays.stream(e.guestStayAccountIds())
             .map(id -> new GuestStayAccountDecider.GuestStayAccountCommand.CheckOutGuest(id, e.initiatedAt(), e.groupCheckoutId())))
-        .toArray()
+        .toList()
     );
   }
 

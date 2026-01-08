@@ -6,6 +6,7 @@ import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution1_
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution1_aggregates.gueststayaccounts.GuestStayAccount;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public class GuestStayFacade {
@@ -55,14 +56,14 @@ public class GuestStayFacade {
   }
 
   public void initiateGroupCheckout(GroupCheckoutCommand.InitiateGroupCheckout command) {
-    eventBus.publish(new Object[]{
+    eventBus.publish(List.of(
       new GroupCheckoutEvent.GroupCheckoutInitiated(
         command.groupCheckoutId(),
         command.clerkId(),
         command.guestStayIds(),
         command.now()
-      )}
-    );
+      )
+    ));
   }
 
   public sealed interface GuestStayAccountCommand {
