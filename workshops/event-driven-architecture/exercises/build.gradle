@@ -55,7 +55,6 @@ dependencies {
   implementation 'org.springframework.boot:spring-boot-starter-log4j2:3.4.2'
   implementation 'org.apache.logging.log4j:log4j-api:2.23.1'
   implementation 'org.apache.logging.log4j:log4j-core:2.23.1'
-  implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.23.1'
 
   // Test frameworks
   testImplementation 'org.springframework.boot:spring-boot-starter-test:3.4.2'
@@ -68,24 +67,21 @@ dependencies {
 }
 
 configurations {
-  all*.exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
-  all*.exclude group: 'spring-boot-starter-test', module: 'junit'
+  all {
+    exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+    exclude group: 'ch.qos.logback'
+    exclude group: 'org.apache.logging.log4j', module: 'log4j-to-slf4j'
+  }
 }
 
 def isCi = project.hasProperty('ci') && project.property('ci') == 'true'
 
-tasks.named('test') {
-  doFirst {
-    useJUnitPlatform {
-      if (isCi) {
-        excludeTags 'Exercise'
-      }
+test {
+  useJUnitPlatform {
+    if (isCi) {
+      excludeTags 'Exercise'
     }
   }
-}
-
-test {
-  useJUnitPlatform()
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
 }
