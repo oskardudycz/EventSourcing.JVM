@@ -1,0 +1,1 @@
+{"shoppingCartId":"guid_1","clientId":"anonymised","confirmedAt":"[Date1]"}
