@@ -1,0 +1,65 @@
+public interface io.eventdriven.eventsversioning.v1.ShoppingCartEvent {
+}
+
+public static final record io.eventdriven.eventsversioning.v1.ShoppingCartEvent$ProductItemAddedToShoppingCart implements io.eventdriven.eventsversioning.v1.ShoppingCartEvent {
+  public ProductItemAddedToShoppingCart(java.util.UUID, io.eventdriven.eventsversioning.v1.productitems.PricedProductItem);
+  public final boolean equals(java.lang.Object);
+  public final int hashCode();
+  public io.eventdriven.eventsversioning.v1.productitems.PricedProductItem productItem();
+  public java.util.UUID shoppingCartId();
+  public final java.lang.String toString();
+}
+
+public static final record io.eventdriven.eventsversioning.v1.ShoppingCartEvent$ProductItemRemovedFromShoppingCart implements io.eventdriven.eventsversioning.v1.ShoppingCartEvent {
+  public ProductItemRemovedFromShoppingCart(java.util.UUID, io.eventdriven.eventsversioning.v1.productitems.PricedProductItem);
+  public final boolean equals(java.lang.Object);
+  public final int hashCode();
+  public io.eventdriven.eventsversioning.v1.productitems.PricedProductItem productItem();
+  public java.util.UUID shoppingCartId();
+  public final java.lang.String toString();
+}
+
+public static final record io.eventdriven.eventsversioning.v1.ShoppingCartEvent$ShoppingCartCanceled implements io.eventdriven.eventsversioning.v1.ShoppingCartEvent {
+  public ShoppingCartCanceled(java.util.UUID, java.time.LocalDateTime);
+  public java.time.LocalDateTime canceledAt();
+  public final boolean equals(java.lang.Object);
+  public final int hashCode();
+  public java.util.UUID shoppingCartId();
+  public final java.lang.String toString();
+}
+
+public static final record io.eventdriven.eventsversioning.v1.ShoppingCartEvent$ShoppingCartConfirmed implements io.eventdriven.eventsversioning.v1.ShoppingCartEvent {
+  public ShoppingCartConfirmed(java.util.UUID, java.time.LocalDateTime);
+  public java.time.LocalDateTime confirmedAt();
+  public final boolean equals(java.lang.Object);
+  public final int hashCode();
+  public java.util.UUID shoppingCartId();
+  public final java.lang.String toString();
+}
+
+public static final record io.eventdriven.eventsversioning.v1.ShoppingCartEvent$ShoppingCartOpened implements io.eventdriven.eventsversioning.v1.ShoppingCartEvent {
+  public ShoppingCartOpened(java.util.UUID, java.util.UUID);
+  public java.util.UUID clientId();
+  public final boolean equals(java.lang.Object);
+  public final int hashCode();
+  public java.util.UUID shoppingCartId();
+  public final java.lang.String toString();
+}
+
+public final record io.eventdriven.eventsversioning.v1.productitems.PricedProductItem {
+  public PricedProductItem(io.eventdriven.eventsversioning.v1.productitems.ProductItem, double);
+  public final boolean equals(java.lang.Object);
+  public final int hashCode();
+  public io.eventdriven.eventsversioning.v1.productitems.ProductItem productItem();
+  public final java.lang.String toString();
+  public double unitPrice();
+}
+
+public final record io.eventdriven.eventsversioning.v1.productitems.ProductItem {
+  public ProductItem(java.util.UUID, int);
+  public final boolean equals(java.lang.Object);
+  public final int hashCode();
+  public java.util.UUID productId();
+  public int quantity();
+  public final java.lang.String toString();
+}
