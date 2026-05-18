@@ -33,6 +33,9 @@ dependencies {
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
   testImplementation 'org.junit.platform:junit-platform-launcher:1.10.2'
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+
+  // Approval / snapshot testing
+  testImplementation 'com.approvaltests:approvaltests:24.0.0'
 }
 
 tasks.named('test') {
