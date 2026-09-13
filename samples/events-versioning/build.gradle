@@ -37,6 +37,10 @@ dependencies {
   // Approval / snapshot testing
   testImplementation 'com.approvaltests:approvaltests:24.0.0'
   testImplementation 'io.github.classgraph:classgraph:4.8.179'
+
+  // Contract testing
+  testImplementation 'io.event-driven:strictland:0.4.0'
+  testImplementation 'org.jspecify:jspecify:1.0.0'
 }
 
 tasks.named('test') {
