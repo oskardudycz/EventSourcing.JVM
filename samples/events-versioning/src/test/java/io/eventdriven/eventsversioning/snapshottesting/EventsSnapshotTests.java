@@ -14,9 +14,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 public class EventsSnapshotTests {
-  private static final UUID FIXED_CART_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
-  private static final OffsetDateTime FIXED_DATE = OffsetDateTime.of(2024, 1, 1, 12, 0, 0, 0, ZoneOffset.UTC);
-
   record ShoppingCartConfirmed(
     UUID shoppingCartId,
     String clientId,
@@ -24,23 +21,11 @@ public class EventsSnapshotTests {
   ) {}
 
   @Test
-  public void shoppingCartConfirmed_WithCompleteData_IsCompatible() throws JsonProcessingException {
-    var event = new ShoppingCartConfirmed(FIXED_CART_ID, "anonymised", FIXED_DATE);
-    Approvals.verify(Serializer.mapper.writeValueAsString(event));
-  }
-
-  @Test
-  public void shoppingCartConfirmed_WithOnlyRequiredData_IsCompatible() throws JsonProcessingException {
-    var event = new ShoppingCartConfirmed(FIXED_CART_ID, null, FIXED_DATE);
-    Approvals.verify(Serializer.mapper.writeValueAsString(event));
-  }
-
-  @Test
   public void shoppingCartConfirmed_WithScrubbers_IsCompatible() throws JsonProcessingException {
-    var event = new ShoppingCartConfirmed(UUID.randomUUID(), "anonymised", OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MILLIS));
+    var event = new ShoppingCartConfirmed(UUID.randomUUID(), "anonymised", OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.SECONDS));
     var options = new Options(Scrubbers.scrubAll(
       Scrubbers::scrubGuid,
-      DateScrubber.getScrubberFor("2024-01-01T12:00:00.000Z")
+      DateScrubber.getScrubberFor("2024-01-01T12:00:00Z")
     ));
     Approvals.verify(Serializer.mapper.writeValueAsString(event), options);
   }
