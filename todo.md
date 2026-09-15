@@ -14,21 +14,21 @@ Working directory for every command: `samples/distributed-processes`.
   - [x] in-memory command and integration buses, depth-first dispatch
   - [x] duplicate command handler throws; unhandled command throws
   - [x] bus tests
-- [ ] **0.2** `EventStore` interface, `ESDBEventStore`, `InMemoryEventStore`
-  - [ ] read the workshop model first: `introduction-to-event-sourcing/solved/.../e13_entities_definition/core/EventStore.java`
-  - [ ] append both persists **and** dispatches — no store-then-publish gap
-  - [ ] JSON envelopes, same Jackson config as the workshop
-  - [ ] expected revisions on top of the workshop version: `StreamAlreadyExists`, `Conflict`
-  - [ ] `ReadResult.Success` carries `Object[]` instead of `ResolvedEvent[]`
-  - [ ] `InMemoryEventStoreTests`
-- [ ] **0.3** `AggregateStore` on `EventStore` + version fix
-  - [ ] constructor takes `EventStore` (no compatibility constructor — nothing constructs it)
-  - [ ] `get` sets `version` during replay
-  - [ ] `AggregateStoreTests`
-- [ ] **0.4** Test helpers
-  - [ ] `AggregateSpecification` — `EventSourcedSpecification` is decider-shaped and cannot do this
-  - [ ] `MessageCatcher` with a readable transcript on failure
-  - [ ] proven against `ShoppingCart`
+- [x] **0.2** `EventStore` interface, `ESDBEventStore`, `InMemoryEventStore`
+  - [x] read the workshop model first: `introduction-to-event-sourcing/solved/.../e13_entities_definition/core/EventStore.java`
+  - [x] append both persists **and** dispatches — no store-then-publish gap
+  - [x] JSON envelopes, same Jackson config as the workshop
+  - [x] expected revisions on top of the workshop version: `StreamAlreadyExists`, `Conflict`
+  - [x] `ReadResult.Success` carries `Object[]` instead of `ResolvedEvent[]`
+  - [x] `InMemoryEventStoreTests`
+- [x] **0.3** `AggregateStore` on `EventStore` + version fix
+  - [x] constructor takes `EventStore` (no compatibility constructor — nothing constructs it)
+  - [x] `get` sets `version` during replay
+  - [x] `AggregateStoreTests`
+- [x] **0.4** Test helpers
+  - [x] `AggregateSpecification` — `EventSourcedSpecification` is decider-shaped and cannot do this
+  - [x] `MessageCatcher` with a readable transcript on failure
+  - [x] proven against `ShoppingCart`
 
 ## Phase 1 — Modules  *(four parallel tracks, after Phase 0)*
 
@@ -98,3 +98,6 @@ Working directory for every command: `samples/distributed-processes`.
       undelivered. Inventing a failure path here was judged out of scope; confirm.
 - [ ] `core/messaging` duplicates `core/commands` / `core/events`, which stay because
       `hotelmanagement` depends on them. Unifying them is a follow-up, not part of this work.
+- [ ] Tenth defect found in step 0.4, not in spec §11: `PricedProductItem.mergeWith` adds
+      `productItem.quantity()` to itself instead of `quantity() + productItem.quantity()`, so adding
+      the same product twice doubles the incoming quantity rather than summing. Owned by track A.

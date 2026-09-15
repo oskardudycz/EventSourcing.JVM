@@ -176,9 +176,16 @@ ecommerce/
 
 ### 5.1 `EventStore`
 
-Extract the current `core/esdb/EventStore` class into an interface. Its result types
-(`ReadResult`, `AppendResult`, `DeleteResult`, each a sealed interface) stay — they are what lets an
-in-memory implementation model optimistic concurrency honestly.
+Extract the current `core/esdb/EventStore` class into an interface, narrowed to what this sample
+actually uses: reading and appending. Its result types (`ReadResult`, `AppendResult`, `DeleteResult`,
+each a sealed interface) stay — they are what lets an in-memory implementation model optimistic
+concurrency honestly.
+
+`deleteStream` (both overloads) and `setStreamMaxAge` are **not** on the interface. They have zero
+callers anywhere in the sample, and putting them on an interface would force every implementation to
+answer a question nothing asks — the in-memory one could only throw. They stay as ordinary methods on
+`ESDBEventStore`, where they already were; `DeleteResult` stays nested in `EventStore` because they
+still return it.
 
 One correction to an earlier draft: `ReadResult.Success` currently carries `ResolvedEvent[]`, an
 EventStoreDB type an in-memory store would have to fabricate. It does not have to — `read()` has
@@ -196,8 +203,6 @@ public interface EventStore {
   ReadResult read(String streamId);
   AppendResult append(String streamId, Object... events);
   AppendResult append(String streamId, ExpectedRevision expectedRevision, Object... events);
-  DeleteResult deleteStream(String streamId);
-  AppendResult setStreamMaxAge(String streamId, Duration maxAge);
 }
 ```
 
