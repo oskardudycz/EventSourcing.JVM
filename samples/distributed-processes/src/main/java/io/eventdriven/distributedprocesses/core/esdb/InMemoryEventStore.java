@@ -1,0 +1,137 @@
+package io.eventdriven.distributedprocesses.core.esdb;
+
+import com.eventstore.dbclient.ExpectedRevision;
+import com.eventstore.dbclient.Position;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.eventdriven.distributedprocesses.core.messaging.InternalEventBus;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+
+public class InMemoryEventStore implements EventStore, InternalEventBus {
+  private final Map<String, List<EventEnvelope>> streams = new HashMap<>();
+  private final Map<Class<?>, List<Consumer<Object>>> handlers = new HashMap<>();
+  private final List<Consumer<Object>> middlewares = new ArrayList<>();
+
+  @Override
+  public ReadResult read(String streamId) {
+    var stream = streams.get(streamId);
+
+    if (stream == null)
+      return new ReadResult.StreamDoesNotExist();
+
+    if (stream.isEmpty())
+      return new ReadResult.NoEventsFound();
+
+    return new ReadResult.Success(stream.stream().map(InMemoryEventStore::deserialize).toArray());
+  }
+
+  @Override
+  public AppendResult append(String streamId, Object... events) {
+    return append(streamId, ExpectedRevision.noStream(), events);
+  }
+
+  @Override
+  public AppendResult append(String streamId, ExpectedRevision expectedRevision, Object... events) {
+    var actualRevision = revisionOf(streamId);
+
+    if (!matches(expectedRevision, actualRevision)) {
+      return expectedRevision.equals(ExpectedRevision.noStream())
+        ? new AppendResult.StreamAlreadyExists(actualRevision)
+        : new AppendResult.Conflict(expectedRevision, actualRevision);
+    }
+
+    streams
+      .computeIfAbsent(streamId, ignored -> new ArrayList<>())
+      .addAll(Arrays.stream(events).map(InMemoryEventStore::serialize).toList());
+
+    var result = new AppendResult.Success(revisionOf(streamId), anyPosition);
+
+    notify(events);
+
+    return result;
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
+  public <Event> InternalEventBus subscribe(Class<Event> type, Consumer<Event> handler) {
+    handlers
+      .computeIfAbsent(type, ignored -> new ArrayList<>())
+      .add((Consumer<Object>) handler);
+
+    return this;
+  }
+
+  @Override
+  public InternalEventBus use(Consumer<Object> middleware) {
+    middlewares.add(middleware);
+
+    return this;
+  }
+
+  private void notify(Object... events) {
+    for (var event : events) {
+      for (var middleware : middlewares) {
+        middleware.accept(event);
+      }
+
+      for (var handler : handlers.getOrDefault(event.getClass(), List.of())) {
+        handler.accept(event);
+      }
+    }
+  }
+
+  private ExpectedRevision revisionOf(String streamId) {
+    var stream = streams.getOrDefault(streamId, List.of());
+
+    return stream.isEmpty()
+      ? ExpectedRevision.noStream()
+      : ExpectedRevision.expectedRevision(stream.size() - 1);
+  }
+
+  private static boolean matches(ExpectedRevision expected, ExpectedRevision actual) {
+    if (expected.equals(ExpectedRevision.any()) || expected.equals(actual))
+      return true;
+
+    return expected.equals(ExpectedRevision.streamExists()) && !actual.equals(ExpectedRevision.noStream());
+  }
+
+  private static EventEnvelope serialize(Object event) {
+    try {
+      return new EventEnvelope(event.getClass().getTypeName(), mapper.writeValueAsString(event));
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Cannot serialize event of type %s".formatted(event.getClass()), e);
+    }
+  }
+
+  private static Object deserialize(EventEnvelope envelope) {
+    try {
+      return mapper.readValue(envelope.json(), Class.forName(envelope.eventType()));
+    } catch (Exception e) {
+      throw new IllegalStateException("Cannot deserialize event of type %s".formatted(envelope.eventType()), e);
+    }
+  }
+
+  record EventEnvelope(String eventType, String json) {
+  }
+
+  private static final Position anyPosition = new Position(0, 0);
+
+  private static final ObjectMapper mapper =
+    new JsonMapper()
+      .registerModule(new JavaTimeModule())
+      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+      .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+      .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
+      .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+}

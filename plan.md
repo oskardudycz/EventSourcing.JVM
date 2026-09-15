@@ -160,7 +160,9 @@ Context:
 - EventStore is currently a class wrapping EventStoreDBClient. Public surface: read(String),
   append(String, Object...), append(String, ExpectedRevision, Object...), deleteStream(String),
   deleteStream(String, ExpectedRevision), setStreamMaxAge(String, Duration), plus nested sealed
-  interfaces ReadResult, AppendResult and DeleteResult.
+  interfaces ReadResult, AppendResult and DeleteResult. Only read and the two appends go ON the
+  interface — deleteStream and setStreamMaxAge have zero callers anywhere, so they stay as ordinary
+  methods on ESDBEventStore rather than forcing an in-memory implementation nothing asks for.
 - read() has ZERO callers and ReadResult is referenced nowhere else, so its shape is free.
 - AppendResult.Success(ExpectedRevision nextExpectedRevision, Position logPosition) IS referenced by
   core/commands/CommandBus, core/events/EventBus and their ESDB implementations. Do not change
@@ -188,8 +190,7 @@ Do this:
        ExpectedRevision.any() always appends
        success -> AppendResult.Success(ExpectedRevision.expectedRevision(newRevision), anyPosition)
      Revisions are zero-based: a stream holding one event is at revision 0;
-   - read on an unknown stream returns ReadResult.StreamDoesNotExist; deleteStream removes the
-     stream, returning DeleteResult.StreamDoesNotExist when absent;
+   - read on an unknown stream returns ReadResult.StreamDoesNotExist;
    - AFTER a successful append — and only after — dispatches each appended event to middleware and
      then to typed subscribers, synchronously and depth-first, exactly like the workshop store. A
      failed append dispatches nothing;
@@ -286,14 +287,17 @@ Create, in src/test/java/io/eventdriven/testing/:
    Keep the generics honest — EventSourcedSpecification shadows its type parameters in its inner
    builder and forces raw types at call sites. Do not repeat that.
 
-2. MessageCatcher — a spy for the channels from steps 0.1 and 0.2:
-   - a recorded List<Object>, appended by catchMessage(Object), registered with
+2. MessageCatcher — a spy for the channels from steps 0.1 and 0.2. Keep the SAME surface as the
+   workshops' own MessageCatcher (workshops/event-driven-architecture/solved/.../e03_businessprocesses/
+   core/MessageCatcher.java and the e13/e14 copies) so a reader moving between them hits no renames:
+   - a public List<Object> published, appended by catchMessage(Object), registered with
      eventBus.use(catcher::catchMessage) and commandBus.use(catcher::catchMessage);
    - reset();
    - shouldReceiveMessages(Object... expected) asserting the recorded sequence equals the expected
      one, in order, using AssertJ's usingRecursiveComparison so arrays inside records compare by
      value;
-   - shouldNotReceiveAnyMessage();
+   - shouldReceiveSingleEvent(Event);
+   - shouldNotReceiveAnyEvent();
    - on failure, print the full recorded transcript one message per line. These assertions are the
      documentation of the process, so a failure must be readable.
 

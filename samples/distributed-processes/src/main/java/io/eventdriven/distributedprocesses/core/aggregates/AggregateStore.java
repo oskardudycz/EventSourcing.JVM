@@ -1,24 +1,24 @@
 package io.eventdriven.distributedprocesses.core.aggregates;
 
-import com.eventstore.dbclient.*;
+import com.eventstore.dbclient.ExpectedRevision;
+import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.http.ETag;
-import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
 import jakarta.persistence.EntityNotFoundException;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+// The event store dispatches what it appends, so appending here is also publishing:
+// neither this store nor the facades built on it need an event bus of their own.
 public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, Id> {
-  private final EventStoreDBClient eventStore;
+  private final EventStore eventStore;
   private final Function<Id, String> mapToStreamId;
   private final Supplier<Entity> getEmpty;
 
   public AggregateStore(
-    EventStoreDBClient eventStore,
+    EventStore eventStore,
     Function<Id, String> mapToStreamId,
     Supplier<Entity> getEmpty
   ) {
@@ -31,25 +31,16 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
   public Optional<Entity> get(Id id) {
     var streamId = mapToStreamId.apply(id);
 
-    var events = getEvents(streamId);
-
-    if (events.isEmpty())
-      return Optional.empty();
-
-    var current = getEmpty.get();
-
-    for (var event : events.get()) {
-      current.when(event);
-    }
-
-    return Optional.ofNullable(current);
+    return switch (eventStore.read(streamId)) {
+      case EventStore.ReadResult.StreamDoesNotExist ignored -> Optional.empty();
+      case EventStore.ReadResult.NoEventsFound ignored -> Optional.empty();
+      case EventStore.ReadResult.Success success -> Optional.of(replay(success.events()));
+      case EventStore.ReadResult.UnexpectedFailure failure -> throw new RuntimeException(failure.t());
+    };
   }
 
   public ETag add(Entity entity) {
-    return appendEvents(
-      entity,
-      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream())
-    );
+    return appendEvents(entity, ExpectedRevision.noStream());
   }
 
   public ETag getAndUpdate(
@@ -64,7 +55,7 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
 
     handle.accept(entity);
 
-    return appendEvents(entity, AppendToStreamOptions.get().expectedRevision(expectedRevision));
+    return appendEvents(entity, ExpectedRevision.expectedRevision(expectedRevision));
   }
 
   public ETag getAndUpdate(
@@ -80,46 +71,50 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
 
     handle.accept(entity);
 
-    return appendEvents(entity, AppendToStreamOptions.get().expectedRevision(expectedVersion));
+    return appendEvents(entity, ExpectedRevision.expectedRevision(expectedVersion));
   }
 
-  private Optional<List<Event>> getEvents(String streamId) {
-    ReadResult result;
-    try {
-      result = eventStore.readStream(streamId, ReadStreamOptions.get()).get();
-    } catch (Throwable e) {
-      Throwable innerException = e.getCause();
-
-      if (innerException instanceof StreamNotFoundException) {
-        return Optional.empty();
-      }
-      throw new RuntimeException(e);
-    }
-
-    var events = result.getEvents().stream()
-      .map(EventSerializer::<Event>deserialize)
-      .filter(Optional::isPresent)
-      .map(Optional::get)
-      .toList();
-
-    return Optional.of(events);
-  }
-
-  public ETag appendEvents(Entity entity, AppendToStreamOptions appendOptions) {
+  public ETag appendEvents(Entity entity, ExpectedRevision expectedRevision) {
     var streamId = mapToStreamId.apply(entity.id());
-    var events = Arrays.stream(entity.dequeueUncommittedEvents())
-      .map(EventSerializer::serialize);
+    var events = entity.dequeueUncommittedEvents();
 
-    try {
-      var result = eventStore.appendToStream(
-        streamId,
-        appendOptions,
-        events.iterator()
-      ).get();
+    return switch (eventStore.append(streamId, expectedRevision, events)) {
+      case EventStore.AppendResult.Success success -> ETag.weak(success.nextExpectedRevision());
+      case EventStore.AppendResult.StreamAlreadyExists alreadyExists -> throw new IllegalStateException(
+        "Cannot append to stream %s: expected %s, but it is at %s"
+          .formatted(streamId, describe(expectedRevision), describe(alreadyExists.actual()))
+      );
+      case EventStore.AppendResult.Conflict conflict -> throw new IllegalStateException(
+        "Cannot append to stream %s: expected %s, but it is at %s"
+          .formatted(streamId, describe(conflict.expected()), describe(conflict.actual()))
+      );
+      case EventStore.AppendResult.UnexpectedFailure failure -> throw new RuntimeException(failure.t());
+    };
+  }
 
-      return ETag.weak(result.getNextExpectedRevision());
-    } catch (Throwable e) {
-      throw new RuntimeException(e);
+  @SuppressWarnings("unchecked")
+  private Entity replay(Object[] events) {
+    var current = getEmpty.get();
+
+    for (var event : events) {
+      current.when((Event) event);
     }
+
+    current.version = events.length - 1;
+
+    return current;
+  }
+
+  private static String describe(ExpectedRevision revision) {
+    if (revision.equals(ExpectedRevision.noStream()))
+      return "no stream";
+
+    if (revision.equals(ExpectedRevision.streamExists()))
+      return "stream exists";
+
+    if (revision.equals(ExpectedRevision.any()))
+      return "any revision";
+
+    return "revision %s".formatted(revision);
   }
 }
