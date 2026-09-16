@@ -98,20 +98,20 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
     progress(reservedAt);
   }
 
-  public void recordPackageSent(OffsetDateTime sentAt) {
-    if (status != Status.Confirmed || shipment != ShipmentProgress.Reserved)
-      return;
-
-    enqueue(new OrderPackageSent(id, paymentId, sentAt));
-  }
-
   public void recordPaymentCapture(OffsetDateTime capturedAt) {
     if (status != Status.Confirmed || payment != PaymentProgress.Authorized)
       return;
 
-    enqueue(new OrderPaymentCaptured(id, paymentId, totalPrice, capturedAt));
+    enqueue(new OrderPaymentCaptured(id, paymentId, shipmentId, totalPrice, capturedAt));
+  }
 
-    progress(capturedAt);
+  public void recordPackageSent(OffsetDateTime sentAt) {
+    if (status != Status.Confirmed
+      || payment != PaymentProgress.Captured
+      || shipment != ShipmentProgress.Reserved)
+      return;
+
+    enqueue(new OrderPackageSent(id, shipmentId, sentAt));
   }
 
   public void recordDelivery(OffsetDateTime deliveredAt) {
@@ -170,7 +170,7 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
     if (status == Status.Opened
       && payment == PaymentProgress.Authorized
       && shipment == ShipmentProgress.Reserved) {
-      enqueue(new OrderConfirmed(id, shipmentId, now));
+      enqueue(new OrderConfirmed(id, paymentId, now));
       return;
     }
 
@@ -231,8 +231,8 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
         shipment = ShipmentProgress.Reserved;
       }
       case OrderConfirmed confirmed -> status = Status.Confirmed;
-      case OrderPackageSent packageSent -> shipment = ShipmentProgress.Sent;
       case OrderPaymentCaptured paymentCaptured -> payment = PaymentProgress.Captured;
+      case OrderPackageSent packageSent -> shipment = ShipmentProgress.Sent;
       case OrderShipmentDelivered shipmentDelivered -> shipment = ShipmentProgress.Delivered;
       case OrderPaymentFailed paymentFailed -> payment = PaymentProgress.Failed;
       case OrderShipmentFailed shipmentFailed -> shipment = ShipmentProgress.Failed;

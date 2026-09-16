@@ -48,7 +48,7 @@ public final class OrdersConfig {
     internalEventBus
       .subscribe(OrderInitialized.class, forwarder::on)
       .subscribe(OrderConfirmed.class, forwarder::on)
-      .subscribe(OrderPackageSent.class, forwarder::on)
+      .subscribe(OrderPaymentCaptured.class, forwarder::on)
       .subscribe(OrderCompleted.class, forwarder::on)
       .subscribe(OrderCancelled.class, forwarder::on);
 

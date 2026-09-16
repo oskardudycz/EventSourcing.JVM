@@ -51,9 +51,9 @@ public class OrderSagaTests {
       })
       .handle(RecordOrderStockReservation.class, _ -> {
       })
-      .handle(RecordOrderPackageSent.class, _ -> {
-      })
       .handle(RecordOrderPaymentCapture.class, _ -> {
+      })
+      .handle(RecordOrderPackageSent.class, _ -> {
       })
       .handle(RecordOrderDelivery.class, _ -> {
       })
@@ -102,9 +102,7 @@ public class OrderSagaTests {
       orderId.value(), paymentId, totalPrice, now, expiresAt
     ));
 
-    sent.shouldReceiveMessages(
-      new RecordOrderPaymentAuthorization(orderId, paymentId, now)
-    );
+    sent.shouldReceiveMessages(new RecordOrderPaymentAuthorization(orderId, paymentId, now));
   }
 
   @Test
@@ -117,24 +115,8 @@ public class OrderSagaTests {
   }
 
   @Test
-  public void aConfirmedOrderSendsThePackageItAlreadyReserved() {
-    saga.on(new OrderExternalEvent.OrderConfirmed(orderId, shipmentId, now));
-
-    sent.shouldReceiveMessages(new ShipmentCommand.SendPackage(shipmentId));
-  }
-
-  @Test
-  public void aSentPackageIsRecordedAgainstTheOrder() {
-    saga.on(new ShipmentExternalEvent.PackageWasSent(
-      shipmentId, orderId.value(), shipmentItems(), now
-    ));
-
-    sent.shouldReceiveMessages(new RecordOrderPackageSent(orderId, now));
-  }
-
-  @Test
-  public void theOrdersOwnDispatchEventIsWhatTriggersTheCapture() {
-    saga.on(new OrderExternalEvent.OrderPackageSent(orderId, paymentId, now));
+  public void aConfirmedOrderCapturesTheMoneyBeforeAnythingShips() {
+    saga.on(new OrderExternalEvent.OrderConfirmed(orderId, paymentId, now));
 
     sent.shouldReceiveMessages(new PaymentCommand.CapturePayment(paymentId));
   }
@@ -146,6 +128,22 @@ public class OrderSagaTests {
     ));
 
     sent.shouldReceiveMessages(new RecordOrderPaymentCapture(orderId, now));
+  }
+
+  @Test
+  public void theOrdersOwnCaptureEventIsWhatReleasesThePackage() {
+    saga.on(new OrderExternalEvent.OrderPaymentCaptured(orderId, shipmentId, totalPrice, now));
+
+    sent.shouldReceiveMessages(new ShipmentCommand.SendPackage(shipmentId));
+  }
+
+  @Test
+  public void aSentPackageIsRecordedAgainstTheOrder() {
+    saga.on(new ShipmentExternalEvent.PackageWasSent(
+      shipmentId, orderId.value(), shipmentItems(), now
+    ));
+
+    sent.shouldReceiveMessages(new RecordOrderPackageSent(orderId, now));
   }
 
   @Test

@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MessageCatcher {
   public List<Object> published = new ArrayList<>();
@@ -35,7 +34,8 @@ public class MessageCatcher {
         %s""".formatted(Transcript.numbered(List.of(event)), Transcript.numbered(published)))
       .hasSize(1);
     assertThat(published).hasOnlyElementsOfTypes(event.getClass()).hasSize(1);
-    assertEquals(event, published.getFirst());
+    // record equality compares array components by reference
+    assertThat(published.getFirst()).usingRecursiveComparison().isEqualTo(event);
   }
 
   public void shouldReceiveMessages(Object... messages) {

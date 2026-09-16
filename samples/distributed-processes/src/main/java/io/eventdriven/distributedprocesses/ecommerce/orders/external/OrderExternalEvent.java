@@ -27,15 +27,16 @@ public sealed interface OrderExternalEvent {
 
   record OrderConfirmed(
     OrderId orderId,
-    ShipmentId shipmentId,
+    PaymentId paymentId,
     OffsetDateTime confirmedAt
   ) implements OrderExternalEvent {
   }
 
-  record OrderPackageSent(
+  record OrderPaymentCaptured(
     OrderId orderId,
-    PaymentId paymentId,
-    OffsetDateTime sentAt
+    ShipmentId shipmentId,
+    double amount,
+    OffsetDateTime capturedAt
   ) implements OrderExternalEvent {
   }
 

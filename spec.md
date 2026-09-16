@@ -94,17 +94,17 @@ sequenceDiagram
     end
 
     Note over Order: the second hold to arrive confirms the order
-    Order->>Saga: OrderConfirmed (external)
+    Order->>Saga: OrderConfirmed (external, carries the paymentId)
 
     rect rgb(245, 245, 245)
-    Note over Saga, Ship: commit phase — the goods leave, the money moves
-    Saga->>Ship: SendPackage
-    Ship->>Saga: PackageWasSent (external)
-    Saga->>Order: RecordOrderPackageSent
-    Order->>Saga: OrderPackageSent (external, carries the paymentId)
+    Note over Saga, Ship: commit phase — the money moves first, then the goods leave
     Saga->>Pay: CapturePayment
     Pay->>Saga: PaymentCaptured (external)
     Saga->>Order: RecordOrderPaymentCapture
+    Order->>Saga: OrderPaymentCaptured (external, carries the shipmentId)
+    Saga->>Ship: SendPackage
+    Ship->>Saga: PackageWasSent (external)
+    Saga->>Order: RecordOrderPackageSent
     Ship->>Saga: PackageWasDelivered (external)
     Saga->>Order: RecordOrderDelivery
     end
@@ -162,11 +162,14 @@ stock, nothing, or neither. Waiting is what makes the process safe when two modu
 `RecordOrderPaymentAuthorization` then `RecordOrderStockReservation` and the reverse produce the same
 state.
 
-**The order carries the data the saga lacks.** `StockReserved` does not know the payment, and
-`PackageWasSent` does not know it either. So the saga routes through the order: it records the
-dispatch, and the order republishes it as `OrderPackageSent` **with the `paymentId`**, which is what
-lets the next command be `CapturePayment`. This is the article's pragmatic trick, and it is what
-keeps the saga stateless.
+**The order carries the data the saga lacks.** `PaymentCaptured` does not know which shipment is
+waiting on it — the payments module has never heard of a shipment. So the saga routes through the
+order: it records the capture, and the order republishes it as `OrderPaymentCaptured` **with the
+`shipmentId`**, which is what lets the next command be `SendPackage`. This is the article's
+pragmatic trick, and it is what keeps the saga stateless.
+
+**Nothing ships before the money moves.** `recordPackageSent` acts only when the payment is already
+`Captured`, so a dispatch that somehow arrives early appends nothing and returns.
 
 **The order also decides the compensation.** `OrderCancelled` carries where each participant stood
 when the order gave up:
@@ -267,9 +270,9 @@ step a real gateway declines. Capture, void and refund are recorded and then han
 a client that does not answer back. A capture that fails on a valid authorisation is rare, and
 modelling three more callbacks would repeat a lesson the authorisation already teaches.
 
-**A sent package has no return path.** The parcel leaves before the funds are captured, which is what
-merchants do. If the order is cancelled after dispatch, the saga voids or refunds the money and
-records `shipmentState = Sent`, but nothing recalls the parcel. Returns are a process of their own.
+**A sent package has no return path.** Nothing ships before the capture, so an order cancelled after
+dispatch is rare — it needs an operator. When it happens the saga refunds the money and records
+`shipmentState = Sent`, but nothing recalls the parcel. Returns are a process of their own.
 
 **Partial reservations do not exist.** A reservation covers every line or none. Real shops split
 shipments; that is a different sample.
@@ -599,9 +602,10 @@ reference external events and other modules' commands.
 - Internal events: `OrderInitialized`, `OrderPaymentAuthorized`, `OrderStockReserved`,
   `OrderConfirmed`, `OrderPackageSent`, `OrderPaymentCaptured`, `OrderShipmentDelivered`,
   `OrderCompleted`, `OrderPaymentFailed`, `OrderShipmentFailed`, `OrderCancelled`.
-- External: `OrderInitialized`, `OrderConfirmed`, `OrderPackageSent`, `OrderCompleted` and
-  `OrderCancelled`. Those five are the ones the saga acts on. `OrderPackageSent` carries the
-  `paymentId`, and `OrderCancelled` carries `paymentState` and `shipmentState` — see §3.1.
+- External: `OrderInitialized`, `OrderConfirmed`, `OrderPaymentCaptured`, `OrderCompleted` and
+  `OrderCancelled`. Those five are the ones the saga acts on. `OrderConfirmed` carries the
+  `paymentId`, `OrderPaymentCaptured` carries the `shipmentId`, and `OrderCancelled` carries
+  `paymentState` and `shipmentState` — see §3.1.
 - `OrderCancellationReason` holds `ProductWasOutOfStock`, `PaymentFailed` and `Requested`.
 
 ### 6.3 Payments
@@ -685,10 +689,10 @@ public class OrderSaga {
   on(Shipment.StockReserved)           -> RecordOrderStockReservation(orderId, shipmentId, at)
 
   // commit phase
-  on(Order.OrderConfirmed)             -> SendPackage(shipmentId)
-  on(Shipment.PackageWasSent)          -> RecordOrderPackageSent(orderId, sentAt)
-  on(Order.OrderPackageSent)           -> CapturePayment(paymentId)
+  on(Order.OrderConfirmed)             -> CapturePayment(paymentId)
   on(Payment.PaymentCaptured)          -> RecordOrderPaymentCapture(orderId, capturedAt)
+  on(Order.OrderPaymentCaptured)       -> SendPackage(shipmentId)
+  on(Shipment.PackageWasSent)          -> RecordOrderPackageSent(orderId, sentAt)
   on(Shipment.PackageWasDelivered)     -> RecordOrderDelivery(orderId, deliveredAt)
 
   // compensation
@@ -700,13 +704,12 @@ public class OrderSaga {
 }
 ```
 
-Two handlers exist only because the saga cannot know what it is not told. `PackageWasSent` does not
-carry the payment, so the saga records the dispatch and acts on the order's answer,
-`OrderPackageSent`, which does. `StockReserved` does not carry the order's other half either, which
-is why the join lives in the order and not here.
+Two handlers exist only because the saga cannot know what it is not told. `PaymentCaptured` does not
+carry the shipment, so the saga records the capture and acts on the order's answer,
+`OrderPaymentCaptured`, which does. `StockReserved` does not carry the order's other half either,
+which is why the join lives in the order and not here.
 
-The order completes on **delivery**, not on dispatch. The capture happens at dispatch, which is what
-merchants do.
+The order completes on **delivery**, and nothing leaves the warehouse before the capture.
 
 Three product-item types meet in this class — the cart's `PricedProductItem` (a nested `ProductItem`
 plus a unit price), the order's flat `PricedProductItem`, and the shipment's `ProductItem`. The
@@ -844,9 +847,9 @@ integration
 
   // commit phase
   .subscribe(OrderExternalEvent.OrderConfirmed.class,           saga::on)
-  .subscribe(ShipmentExternalEvent.PackageWasSent.class,        saga::on)
-  .subscribe(OrderExternalEvent.OrderPackageSent.class,         saga::on)
   .subscribe(PaymentExternalEvent.PaymentCaptured.class,        saga::on)
+  .subscribe(OrderExternalEvent.OrderPaymentCaptured.class,     saga::on)
+  .subscribe(ShipmentExternalEvent.PackageWasSent.class,        saga::on)
   .subscribe(ShipmentExternalEvent.PackageWasDelivered.class,   saga::on)
 
   // compensation — manual compensation enters through the same command bus

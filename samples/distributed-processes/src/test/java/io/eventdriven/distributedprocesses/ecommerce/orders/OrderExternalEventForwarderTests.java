@@ -65,27 +65,38 @@ public class OrderExternalEventForwarderTests {
     );
 
     externalEvents.shouldReceiveMessages(
-      new OrderExternalEvent.OrderConfirmed(orderId, shipmentId, reservedAt)
+      new OrderExternalEvent.OrderConfirmed(orderId, paymentId, reservedAt)
     );
   }
 
   @Test
-  public void recordingTheDispatchForwardsOrderPackageSentWithThePaymentToCapture() {
+  public void recordingTheCaptureForwardsOrderPaymentCapturedWithTheShipmentToSend() {
     confirm();
+
+    commandBus.send(new RecordOrderPaymentCapture(orderId, capturedAt));
+
+    externalEvents.shouldReceiveMessages(
+      new OrderExternalEvent.OrderPaymentCaptured(orderId, shipmentId, totalPrice, capturedAt)
+    );
+  }
+
+  @Test
+  public void recordingTheDispatchForwardsNothingBecauseNobodyActsOnIt() {
+    confirm();
+    commandBus.send(new RecordOrderPaymentCapture(orderId, capturedAt));
+    externalEvents.reset();
 
     commandBus.send(new RecordOrderPackageSent(orderId, sentAt));
 
-    externalEvents.shouldReceiveMessages(
-      new OrderExternalEvent.OrderPackageSent(orderId, paymentId, sentAt)
-    );
+    externalEvents.shouldNotReceiveAnyEvent();
   }
 
   @Test
   public void completingForwardsOrderCompleted() {
     confirm();
     commandBus.send(
-      new RecordOrderPackageSent(orderId, sentAt),
-      new RecordOrderPaymentCapture(orderId, capturedAt)
+      new RecordOrderPaymentCapture(orderId, capturedAt),
+      new RecordOrderPackageSent(orderId, sentAt)
     );
     externalEvents.reset();
 

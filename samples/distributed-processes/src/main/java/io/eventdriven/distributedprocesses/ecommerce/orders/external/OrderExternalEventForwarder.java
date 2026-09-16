@@ -24,16 +24,17 @@ public class OrderExternalEventForwarder {
   public void on(OrderEvent.OrderConfirmed event) {
     eventBus.publish(new OrderExternalEvent.OrderConfirmed(
       event.orderId(),
-      event.shipmentId(),
+      event.paymentId(),
       event.confirmedAt()
     ));
   }
 
-  public void on(OrderEvent.OrderPackageSent event) {
-    eventBus.publish(new OrderExternalEvent.OrderPackageSent(
+  public void on(OrderEvent.OrderPaymentCaptured event) {
+    eventBus.publish(new OrderExternalEvent.OrderPaymentCaptured(
       event.orderId(),
-      event.paymentId(),
-      event.sentAt()
+      event.shipmentId(),
+      event.amount(),
+      event.capturedAt()
     ));
   }
 
