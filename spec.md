@@ -196,9 +196,17 @@ Real systems avoid this by giving every hold a deadline:
 | card authorisation | `expiresAt` | `AuthorizationExpiryWorker` | `PaymentAuthorizationExpired` |
 | stock reservation | `reservedUntil` | `ReservationExpiryWorker` | `StockReservationExpired` |
 
-Adyen documents roughly 28 days of validity for a card authorisation, and about 7 days is common
-practice; merchants delay capture until dispatch on purpose. Shopify calls the warehouse side
-**committed** — "units set aside and can't be sold" — and a WMS calls the step **allocation**.
+Stripe states that an online card authorisation is "usually valid for 7 days", and that if it
+expires before the capture, "the funds are released and the payment status changes to `canceled`" —
+which is exactly the rule this sample implements. Adyen documents the window per scheme, and it
+varies widely: Mastercard 7 days for a final authorisation and 30 for a pre-authorisation, Visa 5 to
+30 depending on the merchant category, JCB up to a year. Merchants delay the capture until dispatch
+on purpose. Shopify calls the warehouse side **committed** — "units that are set aside and can't be
+sold, such as units in an unfulfilled order" — and a WMS calls the step **allocation**.
+
+- Stripe, [Place a hold on a payment method](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method)
+- Adyen, [Adjust authorisation](https://docs.adyen.com/online-payments/adjust-authorisation) and [Capture](https://docs.adyen.com/online-payments/capture)
+- Shopify, [Inventory states](https://help.shopify.com/en/manual/products/inventory/managing-inventory-quantities/inventory-states)
 
 **The order subscribes to both expiries.** This is the point: the order is never left hanging. A
 reservation that runs out reaches it as `RecordOrderShipmentFailure`, an authorisation that runs out

@@ -59,6 +59,7 @@ public sealed interface GuestStayAccount {
         );
       }
       case GuestCheckoutFailed ignored: {
+        yield current;
       }
       case null:
         throw new IllegalArgumentException("Event cannot be null!");
