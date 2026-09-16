@@ -1168,6 +1168,10 @@ Finish with ./gradlew build green.
 
 ### Step 4.1 — README
 
+*Executed against the two-hold design of step 2.0h, so points 1 and 6 below read against the
+older sequential shape. Steps 2.2 and 3.x had not run, so the README says plainly that the single
+composition root and the end-to-end transcript are still to come.*
+
 ```text
 Continue in samples/distributed-processes. No production code changes.
 

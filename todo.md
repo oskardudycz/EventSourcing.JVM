@@ -134,11 +134,16 @@ leave the build green at **180 tests**.
   - [ ] one `confirm` drives the whole process — gateway and provider settle on their own
   - [ ] the thirteen saga subscriptions read as the process
 
-### Open, needs a decision
+### Defects found while expanding the hotel management tests
 
-- The sample README (`samples/distributed-processes/README.md`) still prints the OLD saga, with
-  `RequestPayment`, `PaymentFinalized` and `DiscardPayment`. It was already stale before 2.0h.
-  Step 4.1 rewrites it; nothing else references those names.
+- [x] **`GuestStayAccountDecider` emitted `GuestCheckedIn` on a successful checkout**, not
+      `GuestCheckedOut`. The account therefore never reached `CheckedOut`, and the `groupCheckoutId`
+      — the only thing the group checkout saga keys on — was dropped. Fixed in the `saga` variant.
+- [x] **`GuestStayAccount.evolve` threw on `GuestCheckoutFailed`.** The empty `case` block fell
+      through to `case null: throw new IllegalArgumentException("Event cannot be null!")`, so
+      replaying any stream that held a failed checkout blew up. Fixed in the `saga` variant.
+- [ ] **The `choreography` variant has both defects, character for character.** Untouched — it has
+      no tests of its own, so fixing it blind is not something I want to do unasked.
 
 ## Phase 3 — Failure paths  *(three parallel tracks, merge one at a time)*
 
@@ -148,7 +153,8 @@ leave the build green at **180 tests**.
 
 ## Phase 4 — Documentation
 
-- [ ] **4.1** README rewrite: two mermaid diagrams, the forwarder boundary, append-publishes, the
+- [x] **4.1** README rewrite — ecommerce half rewritten for the two-hold process; the hotel
+      management half left alone; three dead links to `hotelmanagement/...` fixed: two mermaid diagrams, the forwarder boundary, append-publishes, the
       two settlement seams, the stateless-saga trick, the three defences, known follow-ups
 
 ---
@@ -170,11 +176,17 @@ leave the build green at **180 tests**.
 
 ## Raised by Phase 2, needing Oskar's call
 
-- [ ] Parallel dispatch means the parcel can go out before the charge clears. If the payment then
-      fails, the order cancels with the package already sent and there is no return path. Agreed as
-      the cost of showing a real join, but the README must say so.
-- [ ] A manual `CancelOrder` while both outcomes are still pending closes the order with a null
-      `paymentId`, so a payment that completes afterwards is never refunded. Phase 3.3 territory.
+- [ ] Step 2.0h shrank this, it did not remove it: nothing ships before BOTH holds are good, so the
+      old "parcel out before the charge clears" case is gone, but the parcel still leaves before the
+      CAPTURE. Capture cannot fail in the sample (only the authorisation makes a gateway round-trip),
+      so the window is theoretical. Said plainly in README and spec §3.5.
+- [ ] A manual `CancelOrder` while a hold is still pending closes the order with
+      `paymentState = NotAuthorized`, so nothing is voided. The authorisation that lands afterwards
+      is ignored by the order and then lapses on its own through `AuthorizationExpiryWorker` — the
+      deadline heals it rather than a compensation. Worth an explicit Phase 3.3 test.
+- [ ] Should `SendPackage` come before or after `CapturePayment`? The sample captures AT dispatch,
+      which is what merchants do. Capture-before-ship removes the window above and is two handlers.
+      Oskar's call.
 
 ## Raised by Phase 1, needing Oskar's call
 
@@ -192,9 +204,9 @@ leave the build green at **180 tests**.
       array components by reference — so it cannot be used for any event carrying an array. Both
       tracks used `shouldReceiveMessages` instead. The workshop original has the same problem, which
       is why it was left alone.
-- [ ] `Shipment.send` with an empty product array emits `PackageWasSent` — `allMatch` on an empty
-      stream is true. Pinned in a test as-is. Shipping an empty parcel as a success reads wrong, but
-      changing it is a business decision, not a defect fix.
+- [ ] `Shipment.reserveStock` with an empty product array emits `StockReserved` — `allMatch` on an
+      empty stream is true. Reserving nothing and calling it a success reads wrong, but changing it
+      is a business decision, not a defect fix.
 
 ## Cosmetic defects found in Phase 1, all deliberately left alone
 

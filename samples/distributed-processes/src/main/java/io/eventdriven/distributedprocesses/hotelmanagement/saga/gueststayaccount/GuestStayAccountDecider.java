@@ -81,8 +81,9 @@ public final class GuestStayAccountDecider {
       );
     }
 
-    return new GuestCheckedIn(
+    return new GuestCheckedOut(
       command.guestStayAccountId(),
+      command.groupCheckoutId(),
       command.now()
     );
   }

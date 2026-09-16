@@ -5,6 +5,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public abstract class EventSourcedSpecification<Entity, Event> {
@@ -42,19 +43,27 @@ public abstract class EventSourcedSpecification<Entity, Event> {
     }
 
     public EventSourcedSpecificationBuilder<Entity, Event> then(Consumer<Event[]> then) {
-      var events = this.getEvents.get();
+      then.accept(this.handle.apply(replay()));
 
+      return this;
+    }
+
+    public EventSourcedSpecificationBuilder<Entity, Event> thenThrows(Class<? extends Throwable> expected) {
+      var current = replay();
+
+      assertThatThrownBy(() -> this.handle.apply(current)).isInstanceOf(expected);
+
+      return this;
+    }
+
+    private Entity replay() {
       Entity current = this.specification.getDefault.get();
 
-      for (var event : events) {
+      for (var event : this.getEvents.get()) {
         current = this.specification.evolve.apply(current, event);
       }
 
-      var newEvents = this.handle.apply(current);
-
-      then.accept(newEvents);
-
-      return this;
+      return current;
     }
 
     public EventSourcedSpecificationBuilder<Entity, Event> then(Event... expectedEvents) {
