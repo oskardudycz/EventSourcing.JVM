@@ -10,6 +10,7 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartFinalized;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.*;
@@ -21,7 +22,7 @@ public class OrderSaga {
     this.commandBus = commandBus;
   }
 
-  // Hold phase — both holds are reversible, and both expire on their own
+  // Hold phase
   public void on(ShoppingCartFinalized event) {
     commandBus.send(
       new InitializeOrder(
@@ -38,9 +39,7 @@ public class OrderSaga {
     var referenceId = event.orderId().value();
 
     commandBus.send(
-      new PaymentCommand.AuthorizePayment(referenceId, event.totalPrice())
-    );
-    commandBus.send(
+      new PaymentCommand.AuthorizePayment(referenceId, event.totalPrice()),
       new ShipmentCommand.ReserveStock(referenceId, toShipmentItems(event.productItems()))
     );
   }
@@ -65,25 +64,25 @@ public class OrderSaga {
     );
   }
 
-  // Commit phase — the goods leave, and the money moves as they go
+  // Commit phase
   public void on(OrderExternalEvent.OrderConfirmed event) {
-    commandBus.send(new ShipmentCommand.SendPackage(event.shipmentId()));
-  }
-
-  public void on(ShipmentExternalEvent.PackageWasSent event) {
-    commandBus.send(
-      new RecordOrderPackageSent(new OrderId(event.referenceId()), event.sentAt())
-    );
-  }
-
-  // The dispatch itself does not know the payment. The order does, and republishes it here.
-  public void on(OrderExternalEvent.OrderPackageSent event) {
     commandBus.send(new PaymentCommand.CapturePayment(event.paymentId()));
   }
 
   public void on(PaymentExternalEvent.PaymentCaptured event) {
     commandBus.send(
       new RecordOrderPaymentCapture(new OrderId(event.referenceId()), event.capturedAt())
+    );
+  }
+
+  // The payment does not know the shipment. The order does, and republishes it here.
+  public void on(OrderExternalEvent.OrderPaymentCaptured event) {
+    commandBus.send(new ShipmentCommand.SendPackage(event.shipmentId()));
+  }
+
+  public void on(ShipmentExternalEvent.PackageWasSent event) {
+    commandBus.send(
+      new RecordOrderPackageSent(new OrderId(event.referenceId()), event.sentAt())
     );
   }
 
@@ -116,16 +115,20 @@ public class OrderSaga {
   }
 
   public void on(OrderExternalEvent.OrderCancelled event) {
+    var compensations = new ArrayList<>();
+
     switch (event.paymentState()) {
-      case Authorized -> commandBus.send(new PaymentCommand.VoidPayment(event.paymentId()));
-      case Captured -> commandBus.send(new PaymentCommand.RefundPayment(event.paymentId()));
+      case Authorized -> compensations.add(new PaymentCommand.VoidPayment(event.paymentId()));
+      case Captured -> compensations.add(new PaymentCommand.RefundPayment(event.paymentId()));
       case NotAuthorized -> {
       }
     }
 
     if (event.shipmentState() == OrderShipmentState.Reserved) {
-      commandBus.send(new ShipmentCommand.ReleaseStock(event.shipmentId()));
+      compensations.add(new ShipmentCommand.ReleaseStock(event.shipmentId()));
     }
+
+    commandBus.send(compensations.toArray());
   }
 
   private static PricedProductItem[] toOrderItems(ShoppingCartFinalized event) {

@@ -68,39 +68,44 @@ public class OrderFacadeTests {
     published.shouldReceiveMessages(
       new OrderPaymentAuthorized(orderId, paymentId, authorizedAt),
       new OrderStockReserved(orderId, shipmentId, reservedAt),
-      new OrderConfirmed(orderId, shipmentId, reservedAt)
+      new OrderConfirmed(orderId, paymentId, reservedAt)
     );
   }
 
   @Test
-  public void recordOrderPackageSentDispatchesOrderPackageSentCarryingThePayment() {
+  public void recordOrderPaymentCaptureDispatchesOrderPaymentCapturedNamingTheShipmentToSend() {
     confirm();
-
-    commandBus.send(new RecordOrderPackageSent(orderId, sentAt));
-
-    published.shouldReceiveMessages(new OrderPackageSent(orderId, paymentId, sentAt));
-  }
-
-  @Test
-  public void recordOrderPaymentCaptureDispatchesOrderPaymentCapturedForTheOrderTotal() {
-    confirm();
-    commandBus.send(new RecordOrderPackageSent(orderId, sentAt));
-    published.reset();
 
     commandBus.send(new RecordOrderPaymentCapture(orderId, capturedAt));
 
     published.shouldReceiveMessages(
-      new OrderPaymentCaptured(orderId, paymentId, totalPrice, capturedAt)
+      new OrderPaymentCaptured(orderId, paymentId, shipmentId, totalPrice, capturedAt)
     );
   }
 
   @Test
-  public void recordOrderDeliveryAfterTheCaptureCompletesTheOrder() {
+  public void recordOrderPackageSentDispatchesOrderPackageSent() {
+    capture();
+
+    commandBus.send(new RecordOrderPackageSent(orderId, sentAt));
+
+    published.shouldReceiveMessages(new OrderPackageSent(orderId, shipmentId, sentAt));
+  }
+
+  @Test
+  public void recordOrderPackageSentBeforeTheCaptureStoresNothingAndDoesNotThrow() {
     confirm();
-    commandBus.send(
-      new RecordOrderPackageSent(orderId, sentAt),
-      new RecordOrderPaymentCapture(orderId, capturedAt)
-    );
+
+    assertThatCode(() -> commandBus.send(new RecordOrderPackageSent(orderId, sentAt)))
+      .doesNotThrowAnyException();
+
+    published.shouldNotReceiveAnyEvent();
+  }
+
+  @Test
+  public void recordOrderDeliveryCompletesTheOrder() {
+    capture();
+    commandBus.send(new RecordOrderPackageSent(orderId, sentAt));
     published.reset();
 
     commandBus.send(new RecordOrderDelivery(orderId, deliveredAt));
@@ -203,6 +208,12 @@ public class OrderFacadeTests {
       new RecordOrderPaymentAuthorization(orderId, paymentId, authorizedAt),
       new RecordOrderStockReservation(orderId, shipmentId, reservedAt)
     );
+    published.reset();
+  }
+
+  private void capture() {
+    confirm();
+    commandBus.send(new RecordOrderPaymentCapture(orderId, capturedAt));
     published.reset();
   }
 

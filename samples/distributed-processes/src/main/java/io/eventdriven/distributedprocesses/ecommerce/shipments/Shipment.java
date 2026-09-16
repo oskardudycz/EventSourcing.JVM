@@ -40,7 +40,9 @@ public class Shipment extends AbstractAggregate<ShipmentEvent, ShipmentId> {
     if (status != null)
       return;
 
-    if (!Arrays.stream(productItems).allMatch(isProductAvailable::apply)) {
+    // allMatch on an empty stream is true
+    if (productItems.length == 0
+      || !Arrays.stream(productItems).allMatch(isProductAvailable::apply)) {
       enqueue(new ProductWasOutOfStock(shipmentId, referenceId, productItems, now));
       return;
     }

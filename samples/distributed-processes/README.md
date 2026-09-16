@@ -258,7 +258,7 @@ go back on sale.
 stateDiagram-v2
     [*] --> Reserved: ReserveStock
     [*] --> ProductsOutOfStock: ReserveStock — not everything is available
-    Reserved --> Sent: SendPackage
+    Reserved --> Sent: SendPackage — only once the payment is captured
     Reserved --> Released: ReleaseStock
     Reserved --> Expired: ExpireStockReservation
     Sent --> Delivered: DeliverPackage
@@ -297,15 +297,15 @@ sequenceDiagram
     end
 
     Note over Order: the second hold to arrive confirms the order
-    Order->>Saga: OrderConfirmed (external)
+    Order->>Saga: OrderConfirmed (external, carries the paymentId)
 
-    Saga->>Ship: SendPackage
-    Ship->>Saga: PackageWasSent (external)
-    Saga->>Order: RecordOrderPackageSent
-    Order->>Saga: OrderPackageSent (external, carries the paymentId)
     Saga->>Pay: CapturePayment
     Pay->>Saga: PaymentCaptured (external)
     Saga->>Order: RecordOrderPaymentCapture
+    Order->>Saga: OrderPaymentCaptured (external, carries the shipmentId)
+    Saga->>Ship: SendPackage
+    Ship->>Saga: PackageWasSent (external)
+    Saga->>Order: RecordOrderPackageSent
     Ship->>Saga: PackageWasDelivered (external)
     Saga->>Order: RecordOrderDelivery
 
@@ -313,7 +313,9 @@ sequenceDiagram
     Order->>Saga: OrderCompleted (external)
 ```
 
-The order completes on **delivery**, not on dispatch.
+The order completes on **delivery**, not on dispatch. And the money moves **before** the goods do:
+`recordPackageSent` acts only when the payment is already `Captured`, so nothing can leave the
+warehouse against an authorisation that was never charged.
 
 ### Compensation
 
@@ -394,23 +396,23 @@ must reach the caller as an error rather than vanish.
 ### Why the saga stays stateless
 
 A saga should be a "stupid" dispatcher: it waits for an event, and sends a command built from *that
-event's data alone*. Keeping it that way takes one trick, twice.
+event's data alone*. Keeping it that way takes one trick.
 
-`PackageWasSent` does not know which payment belongs to it — the shipments module has never heard of
-a payment. So the saga does not try to work it out. It records the dispatch against the order, and
-the **order** republishes the fact as `OrderPackageSent`, carrying the `paymentId` it already knows.
-That is the event the capture is sent from:
+`PaymentCaptured` does not know which shipment is waiting on it — the payments module has never heard
+of a shipment. So the saga does not try to work it out. It records the capture against the order, and
+the **order** republishes the fact as `OrderPaymentCaptured`, carrying the `shipmentId` it already
+knows. That is the event the dispatch is sent from:
 
 ```java
-public void on(ShipmentExternalEvent.PackageWasSent event) {
+public void on(PaymentExternalEvent.PaymentCaptured event) {
   commandBus.send(
-    new RecordOrderPackageSent(new OrderId(event.referenceId()), event.sentAt())
+    new RecordOrderPaymentCapture(new OrderId(event.referenceId()), event.capturedAt())
   );
 }
 
-// The dispatch itself does not know the payment. The order does, and republishes it here.
-public void on(OrderExternalEvent.OrderPackageSent event) {
-  commandBus.send(new PaymentCommand.CapturePayment(event.paymentId()));
+// The payment does not know the shipment. The order does, and republishes it here.
+public void on(OrderExternalEvent.OrderPaymentCaptured event) {
+  commandBus.send(new ShipmentCommand.SendPackage(event.shipmentId()));
 }
 ```
 
@@ -428,7 +430,7 @@ So each module keeps two vocabularies, and a **forwarder** turns one into the ot
 | Module | What it publishes |
 |---|---|
 | shopping carts | `ShoppingCartFinalized` |
-| orders | `OrderInitialized`, `OrderConfirmed`, `OrderPackageSent`, `OrderCompleted`, `OrderCancelled` |
+| orders | `OrderInitialized`, `OrderConfirmed`, `OrderPaymentCaptured`, `OrderCompleted`, `OrderCancelled` |
 | payments | `PaymentAuthorized`, `PaymentCaptured`, `PaymentFailed` |
 | shipments | `StockReserved`, `ProductWasOutOfStock`, `PackageWasSent`, `PackageWasDelivered`, `StockReservationExpired` |
 
@@ -518,8 +520,9 @@ released by the same commands as every other cancellation.
 
 - **Capture cannot fail.** Only the authorisation makes a gateway round-trip. Modelling three more
   callbacks would repeat a lesson the authorisation already teaches.
-- **A sent package has no return path.** The parcel leaves before the funds are captured, which is
-  what merchants do. Returns are a process of their own.
+- **A sent package has no return path.** Nothing ships before the capture, so this needs an operator
+  cancelling a paid, dispatched order. The money is refunded; the parcel is not recalled. Returns are
+  a process of their own.
 - **Partial reservations do not exist.** A reservation covers every line or none.
 - **The composition root is still per module.** Each module has its own `Config` that registers its
   commands, its forwarder and its clients. The single `ECommerceConfig` that knits them together, and

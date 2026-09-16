@@ -176,21 +176,19 @@ leave the build green at **180 tests**.
 
 ## Raised by Phase 2, needing Oskar's call
 
-- [ ] Step 2.0h shrank this, it did not remove it: nothing ships before BOTH holds are good, so the
-      old "parcel out before the charge clears" case is gone, but the parcel still leaves before the
-      CAPTURE. Capture cannot fail in the sample (only the authorisation makes a gateway round-trip),
-      so the window is theoretical. Said plainly in README and spec §3.5.
+- [x] **Resolved on review:** the parcel no longer leaves before the money moves. `SendPackage` now
+      comes off `OrderPaymentCaptured`, and `Order.recordPackageSent` acts only when the payment is
+      `Captured`. A dispatch that arrives early appends nothing.
 - [ ] A manual `CancelOrder` while a hold is still pending closes the order with
       `paymentState = NotAuthorized`, so nothing is voided. The authorisation that lands afterwards
       is ignored by the order and then lapses on its own through `AuthorizationExpiryWorker` — the
       deadline heals it rather than a compensation. Worth an explicit Phase 3.3 test.
-- [ ] Should `SendPackage` come before or after `CapturePayment`? The sample captures AT dispatch,
-      which is what merchants do. Capture-before-ship removes the window above and is two handlers.
-      Oskar's call.
+- [x] **Settled:** capture first, then ship. Oskar overruled capture-at-dispatch — the realistic
+      flow for this sample is that nothing goes out against an uncharged authorisation.
 
 ## Raised by Phase 1, needing Oskar's call
 
-- [ ] **Pre-authorised deviation:** `ShoppingCart.confirm()` and `cancel()` now take an
+- [x] **Confirmed by Oskar:** `ShoppingCart.confirm()` and `cancel()` now take an
       `OffsetDateTime now` parameter instead of calling `OffsetDateTime.now()` internally, matching
       `Order` and `Shipment`. Without it the facade's injected clock is decorative and the
       happy-path assertions cannot be deterministic. `ShoppingCartEvent` and `ShoppingCartCommand`
@@ -200,13 +198,11 @@ leave the build green at **180 tests**.
       `Supplier<Entity>`. Matches `ShoppingCart.empty()`.
 - [x] `OrderFacade` ignored `command.cartId()`. Both the internal and the external
       `OrderInitialized` now carry it, so the order records the cart it came from.
-- [ ] `MessageCatcher.shouldReceiveSingleEvent` ends in `assertEquals`, and record equality compares
-      array components by reference — so it cannot be used for any event carrying an array. Both
-      tracks used `shouldReceiveMessages` instead. The workshop original has the same problem, which
-      is why it was left alone.
-- [ ] `Shipment.reserveStock` with an empty product array emits `StockReserved` — `allMatch` on an
-      empty stream is true. Reserving nothing and calling it a success reads wrong, but changing it
-      is a business decision, not a defect fix.
+- [x] `MessageCatcher.shouldReceiveSingleEvent` now compares recursively, matching what
+      `shouldReceiveMessages` already did in the workshop original. It could not be used for any
+      event carrying an array before.
+- [x] `Shipment.reserveStock` with an empty product array now emits `ProductWasOutOfStock`.
+      Reserving nothing is not a reservation.
 
 ## Cosmetic defects found in Phase 1, all deliberately left alone
 

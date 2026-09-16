@@ -35,23 +35,24 @@ public sealed interface OrderEvent {
 
   record OrderConfirmed(
     OrderId orderId,
-    ShipmentId shipmentId,
-    OffsetDateTime confirmedAt
-  ) implements OrderEvent {
-  }
-
-  record OrderPackageSent(
-    OrderId orderId,
     PaymentId paymentId,
-    OffsetDateTime sentAt
+    OffsetDateTime confirmedAt
   ) implements OrderEvent {
   }
 
   record OrderPaymentCaptured(
     OrderId orderId,
     PaymentId paymentId,
+    ShipmentId shipmentId,
     double amount,
     OffsetDateTime capturedAt
+  ) implements OrderEvent {
+  }
+
+  record OrderPackageSent(
+    OrderId orderId,
+    ShipmentId shipmentId,
+    OffsetDateTime sentAt
   ) implements OrderEvent {
   }
 
