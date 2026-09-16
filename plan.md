@@ -816,6 +816,26 @@ Finish with ./gradlew build green.
 
 Sequential, and only after all four Phase 1 tracks are merged and green.
 
+### Step 2.0 — One command path, and derived strongly typed identifiers  *(done)*
+
+Delivered, and different from the first draft of this step. Recorded here so the next reader is not
+misled:
+
+1. `AggregateStore` has **one path**, `getAndUpdate(id, [expectedVersion,] Consumer<Entity>)`. `add`,
+   `addIfAbsent` and the old `(Consumer, Id)` argument order are gone. Version `-1` maps to
+   `ExpectedRevision.noStream()`, so create and update are the same code.
+2. **No event means no change.** A handler that enqueues nothing causes no append and no revision
+   move. Idempotency therefore lives in the aggregate, not in a store method.
+3. Every create became an instance method with a guard: `ShoppingCart.open`, `Order.initialize`,
+   `Payment.request`, `Shipment.send`, and `hotelmanagement`'s `GuestStayAccount.open`.
+4. `core/identifiers/Urns` is a static format helper. `EntityId` supplies `tail()`.
+5. Four typed ids — `ShoppingCartId`, `OrderId`, `PaymentId`, `ShipmentId` — each a record over a URN
+   string, validating its own segment in a compact constructor that is also the `@JsonCreator`.
+6. `Payment` and `Shipment` hold an opaque `String referenceId`, never an `orderId`. See spec §5.3.1.
+7. Jackson bumped to 2.18.2. `OrderIdSerializationTests` pins the `@JsonValue` behaviour and must
+   stay — it already caught `mapToStreamId` leaking a whole URN into the stream name.
+8. `AggregateSpecification` lost `FactoryWhen`; one `given(events…)` now covers every case.
+
 ### Step 2.1 — Rewrite OrderSaga
 
 ```text
@@ -835,47 +855,160 @@ Context:
   orders.external.OrderExternalEvent, payments.external.PaymentExternalEvent,
   shipments.external.ShipmentExternalEvent.
 - Today the saga uses UUID.randomUUID() inline and passes event.cartId() as the order id. Both
-  change: ids come from an injected Supplier<UUID> so transcripts are deterministic, and an order
-  gets its own id with the cart id recorded alongside it.
+  change. Step 2.0 added core/identifiers/DeterministicUuid; the saga DERIVES each new id from the
+  id that caused it, so a redelivered message produces the same id and AggregateStore.add ignores
+  the duplicate. The saga takes no Supplier<UUID> — it is a pure function of the incoming event.
 
 Do this:
-1. Constructor: (CommandBus commandBus, Supplier<UUID> newId), using core/messaging CommandBus.
+1. Constructor: (CommandBus commandBus), using core/messaging CommandBus. No id supplier, no clock.
+1a. Derive the order id in the saga, and translate the opaque reference back:
+      OrderId.derivedFrom(event.cartId().value())
+      new OrderId(event.referenceId())      // reading a payment's or shipment's reference back
+    RequestPayment and SendPackage carry ONLY the reference, like a gateway call — payments and
+    shipments derive their own ids. The saga must not name PaymentId or ShipmentId.
+    Payments and shipments carry a String referenceId, not an orderId. The saga is the ONLY place
+    that knows the reference holds an order urn, and `new OrderId(...)` validates that on the way in.
 2. Import ONLY external events and other modules' command records. If you find yourself importing an
    internal event type, the contract is missing — add it rather than reaching through.
-3. Happy path:
-     on(ShoppingCartFinalized)                     -> InitializeOrder(newId, cartId, clientId,
-                                                       productItems, totalPrice)
-     on(OrderExternalEvent.OrderInitialized)       -> RequestPayment(newId, orderId, totalPrice)
-     on(PaymentExternalEvent.PaymentFinalized)     -> RecordOrderPayment(orderId, paymentId,
-                                                       finalizedAt)
-     on(OrderExternalEvent.OrderPaymentRecorded)   -> SendPackage(newId, orderId, productItems)
-     on(ShipmentExternalEvent.PackageWasDelivered) -> CompleteOrder(orderId)
-   Note the last one: the order completes on DELIVERY, not dispatch. PackageWasSent is still
+3. Happy path. The saga asks for BOTH outcomes at once and records each one as it lands. It never
+   decides that the order is finished — the order decides that itself.
+     on(ShoppingCartFinalized)                      -> InitializeOrder(OrderId.derivedFrom(cartId),
+                                                        cartId, clientId, productItems, totalPrice)
+     on(OrderExternalEvent.OrderInitialized)        -> RequestPayment(orderId.value(), totalPrice)
+                                                    AND SendPackage(orderId.value(), productItems)
+     on(PaymentExternalEvent.PaymentFinalized)      -> RecordOrderPayment(new OrderId(referenceId),
+                                                        paymentId, finalizedAt)
+     on(ShipmentExternalEvent.PackageWasDelivered)  -> RecordOrderShipment(new OrderId(referenceId),
+                                                        shipmentId, deliveredAt)
+   Note the last one: the shipment counts as done on DELIVERY, not dispatch. PackageWasSent is still
    published and still appears in the transcript; the saga simply does not act on it. Do not add an
    on(PackageWasSent) handler.
-4. Compensation:
-     on(ShipmentExternalEvent.ProductWasOutOfStock) -> CancelOrder(orderId, ProductWasOutOfStock)
-     on(PaymentExternalEvent.PaymentFailed)         -> CancelOrder(orderId, PaymentFailed)
+4. Compensation. Both failures are RECORDED against the order, which then cancels itself:
+     on(ShipmentExternalEvent.ProductWasOutOfStock) -> RecordOrderShipmentFailure(orderId, checkedAt)
+     on(PaymentExternalEvent.PaymentFailed)         -> RecordOrderPaymentFailure(orderId, failedAt)
      on(OrderExternalEvent.OrderCancelled)          -> DiscardPayment(paymentId, OrderCancelled),
-       but ONLY when paymentId is not null AND the cancellation reason is not PaymentFailed.
-   That second guard matters: when the order was cancelled BECAUSE the payment failed, there is
-   nothing left to refund, and Payment.discard throws on an already-failed payment. One line keeps
-   this correct without giving the saga state.
+       but ONLY when paymentId is not null.
+   One guard, not two: a failed payment never reaches the order as a paymentId, so a cancellation
+   caused by a failed payment already carries null and refunds nothing.
 5. Three product-item types meet here and the mapping belongs in the saga, not in the modules:
    shoppingcarts.productitems.PricedProductItem (nested ProductItem plus unitPrice) ->
    orders.products.PricedProductItem (flat productId, quantity, unitPrice) ->
    shipments.ProductItem (productId, quantity). Two small private static mappers, tested through the
    saga's behaviour.
 6. Tests in .../ecommerce/orders/OrderSagaTests.java: the saga over an InMemoryCommandBus with a
-   deterministic Supplier<UUID> and a recording handler per command type. One @Test per on(...)
-   method asserting the exact command sent, and two asserting nothing is sent — on(OrderCancelled)
-   with a null paymentId, and on(OrderCancelled) with reason PaymentFailed. Assert the mapped product
-   items, not just the ids.
+   recording handler per command type. One @Test per on(...) method asserting the exact command sent,
+   and one asserting nothing is sent — on(OrderCancelled) with a null paymentId. Assert the mapped
+   product items, not just the ids.
+   Add one @Test proving the derivation is stable: handling the SAME event twice sends two IDENTICAL
+   commands. That is the test that would have caught UUID.randomUUID().
 
-Constraints: the saga stays stateless — no fields beyond the bus and the id supplier. No persistence,
-no store, no clock. Do not wire it up; that is step 2.2.
+Constraints: the saga stays stateless — the command bus is its only field. No persistence, no store,
+no clock, no id supplier. Do not wire it up; that is step 2.2.
 
 Finish with ./gradlew build green.
+```
+
+### Step 2.0g — Name what a payment reversal actually is  *(small, agreed)*
+
+`DiscardPayment` names no gateway operation, and `DiscardReason` hides two unrelated ones. See
+spec §3.3 for the research. This step renames only. It adds no authorisation, no capture and no
+reservation — those are step 2.0h.
+
+```text
+Work in samples/distributed-processes. Rename only; do not add an authorise or capture step.
+
+Split PaymentCommand.DiscardPayment into two commands, each named for the operation it performs
+and each guarded on the state it applies to:
+
+  DeclinePayment(PaymentId paymentId, DeclineReason reason)   // the charge never succeeded
+  RefundPayment(PaymentId paymentId)                          // the charge succeeded, give it back
+
+1. PaymentEvent: PaymentDiscarded -> PaymentDeclined(paymentId, DeclineReason reason, declinedAt),
+   and add PaymentRefunded(paymentId, refundedAt).
+2. DiscardReason -> DeclineReason, keeping ONLY UnexpectedError. OrderCancelled leaves the enum:
+   it was never a reason a charge failed, it is why we give the money back, and RefundPayment
+   carries no reason.
+3. Payment.discard(...) -> two methods:
+     decline(DeclineReason, now) — acts only while Pending, otherwise returns
+     refund(now)                 — acts only when Completed, otherwise returns
+   THIS IS THE DEFECT FIX. discard() guarded on Pending, but the saga's refund always arrives at a
+   Completed payment, so the refund never happened. It threw until 2.0e, and has failed silently
+   since. Add Status.Refunded.
+4. PaymentFacade, PaymentsConfig, PaymentGatewayClient (which sends DeclinePayment(UnexpectedError)
+   on a thrown charge) and the auto-rejecting gateway double follow the rename.
+5. PaymentExternalEvent.PaymentFailed.Reason: Discarded -> Declined. The forwarder maps
+   PaymentDeclined and PaymentTimedOut onto it. PaymentRefunded needs no external event — nothing
+   consumes one.
+6. OrderSaga: on(OrderCancelled) sends RefundPayment(paymentId) when paymentId is not null.
+7. Tests: rename the existing cases, and ADD one that would have caught the defect — refunding a
+   COMPLETED payment emits PaymentRefunded. Assert through PaymentFacade, not only the aggregate.
+
+Shipments are untouched in this step. SendPackage really does send; there is no reserve step to
+rename yet.
+```
+
+### Step 2.0h — Two reversible holds  *(full, approved)*
+
+Authorise and capture on the card, reserve and release in the warehouse, a deadline on both, and an
+order that hears every deadline instead of hanging. Spec §3 records the shape and §3.2 the deadlines.
+
+```text
+Work in samples/distributed-processes. TDD, one module at a time, ./gradlew build green between them.
+
+The process becomes two phases. The order takes two reversible HOLDS, joins them, and only then
+commits: the parcel leaves, and the funds are captured as it goes.
+
+1. PAYMENTS — the card lifecycle, named as a gateway names it.
+   Commands:  AuthorizePayment(referenceId, amount)      -> PaymentAuthorizationRequested (Pending)
+              ConfirmPaymentAuthorization(paymentId)     -> PaymentAuthorized(..., expiresAt)
+              CapturePayment(paymentId)                  -> PaymentCaptured      (guard Authorized)
+              VoidPayment(paymentId)                     -> PaymentVoided        (guard Authorized)
+              RefundPayment(paymentId)                   -> PaymentRefunded      (guard Captured)
+              DeclinePayment(paymentId, reason)          -> PaymentDeclined      (guard Pending)
+              TimeOutPayment(paymentId, at)              -> PaymentTimedOut      (guard Pending)
+              ExpirePaymentAuthorization(paymentId, at)  -> PaymentAuthorizationExpired
+                                                                                 (guard Authorized)
+   Void is the pre-capture reversal. Stripe and Adyen call it cancel, the card networks call it an
+   authorisation reversal; all three mean the hold drops and no money ever moved.
+   PaymentGateway gains authorize/capture/voidAuthorization/refund. Only authorize answers back.
+   External: PaymentAuthorized, PaymentCaptured, PaymentFailed(Declined|TimedOut|
+   AuthorizationExpired). A void and a refund publish nothing.
+   AuthorizedPayments + AuthorizationExpiryWorker mirror PendingPayments + PaymentTimeoutWorker,
+   keyed on the expiresAt the event already carries.
+
+2. SHIPMENTS — reserve, then send.
+   Commands:  ReserveStock(referenceId, productItems) -> StockReserved(..., reservedUntil)
+                                                         | ProductWasOutOfStock
+              SendPackage(shipmentId)                 -> PackageWasSent        (guard Reserved)
+              DeliverPackage(shipmentId)              -> PackageWasDelivered   (guard Sent)
+              ReleaseStock(shipmentId)                -> StockReleased         (guard Reserved)
+              ExpireStockReservation(shipmentId, at)  -> StockReservationExpired (guard Reserved)
+   SendPackage now takes only the id: the reservation already created the shipment and holds the
+   items. StockReservations + ReservationExpiryWorker mirror the payment pair.
+   External: StockReserved, ProductWasOutOfStock, PackageWasSent, PackageWasDelivered,
+   StockReservationExpired. A release publishes nothing.
+
+3. ORDERS — two joins, not one.
+   payment:  Pending -> Authorized -> Captured, or Failed
+   shipment: Pending -> Reserved -> Sent -> Delivered, or Failed
+   Both holds in                 -> OrderConfirmed(orderId, shipmentId, confirmedAt)
+   Captured and Delivered        -> OrderCompleted
+   One Failed, other not Pending -> OrderCancelled(..., paymentState, shipmentState, ...)
+   The order republishes what the saga cannot know: OrderPackageSent carries the paymentId, which is
+   what makes CapturePayment possible. OrderCancelled carries where each participant stood, so the
+   ORDER decides between a void, a refund and a release, and the saga only translates.
+   Keep every method idempotent: a late or repeated record appends nothing and returns.
+
+4. SAGA — thirteen handlers, in process order, hold phase then commit phase then compensation.
+   The two expiry events are the reason the order can never hang; both land on
+   RecordOrderShipmentFailure / RecordOrderPaymentFailure and the order decides from there.
+
+5. TESTS — new cases for: a reservation that expires cancels the order and voids the authorisation;
+   an authorisation that expires cancels the order and releases the stock; a payment declined while
+   stock is reserved releases that stock and ships nothing; both arrival orders of the two holds
+   confirm the same order; a second, late hold record changes nothing.
+
+Do not wire ECommerceConfig; that is step 2.2. Finish with ./gradlew build green.
 ```
 
 ### Step 2.2 — ECommerceConfig and the happy-path transcript

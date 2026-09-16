@@ -1,25 +1,35 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments.external;
 
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
+
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 public sealed interface PaymentExternalEvent {
-  record PaymentFinalized(
-    UUID orderId,
-    UUID paymentId,
+  record PaymentAuthorized(
+    String referenceId,
+    PaymentId paymentId,
     double amount,
-    OffsetDateTime finalizedAt ) implements PaymentExternalEvent {
+    OffsetDateTime authorizedAt,
+    OffsetDateTime expiresAt ) implements PaymentExternalEvent {
+  }
+
+  record PaymentCaptured(
+    String referenceId,
+    PaymentId paymentId,
+    double amount,
+    OffsetDateTime capturedAt ) implements PaymentExternalEvent {
   }
 
   record PaymentFailed(
-    UUID orderId,
-    UUID paymentId,
+    String referenceId,
+    PaymentId paymentId,
     double amount,
     OffsetDateTime failedAt,
     Reason reason ) implements PaymentExternalEvent {
-    enum Reason{
-      Discarded,
-      TimedOut
+    public enum Reason {
+      Declined,
+      TimedOut,
+      AuthorizationExpired
     }
   }
 }

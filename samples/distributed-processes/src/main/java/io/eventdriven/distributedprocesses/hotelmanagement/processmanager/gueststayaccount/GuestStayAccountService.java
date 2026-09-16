@@ -25,8 +25,9 @@ public class GuestStayAccountService {
   }
 
   public ETag handle(CheckInGuest command) {
-    return store.add(
-      GuestStayAccount.open(
+    return store.getAndUpdate(
+      command.guestStayAccountId(),
+      current -> current.open(
         command.guestStayAccountId(),
         OffsetDateTime.now()
       )
@@ -35,32 +36,32 @@ public class GuestStayAccountService {
 
   public ETag handle(RecordCharge command) {
     return store.getAndUpdate(
+      command.guestStayAccountId(),
       current -> current.recordCharge(
         command.amount(),
         OffsetDateTime.now()
-      ),
-      command.guestStayAccountId()
+      )
     );
   }
 
   public ETag handle(RecordPayment command) {
     return store.getAndUpdate(
+      command.guestStayAccountId(),
       current -> current.recordPayment(
         command.amount(),
         OffsetDateTime.now()
-      ),
-      command.guestStayAccountId()
+      )
     );
   }
 
   public ETag handle(CheckOutGuest command) {
     return retryPolicy.run(ack -> {
       var result = store.getAndUpdate(
+        command.guestStayAccountId(),
         current -> current.checkout(
           command.guestStayAccountId(),
           OffsetDateTime.now()
-        ),
-        command.guestStayAccountId()
+        )
       );
       ack.accept(result);
     });

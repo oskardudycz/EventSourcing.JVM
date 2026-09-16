@@ -1,29 +1,48 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 public sealed interface PaymentCommand {
-  record RequestPayment(
-    UUID paymentId,
-    UUID orderId,
+  record AuthorizePayment(
+    String referenceId,
     double amount) implements PaymentCommand {
   }
 
-  record CompletePayment(
-    UUID paymentId
+  record ConfirmPaymentAuthorization(
+    PaymentId paymentId
   ) implements PaymentCommand {
   }
 
-  record DiscardPayment(
-    UUID paymentId,
-    DiscardReason discardReason
+  record CapturePayment(
+    PaymentId paymentId
+  ) implements PaymentCommand {
+  }
+
+  record VoidPayment(
+    PaymentId paymentId
+  ) implements PaymentCommand {
+  }
+
+  record RefundPayment(
+    PaymentId paymentId
+  ) implements PaymentCommand {
+  }
+
+  record DeclinePayment(
+    PaymentId paymentId,
+    DeclineReason reason
   ) implements PaymentCommand {
   }
 
   record TimeOutPayment(
-    UUID paymentId,
+    PaymentId paymentId,
     OffsetDateTime timedOutAt
+  ) implements PaymentCommand {
+  }
+
+  record ExpirePaymentAuthorization(
+    PaymentId paymentId,
+    OffsetDateTime expiredAt
   ) implements PaymentCommand {
   }
 }

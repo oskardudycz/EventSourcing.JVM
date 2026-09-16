@@ -11,8 +11,8 @@ import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
-public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, ShoppingCartEvent, UUID> {
-  private final UUID shoppingCartId = UUID.randomUUID();
+public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, ShoppingCartEvent, ShoppingCartId> {
+  private final ShoppingCartId shoppingCartId = ShoppingCartId.of(UUID.randomUUID());
   private final UUID clientId = UUID.randomUUID();
   private final ProductItem productItem = new ProductItem(UUID.randomUUID(), 2);
   private final ProductPriceCalculator priceCalculator = item -> new PricedProductItem(item, 12.5);
@@ -27,7 +27,7 @@ public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, Shop
     // Given
     given()
       // When
-      .when(ignored -> ShoppingCart.open(shoppingCartId, clientId))
+      .when(current -> current.open(shoppingCartId, clientId))
       // Then
       .then(new ShoppingCartOpened(shoppingCartId, clientId));
   }
@@ -53,7 +53,7 @@ public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, Shop
       new ShoppingCartConfirmed(shoppingCartId, now)
     )
       // When
-      .when(ShoppingCart::confirm)
+      .when(current -> current.confirm(now))
       // Then
       .thenThrows(IllegalStateException.class);
   }

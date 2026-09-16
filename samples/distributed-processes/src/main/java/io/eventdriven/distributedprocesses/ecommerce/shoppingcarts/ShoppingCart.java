@@ -11,7 +11,7 @@ import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
-public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
+public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, ShoppingCartId> {
   public UUID clientId() {
     return clientId;
   }
@@ -36,18 +36,11 @@ public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
     return new ShoppingCart();
   }
 
-  ShoppingCart(
-    UUID id,
-    UUID clientId
-  ) {
-    enqueue(new ShoppingCartOpened(id, clientId));
-  }
+  void open(ShoppingCartId shoppingCartId, UUID clientId) {
+    if (status != null)
+      return;
 
-  static ShoppingCart open(UUID shoppingCartId, UUID clientId) {
-    return new ShoppingCart(
-      shoppingCartId,
-      clientId
-    );
+    enqueue(new ShoppingCartOpened(shoppingCartId, clientId));
   }
 
   void addProductItem(
@@ -55,7 +48,7 @@ public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
     ProductItem productItem
   ) {
     if (isClosed())
-      throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(status));
+      throw new IllegalStateException("Adding product item for cart in '%s' status is not allowed.".formatted(status));
 
     var pricedProductItem = productPriceCalculator.calculate(productItem);
 
@@ -69,7 +62,7 @@ public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
     PricedProductItem productItem
   ) {
     if (isClosed())
-      throw new IllegalStateException("Adding product item for cart in '%s' status is not allowed.".formatted(status));
+      throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(status));
 
     productItems.assertThatCanRemove(productItem);
 
@@ -79,36 +72,32 @@ public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, UUID> {
     ));
   }
 
-  void confirm() {
+  void confirm(OffsetDateTime now) {
     if (isClosed())
       throw new IllegalStateException("Confirming cart in '%s' status is not allowed.".formatted(status));
 
     enqueue(new ShoppingCartConfirmed(
       id,
-      OffsetDateTime.now()
+      now
     ));
   }
 
-  void cancel() {
+  void cancel(OffsetDateTime now) {
     if (isClosed())
       throw new IllegalStateException("Canceling cart in '%s' status is not allowed.".formatted(status));
 
     enqueue(new ShoppingCartCanceled(
       id,
-      OffsetDateTime.now()
+      now
     ));
   }
 
   private boolean isClosed() {
-    return this.status.isClosed();
-  }
-
-  static String mapToStreamId(UUID shoppingCartId) {
-    return "ShoppingCart-%s".formatted(shoppingCartId);
+    return this.status == null || this.status.isClosed();
   }
 
   @Override
-  public void when(ShoppingCartEvent event) {
+  public void evolve(ShoppingCartEvent event) {
     switch (event) {
       case ShoppingCartOpened shoppingCartOpened -> {
         id = shoppingCartOpened.shoppingCartId();

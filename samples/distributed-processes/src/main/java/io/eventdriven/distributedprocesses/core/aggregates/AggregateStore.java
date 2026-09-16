@@ -3,7 +3,6 @@ package io.eventdriven.distributedprocesses.core.aggregates;
 import com.eventstore.dbclient.ExpectedRevision;
 import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.http.ETag;
-import jakarta.persistence.EntityNotFoundException;
 
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -39,50 +38,31 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
     };
   }
 
-  public ETag add(Entity entity) {
-    return appendEvents(entity, ExpectedRevision.noStream());
+  public ETag getAndUpdate(Id id, Consumer<Entity> handle) {
+    var entity = get(id).orElseGet(getEmpty);
+
+    return update(id, entity, entity.version, handle);
   }
 
-  public ETag getAndUpdate(
-    Consumer<Entity> handle,
-    Id id,
-    long expectedRevision
-  ) {
-    var streamId = mapToStreamId.apply(id);
-    var entity = get(id).orElseThrow(
-      () -> new EntityNotFoundException("Stream with id %s was not found".formatted(streamId))
-    );
+  public ETag getAndUpdate(Id id, long expectedVersion, Consumer<Entity> handle) {
+    return update(id, get(id).orElseGet(getEmpty), expectedVersion, handle);
+  }
 
+  private ETag update(Id id, Entity entity, long expectedVersion, Consumer<Entity> handle) {
     handle.accept(entity);
 
-    return appendEvents(entity, ExpectedRevision.expectedRevision(expectedRevision));
-  }
-
-  public ETag getAndUpdate(
-    Consumer<Entity> handle,
-    Id id
-  ) {
-    var streamId = mapToStreamId.apply(id);
-    var entity = get(id).orElseThrow(
-      () -> new EntityNotFoundException("Stream with id %s was not found".formatted(streamId))
-    );
-
-    var expectedVersion = entity.version;
-
-    handle.accept(entity);
-
-    return appendEvents(entity, ExpectedRevision.expectedRevision(expectedVersion));
-  }
-
-  public ETag appendEvents(Entity entity, ExpectedRevision expectedRevision) {
-    var streamId = mapToStreamId.apply(entity.id());
     var events = entity.dequeueUncommittedEvents();
 
-    return switch (eventStore.append(streamId, expectedRevision, events)) {
+    if (events.length == 0)
+      return ETag.weak(expectedVersion);
+
+    var streamId = mapToStreamId.apply(id);
+
+    return switch (eventStore.append(streamId, toExpectedRevision(expectedVersion), events)) {
       case EventStore.AppendResult.Success success -> ETag.weak(success.nextExpectedRevision());
       case EventStore.AppendResult.StreamAlreadyExists alreadyExists -> throw new IllegalStateException(
-        "Cannot append to stream %s: expected %s, but it is at %s"
-          .formatted(streamId, describe(expectedRevision), describe(alreadyExists.actual()))
+        "Cannot append to stream %s: expected no stream, but it is at %s"
+          .formatted(streamId, describe(alreadyExists.actual()))
       );
       case EventStore.AppendResult.Conflict conflict -> throw new IllegalStateException(
         "Cannot append to stream %s: expected %s, but it is at %s"
@@ -92,12 +72,18 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
     };
   }
 
+  private static ExpectedRevision toExpectedRevision(long version) {
+    return version < 0 ?
+      ExpectedRevision.noStream()
+      : ExpectedRevision.expectedRevision(version);
+  }
+
   @SuppressWarnings("unchecked")
   private Entity replay(Object[] events) {
     var current = getEmpty.get();
 
     for (var event : events) {
-      current.when((Event) event);
+      current.evolve((Event) event);
     }
 
     current.version = events.length - 1;

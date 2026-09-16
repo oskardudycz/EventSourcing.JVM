@@ -8,31 +8,31 @@ import java.util.UUID;
 public sealed interface ShoppingCartEvent {
 
   record ShoppingCartOpened(
-    UUID shoppingCartId,
+    ShoppingCartId shoppingCartId,
     UUID clientId
   ) implements ShoppingCartEvent {
   }
 
   record ProductItemAddedToShoppingCart(
-    UUID shoppingCartId,
+    ShoppingCartId shoppingCartId,
     PricedProductItem productItem
   ) implements ShoppingCartEvent {
   }
 
   record ProductItemRemovedFromShoppingCart(
-    UUID shoppingCartId,
+    ShoppingCartId shoppingCartId,
     PricedProductItem productItem
   ) implements ShoppingCartEvent {
   }
 
   record ShoppingCartConfirmed(
-    UUID shoppingCartId,
+    ShoppingCartId shoppingCartId,
     OffsetDateTime confirmedAt
   ) implements ShoppingCartEvent {
   }
 
   record ShoppingCartCanceled(
-    UUID shoppingCartId,
+    ShoppingCartId shoppingCartId,
     OffsetDateTime canceledAt
   ) implements ShoppingCartEvent {
   }
