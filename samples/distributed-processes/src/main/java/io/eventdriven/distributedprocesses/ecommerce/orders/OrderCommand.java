@@ -1,30 +1,61 @@
 package io.eventdriven.distributedprocesses.ecommerce.orders;
 
-import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
+import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public sealed interface OrderCommand {
   record InitializeOrder(
-    UUID OrderId,
-    UUID ClientId,
-    PricedProductItem[] ProductItems,
-    double TotalPrice) implements OrderCommand {
+    OrderId orderId,
+    ShoppingCartId cartId,
+    UUID clientId,
+    PricedProductItem[] productItems,
+    double totalPrice) implements OrderCommand {
   }
 
-  record RecordOrderPayment(
-    UUID OrderId,
-    UUID PaymentId,
-    OffsetDateTime PaymentRecordedAt) implements OrderCommand {
+  record RecordOrderPaymentAuthorization(
+    OrderId orderId,
+    PaymentId paymentId,
+    OffsetDateTime authorizedAt) implements OrderCommand {
   }
 
-  record CompleteOrder(
-    UUID OrderId) implements OrderCommand {
+  record RecordOrderStockReservation(
+    OrderId orderId,
+    ShipmentId shipmentId,
+    OffsetDateTime reservedAt) implements OrderCommand {
+  }
+
+  record RecordOrderPackageSent(
+    OrderId orderId,
+    OffsetDateTime sentAt) implements OrderCommand {
+  }
+
+  record RecordOrderPaymentCapture(
+    OrderId orderId,
+    OffsetDateTime capturedAt) implements OrderCommand {
+  }
+
+  record RecordOrderDelivery(
+    OrderId orderId,
+    OffsetDateTime deliveredAt) implements OrderCommand {
+  }
+
+  record RecordOrderPaymentFailure(
+    OrderId orderId,
+    OffsetDateTime failedAt) implements OrderCommand {
+  }
+
+  record RecordOrderShipmentFailure(
+    OrderId orderId,
+    OffsetDateTime failedAt) implements OrderCommand {
   }
 
   record CancelOrder(
-    UUID OrderId,
-    OrderCancellationReason CancellationReason) implements OrderCommand {
+    OrderId orderId,
+    OrderCancellationReason cancellationReason) implements OrderCommand {
   }
 }

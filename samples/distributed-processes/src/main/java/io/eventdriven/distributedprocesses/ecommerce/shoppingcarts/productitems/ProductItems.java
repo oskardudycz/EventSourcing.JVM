@@ -25,7 +25,10 @@ public record ProductItems(
 
     var currentProductItem = assertThatCanRemove(productItem);
 
-    clone.remove(currentProductItem);
+    if (currentProductItem.quantity() == productItem.quantity())
+      clone.remove(currentProductItem);
+    else
+      clone.set(clone.indexOf(currentProductItem), currentProductItem.subtract(productItem));
 
     return new ProductItems(clone);
   }

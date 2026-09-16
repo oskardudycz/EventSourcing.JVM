@@ -33,49 +33,112 @@ Working directory for every command: `samples/distributed-processes`.
 ## Phase 1 — Modules  *(four parallel tracks, after Phase 0)*
 
 ### Track A — shoppingcarts
-- [ ] **A.1** `ShoppingCartFacade` (command records, no publishing) + `ShoppingCartsConfig` + tests
-- [ ] **A.2** cart forwarder on the integration bus + tests *(the only forwarder that re-reads)*
+- [x] **A.1** `ShoppingCartFacade` (command records, no publishing) + `ShoppingCartsConfig` + tests
+- [x] **A.2** cart forwarder on the integration bus + tests *(the only forwarder that re-reads)*
 
 ### Track B — orders
-- [ ] **B.1** defects + `OrderTests`
-  - [ ] `cancel` guard inverted — an opened order can never be cancelled
-  - [ ] `when(OrderInitialized)` never sets `totalPrice`
-  - [ ] PascalCase components in `OrderCommand` / `OrderCancelled`
-  - [ ] `InitializeOrder` uses the wrong `PricedProductItem`; add `orderId` + `cartId`
-  - [ ] `mapToStreamId`; `OrderCancellationReason` gains `PaymentFailed`, `Requested`
-- [ ] **B.2** `OrderFacade` (replaces the empty `OrderService`) + `OrdersConfig` + tests
-- [ ] **B.3** `OrderExternalEvent` + forwarder, wired + tests
+- [x] **B.1** defects + `OrderTests`
+  - [x] `cancel` guard inverted — an opened order can never be cancelled
+  - [x] `when(OrderInitialized)` never sets `totalPrice`
+  - [x] PascalCase components in `OrderCommand` / `OrderCancelled`
+  - [x] `InitializeOrder` uses the wrong `PricedProductItem`; add `orderId` + `cartId`
+  - [x] `mapToStreamId`; `OrderCancellationReason` gains `PaymentFailed`, `Requested`
+- [x] **B.2** `OrderFacade` (replaces the empty `OrderService`) + `OrdersConfig` + tests
+- [x] **B.3** `OrderExternalEvent` + forwarder, wired + tests
 
 ### Track C — payments
-- [ ] **C.1** `mapToStreamId` + `PaymentTests` (including the settle-exactly-once guards)
-- [ ] **C.2** `PaymentFacade` (replaces the empty `PaymentService`) + `PaymentsConfig` + tests
-- [ ] **C.3** `PaymentGateway` + `PaymentGatewayClient` + four test doubles
-  - [ ] auto-completing, auto-rejecting, throwing, silent
-  - [ ] a thrown charge becomes `PaymentDiscarded`, never a propagated exception
-- [ ] **C.4** payment forwarder on the integration bus + tests
-- [ ] **C.5** `PendingPayments` + `PaymentTimeoutWorker.run(now)` + tests
+- [x] **C.1** `mapToStreamId` + `PaymentTests` (including the settle-exactly-once guards)
+- [x] **C.2** `PaymentFacade` (replaces the empty `PaymentService`) + `PaymentsConfig` + tests
+- [x] **C.3** `PaymentGateway` + `PaymentGatewayClient` + four test doubles
+  - [x] auto-completing, auto-rejecting, throwing, silent
+  - [x] a thrown charge becomes `PaymentDiscarded`, never a propagated exception
+- [x] **C.4** payment forwarder on the integration bus + tests
+- [x] **C.5** `PendingPayments` + `PaymentTimeoutWorker.run(now)` + tests
 
 ### Track D — shipments
-- [ ] **D.1** defects + delivery + `ShipmentTests`
-  - [ ] delete the copy-pasted `shipments/PaymentService.java`
-  - [ ] camelCase `ShipmentCommand`; `SendPackage` gains `shipmentId`
-  - [ ] static factory, `mapToStreamId`, `when` sets `orderId`
-  - [ ] `PackageWasDelivered` + `deliver(now)` with guards
-- [ ] **D.2** `ShipmentFacade` (both commands) + `ShipmentsConfig` + tests
-- [ ] **D.3** `DeliveryProvider` + `DeliveryProviderClient` + two test doubles
-- [ ] **D.4** `ShipmentExternalEvent` + forwarder, wired + tests
+- [x] **D.1** defects + delivery + `ShipmentTests`
+  - [x] delete the copy-pasted `shipments/PaymentService.java`
+  - [x] camelCase `ShipmentCommand`; `SendPackage` gains `shipmentId`
+  - [x] static factory, `mapToStreamId`, `when` sets `orderId`
+  - [x] `PackageWasDelivered` + `deliver(now)` with guards
+- [x] **D.2** `ShipmentFacade` (both commands) + `ShipmentsConfig` + tests
+- [x] **D.3** `DeliveryProvider` + `DeliveryProviderClient` + two test doubles
+- [x] **D.4** `ShipmentExternalEvent` + forwarder, wired + tests
+
+Phase 1 is green at **123 tests**, 0 failures, 0 skipped (Phase 0 ended at 48). Steps 2.0c to 2.0g
+leave the build green at **180 tests**.
 
 ## Phase 2 — Wiring  *(sequential — needs all of Phase 1)*
 
-- [ ] **2.1** `OrderSaga` rewritten against external contracts only + `OrderSagaTests`
-  - [ ] injected `Supplier<UUID>`; no `UUID.randomUUID()` inside
-  - [ ] no import of another module's internal event type
-  - [ ] completes on `PackageWasDelivered`, not `PackageWasSent`
-  - [ ] skips the refund when `paymentId` is null **or** the reason is `PaymentFailed`
+- [x] **2.0** `core/identifiers/Urn` + `AggregateStore.addIfAbsent`
+  - [x] URNs are JOINED strings: `urn:ecommerce:order:<tail>` → `urn:ecommerce:payment:<tail>`
+  - [x] `add` stays strict; the tolerance is a named method the handler chooses
+  - [x] `addIfAbsent` must not read-then-write — that is a race
+  - [x] `DeterministicUuid` deleted — hashing was opaque and was the wrong technique
+- [x] **2.0b** typed URN identifiers across ecommerce — `UUID` → `ShoppingCartId`/`OrderId`/`PaymentId`/`ShipmentId`
+  - [x] `mapToStreamId` maps the id to `<Entity>-<tail>`, keeping the ESDB `$ce-` category clean
+  - [x] one `getAndUpdate` path; idempotency moved into each aggregate's create guard
+  - [x] `Payment` and `Shipment` hold an opaque `String referenceId`, never an `orderId`
+  - [x] Jackson 2.18.2; `OrderIdSerializationTests` pins the `@JsonValue` behaviour
+  - [x] `clientId` and `productId` stay `UUID` — nothing derives them
+- [x] **2.0c** gateway-shaped commands — `RequestPayment(referenceId, amount)` and
+      `SendPackage(referenceId, productItems)`
+  - [x] the caller never names the payment or the shipment, as with Adyen and Stripe
+  - [x] `PaymentFacade` and `ShipmentFacade` derive their own id from the reference
+  - [x] the notification carries both, like a webhook: `pspReference` + `merchantReference`
+  - [x] `OrderSaga` no longer names `PaymentId` or `ShipmentId`
+- [x] **2.0d** `Order` waits for outcomes instead of following a sequence, like `GroupCheckout`
+  - [x] one `Outcome` per participant; the second outcome to arrive finalises the order
+  - [x] `OrderPaymentFailed`, `OrderShipmentRecorded`, `OrderShipmentFailed` added
+  - [x] `CompleteOrder` deleted — nobody outside the order decides it is done
+  - [x] `OrderInitialized` carries the `cartId` it came from
+  - [x] the saga asks for payment and shipment together
+  - [x] refund guard is now the null `paymentId` alone
+- [x] **2.0e** no aggregate throws at a message it cannot use
+  - [x] `Order`, `Payment` and `Shipment` append nothing and return instead of throwing
+  - [x] `ShoppingCart` still throws — its commands come from a person, not a message
+  - [x] `AggregateSpecification.thenNothing()` for the idempotency cases
+- [x] **2.0f** naming, on review
+  - [x] `when` → `evolve` on every aggregate, including `hotelmanagement`
+  - [x] `mapToStreamId` moved from each aggregate to its facade
+  - [x] `PaymentExternalEvent.PaymentFailed.Reason` made public — consumers could not read it
+- [x] **2.1** `OrderSaga` rewritten against external contracts only + `OrderSagaTests`
+  - [x] `OrderId` DERIVED by `derivedFrom`, not minted: no `UUID.randomUUID()`, no `Supplier<UUID>`
+  - [x] a test proving the same event handled twice sends two identical commands
+  - [x] no import of another module's internal event type
+  - [x] records the shipment on `PackageWasDelivered`, not `PackageWasSent`
+  - [x] skips the refund when `paymentId` is null
+- [x] **2.0g** name what a payment reversal is — `DeclinePayment` + `RefundPayment`
+  - [x] `DiscardPayment` names no gateway operation; a chargeback is the issuer's, never ours
+  - [x] `DiscardReason` conflated "never succeeded" with "give it back"
+  - [x] **defect fixed:** `Payment.discard` guarded on `Pending`, but the saga refunds a `Completed`
+        payment — the refund had never happened. It threw until 2.0e, and was silent since.
+        `refund()` now guards on `Completed`, pinned by a test at both the aggregate and the facade
+  - [x] shipments untouched: `SendPackage` really sends, there is no reserve step to rename yet
+- [x] **2.0h** two reversible holds — authorise/capture + reserve/release, both with a deadline
+  - [x] payments speak the gateway's words: `AuthorizePayment`, `ConfirmPaymentAuthorization`,
+        `CapturePayment`, `VoidPayment`, `RefundPayment`, `ExpirePaymentAuthorization`
+  - [x] shipments reserve before they send: `ReserveStock`, `SendPackage(shipmentId)`,
+        `ReleaseStock`, `ExpireStockReservation`
+  - [x] `Order` joins twice — both holds confirm it, capture and delivery complete it
+  - [x] `OrderPackageSent` republishes the `paymentId` the shipment never knew, so the capture
+        can be sent from a stateless saga
+  - [x] `OrderCancelled` carries `paymentState` and `shipmentState`: the ORDER decides between a
+        void, a refund and a release, the saga only translates
+  - [x] **the order is never left hanging** — both holds expire on their own, and both expiries
+        reach it: `StockReservationExpired` and `PaymentFailed(AuthorizationExpired)`
+  - [x] `AuthorizationExpiryWorker` and `ReservationExpiryWorker` mirror `PaymentTimeoutWorker`
+  - [x] 249 tests, 0 failures, 0 skipped (was 180)
 - [ ] **2.2** `ECommerceConfig` + `OrderProcessTests` happy-path transcript
   - [ ] the store is the internal channel; the integration bus is separate
   - [ ] one `confirm` drives the whole process — gateway and provider settle on their own
-  - [ ] the eight saga subscriptions read as the process
+  - [ ] the thirteen saga subscriptions read as the process
+
+### Open, needs a decision
+
+- The sample README (`samples/distributed-processes/README.md`) still prints the OLD saga, with
+  `RequestPayment`, `PaymentFinalized` and `DiscardPayment`. It was already stale before 2.0h.
+  Step 4.1 rewrites it; nothing else references those names.
 
 ## Phase 3 — Failure paths  *(three parallel tracks, merge one at a time)*
 
@@ -98,6 +161,48 @@ Working directory for every command: `samples/distributed-processes`.
       undelivered. Inventing a failure path here was judged out of scope; confirm.
 - [ ] `core/messaging` duplicates `core/commands` / `core/events`, which stay because
       `hotelmanagement` depends on them. Unifying them is a follow-up, not part of this work.
-- [ ] Tenth defect found in step 0.4, not in spec §11: `PricedProductItem.mergeWith` adds
+- [x] Tenth defect found in step 0.4, not in spec §11: `PricedProductItem.mergeWith` added
       `productItem.quantity()` to itself instead of `quantity() + productItem.quantity()`, so adding
-      the same product twice doubles the incoming quantity rather than summing. Owned by track A.
+      the same product twice doubled the incoming quantity. **Fixed**, along with an eleventh defect
+      found next to it: `ProductItems.remove` dropped the whole line regardless of quantity, even
+      though `assertThatCanRemove` guards for partial removal — removing 1 of 5 removed all 5.
+      `PricedProductItem.subtract` now mirrors `mergeWith`. Covered by `ProductItemsTests` (7 tests).
+
+## Raised by Phase 2, needing Oskar's call
+
+- [ ] Parallel dispatch means the parcel can go out before the charge clears. If the payment then
+      fails, the order cancels with the package already sent and there is no return path. Agreed as
+      the cost of showing a real join, but the README must say so.
+- [ ] A manual `CancelOrder` while both outcomes are still pending closes the order with a null
+      `paymentId`, so a payment that completes afterwards is never refunded. Phase 3.3 territory.
+
+## Raised by Phase 1, needing Oskar's call
+
+- [ ] **Pre-authorised deviation:** `ShoppingCart.confirm()` and `cancel()` now take an
+      `OffsetDateTime now` parameter instead of calling `OffsetDateTime.now()` internally, matching
+      `Order` and `Shipment`. Without it the facade's injected clock is decorative and the
+      happy-path assertions cannot be deterministic. `ShoppingCartEvent` and `ShoppingCartCommand`
+      are untouched.
+- [ ] `Order`, `Shipment` and `Payment` each gained a private no-arg constructor and `empty()`.
+      Not in the plan, but `AggregateStore` and `AggregateSpecification` both need a
+      `Supplier<Entity>`. Matches `ShoppingCart.empty()`.
+- [x] `OrderFacade` ignored `command.cartId()`. Both the internal and the external
+      `OrderInitialized` now carry it, so the order records the cart it came from.
+- [ ] `MessageCatcher.shouldReceiveSingleEvent` ends in `assertEquals`, and record equality compares
+      array components by reference — so it cannot be used for any event carrying an array. Both
+      tracks used `shouldReceiveMessages` instead. The workshop original has the same problem, which
+      is why it was left alone.
+- [ ] `Shipment.send` with an empty product array emits `PackageWasSent` — `allMatch` on an empty
+      stream is true. Pinned in a test as-is. Shipping an empty parcel as a success reads wrong, but
+      changing it is a business decision, not a defect fix.
+
+## Cosmetic defects found in Phase 1, all deliberately left alone
+
+- [x] `Payment.timeOut` threw with `discard`'s message. Fixed, then the throw itself went in 2.0e.
+- [x] `Payment.discard` and `timeOut` formatted the status as `'{%s}'`. Fixed.
+- [x] `ShoppingCart.addProductItem` and `removeProductItem` had their guard messages swapped. Fixed.
+- [x] `OrderEvent` imported Spring's `@Nullable`, which needs JSR-305 on the classpath. Replaced
+      with a plain comment. **Seven `hotelmanagement` files still import it**, so `compileJava` still
+      prints `warning: unknown enum constant When.MAYBE`. Outside the agreed blast radius.
+- [ ] `AggregateStore.getAndUpdate(Id, long, Consumer)` takes a primitive `long`. Nothing calls it
+      yet, so there is no unboxing to NPE on; it becomes real when a caller passes an `ETag`.

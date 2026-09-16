@@ -1,14 +1,17 @@
 package io.eventdriven.distributedprocesses.ecommerce.orders;
 
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
-import org.springframework.lang.Nullable;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public sealed interface OrderEvent {
   record OrderInitialized(
-    UUID orderId,
+    OrderId orderId,
+    ShoppingCartId cartId,
     UUID clientId,
     PricedProductItem[] productItems,
     double totalPrice,
@@ -16,26 +19,74 @@ public sealed interface OrderEvent {
   ) implements OrderEvent {
   }
 
-  record OrderPaymentRecorded(
-    UUID orderId,
-    UUID paymentId,
-    PricedProductItem[] productItems,
+  record OrderPaymentAuthorized(
+    OrderId orderId,
+    PaymentId paymentId,
+    OffsetDateTime authorizedAt
+  ) implements OrderEvent {
+  }
+
+  record OrderStockReserved(
+    OrderId orderId,
+    ShipmentId shipmentId,
+    OffsetDateTime reservedAt
+  ) implements OrderEvent {
+  }
+
+  record OrderConfirmed(
+    OrderId orderId,
+    ShipmentId shipmentId,
+    OffsetDateTime confirmedAt
+  ) implements OrderEvent {
+  }
+
+  record OrderPackageSent(
+    OrderId orderId,
+    PaymentId paymentId,
+    OffsetDateTime sentAt
+  ) implements OrderEvent {
+  }
+
+  record OrderPaymentCaptured(
+    OrderId orderId,
+    PaymentId paymentId,
     double amount,
-    OffsetDateTime paymentRecordedAt
+    OffsetDateTime capturedAt
+  ) implements OrderEvent {
+  }
+
+  record OrderShipmentDelivered(
+    OrderId orderId,
+    ShipmentId shipmentId,
+    OffsetDateTime deliveredAt
+  ) implements OrderEvent {
+  }
+
+  record OrderPaymentFailed(
+    OrderId orderId,
+    OffsetDateTime failedAt
+  ) implements OrderEvent {
+  }
+
+  record OrderShipmentFailed(
+    OrderId orderId,
+    OffsetDateTime failedAt
   ) implements OrderEvent {
   }
 
   record OrderCompleted(
-    UUID orderId,
+    OrderId orderId,
     OffsetDateTime completedAt
   ) implements OrderEvent {
   }
 
   record OrderCancelled(
-    UUID OrderId,
-    @Nullable
-    UUID paymentId,
-    OrderCancellationReason Reason,
+    OrderId orderId,
+    PaymentId paymentId, // nullable — an order cancelled before the authorisation has none
+    OrderPaymentState paymentState,
+    ShipmentId shipmentId, // nullable — an order cancelled before the reservation has none
+    OrderShipmentState shipmentState,
+    OrderCancellationReason reason,
     OffsetDateTime cancelledAt
   ) implements OrderEvent {
   }

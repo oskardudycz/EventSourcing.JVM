@@ -1,5 +1,6 @@
 package io.eventdriven.distributedprocesses.core.aggregates;
 
+import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
 import org.junit.jupiter.api.Test;
 
@@ -17,8 +18,8 @@ public class AggregateStoreTests {
   private static final UUID counterId = UUID.randomUUID();
 
   @Test
-  public void addThenGetRoundTripsState() {
-    store.add(Counter.open(counterId, "clicks"));
+  public void openThenGetRoundTripsState() {
+    store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
 
     var counter = store.get(counterId).orElseThrow();
 
@@ -34,39 +35,58 @@ public class AggregateStoreTests {
 
   @Test
   public void versionAfterReplayEqualsEventCountMinusOne() {
-    store.add(Counter.open(counterId, "clicks"));
-    store.getAndUpdate(current -> current.increment(1), counterId);
-    store.getAndUpdate(current -> current.increment(2), counterId);
+    store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
+    store.getAndUpdate(counterId, current -> current.increment(1));
+    store.getAndUpdate(counterId, current -> current.increment(2));
 
     assertThat(store.get(counterId).orElseThrow().version).isEqualTo(2);
   }
 
   @Test
   public void getAndUpdateAppendsAndAdvancesTheRevision() {
-    var afterAdd = store.add(Counter.open(counterId, "clicks"));
+    var afterOpen = store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
 
-    var afterUpdate = store.getAndUpdate(current -> current.increment(3), counterId);
+    var afterUpdate = store.getAndUpdate(counterId, current -> current.increment(3));
 
-    assertThat(afterAdd.toLong()).isZero();
+    assertThat(afterOpen.toLong()).isZero();
     assertThat(afterUpdate.toLong()).isEqualTo(1);
     assertThat(store.get(counterId).orElseThrow().total()).isEqualTo(3);
   }
 
   @Test
-  public void addOnExistingStreamThrows() {
-    store.add(Counter.open(counterId, "clicks"));
+  public void aCommandThatEnqueuesNothingAppendsNothing() {
+    store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
 
-    assertThatThrownBy(() -> store.add(Counter.open(counterId, "clicks")))
-      .isInstanceOf(IllegalStateException.class)
-      .hasMessageContaining(mapToStreamId(counterId));
+    store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
+
+    assertThat(eventsIn(counterId)).hasSize(1);
+  }
+
+  @Test
+  public void aCommandThatEnqueuesNothingDoesNotThrow() {
+    store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
+
+    assertThatNoException().isThrownBy(
+      () -> store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"))
+    );
+  }
+
+  @Test
+  public void aCommandThatEnqueuesNothingReturnsTheRevisionTheStreamAlreadyHas() {
+    store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
+    var afterIncrement = store.getAndUpdate(counterId, current -> current.increment(1));
+
+    var afterRepeat = store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
+
+    assertThat(afterRepeat.toLong()).isEqualTo(afterIncrement.toLong());
   }
 
   @Test
   public void getAndUpdateWithStaleExplicitRevisionThrows() {
-    store.add(Counter.open(counterId, "clicks"));
-    store.getAndUpdate(current -> current.increment(1), counterId);
+    store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
+    store.getAndUpdate(counterId, current -> current.increment(1));
 
-    assertThatThrownBy(() -> store.getAndUpdate(current -> current.increment(1), counterId, 0))
+    assertThatThrownBy(() -> store.getAndUpdate(counterId, 0, current -> current.increment(1)))
       .isInstanceOf(IllegalStateException.class)
       .hasMessageContaining(mapToStreamId(counterId));
 
@@ -74,12 +94,19 @@ public class AggregateStoreTests {
   }
 
   @Test
-  public void subscriberOnTheStoreReceivesTheEventsThatAddAppended() {
+  public void subscriberOnTheStoreReceivesTheEventsThatWereAppended() {
     eventStore.subscribe(CounterEvent.Opened.class, event -> log.add("opened:" + event.name()));
 
-    store.add(Counter.open(counterId, "clicks"));
+    store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
 
     assertThat(log).containsExactly("opened:clicks");
+  }
+
+  private Object[] eventsIn(UUID id) {
+    return switch (eventStore.read(mapToStreamId(id))) {
+      case EventStore.ReadResult.Success success -> success.events();
+      default -> new Object[0];
+    };
   }
 
   private static String mapToStreamId(UUID id) {
@@ -98,11 +125,11 @@ public class AggregateStoreTests {
     private String name;
     private int total;
 
-    static Counter open(UUID counterId, String name) {
-      var counter = new Counter();
-      counter.enqueue(new CounterEvent.Opened(counterId, name));
+    void open(UUID counterId, String name) {
+      if (this.name != null)
+        return;
 
-      return counter;
+      enqueue(new CounterEvent.Opened(counterId, name));
     }
 
     void increment(int by) {
@@ -118,7 +145,7 @@ public class AggregateStoreTests {
     }
 
     @Override
-    public void when(CounterEvent event) {
+    public void evolve(CounterEvent event) {
       switch (event) {
         case CounterEvent.Opened opened -> {
           id = opened.counterId();

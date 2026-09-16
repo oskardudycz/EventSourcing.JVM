@@ -21,11 +21,11 @@ public abstract class AbstractAggregate<Event, Id> implements Aggregate<Id> {
     return dequeuedEvents;
   }
 
-  public abstract void when(Event event);
+  public abstract void evolve(Event event);
 
   protected void enqueue(Event event) {
     uncommittedEvents.add(event);
-    when(event);
+    evolve(event);
     version++;
   }
 }

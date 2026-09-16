@@ -18,8 +18,8 @@ repositories {
 
 dependencies {
   // Serialisation
-  implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
-  implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.0'
+  implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
+  implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2'
 
   // EventStoreDB client
   implementation 'com.eventstore:db-client-java:5.4.3'
@@ -37,7 +37,7 @@ dependencies {
   testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.2'
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
   testImplementation 'org.junit.platform:junit-platform-launcher:1.10.2'
-  testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+  testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
   testImplementation 'org.springframework.boot:spring-boot-starter-test:3.2.5'
 }
 

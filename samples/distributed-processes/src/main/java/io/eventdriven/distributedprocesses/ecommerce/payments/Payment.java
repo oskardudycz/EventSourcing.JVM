@@ -3,13 +3,12 @@ package io.eventdriven.distributedprocesses.ecommerce.payments;
 import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
 
-public class Payment extends AbstractAggregate<PaymentEvent, UUID> {
-  public UUID orderId() {
-    return orderId;
+public class Payment extends AbstractAggregate<PaymentEvent, PaymentId> {
+  public String referenceId() {
+    return referenceId;
   }
 
   public double amount() {
@@ -18,57 +17,96 @@ public class Payment extends AbstractAggregate<PaymentEvent, UUID> {
 
   private enum Status {
     Pending,
-    Completed,
+    Authorized,
+    Captured,
+    Voided,
+    Refunded,
     Failed
   }
 
-  private UUID orderId;
+  private String referenceId;
   private double amount;
   private Status status;
 
-  public static Payment request(UUID paymentId, UUID orderId, double amount) {
-    return new Payment(paymentId, orderId, amount);
+  private Payment() {
   }
 
-  private Payment(UUID id, UUID orderId, double amount) {
-    enqueue(new PaymentRequested(id, orderId, amount));
+  public static Payment empty() {
+    return new Payment();
   }
 
-  public void complete(OffsetDateTime now) {
+  public void requestAuthorization(PaymentId paymentId, String referenceId, double amount) {
+    if (status != null)
+      return;
+
+    enqueue(new PaymentAuthorizationRequested(paymentId, referenceId, amount));
+  }
+
+  public void confirmAuthorization(OffsetDateTime now, OffsetDateTime expiresAt) {
     if (status != Status.Pending)
-      throw new IllegalStateException("Completing payment in '%s' status is not allowed.".formatted(status));
+      return;
 
-    enqueue(new PaymentCompleted(id(), now));
+    enqueue(new PaymentAuthorized(id(), now, expiresAt));
   }
 
-  public void discard(DiscardReason discardReason, OffsetDateTime now) {
-    if (status != Status.Pending)
-      throw new IllegalStateException("Discarding payment in '{%s}' status is not allowed.".formatted(status));
+  public void capture(OffsetDateTime now) {
+    if (status != Status.Authorized)
+      return;
 
-    enqueue(new PaymentDiscarded(id(), discardReason, now));
+    enqueue(new PaymentCaptured(id(), amount, now));
+  }
+
+  public void voidAuthorization(OffsetDateTime now) {
+    if (status != Status.Authorized)
+      return;
+
+    enqueue(new PaymentVoided(id(), now));
+  }
+
+  public void refund(OffsetDateTime now) {
+    if (status != Status.Captured)
+      return;
+
+    enqueue(new PaymentRefunded(id(), now));
+  }
+
+  public void decline(DeclineReason reason, OffsetDateTime now) {
+    if (status != Status.Pending)
+      return;
+
+    enqueue(new PaymentDeclined(id(), reason, now));
   }
 
   public void timeOut(OffsetDateTime now) {
     if (status != Status.Pending)
-      throw new IllegalStateException("Discarding payment in '{%s}' status is not allowed.".formatted(status));
+      return;
 
-    var event = new PaymentTimedOut(id(), now);
+    enqueue(new PaymentTimedOut(id(), now));
+  }
 
-    enqueue(event);
+  public void expireAuthorization(OffsetDateTime now) {
+    if (status != Status.Authorized)
+      return;
+
+    enqueue(new PaymentAuthorizationExpired(id(), now));
   }
 
   @Override
-  public void when(PaymentEvent event) {
+  public void evolve(PaymentEvent event) {
     switch (event) {
-      case PaymentRequested paymentRequested -> {
-        id = paymentRequested.paymentId();
-        orderId = paymentRequested.orderId();
-        amount = paymentRequested.amount();
+      case PaymentAuthorizationRequested authorizationRequested -> {
+        id = authorizationRequested.paymentId();
+        referenceId = authorizationRequested.referenceId();
+        amount = authorizationRequested.amount();
         status = Status.Pending;
       }
-      case PaymentCompleted completed -> status = Status.Completed;
-      case PaymentDiscarded discarded -> status = Status.Failed;
-      case PaymentTimedOut paymentTimedOut -> status = Status.Failed;
+      case PaymentAuthorized authorized -> status = Status.Authorized;
+      case PaymentCaptured captured -> status = Status.Captured;
+      case PaymentVoided voided -> status = Status.Voided;
+      case PaymentRefunded refunded -> status = Status.Refunded;
+      case PaymentDeclined declined -> status = Status.Failed;
+      case PaymentTimedOut timedOut -> status = Status.Failed;
+      case PaymentAuthorizationExpired expired -> status = Status.Failed;
     }
   }
 }

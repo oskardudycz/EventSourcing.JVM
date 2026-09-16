@@ -34,7 +34,19 @@ public record PricedProductItem(
       throw new IllegalArgumentException("Product unit prices do not match.");
 
     return new PricedProductItem(
-      new ProductItem(productId(), productItem.quantity() + productItem.quantity()),
+      new ProductItem(productId(), quantity() + productItem.quantity()),
+      unitPrice()
+    );
+  }
+
+  PricedProductItem subtract(PricedProductItem productItem) {
+    if (!productId().equals(productItem.productId()))
+      throw new IllegalArgumentException("Product ids do not match.");
+    if (unitPrice() != productItem.unitPrice())
+      throw new IllegalArgumentException("Product unit prices do not match.");
+
+    return new PricedProductItem(
+      new ProductItem(productId(), quantity() - productItem.quantity()),
       unitPrice()
     );
   }

@@ -1,21 +1,22 @@
 package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external;
 
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
+
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
-import io.eventdriven.distributedprocesses.core.events.EventBus;
+import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCart;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
 
-import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
 public class ShoppingCartExternalEventForwarder {
-  private final AggregateStore<ShoppingCart, ShoppingCartEvent, UUID> store;
-  private final EventBus eventBus;
+  private final AggregateStore<ShoppingCart, ShoppingCartEvent, ShoppingCartId> store;
+  private final IntegrationEventBus eventBus;
 
   public ShoppingCartExternalEventForwarder(
-    AggregateStore<ShoppingCart, ShoppingCartEvent, UUID> store,
-    EventBus eventBus
+    AggregateStore<ShoppingCart, ShoppingCartEvent, ShoppingCartId> store,
+    IntegrationEventBus eventBus
   ) {
     this.store = store;
     this.eventBus = eventBus;

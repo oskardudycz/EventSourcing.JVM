@@ -5,7 +5,6 @@ import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,31 +16,17 @@ public abstract class AggregateSpecification<Entity extends AbstractAggregate<Ev
     this.getEmpty = getEmpty;
   }
 
-  public FactoryWhen given() {
-    return new FactoryWhen();
-  }
-
   @SafeVarargs
   public final EntityWhen given(Event... events) {
     var entity = getEmpty.get();
 
     for (var event : events) {
-      entity.when(event);
+      entity.evolve(event);
     }
 
     entity.dequeueUncommittedEvents();
 
     return new EntityWhen(entity);
-  }
-
-  public final class FactoryWhen {
-    public Then when(Function<Entity, Entity> handle) {
-      try {
-        return new Then(handle.apply(getEmpty.get()), null);
-      } catch (Throwable thrown) {
-        return new Then(null, thrown);
-      }
-    }
   }
 
   public final class EntityWhen {
@@ -91,6 +76,10 @@ public abstract class AggregateSpecification<Entity extends AbstractAggregate<Ev
         .isEqualTo(expectedEvents);
 
       return this;
+    }
+
+    public Then thenNothing() {
+      return then();
     }
 
     public Then thenThrows(Class<? extends Throwable> expected) {

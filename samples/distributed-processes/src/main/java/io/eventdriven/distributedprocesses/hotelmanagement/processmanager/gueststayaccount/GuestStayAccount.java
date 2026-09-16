@@ -17,17 +17,17 @@ public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, U
   private Status status;
   private double balance;
 
-  public static GuestStayAccount open(UUID guestStayAccountId, OffsetDateTime openedAt) {
-    return new GuestStayAccount(
-      guestStayAccountId,
-      openedAt
-    );
+  private GuestStayAccount() {
   }
 
-  private GuestStayAccount(
-    UUID guestStayAccountId,
-    OffsetDateTime openedAt
-  ) {
+  public static GuestStayAccount empty() {
+    return new GuestStayAccount();
+  }
+
+  public void open(UUID guestStayAccountId, OffsetDateTime openedAt) {
+    if (status != null)
+      return;
+
     enqueue(new GuestCheckedIn(guestStayAccountId, openedAt));
   }
 
@@ -60,7 +60,7 @@ public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, U
   }
 
   @Override
-  public void when(GuestStayAccountEvent event) {
+  public void evolve(GuestStayAccountEvent event) {
     switch (event) {
       case GuestCheckedIn opened -> {
         id = opened.guestStayAccountId();

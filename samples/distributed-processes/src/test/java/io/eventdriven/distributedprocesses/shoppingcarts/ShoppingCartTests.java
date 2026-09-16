@@ -1,5 +1,7 @@
 package io.eventdriven.distributedprocesses.shoppingcarts;
 
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
+
 import com.eventstore.dbclient.*;
 import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
@@ -19,7 +21,7 @@ public class ShoppingCartTests {
     // We're assuming that there can be only a single shopping cart open for specific client.
     // We can enforce uniqueness by putting client id into a stream id
     var shoppingCartStreamId = "shopping_cart-%s".formatted(clientId);
-    var shoppingCartOpened = new ShoppingCartEvent.ShoppingCartOpened(clientId, clientId);
+    var shoppingCartOpened = new ShoppingCartEvent.ShoppingCartOpened(ShoppingCartId.of(clientId), clientId);
 
     // This one should succeed as we don't have such stream yet
     eventStore.appendToStream(
