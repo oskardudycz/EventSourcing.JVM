@@ -55,7 +55,7 @@ public class ShipmentExternalEventForwarderTests {
     commandBus.send(new ReserveStock(referenceId, available));
 
     externalEvents.shouldReceiveMessages(
-      new ShipmentExternalEvent.StockReserved(shipmentId, referenceId, now, reservedUntil)
+      new ShipmentExternalEvent.StockReserved(shipmentId, referenceId, available, now, reservedUntil)
     );
   }
 
@@ -84,24 +84,36 @@ public class ShipmentExternalEventForwarderTests {
   }
 
   @Test
-  public void runningOutOfStockForwardsProductWasOutOfStock() {
+  public void runningOutOfStockForwardsStockReservationFailed() {
     var productItems = new ProductItem[]{availableItem, unavailableItem};
 
     commandBus.send(new ReserveStock(referenceId, productItems));
 
     externalEvents.shouldReceiveMessages(
-      new ShipmentExternalEvent.ProductWasOutOfStock(shipmentId, referenceId, productItems, now)
+      new ShipmentExternalEvent.StockReservationFailed(
+        shipmentId,
+        referenceId,
+        productItems,
+        ShipmentExternalEvent.StockReservationFailed.Reason.ProductsOutOfStock,
+        now
+      )
     );
   }
 
   @Test
-  public void expiringForwardsStockReservationExpiredSoTheOrderIsNeverLeftWaiting() {
+  public void expiringForwardsStockReservationFailedSoTheOrderIsNeverLeftWaiting() {
     reserve();
 
     commandBus.send(new ExpireStockReservation(shipmentId, reservedUntil));
 
     externalEvents.shouldReceiveMessages(
-      new ShipmentExternalEvent.StockReservationExpired(shipmentId, referenceId, reservedUntil)
+      new ShipmentExternalEvent.StockReservationFailed(
+        shipmentId,
+        referenceId,
+        available,
+        ShipmentExternalEvent.StockReservationFailed.Reason.ReservationExpired,
+        reservedUntil
+      )
     );
   }
 

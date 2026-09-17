@@ -12,8 +12,10 @@ import java.util.function.Consumer;
 public class InMemoryEventBus implements InternalEventBus, IntegrationEventBus {
   private static final String defaultStreamId = "integration";
 
-  private final Map<Class<?>, List<Consumer<Object>>> handlers = new HashMap<>();
-  private final Map<Class<?>, List<EventHandler<Object>>> envelopeHandlers = new HashMap<>();
+  // One list per event type, in registration order. Handlers that asked for the
+  // bare event are adapted here rather than kept apart, so that subscribing a
+  // projection before a forwarder actually runs it before that forwarder.
+  private final Map<Class<?>, List<EventHandler<Object>>> handlers = new HashMap<>();
   private final List<Consumer<Object>> middlewares = new ArrayList<>();
   private long position = -1;
 
@@ -25,38 +27,29 @@ public class InMemoryEventBus implements InternalEventBus, IntegrationEventBus {
   public void publishAt(String streamId, long firstPosition, Object... events) {
     for (var i = 0; i < events.length; i++) {
       var event = events[i];
-      var metadata = new EventMetadata(streamId, firstPosition + i);
+      var envelope = new EventEnvelope<>(event, new EventMetadata(streamId, firstPosition + i));
 
-      position = Math.max(position, metadata.streamPosition());
+      position = Math.max(position, envelope.metadata().streamPosition());
 
       for (var middleware : middlewares) {
         middleware.accept(event);
       }
 
       for (var handler : handlers.getOrDefault(event.getClass(), List.of())) {
-        handler.accept(event);
-      }
-
-      for (var handler : envelopeHandlers.getOrDefault(event.getClass(), List.of())) {
-        handler.handle(new EventEnvelope<>(event, metadata));
+        handler.handle(envelope);
       }
     }
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public <Event> InMemoryEventBus subscribe(Class<Event> type, Consumer<Event> handler) {
-    handlers
-      .computeIfAbsent(type, ignored -> new ArrayList<>())
-      .add((Consumer<Object>) handler);
-
-    return this;
+    return subscribeWithMetadata(type, envelope -> handler.accept(envelope.data()));
   }
 
   @Override
   @SuppressWarnings("unchecked")
   public <Event> InMemoryEventBus subscribeWithMetadata(Class<Event> type, EventHandler<Event> handler) {
-    envelopeHandlers
+    handlers
       .computeIfAbsent(type, ignored -> new ArrayList<>())
       .add((EventHandler<Object>) handler);
 

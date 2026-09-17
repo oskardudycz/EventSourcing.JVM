@@ -1,11 +1,10 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments.external;
 
-import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
-
-import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
 import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
-import io.eventdriven.distributedprocesses.ecommerce.payments.Payment;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentSummaries;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentSummary;
 
 import java.time.OffsetDateTime;
 
@@ -13,14 +12,14 @@ import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEven
 import static io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.*;
 
 public class PaymentExternalEventForwarder {
-  private final AggregateStore<Payment, PaymentEvent, PaymentId> store;
+  private final PaymentSummaries summaries;
   private final IntegrationEventBus eventBus;
 
   public PaymentExternalEventForwarder(
-    AggregateStore<Payment, PaymentEvent, PaymentId> store,
+    PaymentSummaries summaries,
     IntegrationEventBus eventBus
   ) {
-    this.store = store;
+    this.summaries = summaries;
     this.eventBus = eventBus;
   }
 
@@ -28,11 +27,11 @@ public class PaymentExternalEventForwarder {
     var payment = get(event.paymentId());
 
     eventBus.publish(new PaymentExternalEvent.PaymentAuthorized(
-      payment.referenceId(),
+      payment.getReferenceId(),
       event.paymentId(),
-      payment.amount(),
-      event.authorizedAt(),
-      event.expiresAt()
+      payment.getAmount(),
+      payment.getAuthorizedAt(),
+      payment.getExpiresAt()
     ));
   }
 
@@ -40,7 +39,7 @@ public class PaymentExternalEventForwarder {
     var payment = get(event.paymentId());
 
     eventBus.publish(new PaymentExternalEvent.PaymentCaptured(
-      payment.referenceId(),
+      payment.getReferenceId(),
       event.paymentId(),
       event.amount(),
       event.capturedAt()
@@ -71,16 +70,16 @@ public class PaymentExternalEventForwarder {
     var payment = get(paymentId);
 
     eventBus.publish(new PaymentFailed(
-      payment.referenceId(),
+      payment.getReferenceId(),
       paymentId,
-      payment.amount(),
+      payment.getAmount(),
       failedAt,
       reason
     ));
   }
 
-  private Payment get(PaymentId paymentId) {
-    return store.get(paymentId)
+  private PaymentSummary get(PaymentId paymentId) {
+    return summaries.get(paymentId)
       .orElseThrow(() -> new IllegalStateException("Cannot enrich event, as payment with id '%s' was not found".formatted(paymentId)));
   }
 }

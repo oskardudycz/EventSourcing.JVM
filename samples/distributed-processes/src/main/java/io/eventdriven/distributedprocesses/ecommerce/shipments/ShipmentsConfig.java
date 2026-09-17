@@ -5,6 +5,7 @@ import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
 import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
 import io.eventdriven.distributedprocesses.core.messaging.InternalEventBus;
+import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEventForwarder;
 
 import java.time.Duration;
@@ -44,24 +45,37 @@ public final class ShipmentsConfig {
       .handle(ReleaseStock.class, facade::releaseStock)
       .handle(ExpireStockReservation.class, facade::expireStockReservation);
 
-    var forwarder = new ShipmentExternalEventForwarder(integrationEventBus);
+    var database = new Database();
+    var summaries = new ShipmentSummaries(database);
 
-    // Forwarding first, so that handing the parcel over does not publish the delivery
-    // before the dispatch that caused it.
+    // The projections go first: they are the module's own read side, and both the forwarder
+    // and the expiry worker read them.
+    internalEventBus
+      .subscribeWithMetadata(StockReserved.class, summaries::onStockReserved)
+      .subscribeWithMetadata(ProductWasOutOfStock.class, summaries::onProductWasOutOfStock)
+      .subscribeWithMetadata(PackageWasSent.class, summaries::onPackageWasSent)
+      .subscribeWithMetadata(PackageWasDelivered.class, summaries::onPackageWasDelivered)
+      .subscribeWithMetadata(StockReleased.class, summaries::onStockReleased)
+      .subscribeWithMetadata(StockReservationExpired.class, summaries::onStockReservationExpired);
+
+    var stockReservations = new StockReservations(database);
+
+    internalEventBus
+      .subscribeWithMetadata(StockReserved.class, stockReservations::onStockReserved)
+      .subscribeWithMetadata(PackageWasSent.class, stockReservations::onPackageWasSent)
+      .subscribeWithMetadata(StockReleased.class, stockReservations::onStockReleased)
+      .subscribeWithMetadata(StockReservationExpired.class, stockReservations::onStockReservationExpired);
+
+    var forwarder = new ShipmentExternalEventForwarder(summaries, integrationEventBus);
+
+    // Forwarding before the delivery provider, so that handing the parcel over does not
+    // publish the delivery before the dispatch that caused it.
     internalEventBus
       .subscribe(StockReserved.class, forwarder::on)
       .subscribe(ProductWasOutOfStock.class, forwarder::on)
       .subscribe(PackageWasSent.class, forwarder::on)
       .subscribe(PackageWasDelivered.class, forwarder::on)
       .subscribe(StockReservationExpired.class, forwarder::on);
-
-    var stockReservations = new StockReservations();
-
-    internalEventBus
-      .subscribe(StockReserved.class, stockReservations::on)
-      .subscribe(PackageWasSent.class, stockReservations::on)
-      .subscribe(StockReleased.class, stockReservations::on)
-      .subscribe(StockReservationExpired.class, stockReservations::on);
 
     var deliveryProviderClient = new DeliveryProviderClient(deliveryProvider);
 
