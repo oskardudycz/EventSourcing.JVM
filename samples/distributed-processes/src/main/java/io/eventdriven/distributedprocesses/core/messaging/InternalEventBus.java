@@ -6,5 +6,7 @@ import java.util.function.Consumer;
 public interface InternalEventBus {
   <Event> InternalEventBus subscribe(Class<Event> type, Consumer<Event> handler);
 
+  <Event> InternalEventBus subscribeWithMetadata(Class<Event> type, EventHandler<Event> handler);
+
   InternalEventBus use(Consumer<Object> middleware);
 }

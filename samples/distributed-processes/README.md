@@ -1,4 +1,4 @@
-[![Twitter Follow](https://img.shields.io/twitter/follow/oskar_at_net?style=social)](https://twitter.com/oskar_at_net) [![Github Sponsors](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&link=https://github.com/sponsors/oskardudycz/)](https://github.com/sponsors/oskardudycz/) [![blog](https://img.shields.io/badge/blog-event--driven.io-brightgreen)](https://event-driven.io/?utm_source=event_sourcing_jvm) [![blog](https://img.shields.io/badge/%F0%9F%9A%80-Architecture%20Weekly-important)](https://www.architecture-weekly.com/?utm_source=event_sourcing_jvm) 
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/oskardudycz/)  [![Github Sponsors](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&link=https://github.com/sponsors/oskardudycz/)](https://github.com/sponsors/oskardudycz/) [![blog](https://img.shields.io/badge/blog-event--driven.io-brightgreen)](https://event-driven.io/?utm_source=event_sourcing_jvm) [![blog](https://img.shields.io/badge/%F0%9F%9A%80-Architecture%20Weekly-important)](https://www.architecture-weekly.com/?utm_source=event_sourcing_jvm) 
 
 ![Github Actions](https://github.com/oskardudycz/EventSourcing.JVM/actions/workflows/samples_distributed-processes.yml/badge.svg?branch=main) 
 
@@ -16,7 +16,7 @@
     - [Appending is publishing](#appending-is-publishing)
     - [The two settlement seams](#the-two-settlement-seams)
     - [When things go wrong](#when-things-go-wrong)
-    - [What this sample deliberately does not do](#what-this-sample-deliberately-does-not-do)
+    - [What this sample doesn't cover](#what-this-sample-doesnt-cover)
 
 Those samples present how you can tackle handling distributed processes in Event Sourcing. For more background, check my articles [Saga and Process Manager - distributed processes in practice](https://event-driven.io/en/saga_process_manager_distributed_transactions?utm_source=event_sourcing_jvm) and [No, it can never happen!](https://event-driven.io/en/no_it_can_never_happen/?utm_source=event_sourcing_jvm). 
 
@@ -176,19 +176,13 @@ As an alternative to the retry policy, we could do a [Pokémon exception handlin
 
 ## Cross-module processes with compensation
 
-The batch example kept everything in one module, so it never had to separate what it says to itself
-from what it says to the rest of the system. A cross-module process must.
+The group checkout stayed inside one module. Every event it stored was also every event its saga reacted to, because there was nobody else to talk to. That stops working once a process spans modules: what a module writes down for itself and what it tells the rest of the system become two different things, and the ones it tells the others turn into a contract it has to keep.
 
-The ecommerce sample runs one order across four modules — [shopping carts](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/shoppingcarts/),
-[orders](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/),
-[payments](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/payments/) and
-[shipments](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/shipments/) — and nothing
-in it is bought in a single step.
+The ecommerce sample shows that on a single order going through four modules: [shopping carts](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/shoppingcarts/), [orders](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/), [payments](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/payments/) and [shipments](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/shipments/). Each owns a piece of the purchase, and none of them can reach inside the others.
 
 ### Two holds, then two commits
 
-Real shops do not take the money and then hope the warehouse agrees. They take two **reversible
-holds**, and commit both only when both are good:
+A purchase touches two systems that can't roll each other back: the money sits with the payment provider, the goods with the warehouse. Shops deal with that by taking two reversible holds first, one on the card and one on the stock, and committing them only once both are in place:
 
 ```
 authorise the card  ──┐
@@ -196,27 +190,15 @@ authorise the card  ──┐
 reserve the stock   ──┘
 ```
 
-An authorisation expires by itself. Stripe puts it plainly: an online card authorisation is
-"usually valid for 7 days", and if it expires before you capture, "the funds are released and the
-payment status changes to `canceled`". A stock reservation is the same idea in the warehouse:
-Shopify calls the state **committed**, "units that are set aside and can't be sold, such as units in
-an unfulfilled order".
+What makes a hold safe is that it expires on its own. Stripe says an online card authorisation is "usually valid for 7 days", and if it expires before you capture, "the funds are released and the payment status changes to `canceled`". The warehouse works the same way: Shopify calls stock that has been set aside **committed**, "units that are set aside and can't be sold, such as units in an unfulfilled order".
 
-That shape is what lets the sample answer the question the naive version could not: *what happens
-when the payment fails after the goods were prepared?* Nothing has shipped, because nothing ships
-before both holds are good. The compensation is to release a reservation, and that costs nothing.
+The awkward case is a payment that fails after the goods have been prepared. With holds, nothing has shipped at that point, because nothing ships before both holds are in, so undoing the work is a matter of releasing the reservation.
 
 ### Where this flow comes from
 
-The sample is not inventing vocabulary. Each command is named after the operation a real provider
-exposes, and each state is one a real provider has.
+The names below come from the providers' own documentation. Each command is an operation you can actually call, and each state is one a provider actually reports, so the diagrams should line up with what you find in their docs.
 
-**The card.** A payment service separates *authorising* — checking the funds are there and putting a
-hold on them — from *capturing*, which is when the money actually moves. Stripe calls the split
-[place a hold on a payment method](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method)
-and switches it on with `capture_method: manual`; Adyen calls the second half
-[capture](https://docs.adyen.com/online-payments/capture) and supports delaying it. Both let you
-drop the hold before any money moved, which is the operation this sample calls `VoidPayment`.
+**The card.** A payment service splits *authorising*, which checks that the funds are there and puts a hold on them, from *capturing*, when the money actually moves. Stripe calls the split [place a hold on a payment method](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method) and switches it on with `capture_method: manual`; Adyen calls the second half [capture](https://docs.adyen.com/online-payments/capture) and supports delaying it. Both let you drop the hold before any money moved, which is the operation this sample calls `VoidPayment`.
 
 ```mermaid
 stateDiagram-v2
@@ -241,18 +223,9 @@ stateDiagram-v2
 | `RefundPayment` | refund the charge | refund |
 | `ExpirePaymentAuthorization` | the authorisation lapses and the funds are released | the transaction expires |
 
-How long the hold lasts is not one number. Stripe lists about 7 days for the common card-not-present
-case. [Adyen's per-scheme table](https://docs.adyen.com/online-payments/adjust-authorisation) shows
-how wide the range really is — Mastercard 7 days for a final authorisation and 30 for a
-pre-authorisation, Visa 5 to 30 depending on the merchant category, JCB up to a year. That is why
-`expiresAt` is carried **on the event** rather than assumed by the reader: the module records the
-deadline it was actually granted.
+There's no single answer to how long the hold lasts. Stripe lists around 7 days for the common card-not-present case, and [Adyen's per-scheme table](https://docs.adyen.com/online-payments/adjust-authorisation) shows the spread: Mastercard 7 days for a final authorisation and 30 for a pre-authorisation, Visa 5 to 30 depending on the merchant category, JCB up to a year. That's why `expiresAt` travels on the event. The module records the deadline it was actually granted, rather than everyone downstream agreeing on a number that isn't true for every card.
 
-**The stock.** The warehouse side is the same idea with different words. Shopify's
-[inventory states](https://help.shopify.com/en/manual/products/inventory/managing-inventory-quantities/inventory-states)
-separate *available* from *committed*, where committed units "can't be sold"; a warehouse management
-system calls the step *allocation*, and a reservation that nobody acts on has to lapse so the units
-go back on sale.
+**The stock.** The warehouse side is the same idea with different words. Shopify's [inventory states](https://help.shopify.com/en/manual/products/inventory/managing-inventory-quantities/inventory-states) separate *available* from *committed*, where committed units "can't be sold"; a warehouse management system calls the step *allocation*, and a reservation that nobody acts on has to lapse so the units go back on sale.
 
 ```mermaid
 stateDiagram-v2
@@ -268,8 +241,7 @@ stateDiagram-v2
     ProductsOutOfStock --> [*]
 ```
 
-Both diagrams have the same shape, and that is the point: **a hold, a commit, and two ways to let
-go.** The order sits on top of both and does nothing until each side has answered.
+Both diagrams end up with the same shape: a hold, a commit, and two ways to let the hold go. The order sits on top of them and waits until each side has answered.
 
 ```mermaid
 sequenceDiagram
@@ -313,9 +285,7 @@ sequenceDiagram
     Order->>Saga: OrderCompleted (external)
 ```
 
-The order completes on **delivery**, not on dispatch. And the money moves **before** the goods do:
-`recordPackageSent` acts only when the payment is already `Captured`, so nothing can leave the
-warehouse against an authorisation that was never charged.
+The order completes on delivery rather than on dispatch, so the process stays open while the parcel is in transit. The money also moves before the goods do: `recordPackageSent` acts only when the payment is already `Captured`, so nothing can leave the warehouse against an authorisation that was never charged.
 
 ### Compensation
 
@@ -340,13 +310,9 @@ sequenceDiagram
     Saga->>Ship: ReleaseStock — the units go back on sale
 ```
 
-**A failed payment does not cancel the order on its own.** The order first needs to know where the
-shipment stands, because that is what decides whether stock must be released. Waiting is also what
-makes the process safe when two modules answer at once: the two holds may arrive in either order and
-the result is the same.
+A failed payment doesn't cancel the order on its own. At that point the order still doesn't know what there is to undo: whether a stock reservation needs releasing depends on the shipment, and the shipment may not have answered yet. So the order records the failure and waits for the other participant. That wait also covers the happy path, where both modules answer at once — the two holds can arrive in either order, and the order comes out the same.
 
-Which reversal to send is not the saga's decision either. `OrderCancelled` carries `paymentState` and
-`shipmentState`, and the saga reads them:
+Choosing the reversal isn't the saga's job either. `OrderCancelled` carries `paymentState` and `shipmentState`, and the saga only reads them:
 
 | state | the saga sends |
 |---|---|
@@ -355,9 +321,7 @@ Which reversal to send is not the saga's decision either. `OrderCancelled` carri
 | `shipmentState = Reserved` | `ReleaseStock` |
 | anything else | nothing — there is no hold to undo |
 
-Those are the three real gateway operations, and which one applies depends only on whether the money
-moved yet. A **chargeback** is the fourth word people reach for, and it is wrong: the issuer starts
-it, on the customer's word, and it is never ours to send.
+Those are the three reversals a gateway gives you, and which one applies comes down to whether the money has moved yet. A chargeback is a fourth reversal, but not one we can send: the issuer starts it, on the customer's word.
 
 Read more about why compensation matters in [What texting your Ex has to do with Event-Driven Design?](https://event-driven.io/en/what_texting_ex_has_to_do_with_event_driven_design?utm_source=event_sourcing_jvm).
 
@@ -370,10 +334,7 @@ Read more about why compensation matters in [What texting your Ex has to do with
 | payment | `Pending` → `Authorized` → `Captured`, or `Failed` |
 | shipment | `Pending` → `Reserved` → `Sent` → `Delivered`, or `Failed` |
 
-The record that completes a phase appends a second event in the same batch — `OrderConfirmed` when
-both holds are in, `OrderCompleted` when the capture and the delivery are both in, `OrderCancelled`
-otherwise. There is no `CompleteOrder` command and no `ConfirmOrder` command, because nobody outside
-the order decides that the order moved on.
+The record that completes a phase appends a second event in the same batch: `OrderConfirmed` once both holds are in, `OrderCompleted` once the capture and the delivery are both in, `OrderCancelled` otherwise. There's no `CompleteOrder` or `ConfirmOrder` command, because nobody outside the order is in a position to know that the order moved on.
 
 Every method is idempotent. A command that arrives twice, or too late, appends nothing and returns:
 
@@ -388,20 +349,13 @@ public void recordPaymentAuthorization(PaymentId paymentId, OffsetDateTime autho
 }
 ```
 
-A handler that throws inside an asynchronous process blocks that process: the message becomes poison
-and the workflow hangs. So orders, payments and shipments never throw at a message they cannot use.
-`ShoppingCart` still does, because its commands come from a person over HTTP, where a rejected action
-must reach the caller as an error rather than vanish.
+Idempotency also keeps the process moving. A handler that throws inside an asynchronous process blocks it: the message becomes poison and the workflow hangs behind it. So orders, payments and shipments stay quiet about messages they can't use. `ShoppingCart` still throws, because its commands come from a person over HTTP, where a rejected action has to reach the caller as an error instead of vanishing.
 
 ### Why the saga stays stateless
 
-A saga should be a "stupid" dispatcher: it waits for an event, and sends a command built from *that
-event's data alone*. Keeping it that way takes one trick.
+A saga should be a "stupid" dispatcher: it waits for an event and sends a command built from that event's data alone. That takes some care, because an event doesn't always carry what the next command needs.
 
-`PaymentCaptured` does not know which shipment is waiting on it — the payments module has never heard
-of a shipment. So the saga does not try to work it out. It records the capture against the order, and
-the **order** republishes the fact as `OrderPaymentCaptured`, carrying the `shipmentId` it already
-knows. That is the event the dispatch is sent from:
+`PaymentCaptured` doesn't know which shipment is waiting on it, and it shouldn't: the payments module has never heard of a shipment. Looking the shipment up inside the saga would work, at the price of giving the saga a store and a state to keep. The sample routes it through the order instead — the saga records the capture, and the order republishes it as `OrderPaymentCaptured` with the `shipmentId` it already knows. That's the event the dispatch is sent from:
 
 ```java
 public void on(PaymentExternalEvent.PaymentCaptured event) {
@@ -416,16 +370,11 @@ public void on(OrderExternalEvent.OrderPaymentCaptured event) {
 }
 ```
 
-The saga holds no state, no store, no clock and no id supplier. Its only field is the command bus.
-Identifiers are **derived**, never minted: the order id comes from the cart id, the payment and
-shipment ids from the order id. Handling the same event twice therefore sends two identical commands,
-and the modules no-op on the second. See [OrderSaga.java](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/OrderSaga.java).
+The saga ends up with no state, no store, no clock and no id supplier; its only field is the command bus. Identifiers are derived rather than generated: the order id comes from the cart id, the payment and shipment ids from the order id. Handling the same event twice therefore sends two identical commands, and the modules no-op on the second. See [OrderSaga.java](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/OrderSaga.java).
 
 ### Internal events and the published contract
 
-If a module exposed its internal events, every other module would end up coupled to its private
-vocabulary — the leaking abstraction described in [Events should be as small as possible, right?](https://event-driven.io/en/events_should_be_as_small_as_possible?utm_source=event_sourcing_jvm).
-So each module keeps two vocabularies, and a **forwarder** turns one into the other:
+If a module exposed its internal events, every other module would end up coupled to its private vocabulary — the leaking abstraction described in [Events should be as small as possible, right?](https://event-driven.io/en/events_should_be_as_small_as_possible?utm_source=event_sourcing_jvm). So each module keeps two vocabularies, and a forwarder turns one into the other:
 
 | Module | What it publishes |
 |---|---|
@@ -434,8 +383,7 @@ So each module keeps two vocabularies, and a **forwarder** turns one into the ot
 | payments | `PaymentAuthorized`, `PaymentCaptured`, `PaymentFailed` |
 | shipments | `StockReserved`, `ProductWasOutOfStock`, `PackageWasSent`, `PackageWasDelivered`, `StockReservationExpired` |
 
-Only the shopping cart forwarder genuinely **enriches**, because `ShoppingCartConfirmed` carries
-nothing but the cart id and a timestamp, so the cart has to be read back:
+Only the shopping cart forwarder enriches, because `ShoppingCartConfirmed` carries nothing but the cart id and a timestamp, so the cart has to be read back:
 
 ```java
 public void on(ShoppingCartConfirmed event) {
@@ -452,25 +400,17 @@ public void on(ShoppingCartConfirmed event) {
 }
 ```
 
-Every other forwarder only maps, because the internal event already carries what the contract needs.
-Several internal events are published nowhere at all — a void, a refund and a stock release end
-compensations that nobody is waiting on.
+Every other forwarder only maps, because the internal event already carries what the contract needs. And several internal events aren't published at all — a void, a refund and a stock release finish compensations that nobody is waiting for.
 
 ### Appending is publishing
 
-The in-memory event store follows the one in the [introduction-to-event-sourcing](../../workshops/introduction-to-event-sourcing/)
-workshop: **appending to a stream dispatches the events**. There is no store-then-publish gap and no
-outbox to get wrong, and no facade ever calls a bus. If you find yourself writing
-`store.getAndUpdate(...)` followed by `bus.publish(...)`, the store is not being used properly.
+The in-memory event store follows the one in the [introduction-to-event-sourcing](../../workshops/introduction-to-event-sourcing/) workshop: appending to a stream dispatches the events. There's no gap between storing and publishing to get wrong, and no facade has to call a bus. In memory that comes for free; against a real database it's what an outbox is for. Either way, if you find yourself writing `store.getAndUpdate(...)` followed by `bus.publish(...)`, you're working around the store instead of using it.
 
-That store is the module's **internal** channel. The integration bus is a separate object, and only
-forwarders write to it. The saga subscribes to the integration bus alone, which is what stops it
-reaching into another module's internals.
+That store is the module's internal channel. The integration bus is a separate object, and only forwarders write to it. The saga subscribes to the integration bus alone, so it has no way to reach into another module's internals.
 
 ### The two settlement seams
 
-Neither a card authorisation nor a courier delivery happens inside a command handler. Both sit behind
-an interface, called by a small client that reacts to the module's own internal event:
+Neither the card authorisation nor the courier delivery happens inside a command handler. Both sit behind an interface, called by a small client that reacts to the module's own internal event:
 
 ```java
 public interface PaymentGateway {
@@ -485,19 +425,15 @@ public interface DeliveryProvider {
 }
 ```
 
-In production the provider would answer later through a webhook. In the sample the test double
-answers by sending a command back, which is why settling is always a command and never a return
-value. Only the authorisation answers back at all — it is the step a real gateway declines.
+In production the provider would answer later through a webhook. In the sample the test double answers by sending a command back, which keeps settling a command rather than a return value. Only the authorisation answers back at all, since that's the step where a real gateway says no.
 
 ### When things go wrong
 
-Three defences, and they are the point of the exercise.
+Three things keep the process from getting stuck.
 
-**1. Failure events instead of exceptions.** `PaymentGatewayClient` calls the gateway inside a
-try/catch and sends `DeclinePayment(UnexpectedError)` if it throws. A charge that did not go through
-is a business outcome, not a crash, and rethrowing would leave the payment pending forever.
+**1. Failure events instead of exceptions.** `PaymentGatewayClient` calls the gateway inside a try/catch and sends `DeclinePayment(UnexpectedError)` if it throws. A charge that didn't go through is a business outcome; rethrowing it would only leave the payment pending forever.
 
-**2. Three workers, one shape.** Nothing may wait forever:
+**2. Timeouts, as three workers.** Nothing in the process is allowed to wait indefinitely:
 
 | Worker | Watches | Sends |
 |---|---|---|
@@ -505,32 +441,17 @@ is a business outcome, not a crash, and rethrowing would leave the payment pendi
 | `AuthorizationExpiryWorker` | `expiresAt` on the card hold | `ExpirePaymentAuthorization` |
 | `ReservationExpiryWorker` | `reservedUntil` on the stock hold | `ExpireStockReservation` |
 
-The first watches a request, the other two watch a hold. A hold that can only be freed by
-compensation is a hold that leaks: if the release message is lost, the units stay unsellable and the
-customer's funds stay blocked. Every one of these ends at the order, as `PaymentFailed` or
-`StockReservationExpired`, so the order is never left waiting for a message that is not coming.
-Production would run them on a schedule; tests call `run(now)` with a chosen instant.
+The first watches a request, the other two watch a hold. A hold that can only be freed by compensation leaks whenever the release message is lost: the units stay unsellable and the customer's funds stay blocked. Each worker ends at the order, as `PaymentFailed` or `StockReservationExpired`, so the order is never left waiting for a message that isn't coming. Production would run them on a schedule; tests call `run(now)` with a chosen instant.
 
-**3. Manual compensation.** An operator cancels a stuck order by sending
-`CancelOrder(orderId, Requested)` on the same command bus — there is no special path. The
-`OrderCancelled` that follows carries where each participant stood, so the money and the goods are
-released by the same commands as every other cancellation.
+**3. Manual compensation.** An operator cancels a stuck order by sending `CancelOrder(orderId, Requested)` on the same command bus, with no special path to maintain. The `OrderCancelled` that follows carries where each participant stood, so the money and the goods come back through the same commands as every other cancellation.
 
-### What this sample deliberately does not do
+### What this sample doesn't cover
 
-- **Capture cannot fail.** Only the authorisation makes a gateway round-trip. Modelling three more
-  callbacks would repeat a lesson the authorisation already teaches.
-- **A sent package has no return path.** Nothing ships before the capture, so this needs an operator
-  cancelling a paid, dispatched order. The money is refunded; the parcel is not recalled. Returns are
-  a process of their own.
+- **Capture cannot fail.** Only the authorisation makes a gateway round-trip. Modelling three more callbacks would repeat what the authorisation already shows.
+- **A sent package has no return path.** Nothing ships before the capture, so this only comes up when an operator cancels a paid, dispatched order. The money is refunded; the parcel is not recalled. Returns are a process of their own.
 - **Partial reservations do not exist.** A reservation covers every line or none.
-- **The composition root is still per module.** Each module has its own `Config` that registers its
-  commands, its forwarder and its clients. The single `ECommerceConfig` that knits them together, and
-  the end-to-end transcript test that drives one order through all four, are the next step.
+- **The composition root is still per module.** Each module has its own `Config` that registers its commands, its forwarder and its clients. The single `ECommerceConfig` that knits them together, and the end-to-end transcript test that drives one order through all four, are the next step.
 - **The infrastructure is in memory.** The ESDB implementations exist but are not wired.
-- **`core/messaging` duplicates the older `core/commands` and `core/events`.** Both stay, because
-  `hotelmanagement` still depends on the older pair.
+- **`core/messaging` duplicates the older `core/commands` and `core/events`.** Both stay, because `hotelmanagement` still depends on the older pair.
 
-Each module could instead publish its external events to a dedicated event store stream, such as
-`shopping_carts__external-events`, and the others could subscribe to it — a concept close to Kafka's
-topics.
+Each module could instead publish its external events to a dedicated event store stream, such as `shopping_carts__external-events`, and the others could subscribe to it — a concept close to Kafka's topics.

@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.eventdriven.distributedprocesses.core.messaging.EventHandler;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
 import io.eventdriven.distributedprocesses.core.messaging.InternalEventBus;
 
 import java.util.ArrayList;
@@ -19,9 +21,9 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 public class InMemoryEventStore implements EventStore, InternalEventBus {
-  private final Map<String, List<EventEnvelope>> streams = new HashMap<>();
-  private final Map<Class<?>, List<Consumer<Object>>> handlers = new HashMap<>();
-  private final List<Consumer<Object>> middlewares = new ArrayList<>();
+  private final Map<String, List<StoredEvent>> streams = new HashMap<>();
+  // appending is publishing: the store dispatches through the internal channel
+  private final InMemoryEventBus bus = new InMemoryEventBus();
 
   @Override
   public ReadResult read(String streamId) {
@@ -51,44 +53,37 @@ public class InMemoryEventStore implements EventStore, InternalEventBus {
         : new AppendResult.Conflict(expectedRevision, actualRevision);
     }
 
-    streams
-      .computeIfAbsent(streamId, ignored -> new ArrayList<>())
-      .addAll(Arrays.stream(events).map(InMemoryEventStore::serialize).toList());
+    var stream = streams.computeIfAbsent(streamId, ignored -> new ArrayList<>());
+    var firstPosition = stream.size();
+
+    stream.addAll(Arrays.stream(events).map(InMemoryEventStore::serialize).toList());
 
     var result = new AppendResult.Success(revisionOf(streamId), anyPosition);
 
-    notify(events);
+    bus.publishAt(streamId, firstPosition, events);
 
     return result;
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public <Event> InternalEventBus subscribe(Class<Event> type, Consumer<Event> handler) {
-    handlers
-      .computeIfAbsent(type, ignored -> new ArrayList<>())
-      .add((Consumer<Object>) handler);
+    bus.subscribe(type, handler);
+
+    return this;
+  }
+
+  @Override
+  public <Event> InternalEventBus subscribeWithMetadata(Class<Event> type, EventHandler<Event> handler) {
+    bus.subscribeWithMetadata(type, handler);
 
     return this;
   }
 
   @Override
   public InternalEventBus use(Consumer<Object> middleware) {
-    middlewares.add(middleware);
+    bus.use(middleware);
 
     return this;
-  }
-
-  private void notify(Object... events) {
-    for (var event : events) {
-      for (var middleware : middlewares) {
-        middleware.accept(event);
-      }
-
-      for (var handler : handlers.getOrDefault(event.getClass(), List.of())) {
-        handler.accept(event);
-      }
-    }
   }
 
   private ExpectedRevision revisionOf(String streamId) {
@@ -106,15 +101,15 @@ public class InMemoryEventStore implements EventStore, InternalEventBus {
     return expected.equals(ExpectedRevision.streamExists()) && !actual.equals(ExpectedRevision.noStream());
   }
 
-  private static EventEnvelope serialize(Object event) {
+  private static StoredEvent serialize(Object event) {
     try {
-      return new EventEnvelope(event.getClass().getTypeName(), mapper.writeValueAsString(event));
+      return new StoredEvent(event.getClass().getTypeName(), mapper.writeValueAsString(event));
     } catch (Exception e) {
       throw new IllegalArgumentException("Cannot serialize event of type %s".formatted(event.getClass()), e);
     }
   }
 
-  private static Object deserialize(EventEnvelope envelope) {
+  private static Object deserialize(StoredEvent envelope) {
     try {
       return mapper.readValue(envelope.json(), Class.forName(envelope.eventType()));
     } catch (Exception e) {
@@ -122,7 +117,7 @@ public class InMemoryEventStore implements EventStore, InternalEventBus {
     }
   }
 
-  record EventEnvelope(String eventType, String json) {
+  record StoredEvent(String eventType, String json) {
   }
 
   private static final Position anyPosition = new Position(0, 0);

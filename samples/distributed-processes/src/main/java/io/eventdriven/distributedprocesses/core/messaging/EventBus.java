@@ -7,5 +7,7 @@ public interface EventBus {
 
   <Event> EventBus subscribe(Class<Event> type, Consumer<Event> handler);
 
+  <Event> EventBus subscribeWithMetadata(Class<Event> type, EventHandler<Event> handler);
+
   EventBus use(Consumer<Object> middleware);
 }
