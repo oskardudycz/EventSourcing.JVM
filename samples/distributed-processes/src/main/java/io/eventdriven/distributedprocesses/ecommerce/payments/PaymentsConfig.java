@@ -5,6 +5,7 @@ import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
 import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
 import io.eventdriven.distributedprocesses.core.messaging.InternalEventBus;
+import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEventForwarder;
 
 import java.time.Duration;
@@ -46,10 +47,38 @@ public final class PaymentsConfig {
       .handle(TimeOutPayment.class, facade::timeOutPayment)
       .handle(ExpirePaymentAuthorization.class, facade::expirePaymentAuthorization);
 
-    var forwarder = new PaymentExternalEventForwarder(store, integrationEventBus);
+    var database = new Database();
+    var paymentSummaries = new PaymentSummaries(database);
+    var pendingPayments = new PendingPayments(database, now);
+    var authorizedPayments = new AuthorizedPayments(database);
 
-    // Forwarding first, so that settling a payment does not publish its outcome
-    // before the request that caused it.
+    internalEventBus
+      .subscribeWithMetadata(PaymentAuthorizationRequested.class, paymentSummaries::onAuthorizationRequested)
+      .subscribeWithMetadata(PaymentAuthorized.class, paymentSummaries::onAuthorized)
+      .subscribeWithMetadata(PaymentCaptured.class, paymentSummaries::onCaptured)
+      .subscribeWithMetadata(PaymentVoided.class, paymentSummaries::onVoided)
+      .subscribeWithMetadata(PaymentRefunded.class, paymentSummaries::onRefunded)
+      .subscribeWithMetadata(PaymentDeclined.class, paymentSummaries::onDeclined)
+      .subscribeWithMetadata(PaymentTimedOut.class, paymentSummaries::onTimedOut)
+      .subscribeWithMetadata(PaymentAuthorizationExpired.class, paymentSummaries::onAuthorizationExpired);
+
+    internalEventBus
+      .subscribeWithMetadata(PaymentAuthorizationRequested.class, pendingPayments::onAuthorizationRequested)
+      .subscribeWithMetadata(PaymentAuthorized.class, pendingPayments::onAuthorized)
+      .subscribeWithMetadata(PaymentDeclined.class, pendingPayments::onDeclined)
+      .subscribeWithMetadata(PaymentTimedOut.class, pendingPayments::onTimedOut);
+
+    internalEventBus
+      .subscribeWithMetadata(PaymentAuthorized.class, authorizedPayments::onAuthorized)
+      .subscribeWithMetadata(PaymentCaptured.class, authorizedPayments::onCaptured)
+      .subscribeWithMetadata(PaymentVoided.class, authorizedPayments::onVoided)
+      .subscribeWithMetadata(PaymentAuthorizationExpired.class, authorizedPayments::onAuthorizationExpired);
+
+    var forwarder = new PaymentExternalEventForwarder(paymentSummaries, integrationEventBus);
+
+    // After the projections, so that it enriches from a summary that already holds the event
+    // it forwards, and still before the gateway client, so that settling a payment does not
+    // publish its outcome before the request that caused it.
     internalEventBus
       .subscribe(PaymentAuthorized.class, forwarder::on)
       .subscribe(PaymentCaptured.class, forwarder::on)
@@ -57,24 +86,10 @@ public final class PaymentsConfig {
       .subscribe(PaymentTimedOut.class, forwarder::on)
       .subscribe(PaymentAuthorizationExpired.class, forwarder::on);
 
-    var pendingPayments = new PendingPayments(now);
-
-    internalEventBus
-      .subscribe(PaymentAuthorizationRequested.class, pendingPayments::on)
-      .subscribe(PaymentAuthorized.class, pendingPayments::on)
-      .subscribe(PaymentDeclined.class, pendingPayments::on)
-      .subscribe(PaymentTimedOut.class, pendingPayments::on);
-
-    var authorizedPayments = new AuthorizedPayments();
-
-    internalEventBus
-      .subscribe(PaymentAuthorized.class, authorizedPayments::on)
-      .subscribe(PaymentCaptured.class, authorizedPayments::on)
-      .subscribe(PaymentVoided.class, authorizedPayments::on)
-      .subscribe(PaymentAuthorizationExpired.class, authorizedPayments::on);
-
     var paymentGatewayClient = new PaymentGatewayClient(paymentGateway, commandBus);
 
+    // Last, because a provider that answers during the call appends that answer from here:
+    // the projections and the forwarder have to be done with the event before that happens.
     internalEventBus
       .subscribe(PaymentAuthorizationRequested.class, paymentGatewayClient::on)
       .subscribe(PaymentCaptured.class, paymentGatewayClient::on)

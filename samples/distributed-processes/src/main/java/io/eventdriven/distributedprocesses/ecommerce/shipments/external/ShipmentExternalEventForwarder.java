@@ -1,12 +1,26 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments.external;
 
 import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentSummaries;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentSummary;
+
+import java.time.OffsetDateTime;
+
+import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent.*;
+import static io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.*;
 
 public class ShipmentExternalEventForwarder {
+  private final ShipmentSummaries shipmentSummaries;
   private final IntegrationEventBus eventBus;
 
-  public ShipmentExternalEventForwarder(IntegrationEventBus eventBus) {
+  public ShipmentExternalEventForwarder(
+    ShipmentSummaries shipmentSummaries,
+    IntegrationEventBus eventBus
+  ) {
+    this.shipmentSummaries = shipmentSummaries;
     this.eventBus = eventBus;
   }
 
@@ -14,17 +28,9 @@ public class ShipmentExternalEventForwarder {
     eventBus.publish(new ShipmentExternalEvent.StockReserved(
       event.shipmentId(),
       event.referenceId(),
+      event.productItems(),
       event.reservedAt(),
       event.reservedUntil()
-    ));
-  }
-
-  public void on(ShipmentEvent.ProductWasOutOfStock event) {
-    eventBus.publish(new ShipmentExternalEvent.ProductWasOutOfStock(
-      event.shipmentId(),
-      event.referenceId(),
-      event.productItems(),
-      event.availabilityCheckedAt()
     ));
   }
 
@@ -45,11 +51,46 @@ public class ShipmentExternalEventForwarder {
     ));
   }
 
-  public void on(ShipmentEvent.StockReservationExpired event) {
-    eventBus.publish(new ShipmentExternalEvent.StockReservationExpired(
+  public void on(ProductWasOutOfStock event) {
+    publishFailure(
       event.shipmentId(),
       event.referenceId(),
-      event.expiredAt()
+      event.productItems(),
+      event.availabilityCheckedAt(),
+      StockReservationFailed.Reason.ProductsOutOfStock
+    );
+  }
+
+  // The expiry only knows which shipment ran out of time, so the items it reserved
+  // come from the summary the reservation left behind.
+  public void on(StockReservationExpired event) {
+    publishFailure(
+      event.shipmentId(),
+      event.referenceId(),
+      get(event.shipmentId()).getProductItems(),
+      event.expiredAt(),
+      StockReservationFailed.Reason.ReservationExpired
+    );
+  }
+
+  private void publishFailure(
+    ShipmentId shipmentId,
+    String referenceId,
+    ProductItem[] productItems,
+    OffsetDateTime failedAt,
+    StockReservationFailed.Reason reason
+  ) {
+    eventBus.publish(new StockReservationFailed(
+      shipmentId,
+      referenceId,
+      productItems,
+      reason,
+      failedAt
     ));
+  }
+
+  private ShipmentSummary get(ShipmentId shipmentId) {
+    return shipmentSummaries.get(shipmentId)
+      .orElseThrow(() -> new IllegalStateException("Cannot enrich event, as shipment with id '%s' was not found".formatted(shipmentId)));
   }
 }

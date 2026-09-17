@@ -11,7 +11,7 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
-import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartFinalized;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent;
 import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;
 
@@ -79,7 +79,7 @@ public class OrderSagaTests {
 
   @Test
   public void aFinalizedCartStartsAnOrderWhoseIdIsDerivedFromTheCart() {
-    saga.on(new ShoppingCartFinalized(cartId, clientId, cartItems(), totalPrice, now));
+    saga.on(new ShoppingCartExternalEvent.ShoppingCartFinalized(cartId, clientId, cartItems(), totalPrice, now));
 
     sent.shouldReceiveMessages(
       new InitializeOrder(orderId, cartId, clientId, orderItems, totalPrice)
@@ -108,7 +108,7 @@ public class OrderSagaTests {
   @Test
   public void reservedStockIsRecordedAgainstTheOrder() {
     saga.on(new ShipmentExternalEvent.StockReserved(
-      shipmentId, orderId.value(), now, reservedUntil
+      shipmentId, orderId.value(), shipmentItems(), now, reservedUntil
     ));
 
     sent.shouldReceiveMessages(new RecordOrderStockReservation(orderId, shipmentId, now));
@@ -116,7 +116,9 @@ public class OrderSagaTests {
 
   @Test
   public void aConfirmedOrderCapturesTheMoneyBeforeAnythingShips() {
-    saga.on(new OrderExternalEvent.OrderConfirmed(orderId, paymentId, now));
+    saga.on(new OrderExternalEvent.OrderConfirmed(
+      orderId, clientId, orderItems, totalPrice, paymentId, shipmentId, now
+    ));
 
     sent.shouldReceiveMessages(new PaymentCommand.CapturePayment(paymentId));
   }
@@ -132,7 +134,9 @@ public class OrderSagaTests {
 
   @Test
   public void theOrdersOwnCaptureEventIsWhatReleasesThePackage() {
-    saga.on(new OrderExternalEvent.OrderPaymentCaptured(orderId, shipmentId, totalPrice, now));
+    saga.on(new OrderExternalEvent.OrderPaymentCaptured(
+      orderId, clientId, totalPrice, shipmentId, totalPrice, now
+    ));
 
     sent.shouldReceiveMessages(new ShipmentCommand.SendPackage(shipmentId));
   }
@@ -165,8 +169,9 @@ public class OrderSagaTests {
 
   @Test
   public void anOutOfStockProductIsRecordedRatherThanCancellingTheOrderDirectly() {
-    saga.on(new ShipmentExternalEvent.ProductWasOutOfStock(
-      shipmentId, orderId.value(), shipmentItems(), now
+    saga.on(new ShipmentExternalEvent.StockReservationFailed(
+      shipmentId, orderId.value(), shipmentItems(),
+      ShipmentExternalEvent.StockReservationFailed.Reason.ProductsOutOfStock, now
     ));
 
     sent.shouldReceiveMessages(new RecordOrderShipmentFailure(orderId, now));
@@ -174,8 +179,9 @@ public class OrderSagaTests {
 
   @Test
   public void anExpiredReservationReachesTheOrderSoItIsNeverLeftWaiting() {
-    saga.on(new ShipmentExternalEvent.StockReservationExpired(
-      shipmentId, orderId.value(), reservedUntil
+    saga.on(new ShipmentExternalEvent.StockReservationFailed(
+      shipmentId, orderId.value(), shipmentItems(),
+      ShipmentExternalEvent.StockReservationFailed.Reason.ReservationExpired, reservedUntil
     ));
 
     sent.shouldReceiveMessages(new RecordOrderShipmentFailure(orderId, reservedUntil));

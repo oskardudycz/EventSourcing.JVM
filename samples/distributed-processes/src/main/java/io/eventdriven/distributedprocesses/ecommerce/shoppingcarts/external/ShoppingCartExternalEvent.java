@@ -7,10 +7,13 @@ import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-public record ShoppingCartFinalized(
-  ShoppingCartId cartId,
-  UUID clientId,
-  PricedProductItem[] productItems,
-  double totalPrice,
-  OffsetDateTime finalizedAt
-) {}
+public sealed interface ShoppingCartExternalEvent {
+  record ShoppingCartFinalized(
+    ShoppingCartId cartId,
+    UUID clientId,
+    PricedProductItem[] productItems,
+    double totalPrice,
+    OffsetDateTime finalizedAt
+  ) implements ShoppingCartExternalEvent {
+  }
+}

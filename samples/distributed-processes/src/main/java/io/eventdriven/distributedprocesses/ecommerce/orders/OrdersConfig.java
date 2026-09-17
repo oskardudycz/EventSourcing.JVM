@@ -5,6 +5,7 @@ import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
 import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
 import io.eventdriven.distributedprocesses.core.messaging.InternalEventBus;
+import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.orders.external.OrderExternalEventForwarder;
 
 import java.time.OffsetDateTime;
@@ -43,7 +44,36 @@ public final class OrdersConfig {
       .handle(RecordOrderShipmentFailure.class, facade::recordOrderShipmentFailure)
       .handle(CancelOrder.class, facade::cancelOrder);
 
-    var forwarder = new OrderExternalEventForwarder(integrationEventBus);
+    var database = new Database();
+    var summaries = new OrderSummaries(database);
+
+    // The projections go first, so that what the forwarder reads already has the event in it.
+    internalEventBus
+      .subscribeWithMetadata(OrderInitialized.class, summaries::onInitialized)
+      .subscribeWithMetadata(OrderPaymentAuthorized.class, summaries::onPaymentAuthorized)
+      .subscribeWithMetadata(OrderStockReserved.class, summaries::onStockReserved)
+      .subscribeWithMetadata(OrderConfirmed.class, summaries::onConfirmed)
+      .subscribeWithMetadata(OrderPaymentCaptured.class, summaries::onPaymentCaptured)
+      .subscribeWithMetadata(OrderPackageSent.class, summaries::onPackageSent)
+      .subscribeWithMetadata(OrderPaymentFailed.class, summaries::onPaymentFailed)
+      .subscribeWithMetadata(OrderShipmentFailed.class, summaries::onShipmentFailed)
+      .subscribeWithMetadata(OrderCompleted.class, summaries::onCompleted)
+      .subscribeWithMetadata(OrderCancelled.class, summaries::onCancelled);
+
+    var pendingOrders = new PendingOrders(database);
+
+    internalEventBus
+      .subscribeWithMetadata(OrderInitialized.class, pendingOrders::onInitialized)
+      .subscribeWithMetadata(OrderPaymentAuthorized.class, pendingOrders::onPaymentAuthorized)
+      .subscribeWithMetadata(OrderPaymentCaptured.class, pendingOrders::onPaymentCaptured)
+      .subscribeWithMetadata(OrderPaymentFailed.class, pendingOrders::onPaymentFailed)
+      .subscribeWithMetadata(OrderStockReserved.class, pendingOrders::onStockReserved)
+      .subscribeWithMetadata(OrderPackageSent.class, pendingOrders::onPackageSent)
+      .subscribeWithMetadata(OrderShipmentFailed.class, pendingOrders::onShipmentFailed)
+      .subscribeWithMetadata(OrderCompleted.class, pendingOrders::onCompleted)
+      .subscribeWithMetadata(OrderCancelled.class, pendingOrders::onCancelled);
+
+    var forwarder = new OrderExternalEventForwarder(summaries, integrationEventBus);
 
     internalEventBus
       .subscribe(OrderInitialized.class, forwarder::on)
