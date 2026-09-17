@@ -8,15 +8,19 @@ import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartI
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.orders.external.OrderExternalEvent;
+import io.eventdriven.distributedprocesses.ecommerce.orders.external.OrderExternalEventForwarder;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class OrderExternalEventForwarderTests {
   private final OrderId orderId = OrderId.of(UUID.randomUUID());
@@ -65,7 +69,9 @@ public class OrderExternalEventForwarderTests {
     );
 
     externalEvents.shouldReceiveMessages(
-      new OrderExternalEvent.OrderConfirmed(orderId, paymentId, reservedAt)
+      new OrderExternalEvent.OrderConfirmed(
+        orderId, clientId, productItems, totalPrice, paymentId, shipmentId, reservedAt
+      )
     );
   }
 
@@ -76,7 +82,9 @@ public class OrderExternalEventForwarderTests {
     commandBus.send(new RecordOrderPaymentCapture(orderId, capturedAt));
 
     externalEvents.shouldReceiveMessages(
-      new OrderExternalEvent.OrderPaymentCaptured(orderId, shipmentId, totalPrice, capturedAt)
+      new OrderExternalEvent.OrderPaymentCaptured(
+        orderId, clientId, totalPrice, shipmentId, totalPrice, capturedAt
+      )
     );
   }
 
@@ -103,7 +111,9 @@ public class OrderExternalEventForwarderTests {
     commandBus.send(new RecordOrderDelivery(orderId, deliveredAt));
 
     externalEvents.shouldReceiveMessages(
-      new OrderExternalEvent.OrderCompleted(orderId, deliveredAt)
+      new OrderExternalEvent.OrderCompleted(
+        orderId, clientId, productItems, totalPrice, paymentId, shipmentId, deliveredAt
+      )
     );
   }
 
@@ -122,6 +132,35 @@ public class OrderExternalEventForwarderTests {
       OrderCancellationReason.Requested,
       now
     ));
+  }
+
+  @Test
+  public void theForwarderReadsASummaryThatAlreadyHasTheEventItIsForwarding() {
+    var database = new Database();
+    var summaries = new OrderSummaries(database);
+    var internalEventBus = new InMemoryEventBus();
+    var statusWhenForwarded = new AtomicReference<Order.Status>();
+
+    integrationEventBus.use(
+      ignored -> statusWhenForwarded.set(summaries.get(orderId).orElseThrow().getStatus())
+    );
+
+    var forwarder = new OrderExternalEventForwarder(summaries, integrationEventBus);
+
+    internalEventBus
+      .subscribeWithMetadata(OrderEvent.OrderInitialized.class, summaries::onInitialized)
+      .subscribeWithMetadata(OrderEvent.OrderStockReserved.class, summaries::onStockReserved)
+      .subscribeWithMetadata(OrderEvent.OrderConfirmed.class, summaries::onConfirmed)
+      .subscribe(OrderEvent.OrderConfirmed.class, forwarder::on);
+
+    internalEventBus.publishAt(
+      OrderFacade.mapToStreamId(orderId), 0,
+      new OrderEvent.OrderInitialized(orderId, cartId, clientId, productItems, totalPrice, now),
+      new OrderEvent.OrderStockReserved(orderId, shipmentId, reservedAt),
+      new OrderEvent.OrderConfirmed(orderId, paymentId, reservedAt)
+    );
+
+    assertThat(statusWhenForwarded.get()).isEqualTo(Order.Status.Confirmed);
   }
 
   @Test

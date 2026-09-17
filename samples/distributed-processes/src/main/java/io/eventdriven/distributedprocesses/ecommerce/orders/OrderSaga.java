@@ -8,7 +8,7 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentEx
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent;
-import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartFinalized;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,7 +23,7 @@ public class OrderSaga {
   }
 
   // Hold phase
-  public void on(ShoppingCartFinalized event) {
+  public void on(ShoppingCartExternalEvent.ShoppingCartFinalized event) {
     commandBus.send(
       new InitializeOrder(
         OrderId.derivedFrom(event.cartId().value()),
@@ -99,18 +99,9 @@ public class OrderSaga {
     );
   }
 
-  public void on(ShipmentExternalEvent.ProductWasOutOfStock event) {
+  public void on(ShipmentExternalEvent.StockReservationFailed event) {
     commandBus.send(
-      new RecordOrderShipmentFailure(
-        new OrderId(event.referenceId()),
-        event.availabilityCheckedAt()
-      )
-    );
-  }
-
-  public void on(ShipmentExternalEvent.StockReservationExpired event) {
-    commandBus.send(
-      new RecordOrderShipmentFailure(new OrderId(event.referenceId()), event.expiredAt())
+      new RecordOrderShipmentFailure(new OrderId(event.referenceId()), event.failedAt())
     );
   }
 
@@ -131,7 +122,7 @@ public class OrderSaga {
     commandBus.send(compensations.toArray());
   }
 
-  private static PricedProductItem[] toOrderItems(ShoppingCartFinalized event) {
+  private static PricedProductItem[] toOrderItems(ShoppingCartExternalEvent.ShoppingCartFinalized event) {
     return Arrays.stream(event.productItems())
       .map(pi -> new PricedProductItem(pi.productId(), pi.quantity(), pi.unitPrice()))
       .toArray(PricedProductItem[]::new);

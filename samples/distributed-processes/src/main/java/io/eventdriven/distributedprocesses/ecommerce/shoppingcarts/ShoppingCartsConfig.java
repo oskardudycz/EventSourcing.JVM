@@ -5,6 +5,7 @@ import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
 import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
 import io.eventdriven.distributedprocesses.core.messaging.InternalEventBus;
+import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEventForwarder;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
 
@@ -41,7 +42,18 @@ public final class ShoppingCartsConfig {
       .handle(ConfirmShoppingCart.class, facade::confirm)
       .handle(CancelShoppingCart.class, facade::cancel);
 
-    var forwarder = new ShoppingCartExternalEventForwarder(store, integrationEventBus);
+    var summaries = new ShoppingCartSummaries(new Database());
+
+    // Projecting first, so that the forwarder enriches from a summary
+    // that already has the cart's product items.
+    internalEventBus
+      .subscribeWithMetadata(ShoppingCartOpened.class, summaries::onOpened)
+      .subscribeWithMetadata(ProductItemAddedToShoppingCart.class, summaries::onProductItemAdded)
+      .subscribeWithMetadata(ProductItemRemovedFromShoppingCart.class, summaries::onProductItemRemoved)
+      .subscribeWithMetadata(ShoppingCartConfirmed.class, summaries::onConfirmed)
+      .subscribeWithMetadata(ShoppingCartCanceled.class, summaries::onCanceled);
+
+    var forwarder = new ShoppingCartExternalEventForwarder(summaries, integrationEventBus);
 
     internalEventBus
       .subscribe(ShoppingCartConfirmed.class, forwarder::on);

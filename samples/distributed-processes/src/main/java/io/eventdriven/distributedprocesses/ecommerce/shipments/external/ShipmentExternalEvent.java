@@ -10,16 +10,9 @@ public sealed interface ShipmentExternalEvent {
   record StockReserved(
     ShipmentId shipmentId,
     String referenceId,
+    ProductItem[] productItems,
     OffsetDateTime reservedAt,
     OffsetDateTime reservedUntil
-  ) implements ShipmentExternalEvent {
-  }
-
-  record ProductWasOutOfStock(
-    ShipmentId shipmentId,
-    String referenceId,
-    ProductItem[] productItems,
-    OffsetDateTime availabilityCheckedAt
   ) implements ShipmentExternalEvent {
   }
 
@@ -38,10 +31,16 @@ public sealed interface ShipmentExternalEvent {
   ) implements ShipmentExternalEvent {
   }
 
-  record StockReservationExpired(
+  record StockReservationFailed(
     ShipmentId shipmentId,
     String referenceId,
-    OffsetDateTime expiredAt
+    ProductItem[] productItems,
+    Reason reason,
+    OffsetDateTime failedAt
   ) implements ShipmentExternalEvent {
+    public enum Reason {
+      ProductsOutOfStock,
+      ReservationExpired
+    }
   }
 }

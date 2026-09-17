@@ -27,13 +27,19 @@ public sealed interface OrderExternalEvent {
 
   record OrderConfirmed(
     OrderId orderId,
+    UUID clientId,
+    PricedProductItem[] productItems,
+    double totalPrice,
     PaymentId paymentId,
+    ShipmentId shipmentId,
     OffsetDateTime confirmedAt
   ) implements OrderExternalEvent {
   }
 
   record OrderPaymentCaptured(
     OrderId orderId,
+    UUID clientId,
+    double totalPrice,
     ShipmentId shipmentId,
     double amount,
     OffsetDateTime capturedAt
@@ -42,6 +48,11 @@ public sealed interface OrderExternalEvent {
 
   record OrderCompleted(
     OrderId orderId,
+    UUID clientId,
+    PricedProductItem[] productItems,
+    double totalPrice,
+    PaymentId paymentId,
+    ShipmentId shipmentId,
     OffsetDateTime completedAt
   ) implements OrderExternalEvent {
   }

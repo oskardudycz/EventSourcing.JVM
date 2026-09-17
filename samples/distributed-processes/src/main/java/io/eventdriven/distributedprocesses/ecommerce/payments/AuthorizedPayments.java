@@ -1,35 +1,46 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments;
 
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+import io.eventdriven.distributedprocesses.core.projections.Database;
+
 import java.time.OffsetDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
 
 public class AuthorizedPayments {
-  private final Map<PaymentId, OffsetDateTime> expiresAt = new HashMap<>();
+  private final Database database;
 
-  public void on(PaymentAuthorized event) {
-    expiresAt.put(event.paymentId(), event.expiresAt());
+  public AuthorizedPayments(Database database) {
+    this.database = database;
   }
 
-  public void on(PaymentCaptured event) {
-    expiresAt.remove(event.paymentId());
+  public void onAuthorized(EventEnvelope<PaymentAuthorized> event) {
+    database.store(
+      AuthorizedPayment.class,
+      event.data().paymentId(),
+      event.metadata().streamPosition(),
+      new AuthorizedPayment(event.data().paymentId(), event.data().expiresAt())
+    );
   }
 
-  public void on(PaymentVoided event) {
-    expiresAt.remove(event.paymentId());
+  public void onCaptured(EventEnvelope<PaymentCaptured> event) {
+    database.delete(AuthorizedPayment.class, event.data().paymentId());
   }
 
-  public void on(PaymentAuthorizationExpired event) {
-    expiresAt.remove(event.paymentId());
+  public void onVoided(EventEnvelope<PaymentVoided> event) {
+    database.delete(AuthorizedPayment.class, event.data().paymentId());
+  }
+
+  public void onAuthorizationExpired(EventEnvelope<PaymentAuthorizationExpired> event) {
+    database.delete(AuthorizedPayment.class, event.data().paymentId());
   }
 
   public List<PaymentId> expiredAt(OffsetDateTime now) {
-    return expiresAt.entrySet().stream()
-      .filter(entry -> !entry.getValue().isAfter(now))
-      .map(Map.Entry::getKey)
+    return database
+      .find(AuthorizedPayment.class, authorized -> !authorized.getExpiresAt().isAfter(now))
+      .stream()
+      .map(AuthorizedPayment::getPaymentId)
       .toList();
   }
 }

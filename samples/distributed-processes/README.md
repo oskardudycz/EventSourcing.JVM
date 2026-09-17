@@ -13,6 +13,7 @@
     - [The order decides, the saga only translates](#the-order-decides-the-saga-only-translates)
     - [Why the saga stays stateless](#why-the-saga-stays-stateless)
     - [Internal events and the published contract](#internal-events-and-the-published-contract)
+    - [The read side that feeds the contract](#the-read-side-that-feeds-the-contract)
     - [Appending is publishing](#appending-is-publishing)
     - [The two settlement seams](#the-two-settlement-seams)
     - [When things go wrong](#when-things-go-wrong)
@@ -298,9 +299,7 @@ sequenceDiagram
 
     Pay->>Saga: PaymentFailed (Declined, TimedOut or AuthorizationExpired)
     Saga->>Order: RecordOrderPaymentFailure
-    Ship->>Saga: ProductWasOutOfStock
-    Saga->>Order: RecordOrderShipmentFailure
-    Ship->>Saga: StockReservationExpired
+    Ship->>Saga: StockReservationFailed (ProductsOutOfStock or ReservationExpired)
     Saga->>Order: RecordOrderShipmentFailure
     Note over Order: an operator may also send CancelOrder(Requested)
     Note over Order: the order waits for the other participant before it decides
@@ -381,32 +380,71 @@ If a module exposed its internal events, every other module would end up coupled
 | shopping carts | `ShoppingCartFinalized` |
 | orders | `OrderInitialized`, `OrderConfirmed`, `OrderPaymentCaptured`, `OrderCompleted`, `OrderCancelled` |
 | payments | `PaymentAuthorized`, `PaymentCaptured`, `PaymentFailed` |
-| shipments | `StockReserved`, `ProductWasOutOfStock`, `PackageWasSent`, `PackageWasDelivered`, `StockReservationExpired` |
+| shipments | `StockReserved`, `PackageWasSent`, `PackageWasDelivered`, `StockReservationFailed` |
 
-Only the shopping cart forwarder enriches, because `ShoppingCartConfirmed` carries nothing but the cart id and a timestamp, so the cart has to be read back:
+Each module publishes a `sealed interface <Module>ExternalEvent`, so the contract is one type you can switch over exhaustively.
+
+Two of those names cover more than one internal event. `PaymentFailed` carries a `Reason` of `Declined`, `TimedOut` or `AuthorizationExpired`, and `StockReservationFailed` carries `ProductsOutOfStock` or `ReservationExpired`. Internally those stay separate events, because the module needs to tell them apart. Outside, the only thing anyone does with them is release the other hold, so publishing them separately would ask every consumer to learn a distinction it has no use for.
+
+A published event usually needs more than the internal event that triggered it. `ShoppingCartConfirmed` carries the cart id and a timestamp, but `ShoppingCartFinalized` has to carry the client, the items and the total, because the order module cannot call back into the cart to ask. The same is true of `PaymentAuthorized`, which internally is an id and two timestamps.
+
+So the forwarder reads that data from somewhere. It could load the aggregate, and an earlier version of this sample did. Each module keeps a projection instead:
 
 ```java
 public void on(ShoppingCartConfirmed event) {
-  var cart = store.get(event.shoppingCartId())
+  var cart = summaries.get(event.shoppingCartId())
     .orElseThrow(() -> new IllegalStateException("Cannot enrich event, as shopping cart with id '%s' was not found".formatted(event.shoppingCartId())));
 
-  eventBus.publish(new ShoppingCartFinalized(
+  eventBus.publish(new ShoppingCartExternalEvent.ShoppingCartFinalized(
     event.shoppingCartId(),
-    cart.clientId(),
-    cart.productItems(),
-    cart.totalPrice(),
+    cart.getClientId(),
+    cart.getProductItems(),
+    cart.getTotalPrice(),
     event.confirmedAt()
   ));
 }
 ```
 
-Every other forwarder only maps, because the internal event already carries what the contract needs. And several internal events aren't published at all — a void, a refund and a stock release finish compensations that nobody is waiting for.
+The aggregate's job is to decide, and the state it keeps is whatever those decisions need — no more. Reading it back to fill a published event makes every field the contract wants a field the aggregate has to expose, and the two drift into each other. `Order` is the clearest case: it exposes no state at all, and nothing here made it start.
+
+And several internal events aren't published at all — a void, a refund and a stock release finish compensations that nobody is waiting for.
+
+### The read side that feeds the contract
+
+A projection is a set of event handlers over a view, in the shape the [introduction-to-event-sourcing](../../workshops/introduction-to-event-sourcing/) workshop builds up:
+
+```java
+public void onConfirmed(EventEnvelope<OrderConfirmed> event) {
+  database.getAndUpdate(OrderSummary.class, event.data().orderId(), event.metadata().streamPosition(),
+    summary -> {
+      summary.setStatus(Order.Status.Confirmed);
+      return summary;
+    });
+}
+```
+
+The stream position comes along because the internal bus can deliver an `EventEnvelope` as well as a bare event — `subscribeWithMetadata` rather than `subscribe`. A view records the position it last applied, so an event delivered twice is skipped rather than counted twice.
+
+Each module wires its projections before its forwarder, and the bus dispatches in subscription order, so the forwarder reads a view that already includes the event it is forwarding.
+
+Besides the summaries, the modules keep views that exist to answer a question nobody can answer from an aggregate, because the question spans many of them:
+
+| View | Answers |
+|---|---|
+| `PendingPayments` | which authorisation requests the gateway never answered |
+| `AuthorizedPayments` | which card holds have passed `expiresAt` |
+| `StockReservations` | which stock holds have passed `reservedUntil` |
+| `PendingOrders` | which orders are still in flight — the operator's TODO list, and what time-based cancellation will read |
+
+The first three are what the expiry workers poll. `PendingOrders` has no worker yet; the view comes first, and cancelling on age is the next step.
 
 ### Appending is publishing
 
 The in-memory event store follows the one in the [introduction-to-event-sourcing](../../workshops/introduction-to-event-sourcing/) workshop: appending to a stream dispatches the events. There's no gap between storing and publishing to get wrong, and no facade has to call a bus. In memory that comes for free; against a real database it's what an outbox is for. Either way, if you find yourself writing `store.getAndUpdate(...)` followed by `bus.publish(...)`, you're working around the store instead of using it.
 
 That store is the module's internal channel. The integration bus is a separate object, and only forwarders write to it. The saga subscribes to the integration bus alone, so it has no way to reach into another module's internals.
+
+The two are separate *interfaces* — `InternalEventBus` has no `publish` at all, because publishing a module's own events is appending them. One in-memory class happens to implement both here; in production they would be different transports, and the saga would still only ever hold the integration one.
 
 ### The two settlement seams
 
@@ -441,7 +479,7 @@ Three things keep the process from getting stuck.
 | `AuthorizationExpiryWorker` | `expiresAt` on the card hold | `ExpirePaymentAuthorization` |
 | `ReservationExpiryWorker` | `reservedUntil` on the stock hold | `ExpireStockReservation` |
 
-The first watches a request, the other two watch a hold. A hold that can only be freed by compensation leaks whenever the release message is lost: the units stay unsellable and the customer's funds stay blocked. Each worker ends at the order, as `PaymentFailed` or `StockReservationExpired`, so the order is never left waiting for a message that isn't coming. Production would run them on a schedule; tests call `run(now)` with a chosen instant.
+The first watches a request, the other two watch a hold. A hold that can only be freed by compensation leaks whenever the release message is lost: the units stay unsellable and the customer's funds stay blocked. Each worker ends at the order, as `PaymentFailed` or `StockReservationFailed`, so the order is never left waiting for a message that isn't coming. Production would run them on a schedule; tests call `run(now)` with a chosen instant.
 
 **3. Manual compensation.** An operator cancels a stuck order by sending `CancelOrder(orderId, Requested)` on the same command bus, with no special path to maintain. The `OrderCancelled` that follows carries where each participant stood, so the money and the goods come back through the same commands as every other cancellation.
 
@@ -450,8 +488,9 @@ The first watches a request, the other two watch a hold. A hold that can only be
 - **Capture cannot fail.** Only the authorisation makes a gateway round-trip. Modelling three more callbacks would repeat what the authorisation already shows.
 - **A sent package has no return path.** Nothing ships before the capture, so this only comes up when an operator cancels a paid, dispatched order. The money is refunded; the parcel is not recalled. Returns are a process of their own.
 - **Partial reservations do not exist.** A reservation covers every line or none.
-- **The composition root is still per module.** Each module has its own `Config` that registers its commands, its forwarder and its clients. The single `ECommerceConfig` that knits them together, and the end-to-end transcript test that drives one order through all four, are the next step.
-- **The infrastructure is in memory.** The ESDB implementations exist but are not wired.
+- **The composition root is still per module.** Each module has its own `Config` that registers its commands, its projections, its forwarder and its clients, and builds its own `Database`. The single `ECommerceConfig` that knits them together, and the end-to-end transcript test that drives one order through all four, are the next step. Until it exists, `OrderSaga` is wired nowhere but its own tests.
+- **The infrastructure is in memory.** The ESDB implementations exist but are not wired. The projection `Database` is a `HashMap` behind a store/get/getAndUpdate/find API, so swapping it for a real one is a change in one class.
+- **A view can be resurrected by a replay.** `Database.getAndUpdate` skips an event a view has already applied, but `store` and `delete` carry no such guard. Replay a `StockReserved` after its `PackageWasSent` and the reservation comes back. Nothing breaks downstream — the expiry worker sends `ExpireStockReservation` and the aggregate no-ops on it — but a versioned delete would close it properly.
 - **`core/messaging` duplicates the older `core/commands` and `core/events`.** Both stay, because `hotelmanagement` still depends on the older pair.
 
 Each module could instead publish its external events to a dedicated event store stream, such as `shopping_carts__external-events`, and the others could subscribe to it — a concept close to Kafka's topics.

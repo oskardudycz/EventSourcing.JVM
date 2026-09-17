@@ -3,7 +3,6 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts;
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
-import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartFinalized;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
@@ -14,6 +13,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartCommand.*;
+import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.*;
 
 public class ShoppingCartExternalEventForwarderTests {
   private static final double unitPrice = 12.5;
