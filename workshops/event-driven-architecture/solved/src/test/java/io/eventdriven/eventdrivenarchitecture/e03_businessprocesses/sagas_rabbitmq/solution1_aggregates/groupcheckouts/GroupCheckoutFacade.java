@@ -1,6 +1,6 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution1_aggregates.groupcheckouts;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.IEventBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import org.springframework.stereotype.Service;
 
@@ -12,11 +12,11 @@ import java.util.UUID;
 @Service
 public class GroupCheckoutFacade {
   private final Database.Collection<GroupCheckout> collection;
-  private final IEventBus eventBus;
+  private final MessageBus messageBus;
 
-  public GroupCheckoutFacade(Database database, IEventBus eventBus) {
+  public GroupCheckoutFacade(Database database, MessageBus messageBus) {
     this.collection = database.collection(GroupCheckout.class);
-    this.eventBus = eventBus;
+    this.messageBus = messageBus;
   }
 
   public void initiateGroupCheckout(InitiateGroupCheckout command) {
@@ -28,7 +28,7 @@ public class GroupCheckoutFacade {
     );
 
     collection.store(command.groupCheckoutId(), groupCheckout);
-    eventBus.publish(groupCheckout.dequeueUncommittedEvents());
+    messageBus.publish(groupCheckout.dequeueUncommittedEvents());
   }
 
   public void recordGuestCheckoutCompletion(RecordGuestCheckoutCompletion command)
@@ -39,7 +39,7 @@ public class GroupCheckoutFacade {
     groupCheckout.recordGuestCheckoutCompletion(command.guestStayId(), command.completedAt());
 
     collection.store(command.groupCheckoutId(), groupCheckout);
-    eventBus.publish(groupCheckout.dequeueUncommittedEvents());
+    messageBus.publish(groupCheckout.dequeueUncommittedEvents());
   }
 
   public void recordGuestCheckoutFailure(RecordGuestCheckoutFailure command)
@@ -50,7 +50,7 @@ public class GroupCheckoutFacade {
     groupCheckout.recordGuestCheckoutFailure(command.guestStayId(), command.failedAt());
 
     collection.store(command.groupCheckoutId(), groupCheckout);
-    eventBus.publish(groupCheckout.dequeueUncommittedEvents());
+    messageBus.publish(groupCheckout.dequeueUncommittedEvents());
   }
 
   public sealed interface GroupCheckoutCommand {

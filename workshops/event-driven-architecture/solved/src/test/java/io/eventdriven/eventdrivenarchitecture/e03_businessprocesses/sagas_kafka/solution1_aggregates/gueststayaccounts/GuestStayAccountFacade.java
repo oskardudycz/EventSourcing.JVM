@@ -1,6 +1,6 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution1_aggregates.gueststayaccounts;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.IEventBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import org.springframework.stereotype.Service;
 
@@ -10,18 +10,18 @@ import java.util.UUID;
 @Service
 public class GuestStayAccountFacade {
   private final Database.Collection<GuestStayAccount> collection;
-  private final IEventBus eventBus;
+  private final MessageBus messageBus;
 
-  public GuestStayAccountFacade(Database database, IEventBus eventBus) {
+  public GuestStayAccountFacade(Database database, MessageBus messageBus) {
     this.collection = database.collection(GuestStayAccount.class);
-    this.eventBus = eventBus;
+    this.messageBus = messageBus;
   }
 
   public void checkInGuest(GuestStayAccountCommand.CheckInGuest command) {
     var account = GuestStayAccount.checkIn(command.guestStayId(), command.now());
 
     collection.store(command.guestStayId(), account);
-    eventBus.publish(account.dequeueUncommittedEvents());
+    messageBus.publish(account.dequeueUncommittedEvents());
   }
 
   public void recordCharge(GuestStayAccountCommand.RecordCharge command) {
@@ -31,7 +31,7 @@ public class GuestStayAccountFacade {
     account.recordCharge(command.amount(), command.now());
 
     collection.store(command.guestStayId(), account);
-    eventBus.publish(account.dequeueUncommittedEvents());
+    messageBus.publish(account.dequeueUncommittedEvents());
   }
 
   public void recordPayment(GuestStayAccountCommand.RecordPayment command) {
@@ -41,7 +41,7 @@ public class GuestStayAccountFacade {
     account.recordPayment(command.amount(), command.now());
 
     collection.store(command.guestStayId(), account);
-    eventBus.publish(account.dequeueUncommittedEvents());
+    messageBus.publish(account.dequeueUncommittedEvents());
   }
 
   public void checkOutGuest(GuestStayAccountCommand.CheckOutGuest command) {
@@ -51,7 +51,7 @@ public class GuestStayAccountFacade {
     account.checkout(command.now(), command.groupCheckOutId());
 
     collection.store(command.guestStayId(), account);
-    eventBus.publish(account.dequeueUncommittedEvents());
+    messageBus.publish(account.dequeueUncommittedEvents());
   }
 
   public sealed interface GuestStayAccountCommand {

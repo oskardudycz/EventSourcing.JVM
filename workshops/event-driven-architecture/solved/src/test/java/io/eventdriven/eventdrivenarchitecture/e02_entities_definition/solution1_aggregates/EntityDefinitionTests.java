@@ -1,8 +1,9 @@
 package io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution1_aggregates;
 
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.EventBus;
-import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.EventCatcher;
+import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.InMemoryMessageBus;
+import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.MessageBus;
+import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.MessageCatcher;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution1_aggregates.GuestStayFacade.GuestStayAccountCommand;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution1_aggregates.GuestStayFacade.GroupCheckoutCommand;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution1_aggregates.groupcheckouts.GroupCheckoutEvent;
@@ -18,8 +19,8 @@ import java.util.UUID;
 public class EntityDefinitionTests {
 
   private Database database;
-  private EventBus eventBus;
-  private EventCatcher publishedEvents;
+  private MessageBus messageBus;
+  private MessageCatcher publishedMessages;
   private GuestStayFacade guestStayFacade;
   private Faker faker;
   private OffsetDateTime now;
@@ -27,12 +28,12 @@ public class EntityDefinitionTests {
   @BeforeEach
   public void setUp() {
     database = new Database();
-    eventBus = new EventBus();
-    publishedEvents = new EventCatcher();
-    guestStayFacade = new GuestStayFacade(database.collection(GuestStayAccount.class), eventBus);
+    messageBus = new InMemoryMessageBus();
+    publishedMessages = new MessageCatcher();
+    guestStayFacade = new GuestStayFacade(database.collection(GuestStayAccount.class), messageBus);
     faker = new Faker();
     now = OffsetDateTime.now();
-    eventBus.use(publishedEvents::catchMessage);
+    messageBus.use(publishedMessages::catchMessage);
   }
 
   @Test
@@ -40,13 +41,13 @@ public class EntityDefinitionTests {
     // Given
     var guestStayId = UUID.randomUUID();
     var command = new GuestStayAccountCommand.CheckInGuest(guestStayId, now);
-    publishedEvents.reset();
+    publishedMessages.reset();
 
     // When
     guestStayFacade.checkInGuest(command);
 
     // Then
-    publishedEvents.shouldReceiveSingleEvent(new GuestStayAccountEvent.GuestCheckedIn(guestStayId, now));
+    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.GuestCheckedIn(guestStayId, now));
   }
 
   @Test
@@ -54,7 +55,7 @@ public class EntityDefinitionTests {
     // Given
     var guestStayId = UUID.randomUUID();
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
-    publishedEvents.reset();
+    publishedMessages.reset();
     // And
     var amount = faker.number().randomDouble(2, 10, 1000);
     var command = new GuestStayAccountCommand.RecordCharge(guestStayId, amount, now);
@@ -63,7 +64,7 @@ public class EntityDefinitionTests {
     guestStayFacade.recordCharge(command);
 
     // Then
-    publishedEvents.shouldReceiveSingleEvent(new GuestStayAccountEvent.ChargeRecorded(guestStayId, amount, now));
+    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.ChargeRecorded(guestStayId, amount, now));
   }
 
   @Test
@@ -71,7 +72,7 @@ public class EntityDefinitionTests {
     // Given
     var guestStayId = UUID.randomUUID();
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
-    publishedEvents.reset();
+    publishedMessages.reset();
     // And
     var amount = faker.number().randomDouble(2, 10, 1000);
     var command = new GuestStayAccountCommand.RecordPayment(guestStayId, amount, now);
@@ -80,7 +81,7 @@ public class EntityDefinitionTests {
     guestStayFacade.recordPayment(command);
 
     // Then
-    publishedEvents.shouldReceiveSingleEvent(new GuestStayAccountEvent.PaymentRecorded(guestStayId, amount, now));
+    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.PaymentRecorded(guestStayId, amount, now));
   }
 
   @Test
@@ -89,7 +90,7 @@ public class EntityDefinitionTests {
     var guestStayId = UUID.randomUUID();
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
     guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(guestStayId, faker.number().randomDouble(2, 10, 1000), now.minusHours(1)));
-    publishedEvents.reset();
+    publishedMessages.reset();
     // And
     var amount = faker.number().randomDouble(2, 10, 1000);
     var command = new GuestStayAccountCommand.RecordPayment(guestStayId, amount, now);
@@ -98,7 +99,7 @@ public class EntityDefinitionTests {
     guestStayFacade.recordPayment(command);
 
     // Then
-    publishedEvents.shouldReceiveSingleEvent(new GuestStayAccountEvent.PaymentRecorded(guestStayId, amount, now));
+    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.PaymentRecorded(guestStayId, amount, now));
   }
 
   @Test
@@ -110,7 +111,7 @@ public class EntityDefinitionTests {
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
     guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(guestStayId, amount, now.minusHours(2)));
     guestStayFacade.recordPayment(new GuestStayAccountCommand.RecordPayment(guestStayId, amount, now.minusHours(1)));
-    publishedEvents.reset();
+    publishedMessages.reset();
     // And
     var command = new GuestStayAccountCommand.CheckOutGuest(guestStayId, now);
 
@@ -118,7 +119,7 @@ public class EntityDefinitionTests {
     guestStayFacade.checkOutGuest(command);
 
     // Then
-    publishedEvents.shouldReceiveSingleEvent(new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, null));
+    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, null));
   }
 
   @Test
@@ -130,7 +131,7 @@ public class EntityDefinitionTests {
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
     guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(guestStayId, amount + 10, now.minusHours(2)));
     guestStayFacade.recordPayment(new GuestStayAccountCommand.RecordPayment(guestStayId, amount, now.minusHours(1)));
-    publishedEvents.reset();
+    publishedMessages.reset();
     // And
     var command = new GuestStayAccountCommand.CheckOutGuest(guestStayId, now);
 
@@ -142,7 +143,7 @@ public class EntityDefinitionTests {
     }
 
     // Then
-    publishedEvents.shouldReceiveSingleEvent(
+    publishedMessages.shouldReceiveSingleMessage(
       new GuestStayAccountEvent.GuestCheckoutFailed(
         guestStayId,
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
@@ -160,7 +161,7 @@ public class EntityDefinitionTests {
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStays[0], now.minusDays(1)));
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStays[1], now.minusDays(1)));
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStays[2], now.minusDays(1)));
-    publishedEvents.reset();
+    publishedMessages.reset();
     // And
     var groupCheckoutId = UUID.randomUUID();
     var clerkId = UUID.randomUUID();
@@ -170,7 +171,7 @@ public class EntityDefinitionTests {
     guestStayFacade.initiateGroupCheckout(command);
 
     // Then
-    publishedEvents.shouldReceiveSingleEvent(
+    publishedMessages.shouldReceiveSingleMessage(
       new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now)
     );
   }

@@ -1,8 +1,8 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.CommandBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.InMemoryMessageBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckout;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutEvent;
@@ -26,8 +26,7 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todol
 public class BusinessProcessTests {
 
   private Database database;
-  private EventBus eventBus;
-  private CommandBus commandBus;
+  private MessageBus messageBus;
   private MessageCatcher publishedMessages;
   private GuestStayAccountFacade guestStayFacade;
   private GroupCheckoutFacade groupCheckoutFacade;
@@ -37,19 +36,17 @@ public class BusinessProcessTests {
   @BeforeEach
   public void setUp() {
     database = new Database();
-    eventBus = new EventBus();
-    commandBus = new CommandBus();
+    messageBus = new InMemoryMessageBus();
     publishedMessages = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), eventBus);
-    groupCheckoutFacade = new GroupCheckoutFacade(database.collection(GroupCheckout.class), eventBus, commandBus);
+    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), messageBus);
+    groupCheckoutFacade = new GroupCheckoutFacade(database.collection(GroupCheckout.class), messageBus);
     faker = new Faker();
     now = OffsetDateTime.now();
 
-    eventBus.use(publishedMessages::catchMessage);
-    commandBus.use(publishedMessages::catchMessage);
+    messageBus.use(publishedMessages::catchMessage);
 
-    configureGroupCheckouts(eventBus, commandBus, groupCheckoutFacade);
-    configureGuestStayAccounts(commandBus, guestStayFacade);
+    configureGroupCheckouts(messageBus, groupCheckoutFacade);
+    configureGuestStayAccounts(messageBus, guestStayFacade);
   }
 
   @Test

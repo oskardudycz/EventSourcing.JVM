@@ -1,7 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e02_entities_definition;
 
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.EventBus;
+import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.gueststayaccounts.GuestStayAccount;
 
 import java.time.OffsetDateTime;
@@ -10,11 +10,11 @@ import java.util.UUID;
 
 public class GuestStayFacade {
   private final Database.Collection<GuestStayAccount> collection;
-  private final EventBus eventBus;
+  private final MessageBus messageBus;
 
-  public GuestStayFacade(Database.Collection<GuestStayAccount> collection, EventBus eventBus) {
+  public GuestStayFacade(Database.Collection<GuestStayAccount> collection, MessageBus messageBus) {
     this.collection = collection;
-    this.eventBus = eventBus;
+    this.messageBus = messageBus;
   }
 
   public void checkInGuest(GuestStayAccountCommand.CheckInGuest command) {
@@ -31,7 +31,7 @@ public class GuestStayFacade {
     var events = List.of();
 
     collection.store(command.guestStayId(), account);
-    eventBus.publish(events);
+    messageBus.publish(events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }
@@ -45,7 +45,7 @@ public class GuestStayFacade {
     var events = List.of();
 
     collection.store(command.guestStayId(), account);
-    eventBus.publish(events);
+    messageBus.publish(events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }
@@ -59,7 +59,7 @@ public class GuestStayFacade {
     var events = List.of();
 
     collection.store(command.guestStayId(), account);
-    eventBus.publish(events);
+    messageBus.publish(events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }

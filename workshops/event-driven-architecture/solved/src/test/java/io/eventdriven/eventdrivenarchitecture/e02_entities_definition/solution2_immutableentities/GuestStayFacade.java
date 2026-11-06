@@ -1,7 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities;
 
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.EventBus;
+import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.groupcheckouts.GroupCheckoutEvent;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccount;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.*;
@@ -15,18 +15,18 @@ import static io.eventdriven.eventdrivenarchitecture.e02_entities_definition.sol
 
 public class GuestStayFacade {
   private final Database.Collection<GuestStayAccount> collection;
-  private final EventBus eventBus;
+  private final MessageBus messageBus;
 
-  public GuestStayFacade(Database.Collection<GuestStayAccount> collection, EventBus eventBus) {
+  public GuestStayFacade(Database.Collection<GuestStayAccount> collection, MessageBus messageBus) {
     this.collection = collection;
-    this.eventBus = eventBus;
+    this.messageBus = messageBus;
   }
 
   public void checkInGuest(GuestStayAccountCommand.CheckInGuest command) {
     var checkedIn = decide(command, INITIAL);
 
     collection.store(command.guestStayId(), evolve(INITIAL, checkedIn));
-    eventBus.publish(List.of(checkedIn));
+    messageBus.publish(List.of(checkedIn));
   }
 
   public void recordCharge(GuestStayAccountCommand.RecordCharge command) {
@@ -36,7 +36,7 @@ public class GuestStayFacade {
     var chargeRecorded = decide(command, account);
 
     collection.store(command.guestStayId(), evolve(account, chargeRecorded));
-    eventBus.publish(List.of(chargeRecorded));
+    messageBus.publish(List.of(chargeRecorded));
   }
 
   public void recordPayment(GuestStayAccountCommand.RecordPayment command) {
@@ -46,7 +46,7 @@ public class GuestStayFacade {
     var recordPayment = decide(command, account);
 
     collection.store(command.guestStayId(), evolve(account, recordPayment));
-    eventBus.publish(List.of(recordPayment));
+    messageBus.publish(List.of(recordPayment));
   }
 
   public void checkOutGuest(GuestStayAccountCommand.CheckOutGuest command) {
@@ -56,11 +56,11 @@ public class GuestStayFacade {
     var checkedOut = decide(command, account);
 
     collection.store(command.guestStayId(), evolve(account, checkedOut));
-    eventBus.publish(List.of(checkedOut));
+    messageBus.publish(List.of(checkedOut));
   }
 
   public void initiateGroupCheckout(GroupCheckoutCommand.InitiateGroupCheckout command) {
-    eventBus.publish(List.of(
+    messageBus.publish(List.of(
       new GroupCheckoutEvent.GroupCheckoutInitiated(
         command.groupCheckoutId(),
         command.clerkId(),

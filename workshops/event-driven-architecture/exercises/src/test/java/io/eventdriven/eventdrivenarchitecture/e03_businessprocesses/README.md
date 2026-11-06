@@ -21,7 +21,15 @@ We still need to support regular checkouts, payments, charges etc. as we do righ
 
 **Based on the business logic solution from the previous exercise. Model the process and business logic of the Group Checkout.** 
 - Choose one path [DDD Aggregate](./solution1_aggregates) or [Functional Decider](./solution2_immutableentities)
-- Fill application logic in GroupCheckoutFacade, using the [in-memory database](./core/Database.java) and [in-memory event bus](./core/EventBus.java) to store changes and publish events as the outcome of business logic,
-- Configure commands handling from command bus and event handling in event bus in respective Config files (think about them as setup called once upon application startup),
+- Fill application logic in GroupCheckoutFacade, using the [in-memory database](./core/Database.java) and [in-memory message bus](./core/InMemoryMessageBus.java) to store changes and publish events as the outcome of business logic,
+- Configure message handling in respective Config files by subscribing to commands and events on the [message bus](./core/MessageBus.java) (think about them as setup called once upon application startup),
 - You can use any preferred style of implementing process coordination,
 - Use BusinessProcessTests to guide you and verify if you implemented it correctly.
+
+### Commands and events on one message bus
+
+Commands and events travel through the same [MessageBus](./core/MessageBus.java). The difference is intent, not transport:
+- a command asks for something to be done, e.g. `RecordGuestCheckoutCompletion`. It has one intended recipient, which may accept or reject it,
+- an event records something that already happened, e.g. `GuestCheckedOut`. Any number of subscribers may react to it, or none.
+
+The bus delivers each message to every subscriber of its type. It doesn't check that a command has exactly one handler; that's up to how you wire your Config files.

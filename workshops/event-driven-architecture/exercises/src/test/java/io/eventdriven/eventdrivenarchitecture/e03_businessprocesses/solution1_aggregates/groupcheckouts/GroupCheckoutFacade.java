@@ -1,7 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution1_aggregates.groupcheckouts;
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution1_aggregates.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.*;
 
@@ -11,11 +11,11 @@ import java.util.UUID;
 
 public class GroupCheckoutFacade {
   private final Database.Collection<GroupCheckout> collection;
-  private final EventBus eventBus;
+  private final MessageBus messageBus;
 
-  public GroupCheckoutFacade(Database database, EventBus eventBus) {
+  public GroupCheckoutFacade(Database database, MessageBus messageBus) {
     this.collection = database.collection(GroupCheckout.class);
-    this.eventBus = eventBus;
+    this.messageBus = messageBus;
   }
 
   public void initiateGroupCheckout(InitiateGroupCheckout command) {
@@ -33,7 +33,7 @@ public class GroupCheckoutFacade {
     var events = List.of();
 
     collection.store(command.guestStayId(), account);
-    eventBus.publish(events);
+    messageBus.publish(events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }
@@ -48,7 +48,7 @@ public class GroupCheckoutFacade {
     var events = List.of();
 
     collection.store(command.guestStayId(), account);
-    eventBus.publish(events);
+    messageBus.publish(events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
   }

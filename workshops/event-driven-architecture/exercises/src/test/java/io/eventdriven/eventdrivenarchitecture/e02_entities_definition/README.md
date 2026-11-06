@@ -21,6 +21,6 @@ We still need to support regular checkouts, payments, charges etc. as we do righ
 
 **Model the entity and business logic of the Guest Stay Account.** 
 - Define entity in [this file](./gueststayaccounts/GuestStayAccount.java),
-- Fill application logic in [GuestStayFacade](./GuestStayFacade.java), using the [in-memory database](./core/Database.java) and [in-memory event bus](./core/EventBus.java) to store changes and publish events as the outcome of business logic,
+- Fill application logic in [GuestStayFacade](./GuestStayFacade.java), using the [in-memory database](./core/Database.java) and [in-memory message bus](./core/InMemoryMessageBus.java) to store changes and publish events as the outcome of business logic,
 - You can use any preferred style of implementing business logic,
 - Use [EntityDefinitionTests](./EntityDefinitionTests.java) to guide you and verify if you implemented it correctly.
