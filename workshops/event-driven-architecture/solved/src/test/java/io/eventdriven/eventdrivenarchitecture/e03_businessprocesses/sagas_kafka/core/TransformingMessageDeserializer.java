@@ -1,9 +1,9 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.versioning.MessageTransformations;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
@@ -12,12 +12,12 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas
 
 @Component
 public class TransformingMessageDeserializer {
-  private final JsonDeserializer<Object> kafkaDeserializer;
+  private final JacksonJsonDeserializer<Object> kafkaDeserializer;
   private final ObjectMapper objectMapper;
   private final MessageTransformations transformations;
 
   public TransformingMessageDeserializer(
-    JsonDeserializer<Object> kafkaDeserializer,
+    JacksonJsonDeserializer<Object> kafkaDeserializer,
     ObjectMapper objectMapper,
     MessageTransformations transformations
   ) {

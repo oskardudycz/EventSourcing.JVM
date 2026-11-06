@@ -1,6 +1,6 @@
 package io.eventdriven.eventdrivenarchitecture.e01_events_definition;
 
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;

@@ -3,7 +3,7 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
-import org.springframework.kafka.support.mapping.AbstractJavaTypeMapper;
+import org.springframework.kafka.support.mapping.DefaultJacksonJavaTypeMapper;
 
 import java.util.UUID;
 
@@ -17,7 +17,7 @@ public class MessageMetadataTest {
         UUID messageId = UUID.randomUUID();
         Message<String> message = MessageBuilder
             .withPayload("{\"test\":\"data\"}")
-            .setHeader(AbstractJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME, "TestEvent")
+            .setHeader(DefaultJacksonJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME, "TestEvent")
             .setHeader(CORRELATION_ID, "corr-456")
             .setHeader(CAUSATION_ID, "cause-789")
             .setHeader(ENTITY_ID, "entity-111")
@@ -36,7 +36,7 @@ public class MessageMetadataTest {
     public void shouldHandleMissingOptionalFields() {
         Message<String> message = MessageBuilder
             .withPayload("{\"test\":\"data\"}")
-            .setHeader(AbstractJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME, "TestEvent")
+            .setHeader(DefaultJacksonJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME, "TestEvent")
             .setHeader(CORRELATION_ID, "corr-456")
             .build();
 

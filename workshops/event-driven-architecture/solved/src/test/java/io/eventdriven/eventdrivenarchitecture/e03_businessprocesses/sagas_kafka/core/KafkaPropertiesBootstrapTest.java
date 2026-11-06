@@ -5,8 +5,8 @@ import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.kafka.KafkaConnectionDetails;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
@@ -34,7 +34,7 @@ public class KafkaPropertiesBootstrapTest {
 
   @Test
   public void shouldShowThatBuildProducerPropertiesDoesNotIncludeServiceConnection() {
-    Map<String, Object> producerProperties = kafkaProperties.buildProducerProperties(null);
+    Map<String, Object> producerProperties = kafkaProperties.buildProducerProperties();
 
     System.out.println("=== Producer Properties (buildProducerProperties alone) ===");
     producerProperties.forEach((key, value) ->
@@ -53,7 +53,7 @@ public class KafkaPropertiesBootstrapTest {
 
   @Test
   public void shouldShowThatKafkaConnectionDetailsHasCorrectBootstrapServers() {
-    List<String> producerBootstrapServers = connectionDetails.getProducerBootstrapServers();
+    List<String> producerBootstrapServers = connectionDetails.getProducer().getBootstrapServers();
 
     boolean isPropertiesKafka = connectionDetails.getClass().getName()
       .contains("PropertiesKafkaConnectionDetails");
@@ -72,7 +72,7 @@ public class KafkaPropertiesBootstrapTest {
 
   @Test
   public void shouldProveManuallyApplyingConnectionDetailsWorks() {
-    Map<String, Object> props = kafkaProperties.buildProducerProperties(null);
+    Map<String, Object> props = kafkaProperties.buildProducerProperties();
 
     System.out.println("=== Before applying KafkaConnectionDetails ===");
     System.out.println("Bootstrap servers: " + props.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
@@ -81,7 +81,7 @@ public class KafkaPropertiesBootstrapTest {
       .contains("PropertiesKafkaConnectionDetails");
 
     // Apply connection details manually (Spring Boot's pattern)
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getProducerBootstrapServers());
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getProducer().getBootstrapServers());
     if (!isPropertiesKafka) {
       props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "PLAINTEXT");
     }
