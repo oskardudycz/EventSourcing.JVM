@@ -1,8 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.transactions.groupcheckouts;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.CommandBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.transactions.gueststayaccounts.GuestStayAccount;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.transactions.gueststayaccounts.GuestStayAccountDecider;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.transactions.gueststayaccounts.GuestStayAccountEvent;
@@ -15,11 +14,11 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.trans
 
 public class GroupCheckoutFacade {
   private final Database collection;
-  private final EventBus eventBus;
+  private final MessageBus messageBus;
 
-  public GroupCheckoutFacade(Database database, EventBus eventBus) {
+  public GroupCheckoutFacade(Database database, MessageBus messageBus) {
     this.collection = database;
-    this.eventBus = eventBus;
+    this.messageBus = messageBus;
   }
 
   public void initiateGroupCheckout(GroupCheckoutCommand.InitiateGroupCheckout command) {
@@ -60,7 +59,7 @@ public class GroupCheckoutFacade {
         ));
       }
 
-      eventBus.publish(events);
+      messageBus.publish(events);
     });
   }
 

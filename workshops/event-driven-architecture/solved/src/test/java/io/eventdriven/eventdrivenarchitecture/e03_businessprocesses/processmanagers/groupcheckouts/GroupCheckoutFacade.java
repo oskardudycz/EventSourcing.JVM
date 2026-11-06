@@ -1,8 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.groupcheckouts;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.CommandBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.core.Message;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.gueststayaccounts.GuestStayAccountEvent;
 
@@ -14,13 +13,11 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.proce
 
 public class GroupCheckoutFacade {
   private final Database.Collection<GroupCheckout> collection;
-  private final EventBus eventBus;
-  private final CommandBus commandBus;
+  private final MessageBus messageBus;
 
-  public GroupCheckoutFacade(Database.Collection<GroupCheckout> collection, EventBus eventBus, CommandBus commandBus) {
+  public GroupCheckoutFacade(Database.Collection<GroupCheckout> collection, MessageBus messageBus) {
     this.collection = collection;
-    this.eventBus = eventBus;
-    this.commandBus = commandBus;
+    this.messageBus = messageBus;
   }
 
   public void initiateGroupCheckout(InitiateGroupCheckout command) {
@@ -56,8 +53,8 @@ public class GroupCheckoutFacade {
   void publish(Message[] messages) {
     for (Message message : messages) {
       switch (message) {
-        case Message.Command command -> commandBus.send(List.of(command.message()));
-        case Message.Event event -> eventBus.publish(List.of(event.message()));
+        case Message.Command command -> messageBus.publish(List.of(command.message()));
+        case Message.Event event -> messageBus.publish(List.of(event.message()));
       }
     }
   }

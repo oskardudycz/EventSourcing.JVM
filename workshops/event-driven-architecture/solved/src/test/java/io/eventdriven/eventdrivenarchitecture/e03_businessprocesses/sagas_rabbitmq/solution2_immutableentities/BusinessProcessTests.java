@@ -2,8 +2,7 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbi
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.TestApplicationConfig;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.RabbitMQTestConfiguration;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.ICommandBus;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.ITestableMessageBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.RabbitMQMessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.MessageCatcher;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.groupcheckouts.GroupCheckoutEvent;
@@ -49,9 +48,7 @@ public class BusinessProcessTests {
   @Autowired
   private Database database;
   @Autowired
-  private ITestableMessageBus eventBus;
-  @Autowired
-  private ICommandBus commandBus;
+  private RabbitMQMessageBus messageBus;
   private MessageCatcher publishedMessages;
   @Autowired
   private GuestStayAccountFacade guestStayFacade;
@@ -66,8 +63,8 @@ public class BusinessProcessTests {
     faker = new Faker();
     now = OffsetDateTime.now();
 
-    eventBus.clearMiddleware();
-    eventBus.use(publishedMessages::catchMessage);
+    messageBus.clearMiddleware();
+    messageBus.use(publishedMessages::catchMessage);
 
     await().atMost(Duration.ofSeconds(2)).pollDelay(Duration.ofMillis(100)).until(() -> true);
   }

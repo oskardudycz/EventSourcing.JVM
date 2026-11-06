@@ -1,7 +1,8 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities;
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.InMemoryMessageBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccount;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
@@ -19,8 +20,8 @@ import java.util.UUID;
 public class EntityDefinitionTests {
 
   private Database database;
-  private EventBus eventBus;
-  private MessageCatcher publishedEvents;
+  private MessageBus messageBus;
+  private MessageCatcher publishedMessages;
   private GuestStayAccountFacade guestStayFacade;
   private Faker faker;
   private OffsetDateTime now;
@@ -28,12 +29,12 @@ public class EntityDefinitionTests {
   @BeforeEach
   public void setUp() {
     database = new Database();
-    eventBus = new EventBus();
-    publishedEvents = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database, eventBus);
+    messageBus = new InMemoryMessageBus();
+    publishedMessages = new MessageCatcher();
+    guestStayFacade = new GuestStayAccountFacade(database, messageBus);
     faker = new Faker();
     now = OffsetDateTime.now();
-    eventBus.use(publishedEvents::catchMessage);
+    messageBus.use(publishedMessages::catchMessage);
   }
 
   @Test
@@ -42,13 +43,13 @@ public class EntityDefinitionTests {
     // Given
     var guestStayId = UUID.randomUUID();
     var command = new GuestStayAccountCommand.CheckInGuest(guestStayId, now);
-    publishedEvents.reset();
+    publishedMessages.reset();
 
     // When
     guestStayFacade.checkInGuest(command);
 
     // Then
-    publishedEvents.shouldReceiveSingleEvent(new GuestStayAccountEvent.GuestCheckedIn(guestStayId, now));
+    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.GuestCheckedIn(guestStayId, now));
   }
 
   @Test
@@ -57,7 +58,7 @@ public class EntityDefinitionTests {
     // Given
     var guestStayId = UUID.randomUUID();
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
-    publishedEvents.reset();
+    publishedMessages.reset();
     // And
     var amount = faker.number().randomDouble(2, 10, 1000);
     var command = new GuestStayAccountCommand.RecordCharge(guestStayId, amount, now);
@@ -66,7 +67,7 @@ public class EntityDefinitionTests {
     guestStayFacade.recordCharge(command);
 
     // Then
-    publishedEvents.shouldReceiveSingleEvent(new GuestStayAccountEvent.ChargeRecorded(guestStayId, amount, now));
+    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.ChargeRecorded(guestStayId, amount, now));
   }
 
   @Test
@@ -75,7 +76,7 @@ public class EntityDefinitionTests {
     // Given
     var guestStayId = UUID.randomUUID();
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
-    publishedEvents.reset();
+    publishedMessages.reset();
     // And
     var amount = faker.number().randomDouble(2, 10, 1000);
     var command = new GuestStayAccountCommand.RecordPayment(guestStayId, amount, now);
@@ -84,7 +85,7 @@ public class EntityDefinitionTests {
     guestStayFacade.recordPayment(command);
 
     // Then
-    publishedEvents.shouldReceiveSingleEvent(new GuestStayAccountEvent.PaymentRecorded(guestStayId, amount, now));
+    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.PaymentRecorded(guestStayId, amount, now));
   }
 
   @Test
@@ -94,7 +95,7 @@ public class EntityDefinitionTests {
     var guestStayId = UUID.randomUUID();
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
     guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(guestStayId, faker.number().randomDouble(2, 10, 1000), now.minusHours(1)));
-    publishedEvents.reset();
+    publishedMessages.reset();
     // And
     var amount = faker.number().randomDouble(2, 10, 1000);
     var command = new GuestStayAccountCommand.RecordPayment(guestStayId, amount, now);
@@ -103,7 +104,7 @@ public class EntityDefinitionTests {
     guestStayFacade.recordPayment(command);
 
     // Then
-    publishedEvents.shouldReceiveSingleEvent(new GuestStayAccountEvent.PaymentRecorded(guestStayId, amount, now));
+    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.PaymentRecorded(guestStayId, amount, now));
   }
 
   @Test
@@ -116,7 +117,7 @@ public class EntityDefinitionTests {
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
     guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(guestStayId, amount, now.minusHours(2)));
     guestStayFacade.recordPayment(new GuestStayAccountCommand.RecordPayment(guestStayId, amount, now.minusHours(1)));
-    publishedEvents.reset();
+    publishedMessages.reset();
     // And
     var command = new GuestStayAccountCommand.CheckOutGuest(guestStayId, now);
 
@@ -124,7 +125,7 @@ public class EntityDefinitionTests {
     guestStayFacade.checkOutGuest(command);
 
     // Then
-    publishedEvents.shouldReceiveSingleEvent(new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, null));
+    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, null));
   }
 
   @Test
@@ -137,7 +138,7 @@ public class EntityDefinitionTests {
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
     guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(guestStayId, amount + 10, now.minusHours(2)));
     guestStayFacade.recordPayment(new GuestStayAccountCommand.RecordPayment(guestStayId, amount, now.minusHours(1)));
-    publishedEvents.reset();
+    publishedMessages.reset();
     // And
     var command = new GuestStayAccountCommand.CheckOutGuest(guestStayId, now);
 
@@ -149,7 +150,7 @@ public class EntityDefinitionTests {
     }
 
     // Then
-    publishedEvents.shouldReceiveSingleEvent(
+    publishedMessages.shouldReceiveSingleMessage(
       new GuestStayAccountEvent.GuestCheckoutFailed(
         guestStayId,
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,

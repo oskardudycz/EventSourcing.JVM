@@ -10,22 +10,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class MessageCatcher {
   public List<Object> published = new ArrayList<>();
 
-  public void catchMessage(Object event) {
-    published.add(event);
+  public void catchMessage(Object message) {
+    published.add(message);
   }
 
   public void reset() {
     published.clear();
   }
 
-  public void shouldNotReceiveAnyEvent() {
+  public void shouldNotReceiveAnyMessage() {
     assertThat(published).isEmpty();
   }
 
-  public <Event> void shouldReceiveSingleEvent(Event event) {
+  public <Message> void shouldReceiveSingleMessage(Message message) {
     assertThat(published).hasSize(1);
-    assertThat(published).hasOnlyElementsOfTypes(event.getClass()).hasSize(1);
-    assertEquals(event, published.getFirst());
+    assertThat(published).hasOnlyElementsOfTypes(message.getClass()).hasSize(1);
+    assertEquals(message, published.getFirst());
   }
 
   public void shouldReceiveMessages(List<Object> messages) {

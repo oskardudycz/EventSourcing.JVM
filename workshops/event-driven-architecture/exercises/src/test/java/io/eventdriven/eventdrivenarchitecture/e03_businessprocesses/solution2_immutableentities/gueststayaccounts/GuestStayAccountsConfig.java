@@ -1,14 +1,14 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.CommandBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
 
 public final class GuestStayAccountsConfig {
   public static void configureGuestStayAccounts(
-    CommandBus commandBus,
+    MessageBus messageBus,
     GuestStayAccountFacade guestStayFacade
   )
   {
-    commandBus.handle(CheckOutGuest.class, guestStayFacade::checkOutGuest);
+    messageBus.subscribe(CheckOutGuest.class, guestStayFacade::checkOutGuest);
   }
 }

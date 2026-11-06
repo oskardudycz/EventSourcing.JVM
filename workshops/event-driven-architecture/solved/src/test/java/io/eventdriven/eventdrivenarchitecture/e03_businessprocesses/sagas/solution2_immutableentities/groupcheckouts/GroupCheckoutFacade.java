@@ -1,7 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.groupcheckouts;
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.FunctionalTools.FoldLeft.reduce;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.groupcheckouts.GroupCheckout.INITIAL;
@@ -10,18 +10,18 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas
 
 public class GroupCheckoutFacade {
   private final Database.Collection<GroupCheckout> collection;
-  private final EventBus eventBus;
+  private final MessageBus messageBus;
 
-  public GroupCheckoutFacade(Database.Collection<GroupCheckout> collection, EventBus eventBus) {
+  public GroupCheckoutFacade(Database.Collection<GroupCheckout> collection, MessageBus messageBus) {
     this.collection = collection;
-    this.eventBus = eventBus;
+    this.messageBus = messageBus;
   }
 
   public void initiateGroupCheckout(InitiateGroupCheckout command) {
     var events = decide(command, INITIAL);
 
     collection.store(command.groupCheckoutId(), reduce(events, INITIAL, GroupCheckout::evolve));
-    eventBus.publish(events);
+    messageBus.publish(events);
   }
 
   public void recordGuestCheckoutCompletion(RecordGuestCheckoutCompletion command) {
@@ -31,7 +31,7 @@ public class GroupCheckoutFacade {
     var events = decide(command, groupCheckout);
 
     collection.store(command.groupCheckoutId(), reduce(events, groupCheckout, GroupCheckout::evolve));
-    eventBus.publish(events);
+    messageBus.publish(events);
   }
 
   public void recordGuestCheckoutFailure(RecordGuestCheckoutFailure command) {
@@ -41,6 +41,6 @@ public class GroupCheckoutFacade {
     var events = decide(command, groupCheckout);
 
     collection.store(command.groupCheckoutId(), reduce(events, groupCheckout, GroupCheckout::evolve));
-    eventBus.publish(events);
+    messageBus.publish(events);
   }
 }

@@ -1,6 +1,6 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.groupcheckouts;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.IEventBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import org.springframework.stereotype.Service;
 
@@ -12,18 +12,18 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas
 @Service
 public class GroupCheckoutFacade {
   private final Database.Collection<GroupCheckout> collection;
-  private final IEventBus eventBus;
+  private final MessageBus messageBus;
 
-  public GroupCheckoutFacade(Database database, IEventBus eventBus) {
+  public GroupCheckoutFacade(Database database, MessageBus messageBus) {
     this.collection = database.collection(GroupCheckout.class);
-    this.eventBus = eventBus;
+    this.messageBus = messageBus;
   }
 
   public void initiateGroupCheckout(InitiateGroupCheckout command) {
     var events = decide(command, INITIAL);
 
     collection.store(command.groupCheckoutId(), reduce(events, INITIAL, GroupCheckout::evolve));
-    eventBus.publish(events);
+    messageBus.publish(events);
   }
 
   public void recordGuestCheckoutCompletion(RecordGuestCheckoutCompletion command) {
@@ -33,7 +33,7 @@ public class GroupCheckoutFacade {
     var events = decide(command, groupCheckout);
 
     collection.store(command.groupCheckoutId(), reduce(events, groupCheckout, GroupCheckout::evolve));
-    eventBus.publish(events);
+    messageBus.publish(events);
   }
 
   public void recordGuestCheckoutFailure(RecordGuestCheckoutFailure command) {
@@ -43,6 +43,6 @@ public class GroupCheckoutFacade {
     var events = decide(command, groupCheckout);
 
     collection.store(command.groupCheckoutId(), reduce(events, groupCheckout, GroupCheckout::evolve));
-    eventBus.publish(events);
+    messageBus.publish(events);
   }
 }

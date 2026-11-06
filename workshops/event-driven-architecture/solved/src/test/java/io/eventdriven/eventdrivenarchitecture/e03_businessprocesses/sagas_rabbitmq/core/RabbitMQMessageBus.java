@@ -1,8 +1,6 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.ICommandBus;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.IEventBus;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.ITestableMessageBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.micrometer.tracing.Tracer;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -24,7 +22,7 @@ import java.util.function.Consumer;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.RabbitMessageBaggageHandler.setHeadersFromBaggage;
 
 @Component
-public class MessageBus implements ITestableMessageBus, IEventBus, ICommandBus {
+public class RabbitMQMessageBus implements MessageBus {
   private final Map<String, List<Consumer<Object>>> messageHandlers = new LinkedHashMap<>();
   private final List<Consumer<Object>> middlewares = new CopyOnWriteArrayList<>();
   private final Tracer tracer;
@@ -36,44 +34,23 @@ public class MessageBus implements ITestableMessageBus, IEventBus, ICommandBus {
   @Value("${app.rabbitmq.exchange:hotel-financial}")
   private String exchangeName;
 
-  public MessageBus(Tracer tracer, TransformingMessageDeserializer deserializer) {
+  public RabbitMQMessageBus(Tracer tracer, TransformingMessageDeserializer deserializer) {
     this.tracer = tracer;
     this.deserializer = deserializer;
   }
 
-  public <Command> void send(List<Command> commands) {
-    for (Object command : commands) {
+  public <Message> void publish(List<Message> messages) {
+    for (Object message : messages) {
       for (var middleware : middlewares)
-        middleware.accept(command);
+        middleware.accept(message);
 
-      var routingKey = buildRoutingKey(command);
-      var span = tracer.nextSpan().name("messagebus.send").start();
-      try (var _ = tracer.withSpan(span)) {
-        rabbitTemplate.convertAndSend(exchangeName, routingKey, command, message -> {
-          setHeadersFromBaggage(message, tracer);
-          return message;
-        });
-      } catch (Exception e) {
-        span.error(e);
-        throw new RuntimeException("Failed to send message", e);
-      } finally {
-        span.end();
-      }
-    }
-  }
-
-  public <Event> void publish(List<Event> events) {
-    for (Object event : events) {
-      for (var middleware : middlewares)
-        middleware.accept(event);
-
-      var routingKey = buildRoutingKey(event);
+      var routingKey = buildRoutingKey(message);
 
       var span = tracer.nextSpan().name("messagebus.publish").start();
       try (var _ = tracer.withSpan(span)) {
-        rabbitTemplate.convertAndSend(exchangeName, routingKey, event, message -> {
-          setHeadersFromBaggage(message, tracer);
-          return message;
+        rabbitTemplate.convertAndSend(exchangeName, routingKey, message, amqpMessage -> {
+          setHeadersFromBaggage(amqpMessage, tracer);
+          return amqpMessage;
         });
       } catch (Exception e) {
         span.error(e);
@@ -123,36 +100,17 @@ public class MessageBus implements ITestableMessageBus, IEventBus, ICommandBus {
     }
   }
 
-  public <Event> IEventBus subscribe(Class<Event> eventClass, Consumer<Event> handler) {
-    messageHandlers.compute(eventClass.getTypeName(), (eventType, consumers) -> {
+  public <Message> MessageBus subscribe(Class<Message> messageClass, Consumer<Message> handler) {
+    messageHandlers.compute(messageClass.getTypeName(), (messageType, consumers) -> {
       if (consumers == null)
         consumers = new CopyOnWriteArrayList<>();
 
       consumers.add(
-        event -> handler.accept(eventClass.cast(event))
+        message -> handler.accept(messageClass.cast(message))
       );
 
       return consumers;
     });
-
-    return this;
-  }
-
-  public <Command> ICommandBus handle(Class<Command> commandClass, Consumer<Command> handler) {
-    messageHandlers.compute(commandClass.getTypeName(), (commandType, consumers) -> {
-        if (consumers == null)
-          consumers = new CopyOnWriteArrayList<>();
-        else
-          // we allow only a single command handler
-          consumers.clear();
-
-        consumers.add(
-          command -> handler.accept(commandClass.cast(command))
-        );
-
-        return consumers;
-      }
-    );
 
     return this;
   }

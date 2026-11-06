@@ -1,6 +1,5 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.ITestableMessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.TestApplicationConfig;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution1_aggregates.groupcheckouts.GroupCheckoutEvent;
@@ -106,7 +105,7 @@ public class MessageMetadataPropagationTest {
   @Autowired
   private Database database;
   @Autowired
-  private ITestableMessageBus messageBus;
+  private KafkaMessageBus messageBus;
   @Autowired
   private Tracer tracer;
   @Autowired

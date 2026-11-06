@@ -6,32 +6,32 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-public class EventBus {
+public class InMemoryMessageBus implements MessageBus {
   private final Map<String, List<Consumer<Object>>> handlers = new ConcurrentHashMap<>();
   private final List<Consumer<Object>> middlewares = new ArrayList<>();
 
-  public <Event> void publish(List<Event> events) {
-    for (Object event : events) {
+  public <Message> void publish(List<Message> messages) {
+    for (Object message : messages) {
 
       for (var middleware : middlewares)
-        middleware.accept(event);
+        middleware.accept(message);
 
-      var eventHandlers = handlers.get(event.getClass().getTypeName());
+      var messageHandlers = handlers.get(message.getClass().getTypeName());
 
-      if (eventHandlers != null)
-        for (var handle : eventHandlers) {
-          handle.accept(event);
+      if (messageHandlers != null)
+        for (var handle : messageHandlers) {
+          handle.accept(message);
         }
     }
   }
 
-  public <Event> EventBus subscribe(Class<Event> eventClass, Consumer<Event> handler) {
-    handlers.compute(eventClass.getTypeName(), (eventType, consumers) -> {
+  public <Message> MessageBus subscribe(Class<Message> messageClass, Consumer<Message> handler) {
+    handlers.compute(messageClass.getTypeName(), (messageType, consumers) -> {
       if (consumers == null)
         consumers = new ArrayList<>();
 
       consumers.add(
-        event -> handler.accept(eventClass.cast(event))
+        message -> handler.accept(messageClass.cast(message))
       );
 
       return consumers;

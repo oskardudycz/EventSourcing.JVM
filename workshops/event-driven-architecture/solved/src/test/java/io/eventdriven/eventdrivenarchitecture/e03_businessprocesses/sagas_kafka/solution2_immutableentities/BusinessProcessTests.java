@@ -1,8 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.ICommandBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.ITestableMessageBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.KafkaMessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.TestApplicationConfig;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.KafkaTestConfiguration;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.MessageCatcher;
@@ -51,9 +50,7 @@ public class BusinessProcessTests {
   @Autowired
   private Database database;
   @Autowired
-  private ITestableMessageBus eventBus;
-  @Autowired
-  private ICommandBus commandBus;
+  private KafkaMessageBus messageBus;
   private MessageCatcher publishedMessages;
   @Autowired
   private GuestStayAccountFacade guestStayFacade;
@@ -68,8 +65,8 @@ public class BusinessProcessTests {
     faker = new Faker();
     now = OffsetDateTime.now();
 
-    eventBus.clearMiddleware();
-    eventBus.use(publishedMessages::catchMessage);
+    messageBus.clearMiddleware();
+    messageBus.use(publishedMessages::catchMessage);
   }
 
   @Test

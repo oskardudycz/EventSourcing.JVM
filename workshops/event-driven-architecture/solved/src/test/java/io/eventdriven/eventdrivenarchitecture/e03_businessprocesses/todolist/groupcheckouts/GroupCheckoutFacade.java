@@ -1,8 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.CommandBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.EventBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountDecider;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountEvent;
 
@@ -15,22 +14,20 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.
 
 public class GroupCheckoutFacade {
   private final Database.Collection<GroupCheckout> collection;
-  private final EventBus eventBus;
-  private final CommandBus commandBus;
+  private final MessageBus messageBus;
 
-  public GroupCheckoutFacade(Database.Collection<GroupCheckout> collection, EventBus eventBus, CommandBus commandBus) {
+  public GroupCheckoutFacade(Database.Collection<GroupCheckout> collection, MessageBus messageBus) {
     this.collection = collection;
-    this.eventBus = eventBus;
-    this.commandBus = commandBus;
+    this.messageBus = messageBus;
   }
 
   public void initiateGroupCheckout(InitiateGroupCheckout command) {
     var events = decide(command, INITIAL);
 
     collection.store(command.groupCheckoutId(), reduce(events, INITIAL, GroupCheckout::evolve));
-    eventBus.publish(events);
+    messageBus.publish(events);
 
-    commandBus.send(
+    messageBus.publish(
       events.stream()
         .filter(GroupCheckoutEvent.GroupCheckoutInitiated.class::isInstance)
         .map(GroupCheckoutEvent.GroupCheckoutInitiated.class::cast)
@@ -51,7 +48,7 @@ public class GroupCheckoutFacade {
     );
 
     collection.store(event.groupCheckoutId(), reduce(events, groupCheckout, GroupCheckout::evolve));
-    eventBus.publish(events);
+    messageBus.publish(events);
   }
 
   public void recordGuestCheckoutFailure(GuestStayAccountEvent.GuestCheckoutFailed event) {
@@ -64,6 +61,6 @@ public class GroupCheckoutFacade {
     );
 
     collection.store(event.groupCheckoutId(), reduce(events, groupCheckout, GroupCheckout::evolve));
-    eventBus.publish(events);
+    messageBus.publish(events);
   }
 }

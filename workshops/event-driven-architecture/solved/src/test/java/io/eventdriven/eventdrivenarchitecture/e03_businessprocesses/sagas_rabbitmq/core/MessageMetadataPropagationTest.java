@@ -1,6 +1,5 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.ITestableMessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.TestApplicationConfig;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution1_aggregates.groupcheckouts.GroupCheckoutEvent;
@@ -106,7 +105,7 @@ public class MessageMetadataPropagationTest {
   @Autowired
   private Database database;
   @Autowired
-  private ITestableMessageBus messageBus;
+  private RabbitMQMessageBus messageBus;
   @Autowired
   private Tracer tracer;
   @Autowired
