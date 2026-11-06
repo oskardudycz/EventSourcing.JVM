@@ -3,7 +3,7 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
-import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
 
@@ -11,8 +11,8 @@ import org.testcontainers.utility.DockerImageName;
 public class KafkaTestConfiguration {
   @Bean
   @ServiceConnection
-  KafkaContainer kafkaContainer() {
-    return new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.4.0"))
+  ConfluentKafkaContainer kafkaContainer() {
+    return new ConfluentKafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.4.0"))
       .withReuse(true);
   }
 }

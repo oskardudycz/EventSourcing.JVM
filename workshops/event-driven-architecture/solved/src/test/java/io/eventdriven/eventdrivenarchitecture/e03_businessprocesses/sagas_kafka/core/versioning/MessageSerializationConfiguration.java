@@ -1,14 +1,14 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.versioning;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.serialization.Serializer;
-import org.springframework.boot.autoconfigure.kafka.DefaultKafkaProducerFactoryCustomizer;
+import org.springframework.boot.kafka.autoconfigure.DefaultKafkaProducerFactoryCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.kafka.support.mapping.DefaultJackson2JavaTypeMapper;
-import org.springframework.kafka.support.mapping.Jackson2JavaTypeMapper;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.kafka.support.mapping.DefaultJacksonJavaTypeMapper;
+import org.springframework.kafka.support.mapping.JacksonJavaTypeMapper;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
 
@@ -18,9 +18,9 @@ public class MessageSerializationConfiguration {
   @Bean
   public MessageMappingRegistry messageMappingRegistry(
     List<MessageMapping> allMappings,
-    ObjectMapper objectMapper
+    JsonMapper jsonMapper
   ) {
-    return new MessageMappingRegistry(allMappings, objectMapper);
+    return new MessageMappingRegistry(allMappings, jsonMapper);
   }
 
   @Bean
@@ -29,12 +29,12 @@ public class MessageSerializationConfiguration {
   }
 
   @Bean
-  public DefaultJackson2JavaTypeMapper kafkaTypeMapper(
+  public DefaultJacksonJavaTypeMapper kafkaTypeMapper(
     MessageMappingRegistry registry
   ) {
-    var typeMapper = new DefaultJackson2JavaTypeMapper();
+    var typeMapper = new DefaultJacksonJavaTypeMapper();
     // See for reasoning: https://www.baeldung.com/spring-kafka
-    typeMapper.setTypePrecedence(Jackson2JavaTypeMapper.TypePrecedence.TYPE_ID);
+    typeMapper.setTypePrecedence(JacksonJavaTypeMapper.TypePrecedence.TYPE_ID);
     typeMapper.setIdClassMapping(registry.getTypeMappings());
 
     var trustedPackages = registry.getTrustedPackages();
@@ -49,21 +49,21 @@ public class MessageSerializationConfiguration {
   }
 
   @Bean
-  public JsonSerializer<Object> kafkaJsonSerializer(
-    DefaultJackson2JavaTypeMapper typeMapper,
-    ObjectMapper objectMapper
+  public JacksonJsonSerializer<Object> kafkaJsonSerializer(
+    DefaultJacksonJavaTypeMapper typeMapper,
+    JsonMapper jsonMapper
   ) {
-    var serializer = new JsonSerializer<>(objectMapper);
+    var serializer = new JacksonJsonSerializer<>(jsonMapper);
     serializer.setTypeMapper(typeMapper);
     return serializer;
   }
 
   @Bean
-  public JsonDeserializer<Object> kafkaJsonDeserializer(
-    DefaultJackson2JavaTypeMapper typeMapper,
-    ObjectMapper objectMapper
+  public JacksonJsonDeserializer<Object> kafkaJsonDeserializer(
+    DefaultJacksonJavaTypeMapper typeMapper,
+    JsonMapper jsonMapper
   ) {
-    var deserializer = new JsonDeserializer<>(objectMapper);
+    var deserializer = new JacksonJsonDeserializer<>(jsonMapper);
     deserializer.setTypeMapper(typeMapper);
     deserializer.setRemoveTypeHeaders(false);
     return deserializer;
@@ -71,7 +71,7 @@ public class MessageSerializationConfiguration {
 
   @Bean
   public DefaultKafkaProducerFactoryCustomizer producerFactoryCustomizer(
-    JsonSerializer<Object> kafkaJsonSerializer
+    JacksonJsonSerializer<Object> kafkaJsonSerializer
   ) {
     return factory -> {
       factory.setValueSerializer((Serializer) kafkaJsonSerializer);

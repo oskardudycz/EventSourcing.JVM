@@ -3,7 +3,7 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbi
 import io.micrometer.tracing.Tracer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.support.KafkaHeaders;
-import org.springframework.kafka.support.mapping.AbstractJavaTypeMapper;
+import org.springframework.kafka.support.mapping.DefaultJacksonJavaTypeMapper;
 import org.springframework.messaging.MessageHeaders;
 
 import java.util.Optional;
@@ -21,11 +21,11 @@ public abstract class MessageMetadata {
     }
 
     public static Optional<String> getMessageType(MessageHeaders headers) {
-        return Optional.ofNullable(headers.get(AbstractJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME, String.class));
+        return Optional.ofNullable(headers.get(DefaultJacksonJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME, String.class));
     }
 
     public static String getMessageType(ConsumerRecord<String, String> record) {
-        var header = record.headers().lastHeader(AbstractJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME);
+        var header = record.headers().lastHeader(DefaultJacksonJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME);
         return header != null ? new String(header.value()) : null;
     }
 

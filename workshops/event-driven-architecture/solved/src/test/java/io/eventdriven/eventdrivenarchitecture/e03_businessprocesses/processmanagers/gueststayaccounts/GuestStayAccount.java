@@ -1,7 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.gueststayaccounts;
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.AbstractAggregate;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;

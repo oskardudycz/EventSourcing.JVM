@@ -1,13 +1,13 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.versioning.MessageMappingRegistry;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.DefaultClassMapper;
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -18,11 +18,11 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitConfig {
 
     @Bean
-    public Jackson2JsonMessageConverter rabbitMessageConverter(
+    public JacksonJsonMessageConverter rabbitMessageConverter(
         MessageMappingRegistry registry,
-        ObjectMapper objectMapper
+        JsonMapper jsonMapper
     ) {
-        var converter = new Jackson2JsonMessageConverter(objectMapper);
+        var converter = new JacksonJsonMessageConverter(jsonMapper);
 
         var classMapper = new DefaultClassMapper();
         classMapper.setIdClassMapping(registry.getTypeMappings());
@@ -59,7 +59,7 @@ public class RabbitConfig {
     @Bean
     public RabbitTemplate rabbitTemplate(
         ConnectionFactory connectionFactory,
-        Jackson2JsonMessageConverter rabbitMessageConverter
+        JacksonJsonMessageConverter rabbitMessageConverter
     ) {
         var template = new RabbitTemplate(connectionFactory);
         template.setMessageConverter(rabbitMessageConverter);
@@ -70,7 +70,7 @@ public class RabbitConfig {
     @Bean
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
         ConnectionFactory connectionFactory,
-        Jackson2JsonMessageConverter rabbitMessageConverter
+        JacksonJsonMessageConverter rabbitMessageConverter
     ) {
         var factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);

@@ -1,9 +1,9 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.versioning.MessageTransformations;
 import org.springframework.amqp.core.Message;
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
@@ -12,12 +12,12 @@ import java.util.Optional;
 public class TransformingMessageDeserializer {
   private final ObjectMapper objectMapper;
   private final MessageTransformations transformations;
-  private final Jackson2JsonMessageConverter messageConverter;
+  private final JacksonJsonMessageConverter messageConverter;
 
   public TransformingMessageDeserializer(
     ObjectMapper objectMapper,
     MessageTransformations transformations,
-    Jackson2JsonMessageConverter messageConverter
+    JacksonJsonMessageConverter messageConverter
   ) {
     this.objectMapper = objectMapper;
     this.transformations = transformations;
@@ -34,7 +34,7 @@ public class TransformingMessageDeserializer {
       return transformed;
     }
 
-    // Then: Normal deserialization using Jackson2JsonMessageConverter
+    // Then: Normal deserialization using JacksonJsonMessageConverter
     try {
       Object result = messageConverter.fromMessage(message);
       return Optional.ofNullable(result);

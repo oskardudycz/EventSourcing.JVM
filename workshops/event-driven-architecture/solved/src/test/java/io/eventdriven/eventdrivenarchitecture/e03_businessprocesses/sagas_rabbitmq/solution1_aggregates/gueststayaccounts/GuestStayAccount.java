@@ -1,7 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution1_aggregates.gueststayaccounts;
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.AbstractAggregate;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;

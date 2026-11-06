@@ -15,12 +15,11 @@ import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
-import org.junit.Ignore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
+import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -52,7 +51,7 @@ import static org.awaitility.Awaitility.await;
 })
 @TestPropertySource(properties = "messaging.type=rabbitmq")
 @Import(RabbitMQTestConfiguration.class)
-@AutoConfigureObservability
+@AutoConfigureTracing
 public class MessageMetadataPropagationTest {
   @TestConfiguration(proxyBeanMethods = false)
   static class TracingTestConfig {
