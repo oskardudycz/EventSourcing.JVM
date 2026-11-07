@@ -6,6 +6,7 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.RetryBa
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.UnreadableMessageException;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.versioning.MessageMappingRegistry;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.versioning.MessageTransformations;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.listener.ListenerExecutionFailedException;
@@ -34,24 +35,29 @@ public class RabbitConfig {
     @Bean
     public JacksonJsonMessageConverter rabbitMessageConverter(
         MessageMappingRegistry registry,
-        JsonMapper jsonMapper
+        JsonMapper jsonMapper,
+        // Kids don't try this at home with "*"! See https://github.com/frohoff/ysoserial
+        @Value("${app.messaging.trusted-packages:*}") String[] trustedPackages
     ) {
         var converter = new JacksonJsonMessageConverter(jsonMapper);
 
         var classMapper = new DefaultClassMapper();
         classMapper.setIdClassMapping(registry.getTypeMappings());
-
-        var trustedPackages = registry.getTrustedPackages();
-        if (trustedPackages.isEmpty()) {
-            classMapper.setTrustedPackages("*");
-        } else {
-            classMapper.setTrustedPackages(trustedPackages.toArray(String[]::new));
-        }
+        classMapper.setTrustedPackages(trustedPackages);
 
         converter.setClassMapper(classMapper);
         return converter;
     }
 
+
+    @Bean
+    public VersionedMessageConverter versionedMessageConverter(
+        JsonMapper jsonMapper,
+        MessageTransformations messageTransformations,
+        JacksonJsonMessageConverter rabbitMessageConverter
+    ) {
+        return new VersionedMessageConverter(jsonMapper, messageTransformations, rabbitMessageConverter);
+    }
 
     @Bean
     public TopicExchange hotelFinancialExchange(@Value("${app.rabbitmq.exchange:hotel-financial}") String exchangeName) {
@@ -96,6 +102,7 @@ public class RabbitConfig {
         var template = new RabbitTemplate(connectionFactory);
         template.setMessageConverter(rabbitMessageConverter);
         template.setObservationEnabled(true);
+        template.setMandatory(true);
         return template;
     }
 
@@ -108,7 +115,7 @@ public class RabbitConfig {
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
         ConnectionFactory connectionFactory,
         MessageFailureStrategy failureStrategy,
-        TransformingMessageDeserializer deserializer,
+        VersionedMessageConverter messageConverter,
         MeterRegistry meterRegistry,
         @Value("${app.messaging.retry.initial-interval:1s}") Duration initialInterval
     ) {
@@ -124,7 +131,7 @@ public class RabbitConfig {
                     var failed = failedMessage(error);
                     return failureStrategy.onFailure(
                         failed.map(MessageMetadata::getMessageType).orElse(null),
-                        failed.flatMap(message -> readMessage(deserializer, message)),
+                        failed.flatMap(message -> readMessage(messageConverter, message)),
                         error
                     ) == RETRY;
                 })
@@ -146,9 +153,9 @@ public class RabbitConfig {
             : Optional.empty();
     }
 
-    private static Optional<Object> readMessage(TransformingMessageDeserializer deserializer, Message message) {
+    private static Optional<Object> readMessage(VersionedMessageConverter messageConverter, Message message) {
         try {
-            return Optional.of(deserializer.deserialize(message));
+            return Optional.of(messageConverter.read(message));
         } catch (UnreadableMessageException e) {
             return Optional.empty();
         }

@@ -4,12 +4,10 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public class MessageMappingRegistry {
   private final Map<String, Class<?>> typeMappings;
-  private final Set<String> trustedPackages;
   private final MessageTransformations messageTransformations;
 
   public MessageMappingRegistry(
@@ -20,10 +18,6 @@ public class MessageMappingRegistry {
       .flatMap(m -> m.getTypeMappings().entrySet().stream())
       .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    this.trustedPackages = mappings.stream()
-      .flatMap(m -> m.getTrustedPackages().stream())
-      .collect(Collectors.toSet());
-
     var allTransformations = mappings.stream()
       .flatMap(m -> m.getTransformations().stream())
       .toList();
@@ -33,10 +27,6 @@ public class MessageMappingRegistry {
 
   public Map<String, Class<?>> getTypeMappings() {
     return typeMappings;
-  }
-
-  public Set<String> getTrustedPackages() {
-    return trustedPackages;
   }
 
   public MessageTransformations getMessageTransformations() {

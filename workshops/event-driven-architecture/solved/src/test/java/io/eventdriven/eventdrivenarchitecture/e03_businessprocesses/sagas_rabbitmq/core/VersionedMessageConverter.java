@@ -5,15 +5,13 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Unreada
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.versioning.MessageTransformations;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
-import org.springframework.stereotype.Component;
 
-@Component
-public class TransformingMessageDeserializer {
+public class VersionedMessageConverter {
   private final ObjectMapper objectMapper;
   private final MessageTransformations transformations;
   private final JacksonJsonMessageConverter messageConverter;
 
-  public TransformingMessageDeserializer(
+  public VersionedMessageConverter(
     ObjectMapper objectMapper,
     MessageTransformations transformations,
     JacksonJsonMessageConverter messageConverter
@@ -23,18 +21,18 @@ public class TransformingMessageDeserializer {
     this.messageConverter = messageConverter;
   }
 
-  public Object deserialize(Message message) {
+  public Object read(Message message) {
     String messageType = getMessageTypeHeader(message);
     byte[] jsonBytes = message.getBody();
 
-    // First: Try transformations (for old message schemas)
-    var transformed = transformations.tryTransform(objectMapper, messageType, jsonBytes);
-    if (transformed.isPresent()) {
-      return transformed.get();
-    }
-
-    // Then: Normal deserialization using JacksonJsonMessageConverter
     try {
+      // First: Try transformations (for old message schemas)
+      var transformed = transformations.tryTransform(objectMapper, messageType, jsonBytes);
+      if (transformed.isPresent()) {
+        return transformed.get();
+      }
+
+      // Then: Normal deserialization using JacksonJsonMessageConverter
       return messageConverter.fromMessage(message);
     } catch (Exception e) {
       throw new UnreadableMessageException(messageType, e);
