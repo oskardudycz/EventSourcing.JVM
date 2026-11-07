@@ -6,7 +6,7 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Databas
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckout;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutEvent;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutFacade;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutToDoList;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccount;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountEvent;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountFacade;
@@ -18,7 +18,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutDecider.GroupCheckoutCommand.InitiateGroupCheckout;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutToDoList.GroupCheckoutCommand.InitiateGroupCheckout;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutsConfig.configureGroupCheckouts;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountsConfig.configureGuestStayAccounts;
@@ -29,7 +29,7 @@ public class BusinessProcessTests {
   private MessageBus messageBus;
   private MessageCatcher publishedMessages;
   private GuestStayAccountFacade guestStayFacade;
-  private GroupCheckoutFacade groupCheckoutFacade;
+  private GroupCheckoutToDoList groupCheckoutToDoList;
   private Faker faker;
   private OffsetDateTime now;
 
@@ -39,13 +39,13 @@ public class BusinessProcessTests {
     messageBus = new InMemoryMessageBus();
     publishedMessages = new MessageCatcher();
     guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), messageBus);
-    groupCheckoutFacade = new GroupCheckoutFacade(database.collection(GroupCheckout.class), messageBus);
+    groupCheckoutToDoList = new GroupCheckoutToDoList(database.collection(GroupCheckout.class), messageBus);
     faker = new Faker();
     now = OffsetDateTime.now();
 
     messageBus.use(publishedMessages::catchMessage);
 
-    configureGroupCheckouts(messageBus, groupCheckoutFacade);
+    configureGroupCheckouts(messageBus, groupCheckoutToDoList);
     configureGuestStayAccounts(messageBus, guestStayFacade);
   }
 
@@ -64,20 +64,17 @@ public class BusinessProcessTests {
     var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
 
     // When
-    groupCheckoutFacade.initiateGroupCheckout(command);
+    groupCheckoutToDoList.initiateGroupCheckout(command);
 
     // Then
     publishedMessages.shouldReceiveMessages(List.of(
       new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
       new CheckOutGuest(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
-      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[0], now),
       new CheckOutGuest(guestStays[1], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[1], now, groupCheckoutId),
-      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[1], now),
       new CheckOutGuest(guestStays[2], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[2], now, groupCheckoutId),
-      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[2], now),
       new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
     ));
   }
@@ -111,20 +108,17 @@ public class BusinessProcessTests {
     var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
 
     // When
-    groupCheckoutFacade.initiateGroupCheckout(command);
+    groupCheckoutToDoList.initiateGroupCheckout(command);
 
     // Then
     publishedMessages.shouldReceiveMessages(List.of(
       new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
       new CheckOutGuest(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
-      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[0], now),
       new CheckOutGuest(guestStays[1], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[1], now, groupCheckoutId),
-      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[1], now),
       new CheckOutGuest(guestStays[2], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[2], now, groupCheckoutId),
-      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[2], now),
       new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
     ));
   }
@@ -159,22 +153,19 @@ public class BusinessProcessTests {
     var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
 
     // When
-    groupCheckoutFacade.initiateGroupCheckout(command);
+    groupCheckoutToDoList.initiateGroupCheckout(command);
 
     // Then
     publishedMessages.shouldReceiveMessages(List.of(
       new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
       new CheckOutGuest(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
-      new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[0], now),
       new CheckOutGuest(guestStays[1], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[1],
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
-      new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStays[1], now),
       new CheckOutGuest(guestStays[2], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[2],
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
-      new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStays[2], now),
       new GroupCheckoutEvent.GroupCheckoutFailed(
         groupCheckoutId,
         new UUID[] {guestStays[0]},
@@ -213,7 +204,7 @@ public class BusinessProcessTests {
     var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
 
     // When
-    groupCheckoutFacade.initiateGroupCheckout(command);
+    groupCheckoutToDoList.initiateGroupCheckout(command);
 
     // Then
     publishedMessages.shouldReceiveMessages(List.of(
@@ -221,15 +212,12 @@ public class BusinessProcessTests {
       new CheckOutGuest(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[0],
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
-      new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStays[0], now),
       new CheckOutGuest(guestStays[1], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[1],
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
-      new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStays[1], now),
       new CheckOutGuest(guestStays[2], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[2],
         GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
-      new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStays[2], now),
       new GroupCheckoutEvent.GroupCheckoutFailed(
         groupCheckoutId,
         new UUID[] {},

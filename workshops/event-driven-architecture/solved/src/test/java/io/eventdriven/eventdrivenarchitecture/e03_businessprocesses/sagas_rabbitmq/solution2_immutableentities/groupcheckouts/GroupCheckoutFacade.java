@@ -2,6 +2,7 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbi
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
+import io.micrometer.observation.annotation.Observed;
 import org.springframework.stereotype.Service;
 
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.FunctionalTools.FoldLeft.reduce;
@@ -10,6 +11,7 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.groupcheckouts.GroupCheckoutDecider.decide;
 
 @Service
+@Observed(name = "group.checkout")
 public class GroupCheckoutFacade {
   private final Database.Collection<GroupCheckout> collection;
   private final MessageBus messageBus;

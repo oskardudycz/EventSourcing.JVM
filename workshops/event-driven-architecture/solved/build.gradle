@@ -56,9 +56,12 @@ dependencies {
   implementation 'org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry'
   implementation 'io.micrometer:micrometer-tracing-bridge-otel'
   implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
+  implementation 'io.micrometer:micrometer-registry-otlp'
+  implementation 'org.springframework.boot:spring-boot-starter-aspectj'
 
   // Micrometer testing
   testImplementation 'org.springframework.boot:spring-boot-micrometer-tracing-test'
+  testImplementation 'org.springframework.boot:spring-boot-micrometer-metrics-test'
   testImplementation 'io.micrometer:micrometer-tracing-test'
   testImplementation 'io.opentelemetry:opentelemetry-sdk-testing'
 
@@ -89,6 +92,9 @@ test {
     if (isCi) {
       excludeTags 'Exercise'
     }
+  }
+  if (project.hasProperty('observability')) {
+    systemProperty 'spring.profiles.active', 'observability'
   }
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'

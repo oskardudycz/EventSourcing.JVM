@@ -4,10 +4,6 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Message
 import io.micrometer.tracing.Tracer;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.amqp.rabbit.annotation.QueueBinding;
-import org.springframework.amqp.rabbit.annotation.Queue;
-import org.springframework.amqp.rabbit.annotation.Exchange;
-import org.springframework.amqp.core.ExchangeTypes;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -62,41 +58,26 @@ public class RabbitMQMessageBus implements MessageBus {
   }
 
   @RabbitListener(
-    bindings = @QueueBinding(
-      value = @Queue(value = "${app.rabbitmq.exchange:hotel-financial}-saga", durable = "true"),
-      exchange = @Exchange(value = "${app.rabbitmq.exchange:hotel-financial}", type = ExchangeTypes.TOPIC),
-      key = "#"
-    ),
+    queues = "${app.rabbitmq.exchange:hotel-financial}-saga",
     containerFactory = "rabbitListenerContainerFactory"
   )
   public void handleMessage(Message rawMessage) {
-    try {
-      var messageOptional = deserializer.deserialize(rawMessage);
-      if (messageOptional.isEmpty()) {
-        System.err.println("ERROR: Failed to deserialize RabbitMQ message");
-        return;
+    Object message = deserializer.deserialize(rawMessage);
+
+    var handlers = messageHandlers.get(message.getClass().getTypeName());
+
+    if (handlers == null || handlers.isEmpty()) {
+      System.out.println("WARNING: No handler found for message " + message);
+      return;
+    }
+
+    for (var handle : handlers) {
+      var span = tracer.nextSpan().name("messagebus.handle").start();
+      try (var _ = tracer.withSpan(span)) {
+        handle.accept(message);
+      } finally {
+        span.end();
       }
-
-      Object message = messageOptional.get();
-
-      var handlers = messageHandlers.get(message.getClass().getTypeName());
-
-      if (handlers == null || handlers.isEmpty()) {
-        System.out.println("WARNING: No handler found for message " + message);
-        return;
-      }
-
-      for (var handle : handlers) {
-        var span = tracer.nextSpan().name("messagebus.handle").start();
-        try (var _ = tracer.withSpan(span)) {
-          handle.accept(message);
-        } finally {
-          span.end();
-        }
-      }
-    } catch (Exception e) {
-      System.err.println("ERROR: Failed to handle RabbitMQ message: " + e.getMessage());
-      e.printStackTrace();
     }
   }
 

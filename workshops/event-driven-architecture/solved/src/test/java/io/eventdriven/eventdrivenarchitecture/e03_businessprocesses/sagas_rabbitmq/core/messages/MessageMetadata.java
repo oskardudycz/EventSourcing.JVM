@@ -1,6 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages;
 
 import io.micrometer.tracing.Tracer;
+import org.springframework.amqp.core.Message;
 import org.springframework.amqp.support.converter.DefaultClassMapper;
 import org.springframework.messaging.MessageHeaders;
 
@@ -21,6 +22,10 @@ public abstract class MessageMetadata {
 
     public static Optional<String> getMessageType(MessageHeaders headers) {
         return Optional.ofNullable(headers.get(DefaultClassMapper.DEFAULT_CLASSID_FIELD_NAME, String.class));
+    }
+
+    public static String getMessageType(Message message) {
+        return message.getMessageProperties().getHeader(DefaultClassMapper.DEFAULT_CLASSID_FIELD_NAME);
     }
 
     public static Optional<String> getCorrelationId(MessageHeaders headers) {

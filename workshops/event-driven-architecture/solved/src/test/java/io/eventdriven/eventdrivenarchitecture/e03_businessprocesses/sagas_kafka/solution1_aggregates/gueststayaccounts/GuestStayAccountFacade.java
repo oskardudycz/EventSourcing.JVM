@@ -2,12 +2,14 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
+import io.micrometer.observation.annotation.Observed;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Service
+@Observed(name = "guest.stay.account")
 public class GuestStayAccountFacade {
   private final Database.Collection<GuestStayAccount> collection;
   private final MessageBus messageBus;

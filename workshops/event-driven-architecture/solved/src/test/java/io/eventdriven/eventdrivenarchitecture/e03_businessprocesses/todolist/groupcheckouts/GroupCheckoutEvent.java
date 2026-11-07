@@ -12,20 +12,6 @@ public sealed interface GroupCheckoutEvent {
   ) implements GroupCheckoutEvent {
   }
 
-  record GuestCheckoutCompletionRecorded(
-    UUID groupCheckoutId,
-    UUID guestStayAccountId,
-    OffsetDateTime completedAt
-  ) implements GroupCheckoutEvent {
-  }
-
-  record GuestCheckoutFailureRecorded(
-    UUID groupCheckoutId,
-    UUID guestStayAccountId,
-    OffsetDateTime failedAt
-  ) implements GroupCheckoutEvent {
-  }
-
   record GroupCheckoutCompleted(
     UUID groupCheckoutId,
     UUID[] completedCheckouts,

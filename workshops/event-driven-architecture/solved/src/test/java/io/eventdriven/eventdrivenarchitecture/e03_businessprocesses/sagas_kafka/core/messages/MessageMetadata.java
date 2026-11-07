@@ -24,7 +24,7 @@ public abstract class MessageMetadata {
     return Optional.ofNullable(headers.get(DefaultJacksonJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME, String.class));
   }
 
-  public static String getMessageType(ConsumerRecord<String, String> record) {
+  public static String getMessageType(ConsumerRecord<?, ?> record) {
     var header = record.headers().lastHeader(DefaultJacksonJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME);
     return header != null ? new String(header.value()) : null;
   }

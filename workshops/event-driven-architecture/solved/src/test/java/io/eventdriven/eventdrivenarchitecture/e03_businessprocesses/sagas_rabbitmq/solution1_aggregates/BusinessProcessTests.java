@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
@@ -39,6 +40,7 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas
 })
 @TestPropertySource(properties = "messaging.type=rabbitmq")
 @Import(RabbitMQTestConfiguration.class)
+@AutoConfigureTracing
 public class BusinessProcessTests {
   @DynamicPropertySource
   static void configureProperties(DynamicPropertyRegistry registry) {

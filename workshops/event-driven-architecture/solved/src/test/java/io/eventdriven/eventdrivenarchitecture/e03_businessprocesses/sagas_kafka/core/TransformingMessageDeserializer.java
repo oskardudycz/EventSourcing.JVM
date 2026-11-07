@@ -1,12 +1,11 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core;
 
 import tools.jackson.databind.ObjectMapper;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.UnreadableMessageException;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.versioning.MessageTransformations;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.stereotype.Component;
-
-import java.util.Optional;
 
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.messages.MessageMetadata.getMessageType;
 
@@ -26,20 +25,18 @@ public class TransformingMessageDeserializer {
     this.transformations = transformations;
   }
 
-  public Optional<Object> deserialize(ConsumerRecord<String, String> record) {
+  public Object deserialize(ConsumerRecord<String, String> record) {
     String messageType = getMessageType(record);
     byte[] jsonBytes = record.value().getBytes();
 
     var transformed = transformations.tryTransform(objectMapper, messageType, jsonBytes);
     if (transformed.isPresent())
-      return transformed;
+      return transformed.get();
 
     try {
-      Object result = kafkaDeserializer.deserialize(record.topic(), record.headers(), jsonBytes);
-      return Optional.ofNullable(result);
+      return kafkaDeserializer.deserialize(record.topic(), record.headers(), jsonBytes);
     } catch (Exception e) {
-      System.out.println("Unable to deserialize message:" + messageType + e.getMessage());
-      return Optional.empty();
+      throw new UnreadableMessageException(messageType, e);
     }
   }
 }

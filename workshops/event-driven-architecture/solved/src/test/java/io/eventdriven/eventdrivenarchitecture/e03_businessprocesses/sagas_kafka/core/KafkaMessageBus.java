@@ -62,13 +62,7 @@ public class KafkaMessageBus implements MessageBus {
 
   @KafkaListener(topics = "${app.kafka.topic:hotel-financial}", groupId = "${app.kafka.groupId:hotel-financial-service}")
   public void handleMessage(ConsumerRecord<String, String> record) {
-    var messageOptional = deserializer.deserialize(record);
-    if (messageOptional.isEmpty()) {
-      System.err.println("ERROR: Failed to deserialize Kafka message");
-      return;
-    }
-
-    Object message = messageOptional.get();
+    Object message = deserializer.deserialize(record);
 
     var handlers = messageHandlers.get(message.getClass().getTypeName());
 
@@ -81,9 +75,8 @@ public class KafkaMessageBus implements MessageBus {
       var span = tracer.nextSpan().name("messagebus.handle").start();
       try (var _ = tracer.withSpan(span)) {
         handle.accept(message);
-      } catch (Exception ex) {
-        System.err.println("ERROR: Failed to handle Kafka message: " + ex.getMessage());
-        ex.printStackTrace();
+      } finally {
+        span.end();
       }
     }
   }
