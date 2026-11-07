@@ -6,10 +6,11 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gue
 public final class GroupCheckoutsConfig {
   public static void configureGroupCheckouts(
     MessageBus messageBus,
-    GroupCheckoutFacade groupCheckoutFacade
+    GroupCheckoutToDoList groupCheckoutToDoList
   ) {
     messageBus
-      .subscribe(GuestStayAccountEvent.GuestCheckedOut.class, groupCheckoutFacade::recordGuestCheckoutCompletion)
-      .subscribe(GuestStayAccountEvent.GuestCheckoutFailed.class, groupCheckoutFacade::recordGuestCheckoutFailure);
+      .subscribe(GroupCheckoutEvent.GroupCheckoutInitiated.class, groupCheckoutToDoList::groupCheckoutInitiated)
+      .subscribe(GuestStayAccountEvent.GuestCheckedOut.class, groupCheckoutToDoList::guestCheckedOut)
+      .subscribe(GuestStayAccountEvent.GuestCheckoutFailed.class, groupCheckoutToDoList::guestCheckoutFailed);
   }
 }

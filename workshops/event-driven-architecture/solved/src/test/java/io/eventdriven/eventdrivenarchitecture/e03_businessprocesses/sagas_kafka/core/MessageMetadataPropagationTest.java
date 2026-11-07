@@ -1,38 +1,27 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core;
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.InMemorySpansConfiguration;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.TestApplicationConfig;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution1_aggregates.groupcheckouts.GroupCheckoutEvent;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution1_aggregates.groupcheckouts.GroupCheckoutFacade;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution1_aggregates.gueststayaccounts.GuestStayAccountEvent;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution1_aggregates.gueststayaccounts.GuestStayAccountFacade;
 import io.micrometer.tracing.Tracer;
-import io.micrometer.tracing.otel.bridge.OtelBaggageManager;
-import io.micrometer.tracing.otel.bridge.OtelCurrentTraceContext;
-import io.micrometer.tracing.otel.bridge.OtelTracer;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
-import io.opentelemetry.sdk.trace.SdkTracerProvider;
-import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -49,51 +38,9 @@ import static org.awaitility.Awaitility.await;
   "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution1_aggregates"
 })
 @TestPropertySource(properties = "messaging.type=kafka")
-@Import(KafkaTestConfiguration.class)
+@Import({KafkaTestConfiguration.class, InMemorySpansConfiguration.class})
 @AutoConfigureTracing
 public class MessageMetadataPropagationTest {
-  @TestConfiguration(proxyBeanMethods = false)
-  static class TracingTestConfig {
-    private static final InMemorySpanExporter spanExporter = InMemorySpanExporter.create();
-
-    @Bean
-    InMemorySpanExporter inMemorySpanExporter() {
-      return spanExporter;
-    }
-
-    @Bean
-    @Primary
-    OpenTelemetry openTelemetry() {
-      SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
-        .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
-        .build();
-
-      return OpenTelemetrySdk.builder()
-        .setTracerProvider(tracerProvider)
-        .build();
-    }
-
-    @Bean
-    @Primary
-    Tracer testTracer(OpenTelemetry openTelemetry) {
-      OtelCurrentTraceContext otelCurrentTraceContext = new OtelCurrentTraceContext();
-
-      OtelBaggageManager otelBaggageManager = new OtelBaggageManager(
-        otelCurrentTraceContext,
-        Arrays.asList("messageId", "correlationId", "causationId", "entityId", "entityVersion"),
-        Collections.emptyList()
-      );
-
-      return new OtelTracer(
-        openTelemetry.getTracer("test-tracer"),
-        otelCurrentTraceContext,
-        event -> {
-        },
-        otelBaggageManager
-      );
-    }
-  }
-
   @DynamicPropertySource
   static void configureProperties(DynamicPropertyRegistry registry) {
     registry.add("app.kafka.topic", () -> "hotel-financial-metadata-test");
@@ -248,17 +195,12 @@ public class MessageMetadataPropagationTest {
       .as("each handler should get the ID of the message it handles as causationId")
       .doesNotHaveDuplicates();
 
-    var finishedSpans = spanExporter.getFinishedSpanItems();
-    assertThat(finishedSpans)
-      .as("OpenTelemetry spans should be created for Kafka operations")
-      .hasSizeGreaterThan(0);
-
-    var tracesInExporter = finishedSpans.stream()
-      .filter(span -> span.getTraceId().equals(initiatedTraceId.get()))
-      .toList();
-
-    assertThat(tracesInExporter)
-      .as("Spans from the business process should be captured in exporter")
-      .isNotEmpty();
+    await()
+      .atMost(Duration.ofSeconds(10))
+      .untilAsserted(() -> assertThat(spanExporter.getFinishedSpanItems())
+        .as("the business action that starts the process should be the root of its trace")
+        .anyMatch(span -> span.getTraceId().equals(initiatedTraceId.get())
+          && span.getName().equals("GroupCheckoutFacade#initiateGroupCheckout")
+          && !span.getParentSpanContext().isValid()));
   }
 }
