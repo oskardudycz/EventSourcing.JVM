@@ -1,16 +1,17 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts;
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountEvent;
 
 public final class GroupCheckoutsConfig {
   public static void configureGroupCheckouts(
     MessageBus messageBus,
+    GroupCheckoutProjection groupCheckoutProjection,
     GroupCheckoutToDoList groupCheckoutToDoList
   ) {
-    messageBus
-      .subscribe(GroupCheckoutEvent.GroupCheckoutInitiated.class, groupCheckoutToDoList::groupCheckoutInitiated)
-      .subscribe(GuestStayAccountEvent.GuestCheckedOut.class, groupCheckoutToDoList::guestCheckedOut)
-      .subscribe(GuestStayAccountEvent.GuestCheckoutFailed.class, groupCheckoutToDoList::guestCheckoutFailed);
+    for (var eventType : groupCheckoutProjection.canHandle()) {
+      messageBus.subscribe(eventType, event ->
+        groupCheckoutProjection.handle(event).ifPresent(groupCheckoutToDoList::handle)
+      );
+    }
   }
 }

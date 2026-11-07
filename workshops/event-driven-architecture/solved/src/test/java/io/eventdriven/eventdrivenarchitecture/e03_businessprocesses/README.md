@@ -3,8 +3,8 @@
 The [exercise](../../../../../../../../exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e03_businessprocesses/README.md) asks you to model the Group Checkout process. Here you'll find several ways to do it, each with its own `BusinessProcessTests`:
 
 - [Transactions](./transactions): all guests checked out in one database transaction.
-- [Choreography](./choreography).
-- [Todo List](./todolist): a read model keeps each guest's checkout status; once none is pending, it records the group checkout as completed or failed.
+- [Choreography](./choreography): there is no coordinator. Group checkout sends `CheckOutGuest` for each guest and reacts to their events; its own entity decides when the group checkout is completed or failed.
+- [Todo List](./todolist): there is no orchestrator. A projection keeps the to-do list: it adds a group checkout when it's initiated, records each guest's checkout result, and removes it once the group checkout is completed or failed. For each event, `GroupCheckoutsConfig` first applies it to the projection, then passes the stored item to `GroupCheckoutToDoList`. The to-do list checks only that state and does the next step: `CheckOutGuest` for the next guest still to check out, or `GroupCheckoutCompleted`/`GroupCheckoutFailed` when none is left. Guests are checked out one at a time, so none is asked twice. On a real broker, a redelivered guest event can repeat a step, so its consumers must be idempotent. `ScheduledGroupCheckoutToDoList` shows the passage-of-time variant: a `@Scheduled` method runs the same step for every item on the list. It isn't plugged in; `ScheduledBusinessProcessTests` calls it directly. A tick that fires while a guest's checkout is still in flight would ask that guest again.
 - [Process Managers](./processmanagers): the group checkout keeps the process state, and decides which commands and events to send next.
 - [Sagas](./sagas): a stateless saga turns events into commands, on the in-memory message bus.
 

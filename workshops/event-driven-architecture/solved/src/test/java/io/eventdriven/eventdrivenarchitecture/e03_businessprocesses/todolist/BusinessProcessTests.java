@@ -6,6 +6,8 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Databas
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckout;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutEvent;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutFacade;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutProjection;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutToDoList;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccount;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountEvent;
@@ -18,10 +20,12 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutToDoList.GroupCheckoutCommand.InitiateGroupCheckout;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.InitiateGroupCheckout;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutsConfig.configureGroupCheckouts;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountsConfig.configureGuestStayAccounts;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class BusinessProcessTests {
 
@@ -29,7 +33,7 @@ public class BusinessProcessTests {
   private MessageBus messageBus;
   private MessageCatcher publishedMessages;
   private GuestStayAccountFacade guestStayFacade;
-  private GroupCheckoutToDoList groupCheckoutToDoList;
+  private GroupCheckoutFacade groupCheckoutFacade;
   private Faker faker;
   private OffsetDateTime now;
 
@@ -39,13 +43,17 @@ public class BusinessProcessTests {
     messageBus = new InMemoryMessageBus();
     publishedMessages = new MessageCatcher();
     guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), messageBus);
-    groupCheckoutToDoList = new GroupCheckoutToDoList(database.collection(GroupCheckout.class), messageBus);
+    groupCheckoutFacade = new GroupCheckoutFacade(messageBus);
     faker = new Faker();
     now = OffsetDateTime.now();
 
     messageBus.use(publishedMessages::catchMessage);
 
-    configureGroupCheckouts(messageBus, groupCheckoutToDoList);
+    configureGroupCheckouts(
+      messageBus,
+      new GroupCheckoutProjection(database.collection(GroupCheckout.class)),
+      new GroupCheckoutToDoList(messageBus)
+    );
     configureGuestStayAccounts(messageBus, guestStayFacade);
   }
 
@@ -64,7 +72,7 @@ public class BusinessProcessTests {
     var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
 
     // When
-    groupCheckoutToDoList.initiateGroupCheckout(command);
+    groupCheckoutFacade.initiateGroupCheckout(command);
 
     // Then
     publishedMessages.shouldReceiveMessages(List.of(
@@ -77,6 +85,9 @@ public class BusinessProcessTests {
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[2], now, groupCheckoutId),
       new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
     ));
+    assertThat(database.collection(GroupCheckout.class).get(groupCheckoutId))
+      .as("done group checkout is removed from the to-do list")
+      .isEmpty();
   }
 
   @Test
@@ -108,7 +119,7 @@ public class BusinessProcessTests {
     var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
 
     // When
-    groupCheckoutToDoList.initiateGroupCheckout(command);
+    groupCheckoutFacade.initiateGroupCheckout(command);
 
     // Then
     publishedMessages.shouldReceiveMessages(List.of(
@@ -121,6 +132,9 @@ public class BusinessProcessTests {
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[2], now, groupCheckoutId),
       new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
     ));
+    assertThat(database.collection(GroupCheckout.class).get(groupCheckoutId))
+      .as("done group checkout is removed from the to-do list")
+      .isEmpty();
   }
 
   @Test
@@ -153,7 +167,7 @@ public class BusinessProcessTests {
     var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
 
     // When
-    groupCheckoutToDoList.initiateGroupCheckout(command);
+    groupCheckoutFacade.initiateGroupCheckout(command);
 
     // Then
     publishedMessages.shouldReceiveMessages(List.of(
@@ -173,6 +187,9 @@ public class BusinessProcessTests {
         now
       )
     ));
+    assertThat(database.collection(GroupCheckout.class).get(groupCheckoutId))
+      .as("done group checkout is removed from the to-do list")
+      .isEmpty();
   }
 
   @Test
@@ -204,7 +221,7 @@ public class BusinessProcessTests {
     var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
 
     // When
-    groupCheckoutToDoList.initiateGroupCheckout(command);
+    groupCheckoutFacade.initiateGroupCheckout(command);
 
     // Then
     publishedMessages.shouldReceiveMessages(List.of(
@@ -225,6 +242,17 @@ public class BusinessProcessTests {
         now
       )
     ));
+    assertThat(database.collection(GroupCheckout.class).get(groupCheckoutId))
+      .as("done group checkout is removed from the to-do list")
+      .isEmpty();
+  }
+
+  @Test
+  public void guestCheckoutForGroupCheckoutNotOnTheToDoList_Fails() {
+    var guestCheckedOut = new GuestStayAccountEvent.GuestCheckedOut(UUID.randomUUID(), now, UUID.randomUUID());
+
+    assertThatThrownBy(() -> messageBus.publish(List.of(guestCheckedOut)))
+      .isInstanceOf(IllegalStateException.class)
+      .hasMessage("Entity not found");
   }
 }
-

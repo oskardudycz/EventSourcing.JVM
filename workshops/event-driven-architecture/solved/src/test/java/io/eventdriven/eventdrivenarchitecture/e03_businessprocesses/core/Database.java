@@ -9,6 +9,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -84,6 +85,18 @@ public class Database {
               throw new RuntimeException(e);
             }
           })));
+    }
+
+    public List<T> findAll() {
+      return storage.values().stream()
+        .map(v -> {
+          try {
+            return mapper.readValue(mapper.writeValueAsString(v), typeClass);
+          } catch (JacksonException e) {
+            throw new RuntimeException(e);
+          }
+        })
+        .toList();
     }
 
     public void getAndUpdate(UUID id, Function<T, T> update) {
