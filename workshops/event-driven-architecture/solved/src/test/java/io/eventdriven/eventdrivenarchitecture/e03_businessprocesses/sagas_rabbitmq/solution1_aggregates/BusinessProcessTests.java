@@ -13,7 +13,6 @@ import net.datafaker.Faker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
@@ -24,7 +23,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -61,7 +59,7 @@ public class BusinessProcessTests {
   private OffsetDateTime now;
 
   @BeforeEach
-  public void setUp() throws InterruptedException {
+  public void setUp() {
     publishedMessages = new MessageCatcher();
     faker = new Faker();
     now = OffsetDateTime.now();
@@ -71,7 +69,7 @@ public class BusinessProcessTests {
   }
 
   @Test
-  public void groupCheckoutForMultipleGuestStayWithoutPaymentsAndCharges_ShouldComplete() throws InterruptedException {
+  public void groupCheckoutForMultipleGuestStayWithoutPaymentsAndCharges_ShouldComplete() {
     // Given
     UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
 
@@ -89,9 +87,7 @@ public class BusinessProcessTests {
 
 
     // Then
-    await()
-      .atMost(Duration.ofSeconds(10))
-      .untilAsserted(() -> publishedMessages.shouldReceiveMessages(List.of(
+    publishedMessages.shouldReceiveMessages(List.of(
       new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
       new CheckOutGuest(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
@@ -106,11 +102,11 @@ public class BusinessProcessTests {
       new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[2], now),
       new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[2], now),
       new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
-    )));
+    ));
   }
 
   @Test
-  public void groupCheckoutForMultipleGuestStayWithAllStaysSettled_ShouldComplete() throws InterruptedException {
+  public void groupCheckoutForMultipleGuestStayWithAllStaysSettled_ShouldComplete() {
     // Given
     UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
     double[] amounts = new double[] {
@@ -142,9 +138,7 @@ public class BusinessProcessTests {
 
 
     // Then
-    await()
-      .atMost(Duration.ofSeconds(10))
-      .untilAsserted(() -> publishedMessages.shouldReceiveMessages(List.of(
+    publishedMessages.shouldReceiveMessages(List.of(
       new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
       new CheckOutGuest(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
@@ -159,11 +153,11 @@ public class BusinessProcessTests {
       new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[2], now),
       new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[2], now),
       new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
-    )));
+    ));
   }
 
   @Test
-  public void groupCheckoutForMultipleGuestStayWithOneSettledAndRestUnsettled_ShouldFail() throws InterruptedException {
+  public void groupCheckoutForMultipleGuestStayWithOneSettledAndRestUnsettled_ShouldFail() {
     // Given
     UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
     double[] amounts = new double[] {
@@ -181,7 +175,7 @@ public class BusinessProcessTests {
     guestStayFacade.checkInGuest(new CheckInGuest(guestStays[1], now.minusDays(1)));
     guestStayFacade.recordPayment(new RecordPayment(guestStays[1], amounts[1], now.minusHours(1)));
 
-    // 🛑 payment without charge
+    // 🛑 partial payment
     guestStayFacade.checkInGuest(new CheckInGuest(guestStays[2], now.minusDays(1)));
     guestStayFacade.recordCharge(new RecordCharge(guestStays[2], amounts[2], now.minusHours(2)));
     guestStayFacade.recordPayment(new RecordPayment(guestStays[2], amounts[2] / 2, now.minusHours(1)));
@@ -196,9 +190,7 @@ public class BusinessProcessTests {
 
 
     // Then
-    await()
-      .atMost(Duration.ofSeconds(10))
-      .untilAsserted(() -> publishedMessages.shouldReceiveMessages(List.of(
+    publishedMessages.shouldReceiveMessages(List.of(
       new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
       new CheckOutGuest(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
@@ -220,11 +212,11 @@ public class BusinessProcessTests {
         new UUID[] {guestStays[1], guestStays[2]},
         now
       )
-    )));
+    ));
   }
 
   @Test
-  public void groupCheckoutForMultipleGuestStayWithAllUnsettled_ShouldFail() throws InterruptedException {
+  public void groupCheckoutForMultipleGuestStayWithAllUnsettled_ShouldFail() {
     // Given
     UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
     double[] amounts = new double[] {
@@ -241,7 +233,7 @@ public class BusinessProcessTests {
     guestStayFacade.checkInGuest(new CheckInGuest(guestStays[1], now.minusDays(1)));
     guestStayFacade.recordPayment(new RecordPayment(guestStays[1], amounts[1], now.minusHours(1)));
 
-    // 🛑 payment without charge
+    // 🛑 partial payment
     guestStayFacade.checkInGuest(new CheckInGuest(guestStays[2], now.minusDays(1)));
     guestStayFacade.recordCharge(new RecordCharge(guestStays[2], amounts[2], now.minusHours(2)));
     guestStayFacade.recordPayment(new RecordPayment(guestStays[2], amounts[2] / 2, now.minusHours(1)));
@@ -255,9 +247,7 @@ public class BusinessProcessTests {
     groupCheckoutFacade.initiateGroupCheckout(command);
 
     // Then
-    await()
-      .atMost(Duration.ofSeconds(10))
-      .untilAsserted(() -> publishedMessages.shouldReceiveMessages(List.of(
+    publishedMessages.shouldReceiveMessages(List.of(
       new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
       new CheckOutGuest(guestStays[0], now, groupCheckoutId),
       new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[0],
@@ -280,7 +270,7 @@ public class BusinessProcessTests {
         new UUID[] {guestStays[0], guestStays[1], guestStays[2]},
         now
       )
-    )));
+    ));
   }
 }
 

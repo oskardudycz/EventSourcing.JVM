@@ -1,10 +1,11 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core;
 
-import java.util.Arrays;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MessageCatcher {
@@ -29,27 +30,21 @@ public class MessageCatcher {
   }
 
   public void shouldReceiveMessages(List<Object> expectedMessages) {
-    for (var expectedMessage : expectedMessages) {
-      boolean found = published.stream().anyMatch(actualMessage ->
-        messagesAreEqual(actualMessage, expectedMessage)
-      );
+    await()
+      .atMost(Duration.ofSeconds(10))
+      .untilAsserted(() -> {
+        for (var expectedMessage : expectedMessages) {
+          boolean found = published.stream().anyMatch(actualMessage ->
+            messagesAreEqual(actualMessage, expectedMessage)
+          );
 
-      if (!found) {
-        System.out.println("=== EXPECTED MESSAGES ===");
-        for (int i = 0; i < expectedMessages.size(); i++) {
-          System.out.println(i + ": " + expectedMessages.get(i).getClass().getSimpleName() + " = " + expectedMessages.get(i));
+          assertThat(found)
+            .as("Expected message not found: " + expectedMessage.getClass().getSimpleName() + " = " + expectedMessage
+              + "\n" + describe("EXPECTED MESSAGES", expectedMessages)
+              + "\n" + describe("ACTUAL MESSAGES", published))
+            .isTrue();
         }
-
-        System.out.println("=== ACTUAL MESSAGES (" + published.size() + ") ===");
-        for (int i = 0; i < published.size(); i++) {
-          System.out.println(i + ": " + published.get(i).getClass().getSimpleName() + " = " + published.get(i));
-        }
-
-        assertThat(published)
-          .as("Expected message not found: " + expectedMessage.getClass().getSimpleName() + " = " + expectedMessage)
-          .contains(expectedMessage);
-      }
-    }
+      });
 
     var expectedTypes = expectedMessages.stream().map(Object::getClass).distinct().toList();
     var actualTypes = published.stream().map(Object::getClass).distinct().toList();
@@ -59,6 +54,15 @@ public class MessageCatcher {
         System.out.println("WARNING: Unexpected message type found: " + actualType.getSimpleName());
       }
     }
+  }
+
+  private static String describe(String header, List<Object> messages) {
+    var description = new StringBuilder("=== " + header + " (" + messages.size() + ") ===");
+    for (int i = 0; i < messages.size(); i++) {
+      description.append("\n").append(i).append(": ")
+        .append(messages.get(i).getClass().getSimpleName()).append(" = ").append(messages.get(i));
+    }
+    return description.toString();
   }
 
   private boolean messagesAreEqual(Object actual, Object expected) {
