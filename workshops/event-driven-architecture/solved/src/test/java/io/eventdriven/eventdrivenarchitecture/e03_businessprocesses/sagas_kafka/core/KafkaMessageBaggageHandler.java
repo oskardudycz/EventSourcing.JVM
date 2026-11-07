@@ -76,7 +76,7 @@ public class KafkaMessageBaggageHandler implements ObservationHandler<KafkaRecor
       .orElse(java.util.UUID.randomUUID().toString());
     record.headers().add(CORRELATION_ID, correlationId.getBytes());
 
-    getEntityIdFromBaggage(tracer).ifPresent(value ->
+    getCausationIdFromBaggage(tracer).ifPresent(value ->
       record.headers().add(CAUSATION_ID, value.getBytes()));
 
     var messageId = java.util.UUID.randomUUID().toString();

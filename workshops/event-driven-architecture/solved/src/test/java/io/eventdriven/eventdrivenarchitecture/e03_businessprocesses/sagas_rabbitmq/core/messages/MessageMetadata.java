@@ -1,9 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages;
 
 import io.micrometer.tracing.Tracer;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.springframework.kafka.support.KafkaHeaders;
-import org.springframework.kafka.support.mapping.DefaultJacksonJavaTypeMapper;
+import org.springframework.amqp.support.converter.DefaultClassMapper;
 import org.springframework.messaging.MessageHeaders;
 
 import java.util.Optional;
@@ -11,6 +9,7 @@ import java.util.UUID;
 
 public abstract class MessageMetadata {
 
+    public static final String MESSAGE_ID = "messageId";
     public static final String CORRELATION_ID = "correlationId";
     public static final String CAUSATION_ID = "causationId";
     public static final String ENTITY_ID = "entityId";
@@ -21,12 +20,7 @@ public abstract class MessageMetadata {
     }
 
     public static Optional<String> getMessageType(MessageHeaders headers) {
-        return Optional.ofNullable(headers.get(DefaultJacksonJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME, String.class));
-    }
-
-    public static String getMessageType(ConsumerRecord<String, String> record) {
-        var header = record.headers().lastHeader(DefaultJacksonJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME);
-        return header != null ? new String(header.value()) : null;
+        return Optional.ofNullable(headers.get(DefaultClassMapper.DEFAULT_CLASSID_FIELD_NAME, String.class));
     }
 
     public static Optional<String> getCorrelationId(MessageHeaders headers) {
@@ -43,18 +37,6 @@ public abstract class MessageMetadata {
 
     public static Optional<Long> getEntityVersion(MessageHeaders headers) {
         return Optional.ofNullable(headers.get(ENTITY_VERSION, Long.class));
-    }
-
-    public static Optional<Long> getOffset(MessageHeaders headers) {
-        return Optional.ofNullable(headers.get(KafkaHeaders.OFFSET, Long.class));
-    }
-
-    public static Optional<Integer> getPartition(MessageHeaders headers) {
-        return Optional.ofNullable(headers.get(KafkaHeaders.RECEIVED_PARTITION, Integer.class));
-    }
-
-    public static Optional<Long> getTimestamp(MessageHeaders headers) {
-        return Optional.ofNullable(headers.get(KafkaHeaders.RECEIVED_TIMESTAMP, Long.class));
     }
 
     public static Optional<String> getCorrelationIdFromBaggage(Tracer tracer) {
