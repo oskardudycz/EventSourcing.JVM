@@ -2,8 +2,6 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.KafkaMessageBus;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.TestApplicationConfig;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.KafkaTestConfiguration;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.MessageCatcher;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities.groupcheckouts.GroupCheckoutEvent;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities.groupcheckouts.GroupCheckoutFacade;
@@ -14,12 +12,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.KafkaSagaTestApplication;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.TestPropertySource;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -29,14 +25,7 @@ import java.util.UUID;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities.groupcheckouts.GroupCheckoutDecider.GroupCheckoutCommand.*;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
 
-@SpringBootTest(classes = TestApplicationConfig.class)
-@ComponentScan(basePackages = {
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core",
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core",
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities"
-})
-@TestPropertySource(properties = "messaging.type=kafka")
-@Import(KafkaTestConfiguration.class)
+@SpringBootTest(classes = {KafkaSagaTestApplication.class, KafkaSolution2Configuration.class})
 @AutoConfigureTracing
 public class BusinessProcessTests {
   @DynamicPropertySource

@@ -9,15 +9,15 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.ContainerCustomizer;
 import org.springframework.kafka.config.TopicBuilder;
-import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
@@ -31,31 +31,22 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.messages.MessageMetadata.getMessageType;
 
 @Configuration
-@ConditionalOnProperty(name = "messaging.type", havingValue = "kafka")
+@EnableConfigurationProperties(KafkaMessageBusProperties.class)
 public class KafkaConfiguration {
     @Bean
-    public NewTopic hotelFinancialTopic(@Value("${app.kafka.topic:hotel-financial}") String topic) {
-        return TopicBuilder.name(topic)
+    public NewTopic hotelFinancialTopic(KafkaMessageBusProperties properties) {
+        return TopicBuilder.name(properties.topic())
             .partitions(3)
             .replicas(1)
             .build();
     }
 
     @Bean
-    public NewTopic hotelFinancialDeadLetterTopic(@Value("${app.kafka.topic:hotel-financial}") String topic) {
-        return TopicBuilder.name(topic + "-dlt")
+    public NewTopic hotelFinancialDeadLetterTopic(KafkaMessageBusProperties properties) {
+        return TopicBuilder.name(properties.topic() + "-dlt")
             .partitions(3)
             .replicas(1)
             .build();
-    }
-
-    @Bean
-    public KafkaTemplate<String, Object> kafkaTemplate(
-        ProducerFactory<String, Object> producerFactory
-    ) {
-        var template = new KafkaTemplate<>(producerFactory);
-        template.setObservationEnabled(true);
-        return template;
     }
 
     @Bean
@@ -64,27 +55,14 @@ public class KafkaConfiguration {
     }
 
     @Bean
-    public KafkaTemplate<String, byte[]> deadLetterKafkaTemplate(
-        ProducerFactory<String, Object> producerFactory
-    ) {
-        var template = new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(
-            producerFactory.getConfigurationProperties(),
-            new StringSerializer(),
-            new ByteArraySerializer()
-        ));
-        template.setObservationEnabled(true);
-        return template;
-    }
-
-    @Bean
     public DefaultErrorHandler kafkaErrorHandler(
-        KafkaTemplate<String, byte[]> deadLetterKafkaTemplate,
+        ProducerFactory<?, ?> producerFactory,
         MessageFailureStrategy failureStrategy,
         VersionedMessageConverter messageConverter,
         MeterRegistry meterRegistry,
         @Value("${app.messaging.retry.initial-interval:1s}") Duration initialInterval
     ) {
-        var deadLetterPublisher = new DeadLetterPublishingRecoverer(deadLetterKafkaTemplate);
+        var deadLetterPublisher = new DeadLetterPublishingRecoverer(deadLetterKafkaTemplate(producerFactory));
 
         var errorHandler = new DefaultErrorHandler(
             (record, error) -> {
@@ -105,6 +83,16 @@ public class KafkaConfiguration {
         return errorHandler;
     }
 
+    private static KafkaTemplate<String, byte[]> deadLetterKafkaTemplate(ProducerFactory<?, ?> producerFactory) {
+        var template = new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(
+            producerFactory.getConfigurationProperties(),
+            new StringSerializer(),
+            new ByteArraySerializer()
+        ));
+        template.setObservationEnabled(true);
+        return template;
+    }
+
     private static Optional<Object> readMessage(VersionedMessageConverter messageConverter, ConsumerRecord<?, ?> record) {
         try {
             return Optional.of(messageConverter.read(record));
@@ -114,16 +102,7 @@ public class KafkaConfiguration {
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, byte[]>
-        kafkaListenerContainerFactory(
-            ConsumerFactory<String, byte[]> consumerFactory,
-            DefaultErrorHandler kafkaErrorHandler
-        ) {
-        var factory = new ConcurrentKafkaListenerContainerFactory<String, byte[]>();
-        factory.setConsumerFactory(consumerFactory);
-        factory.setCommonErrorHandler(kafkaErrorHandler);
-        factory.getContainerProperties().setObservationEnabled(true);
-        factory.getContainerProperties().setDeliveryAttemptHeader(true);
-        return factory;
+    public ContainerCustomizer<Object, Object, ConcurrentMessageListenerContainer<Object, Object>> deliveryAttemptHeader() {
+        return container -> container.getContainerProperties().setDeliveryAttemptHeader(true);
     }
 }

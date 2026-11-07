@@ -1,6 +1,5 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.TestApplicationConfig;
 import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -9,8 +8,6 @@ import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfig
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Import;
 import org.springframework.kafka.KafkaException;
 import org.springframework.test.context.TestPropertySource;
 
@@ -21,19 +18,13 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SpringBootTest(classes = TestApplicationConfig.class)
-@ComponentScan(basePackages = {
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core",
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core"
-})
+@SpringBootTest(classes = KafkaSagaTestApplication.class)
 @TestPropertySource(properties = {
-  "messaging.type=kafka",
   "app.kafka.topic=publish-failure",
   "app.kafka.groupId=publish-failure",
   "app.kafka.publish-timeout=5s",
   "spring.kafka.producer.properties.max.request.size=1024"
 })
-@Import(KafkaTestConfiguration.class)
 @AutoConfigureTracing
 @ExtendWith(OutputCaptureExtension.class)
 public class KafkaPublishFailureTest {

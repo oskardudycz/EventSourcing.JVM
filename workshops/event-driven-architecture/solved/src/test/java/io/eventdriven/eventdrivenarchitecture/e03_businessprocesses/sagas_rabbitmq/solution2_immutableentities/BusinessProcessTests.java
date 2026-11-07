@@ -1,7 +1,5 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.TestApplicationConfig;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.RabbitMQTestConfiguration;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.RabbitMQMessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.MessageCatcher;
@@ -15,12 +13,10 @@ import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.RabbitMQSagaTestApplication;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.TestPropertySource;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -29,14 +25,7 @@ import java.util.UUID;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.groupcheckouts.GroupCheckoutDecider.GroupCheckoutCommand.*;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
 
-@SpringBootTest(classes = TestApplicationConfig.class)
-@ComponentScan(basePackages = {
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core",
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core",
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities"
-})
-@TestPropertySource(properties = "messaging.type=rabbitmq")
-@Import(RabbitMQTestConfiguration.class)
+@SpringBootTest(classes = {RabbitMQSagaTestApplication.class, RabbitMQSolution2Config.class})
 @AutoConfigureTracing
 public class BusinessProcessTests {
   @DynamicPropertySource
