@@ -4,7 +4,6 @@ import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationHandler;
 import io.micrometer.tracing.BaggageInScope;
 import io.micrometer.tracing.Tracer;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.support.micrometer.RabbitMessageReceiverContext;
@@ -15,11 +14,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.messages.MessageMetadata.*;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.messages.MessageMetadata.ENTITY_ID;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.messages.MessageMetadata.ENTITY_VERSION;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.messages.MessageMetadata.getEntityIdFromBaggage;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.messages.MessageMetadata.getEntityVersionFromBaggage;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.*;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.ENTITY_ID;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.ENTITY_VERSION;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.getEntityIdFromBaggage;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.getEntityVersionFromBaggage;
 
 @Component
 public class RabbitMessageBaggageHandler implements ObservationHandler<RabbitMessageReceiverContext> {
@@ -42,7 +41,7 @@ public class RabbitMessageBaggageHandler implements ObservationHandler<RabbitMes
     List<BaggageInScope> scopes = new ArrayList<>();
 
     addBaggageIfPresent(scopes, headers, MESSAGE_ID, CAUSATION_ID);
-    addBaggageIfPresent(scopes, headers, CAUSATION_ID);
+    addBaggageIfPresent(scopes, headers, CORRELATION_ID);
     addBaggageIfPresent(scopes, headers, ENTITY_ID);
     addBaggageIfPresent(scopes, headers, ENTITY_VERSION);
 
@@ -84,11 +83,11 @@ public class RabbitMessageBaggageHandler implements ObservationHandler<RabbitMes
       .orElse(java.util.UUID.randomUUID().toString());
     properties.setHeader(CORRELATION_ID, correlationId);
 
-    getEntityIdFromBaggage(tracer).ifPresent(value ->
+    getCausationIdFromBaggage(tracer).ifPresent(value ->
       properties.setHeader(CAUSATION_ID, value));
 
     var messageId = java.util.UUID.randomUUID().toString();
-    properties.setHeader("messageId", messageId);
+    properties.setHeader(MESSAGE_ID, messageId);
 
     getEntityIdFromBaggage(tracer).ifPresent(value ->
       properties.setHeader(ENTITY_ID, value));

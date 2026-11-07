@@ -71,6 +71,7 @@ dependencies {
   testImplementation 'org.testcontainers:testcontainers-kafka'
   testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
   testImplementation 'net.datafaker:datafaker:2.3.0'
+  testImplementation 'com.tngtech.archunit:archunit-junit5:1.5.1'
 }
 
 configurations {

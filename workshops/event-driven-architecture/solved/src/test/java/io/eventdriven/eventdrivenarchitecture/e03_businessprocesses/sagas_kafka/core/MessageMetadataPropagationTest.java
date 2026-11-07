@@ -133,6 +133,8 @@ public class MessageMetadataPropagationTest {
     AtomicReference<String> initiatedTraceId = new AtomicReference<>();
     AtomicReference<String> initiatedSpanId = new AtomicReference<>();
 
+    AtomicReference<String> checkOutGuestCausationId = new AtomicReference<>();
+
     AtomicReference<String> checkedOutMessageId = new AtomicReference<>();
     AtomicReference<String> checkedOutCorrelationId = new AtomicReference<>();
     AtomicReference<String> checkedOutCausationId = new AtomicReference<>();
@@ -161,6 +163,14 @@ public class MessageMetadataPropagationTest {
       assertThat(currentSpan.context().spanId()).as("SpanId should be present").isNotEmpty();
       initiatedTraceId.set(currentSpan.context().traceId());
       initiatedSpanId.set(currentSpan.context().spanId());
+    });
+
+    messageBus.subscribe(CheckOutGuest.class, command -> {
+      if (checkOutGuestCausationId.get() != null) return;
+
+      var causationId = tracer.getBaggage("causationId");
+      assertThat(causationId).as("causationId should be present").isNotNull();
+      checkOutGuestCausationId.set(causationId.get());
     });
 
     messageBus.subscribe(GuestStayAccountEvent.GuestCheckedOut.class, event -> {
@@ -200,7 +210,7 @@ public class MessageMetadataPropagationTest {
     );
 
     await()
-      .atMost(Duration.ofSeconds(100000))
+      .atMost(Duration.ofSeconds(10))
       .untilAsserted(() -> {
         publishedMessages.shouldReceiveMessages(List.of(
           new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, new UUID[]{guestStayId}, now),
@@ -211,6 +221,7 @@ public class MessageMetadataPropagationTest {
         assertThat(initiatedMessageId.get()).as("Initiated messageId should be captured").isNotNull();
         assertThat(initiatedCorrelationId.get()).as("Initiated correlationId should be captured").isNotNull();
         assertThat(initiatedTraceId.get()).as("Initiated traceId should be captured").isNotNull();
+        assertThat(checkOutGuestCausationId.get()).as("CheckOutGuest causationId should be captured").isNotNull();
         assertThat(checkedOutMessageId.get()).as("CheckedOut messageId should be captured").isNotNull();
         assertThat(checkedOutCorrelationId.get()).as("CheckedOut correlationId should be captured").isNotNull();
         assertThat(checkedOutCausationId.get()).as("CheckedOut causationId should be captured").isNotNull();
@@ -233,9 +244,9 @@ public class MessageMetadataPropagationTest {
       .as("spanId should be different for each message")
       .isNotEqualTo(initiatedSpanId.get());
 
-    assertThat(checkedOutCausationId.get())
-      .as("causationId should NOT equal the initiatedMessageId (it should be the CheckOutGuest command's messageId)")
-      .isNotEqualTo(initiatedMessageId.get());
+    assertThat(List.of(initiatedMessageId.get(), checkOutGuestCausationId.get(), checkedOutCausationId.get()))
+      .as("each handler should get the ID of the message it handles as causationId")
+      .doesNotHaveDuplicates();
 
     var finishedSpans = spanExporter.getFinishedSpanItems();
     assertThat(finishedSpans)
