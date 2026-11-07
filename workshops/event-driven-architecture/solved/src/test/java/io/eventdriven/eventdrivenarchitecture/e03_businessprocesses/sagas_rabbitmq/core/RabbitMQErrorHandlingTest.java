@@ -3,7 +3,6 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbi
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.InMemorySpansConfiguration;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.RecordingFailureStrategy;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.RecordingFailureStrategy.Failure;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.TestApplicationConfig;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.UnreadableMessageException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.opentelemetry.api.trace.StatusCode;
@@ -21,7 +20,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.micrometer.metrics.test.autoconfigure.AutoConfigureMetrics;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 
@@ -35,18 +33,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-@SpringBootTest(classes = TestApplicationConfig.class)
-@ComponentScan(basePackages = {
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core",
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core"
-})
+@SpringBootTest(classes = RabbitMQSagaTestApplication.class)
 @TestPropertySource(properties = {
-  "messaging.type=rabbitmq",
   "app.rabbitmq.exchange=error-handling",
   "app.messaging.retry.initial-interval=10ms"
 })
 @Import({
-  RabbitMQTestConfiguration.class,
   InMemorySpansConfiguration.class,
   RecordingFailureStrategy.Config.class
 })

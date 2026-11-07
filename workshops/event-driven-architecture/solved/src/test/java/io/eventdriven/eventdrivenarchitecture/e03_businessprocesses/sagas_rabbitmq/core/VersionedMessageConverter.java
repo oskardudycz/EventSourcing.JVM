@@ -4,17 +4,17 @@ import tools.jackson.databind.ObjectMapper;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.UnreadableMessageException;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.versioning.MessageTransformations;
 import org.springframework.amqp.core.Message;
-import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
 
 public class VersionedMessageConverter {
   private final ObjectMapper objectMapper;
   private final MessageTransformations transformations;
-  private final JacksonJsonMessageConverter messageConverter;
+  private final MessageConverter messageConverter;
 
   public VersionedMessageConverter(
     ObjectMapper objectMapper,
     MessageTransformations transformations,
-    JacksonJsonMessageConverter messageConverter
+    MessageConverter messageConverter
   ) {
     this.objectMapper = objectMapper;
     this.transformations = transformations;

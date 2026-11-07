@@ -3,6 +3,7 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbi
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.groupcheckouts.GroupCheckoutFacade;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.gueststayaccounts.GuestStayAccountFacade;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
 import jakarta.annotation.PostConstruct;
@@ -11,6 +12,7 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.gueststayaccounts.GuestStayAccountsConfig.configureGuestStayAccounts;
 
 @Configuration
+@ComponentScan
 public class RabbitMQSolution2Config {
 
     private final MessageBus messageBus;

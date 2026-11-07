@@ -1,6 +1,5 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.TestApplicationConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.amqp.AmqpException;
@@ -15,8 +14,6 @@ import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfig
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 
 import java.time.Duration;
@@ -27,17 +24,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
-@SpringBootTest(classes = TestApplicationConfig.class)
-@ComponentScan(basePackages = {
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core",
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core"
-})
+@SpringBootTest(classes = RabbitMQSagaTestApplication.class)
 @TestPropertySource(properties = {
-  "messaging.type=rabbitmq",
   "app.rabbitmq.exchange=publishing",
   "app.rabbitmq.publish-timeout=5s"
 })
-@Import(RabbitMQTestConfiguration.class)
 @AutoConfigureTracing
 @ExtendWith(OutputCaptureExtension.class)
 public class RabbitMQPublishTest {

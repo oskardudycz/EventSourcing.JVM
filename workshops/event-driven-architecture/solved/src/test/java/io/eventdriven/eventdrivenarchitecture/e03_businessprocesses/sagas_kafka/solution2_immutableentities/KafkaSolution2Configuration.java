@@ -5,11 +5,13 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities.groupcheckouts.GroupCheckoutsConfig;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities.gueststayaccounts.GuestStayAccountFacade;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities.gueststayaccounts.GuestStayAccountsConfig;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
 import jakarta.annotation.PostConstruct;
 
 @Configuration
+@ComponentScan
 public class KafkaSolution2Configuration {
 
     private final MessageBus messageBus;

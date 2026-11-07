@@ -3,7 +3,6 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.InMemorySpansConfiguration;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.RecordingFailureStrategy;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.RecordingFailureStrategy.Failure;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.TestApplicationConfig;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.UnreadableMessageException;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -21,7 +20,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.micrometer.metrics.test.autoconfigure.AutoConfigureMetrics;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -43,20 +41,14 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-@SpringBootTest(classes = TestApplicationConfig.class)
-@ComponentScan(basePackages = {
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core",
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core"
-})
+@SpringBootTest(classes = KafkaSagaTestApplication.class)
 @TestPropertySource(properties = {
-  "messaging.type=kafka",
   "app.kafka.topic=error-handling",
   "app.kafka.groupId=error-handling",
   "spring.kafka.consumer.auto-offset-reset=earliest",
   "app.messaging.retry.initial-interval=10ms"
 })
 @Import({
-  KafkaTestConfiguration.class,
   InMemorySpansConfiguration.class,
   RecordingFailureStrategy.Config.class
 })
