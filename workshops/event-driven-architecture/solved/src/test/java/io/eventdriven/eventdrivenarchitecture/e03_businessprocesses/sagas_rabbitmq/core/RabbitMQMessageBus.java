@@ -2,27 +2,34 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbi
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.micrometer.tracing.Tracer;
+import org.springframework.amqp.AmqpException;
+import org.springframework.amqp.AmqpTimeoutException;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.util.LinkedHashMap;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.RabbitMessageBaggageHandler.setHeadersFromBaggage;
 
 @Component
 public class RabbitMQMessageBus implements MessageBus {
-  private final Map<String, List<Consumer<Object>>> messageHandlers = new LinkedHashMap<>();
+  private final Map<String, List<Consumer<Object>>> messageHandlers = new ConcurrentHashMap<>();
   private final List<Consumer<Object>> middlewares = new CopyOnWriteArrayList<>();
   private final Tracer tracer;
-  private final TransformingMessageDeserializer deserializer;
+  private final VersionedMessageConverter messageConverter;
 
   @Autowired
   private RabbitTemplate rabbitTemplate;
@@ -30,9 +37,12 @@ public class RabbitMQMessageBus implements MessageBus {
   @Value("${app.rabbitmq.exchange:hotel-financial}")
   private String exchangeName;
 
-  public RabbitMQMessageBus(Tracer tracer, TransformingMessageDeserializer deserializer) {
+  @Value("${app.rabbitmq.publish-timeout:10s}")
+  private Duration publishTimeout;
+
+  public RabbitMQMessageBus(Tracer tracer, VersionedMessageConverter messageConverter) {
     this.tracer = tracer;
-    this.deserializer = deserializer;
+    this.messageConverter = messageConverter;
   }
 
   public <Message> void publish(List<Message> messages) {
@@ -40,17 +50,19 @@ public class RabbitMQMessageBus implements MessageBus {
       for (var middleware : middlewares)
         middleware.accept(message);
 
-      var routingKey = buildRoutingKey(message);
-
       var span = tracer.nextSpan().name("messagebus.publish").start();
       try (var _ = tracer.withSpan(span)) {
-        rabbitTemplate.convertAndSend(exchangeName, routingKey, message, amqpMessage -> {
+        var correlationData = new CorrelationData();
+
+        rabbitTemplate.convertAndSend(exchangeName, message.getClass().getName(), message, amqpMessage -> {
           setHeadersFromBaggage(amqpMessage, tracer);
           return amqpMessage;
-        });
-      } catch (Exception e) {
+        }, correlationData);
+
+        waitForConfirm(correlationData);
+      } catch (RuntimeException e) {
         span.error(e);
-        throw new RuntimeException("Failed to send message", e);
+        throw e;
       } finally {
         span.end();
       }
@@ -62,7 +74,7 @@ public class RabbitMQMessageBus implements MessageBus {
     containerFactory = "rabbitListenerContainerFactory"
   )
   public void handleMessage(Message rawMessage) {
-    Object message = deserializer.deserialize(rawMessage);
+    Object message = messageConverter.read(rawMessage);
 
     var handlers = messageHandlers.get(message.getClass().getTypeName());
 
@@ -104,15 +116,24 @@ public class RabbitMQMessageBus implements MessageBus {
     middlewares.clear();
   }
 
-  private String buildRoutingKey(Object message) {
-    String messageType = message.getClass().getSimpleName().toLowerCase();
-    String sagaType = "groupcheckout";
-    String routingKey = extractRoutingKey(message);
+  private void waitForConfirm(CorrelationData correlationData) {
+    CorrelationData.Confirm confirm;
+    try {
+      confirm = correlationData.getFuture().get(publishTimeout.toMillis(), TimeUnit.MILLISECONDS);
+    } catch (ExecutionException e) {
+      throw new AmqpException("Failed to confirm the message", e.getCause());
+    } catch (TimeoutException e) {
+      throw new AmqpTimeoutException("No publisher confirm from RabbitMQ within " + publishTimeout, e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new AmqpException("Interrupted while waiting for the publisher confirm", e);
+    }
 
-    return String.format("%s.%s.%s", messageType, sagaType, routingKey);
-  }
+    if (!confirm.isAck())
+      throw new AmqpException("RabbitMQ did not accept the message: " + confirm.getReason());
 
-  private String extractRoutingKey(Object message) {
-    return message.getClass().getSimpleName();
+    var returned = correlationData.getReturned();
+    if (returned != null)
+      throw new AmqpException("RabbitMQ could not route the message: " + returned.getReplyText());
   }
 }

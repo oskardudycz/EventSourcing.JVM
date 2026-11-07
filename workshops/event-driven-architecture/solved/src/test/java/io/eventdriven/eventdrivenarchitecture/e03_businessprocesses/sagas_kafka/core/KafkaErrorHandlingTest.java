@@ -8,6 +8,7 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Unreada
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.opentelemetry.api.trace.StatusCode;
@@ -23,6 +24,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
@@ -68,7 +70,7 @@ public class KafkaErrorHandlingTest {
   private KafkaMessageBus messageBus;
 
   @Autowired
-  private ConsumerFactory<String, String> consumerFactory;
+  private ConsumerFactory<?, ?> consumerFactory;
 
   @Autowired
   private ProducerFactory<String, Object> producerFactory;
@@ -207,7 +209,13 @@ public class KafkaErrorHandlingTest {
     var overrides = new Properties();
     overrides.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
-    try (var consumer = consumerFactory.createConsumer("dlt-reader-" + UUID.randomUUID(), null, null, overrides)) {
+    var rawConsumerFactory = new DefaultKafkaConsumerFactory<>(
+      consumerFactory.getConfigurationProperties(),
+      new StringDeserializer(),
+      new StringDeserializer()
+    );
+
+    try (var consumer = rawConsumerFactory.createConsumer("dlt-reader-" + UUID.randomUUID(), null, null, overrides)) {
       consumer.subscribe(List.of(topic + "-dlt"));
 
       for (var record : consumer.poll(Duration.ofSeconds(2))) {

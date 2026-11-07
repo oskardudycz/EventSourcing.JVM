@@ -6,6 +6,7 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Unreada
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -63,13 +64,13 @@ public class KafkaConfiguration {
     }
 
     @Bean
-    public KafkaTemplate<String, String> deadLetterKafkaTemplate(
+    public KafkaTemplate<String, byte[]> deadLetterKafkaTemplate(
         ProducerFactory<String, Object> producerFactory
     ) {
         var template = new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(
             producerFactory.getConfigurationProperties(),
             new StringSerializer(),
-            new StringSerializer()
+            new ByteArraySerializer()
         ));
         template.setObservationEnabled(true);
         return template;
@@ -77,9 +78,9 @@ public class KafkaConfiguration {
 
     @Bean
     public DefaultErrorHandler kafkaErrorHandler(
-        KafkaTemplate<String, String> deadLetterKafkaTemplate,
+        KafkaTemplate<String, byte[]> deadLetterKafkaTemplate,
         MessageFailureStrategy failureStrategy,
-        TransformingMessageDeserializer deserializer,
+        VersionedMessageConverter messageConverter,
         MeterRegistry meterRegistry,
         @Value("${app.messaging.retry.initial-interval:1s}") Duration initialInterval
     ) {
@@ -97,29 +98,28 @@ public class KafkaConfiguration {
         );
         errorHandler.setClassifications(Map.of(), true);
         errorHandler.setBackOffFunction((record, error) ->
-            failureStrategy.onFailure(getMessageType(record), readMessage(deserializer, record), error) == DEAD_LETTER
+            failureStrategy.onFailure(getMessageType(record), readMessage(messageConverter, record), error) == DEAD_LETTER
                 ? new FixedBackOff(0, 0)
                 : null
         );
         return errorHandler;
     }
 
-    @SuppressWarnings("unchecked")
-    private static Optional<Object> readMessage(TransformingMessageDeserializer deserializer, ConsumerRecord<?, ?> record) {
+    private static Optional<Object> readMessage(VersionedMessageConverter messageConverter, ConsumerRecord<?, ?> record) {
         try {
-            return Optional.of(deserializer.deserialize((ConsumerRecord<String, String>) record));
+            return Optional.of(messageConverter.read(record));
         } catch (UnreadableMessageException e) {
             return Optional.empty();
         }
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, String>
+    public ConcurrentKafkaListenerContainerFactory<String, byte[]>
         kafkaListenerContainerFactory(
-            ConsumerFactory<String, String> consumerFactory,
+            ConsumerFactory<String, byte[]> consumerFactory,
             DefaultErrorHandler kafkaErrorHandler
         ) {
-        var factory = new ConcurrentKafkaListenerContainerFactory<String, String>();
+        var factory = new ConcurrentKafkaListenerContainerFactory<String, byte[]>();
         factory.setConsumerFactory(consumerFactory);
         factory.setCommonErrorHandler(kafkaErrorHandler);
         factory.getContainerProperties().setObservationEnabled(true);

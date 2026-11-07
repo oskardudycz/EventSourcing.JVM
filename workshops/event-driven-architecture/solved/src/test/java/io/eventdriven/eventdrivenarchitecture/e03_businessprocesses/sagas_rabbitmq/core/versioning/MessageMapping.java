@@ -7,12 +7,10 @@ import java.util.function.Function;
 
 public class MessageMapping {
   private final Map<String, Class<?>> typeMappings = new HashMap<>();
-  private final Set<String> trustedPackages = new HashSet<>();
   private final List<MessageTransformation> transformations = new ArrayList<>();
 
   public <T> MessageMapping register(String typeName, Class<T> clazz) {
     typeMappings.put(typeName, clazz);
-    trustedPackages.add(clazz.getPackageName());
     return this;
   }
 
@@ -35,10 +33,6 @@ public class MessageMapping {
 
   Map<String, Class<?>> getTypeMappings() {
     return typeMappings;
-  }
-
-  Set<String> getTrustedPackages() {
-    return trustedPackages;
   }
 
   List<MessageTransformation> getTransformations() {

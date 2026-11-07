@@ -2,9 +2,7 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka
 
 import tools.jackson.databind.ObjectMapper;
 
-import java.util.Optional;
-
 @FunctionalInterface
 public interface MessageTransformer {
-  Optional<Object> transform(byte[] json, ObjectMapper objectMapper);
+  Object transform(byte[] json, ObjectMapper objectMapper);
 }

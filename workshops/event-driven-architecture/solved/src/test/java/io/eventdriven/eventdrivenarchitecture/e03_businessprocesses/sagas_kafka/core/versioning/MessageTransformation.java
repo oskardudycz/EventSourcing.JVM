@@ -1,9 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.versioning;
 
-import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 
-import java.util.Optional;
 import java.util.function.Function;
 
 public record MessageTransformation(
@@ -18,14 +16,7 @@ public record MessageTransformation(
   ) {
     return new MessageTransformation(
       messageTypeName,
-      (json, objectMapper) -> {
-        try {
-          Old old = objectMapper.readValue(json, oldClass);
-          return Optional.of(transform.apply(old));
-        } catch (JacksonException e) {
-          return Optional.empty();
-        }
-      }
+      (json, objectMapper) -> transform.apply(objectMapper.readValue(json, oldClass))
     );
   }
 
@@ -35,14 +26,7 @@ public record MessageTransformation(
   ) {
     return new MessageTransformation(
       messageTypeName,
-      (json, objectMapper) -> {
-        try {
-          JsonNode node = objectMapper.readTree(json);
-          return Optional.of(transform.apply(node));
-        } catch (JacksonException e) {
-          return Optional.empty();
-        }
-      }
+      (json, objectMapper) -> transform.apply(objectMapper.readTree(json))
     );
   }
 }
