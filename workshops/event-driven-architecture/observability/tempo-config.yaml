@@ -45,8 +45,11 @@ overrides:
     metrics_generator:
       processors: [service-graphs, span-metrics]
 
-# Make traces searchable a few seconds after they end, instead of ~30 s.
+# Tempo leaves the last 30 s out of search results by default. Show traces right away.
+query_frontend:
+  query_end_cutoff: 0s
+
+# A trace is searchable once it has been idle this long and the next flush check runs.
 live_store:
   max_trace_idle: 1s
   flush_check_period: 1s
-  max_block_duration: 5s
