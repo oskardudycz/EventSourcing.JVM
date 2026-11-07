@@ -154,15 +154,15 @@ public class MessageMetadataPropagationTest {
       new InitiateGroupCheckout(groupCheckoutId, clerkId, new UUID[]{guestStayId}, now)
     );
 
+    publishedMessages.shouldReceiveMessages(List.of(
+      new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, new UUID[]{guestStayId}, now),
+      new CheckOutGuest(guestStayId, now, groupCheckoutId),
+      new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, groupCheckoutId)
+    ));
+
     await()
       .atMost(Duration.ofSeconds(10))
       .untilAsserted(() -> {
-        publishedMessages.shouldReceiveMessages(List.of(
-          new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, new UUID[]{guestStayId}, now),
-          new CheckOutGuest(guestStayId, now, groupCheckoutId),
-          new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, groupCheckoutId)
-        ));
-
         assertThat(initiatedMessageId.get()).as("Initiated messageId should be captured").isNotNull();
         assertThat(initiatedCorrelationId.get()).as("Initiated correlationId should be captured").isNotNull();
         assertThat(initiatedTraceId.get()).as("Initiated traceId should be captured").isNotNull();
