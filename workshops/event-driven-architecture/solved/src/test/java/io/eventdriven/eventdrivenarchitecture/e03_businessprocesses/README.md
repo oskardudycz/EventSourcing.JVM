@@ -56,10 +56,11 @@ Putting a message aside only helps if someone deals with it. Until then, the pro
 
 ## Seeing it
 
-The tests can send traces and metrics to [Grafana LGTM](https://github.com/grafana/docker-otel-lgtm). From the `solved` folder:
+The tests can send traces and metrics to [Grafana LGTM](https://github.com/grafana/docker-otel-lgtm). Start it from the workshop folder, then run the tests from `solved`:
 
 ```shell
 docker compose --profile observability up -d
+cd solved
 ./gradlew test -Pobservability --tests '*MessageMetadataPropagationTest'
 ```
 
@@ -68,4 +69,4 @@ Open http://localhost:3000, go to Explore, then:
 - **Tempo**: search for the service `event-driven-architecture-workshop`. Each Group Checkout is one trace. It starts with the clerk's action, `GroupCheckoutFacade#initiateGroupCheckout`, then follows each message published, received, handled, and the next one published. Facades are traced with Micrometer's `@Observed`. Once the first message is handled, spans carry `correlationId` and `causationId`. Run the error-handling tests to see retries and the dead-letter publish.
 - **Prometheus**: query `messaging_dead_lettered_total`.
 
-New traces can take up to half a minute to show up in Tempo's search. A plain `./gradlew test` doesn't export anything. Stop the container with `docker compose --profile observability down`.
+Traces show up in Tempo's search a couple of seconds after they end ([observability/tempo-config.yaml](../../../../../../../../observability/tempo-config.yaml) shortens Tempo's defaults). A plain `./gradlew test` doesn't export anything. Stop the container with `docker compose --profile observability down`.
