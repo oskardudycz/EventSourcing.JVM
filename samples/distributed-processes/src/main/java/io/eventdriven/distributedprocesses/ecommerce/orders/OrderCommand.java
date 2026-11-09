@@ -31,6 +31,8 @@ public sealed interface OrderCommand {
 
   record RecordOrderPackageSent(
     OrderId orderId,
+    String carrier,
+    String trackingNumber,
     OffsetDateTime sentAt) implements OrderCommand {
   }
 

@@ -1,9 +1,12 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.ParcelBooking;
 
 import java.time.OffsetDateTime;
 import java.util.Arrays;
+import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent.*;
@@ -50,11 +53,26 @@ public class Shipment extends AbstractAggregate<ShipmentEvent, ShipmentId> {
     enqueue(new StockReserved(shipmentId, referenceId, productItems, now, reservedUntil));
   }
 
-  public void send(OffsetDateTime now) {
+  public void send(
+    BiFunction<ShipmentId, ProductItem[], Optional<ParcelBooking>> bookParcel,
+    OffsetDateTime now
+  ) {
     if (status != Status.Reserved)
       return;
 
-    enqueue(new PackageWasSent(id, referenceId, productItems, now));
+    var booking = bookParcel.apply(id, productItems);
+
+    if (booking.isEmpty())
+      return;
+
+    enqueue(new PackageWasSent(
+      id,
+      referenceId,
+      productItems,
+      booking.get().carrier(),
+      booking.get().trackingNumber(),
+      now
+    ));
   }
 
   public void deliver(OffsetDateTime now) {

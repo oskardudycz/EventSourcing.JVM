@@ -4,8 +4,6 @@ import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
-import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentSummaries;
-import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentSummary;
 
 import java.time.OffsetDateTime;
 
@@ -39,6 +37,8 @@ public class ShipmentExternalEventForwarder {
       event.shipmentId(),
       event.referenceId(),
       event.productItems(),
+      event.carrier(),
+      event.trackingNumber(),
       event.sentAt()
     ));
   }

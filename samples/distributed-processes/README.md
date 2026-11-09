@@ -10,13 +10,14 @@
     - [Two holds, then two commits](#two-holds-then-two-commits)
     - [Where this flow comes from](#where-this-flow-comes-from)
     - [Compensation](#compensation)
-    - [The order decides, the saga only translates](#the-order-decides-the-saga-only-translates)
-    - [Why the saga stays stateless](#why-the-saga-stays-stateless)
+    - [The order decides, the policies only translate](#the-order-decides-the-policies-only-translate)
+    - [Why the policies stay stateless](#why-the-policies-stay-stateless)
     - [Internal events and the published contract](#internal-events-and-the-published-contract)
     - [The read side that feeds the contract](#the-read-side-that-feeds-the-contract)
     - [Appending is publishing](#appending-is-publishing)
     - [The two settlement seams](#the-two-settlement-seams)
     - [When things go wrong](#when-things-go-wrong)
+    - [Where the code lives](#where-the-code-lives)
     - [What this sample doesn't cover](#what-this-sample-doesnt-cover)
 
 Those samples present how you can tackle handling distributed processes in Event Sourcing. For more background, check my articles [Saga and Process Manager - distributed processes in practice](https://event-driven.io/en/saga_process_manager_distributed_transactions?utm_source=event_sourcing_jvm) and [No, it can never happen!](https://event-driven.io/en/no_it_can_never_happen/?utm_source=event_sourcing_jvm). 
@@ -193,7 +194,9 @@ reserve the stock   ──┘
 
 What makes a hold safe is that it expires on its own. Stripe says an online card authorisation is "usually valid for 7 days", and if it expires before you capture, "the funds are released and the payment status changes to `canceled`". The warehouse works the same way: Shopify calls stock that has been set aside **committed**, "units that are set aside and can't be sold, such as units in an unfulfilled order".
 
-The awkward case is a payment that fails after the goods have been prepared. With holds, nothing has shipped at that point, because nothing ships before both holds are in, so undoing the work is a matter of releasing the reservation.
+The capture comes last on purpose. Shops that sell physical goods charge when the goods leave, not when the order is placed: Amazon charges the card when the item ships, and Shopify can capture on fulfilment. The customer is never charged for something that didn't ship, and an order that fails before shipping only has to drop its holds. No money moved, so there is nothing to refund.
+
+The awkward case is a payment that fails after the goods have been prepared. With holds, nothing has shipped at that point, because nothing ships before both holds are in, so undoing the work is a matter of releasing the reservation and dropping the card hold.
 
 ### Where this flow comes from
 
@@ -232,7 +235,7 @@ There's no single answer to how long the hold lasts. Stripe lists around 7 days 
 stateDiagram-v2
     [*] --> Reserved: ReserveStock
     [*] --> ProductsOutOfStock: ReserveStock — not everything is available
-    Reserved --> Sent: SendPackage — only once the payment is captured
+    Reserved --> Sent: SendPackage — only once the order is confirmed
     Reserved --> Released: ReleaseStock
     Reserved --> Expired: ExpireStockReservation
     Sent --> Delivered: DeliverPackage
@@ -248,89 +251,91 @@ Both diagrams end up with the same shape: a hold, a commit, and two ways to let 
 sequenceDiagram
     participant Client
     participant Cart as ShoppingCarts
-    participant Saga as OrderSaga
+    participant Process as Orders process
     participant Order as Orders
     participant Pay as Payments
     participant Ship as Shipments
 
     Client->>Cart: ConfirmShoppingCart
-    Cart->>Saga: ShoppingCartFinalized (external)
-    Saga->>Order: InitializeOrder
-    Order->>Saga: OrderInitialized (external)
+    Cart->>Process: ShoppingCartFinalized (public)
+    Process->>Order: InitializeOrder
+    Order->>Process: OrderInitialized (internal)
 
     par card
-        Saga->>Pay: AuthorizePayment
+        Process->>Pay: AuthorizePayment
         Pay->>Pay: gateway answers with ConfirmPaymentAuthorization
-        Pay->>Saga: PaymentAuthorized (external, carries expiresAt)
-        Saga->>Order: RecordOrderPaymentAuthorization
+        Pay->>Process: PaymentAuthorized (public, carries expiresAt)
+        Process->>Order: RecordOrderPaymentAuthorization
     and stock
-        Saga->>Ship: ReserveStock
-        Ship->>Saga: StockReserved (external, carries reservedUntil)
-        Saga->>Order: RecordOrderStockReservation
+        Process->>Ship: ReserveStock
+        Ship->>Process: StockReserved (public, carries reservedUntil)
+        Process->>Order: RecordOrderStockReservation
     end
 
     Note over Order: the second hold to arrive confirms the order
-    Order->>Saga: OrderConfirmed (external, carries the paymentId)
+    Order->>Process: OrderConfirmed (internal, carries the shipmentId)
 
-    Saga->>Pay: CapturePayment
-    Pay->>Saga: PaymentCaptured (external)
-    Saga->>Order: RecordOrderPaymentCapture
-    Order->>Saga: OrderPaymentCaptured (external, carries the shipmentId)
-    Saga->>Ship: SendPackage
-    Ship->>Saga: PackageWasSent (external)
-    Saga->>Order: RecordOrderPackageSent
-    Ship->>Saga: PackageWasDelivered (external)
-    Saga->>Order: RecordOrderDelivery
+    Process->>Ship: SendPackage
+    Ship->>Ship: the delivery provider books the parcel
+    Ship->>Process: PackageWasSent (public, carries carrier and tracking number)
+    Process->>Order: RecordOrderPackageSent
+    Order->>Process: OrderPackageSent (internal, carries the paymentId)
+    Process->>Pay: CapturePayment
+    Pay->>Process: PaymentCaptured (public)
+    Process->>Order: RecordOrderPaymentCapture
+    Ship->>Process: PackageWasDelivered (public)
+    Process->>Order: RecordOrderDelivery
 
     Note over Order: captured and delivered — the order completes
-    Order->>Saga: OrderCompleted (external)
 ```
 
-The order completes on delivery rather than on dispatch, so the process stays open while the parcel is in transit. The money also moves before the goods do: `recordPackageSent` acts only when the payment is already `Captured`, so nothing can leave the warehouse against an authorisation that was never charged.
+The order completes on delivery rather than on dispatch, so the process stays open while the parcel is in transit. The goods move before the money does: `recordPaymentCapture` acts only once the package was sent, and `recordPackageSent` only while the card hold is still `Authorized`, so nothing leaves the warehouse against a hold that has already lapsed.
+
+The diagram shows what the process reacts to, not everything that is published. The order also publishes `OrderConfirmed`, `OrderShipped`, `OrderCompleted` and `OrderCancelled` for whoever outside wants them — see [Internal events and the published contract](#internal-events-and-the-published-contract).
 
 ### Compensation
 
 ```mermaid
 sequenceDiagram
-    participant Saga as OrderSaga
+    participant Process as Orders process
     participant Order as Orders
     participant Pay as Payments
     participant Ship as Shipments
 
-    Pay->>Saga: PaymentFailed (Declined, TimedOut or AuthorizationExpired)
-    Saga->>Order: RecordOrderPaymentFailure
-    Ship->>Saga: StockReservationFailed (ProductsOutOfStock or ReservationExpired)
-    Saga->>Order: RecordOrderShipmentFailure
+    Pay->>Process: PaymentFailed (Declined, TimedOut or AuthorizationExpired)
+    Process->>Order: RecordOrderPaymentFailure
+    Ship->>Process: StockReservationFailed (ProductsOutOfStock or ReservationExpired)
+    Process->>Order: RecordOrderShipmentFailure
     Note over Order: an operator may also send CancelOrder(Requested)
     Note over Order: the order waits for the other participant before it decides
-    Order->>Saga: OrderCancelled (external, carries where each participant stood)
-    Saga->>Pay: VoidPayment — the hold drops, no money ever moved
-    Saga->>Pay: RefundPayment — the money moved, give it back
-    Saga->>Ship: ReleaseStock — the units go back on sale
+    Order->>Process: OrderCancelled (internal, carries where each participant stood)
+    Process->>Pay: VoidPayment — the hold drops, no money ever moved
+    Process->>Ship: ReleaseStock — the units go back on sale
 ```
 
 A failed payment doesn't cancel the order on its own. At that point the order still doesn't know what there is to undo: whether a stock reservation needs releasing depends on the shipment, and the shipment may not have answered yet. So the order records the failure and waits for the other participant. That wait also covers the happy path, where both modules answer at once — the two holds can arrive in either order, and the order comes out the same.
 
-Choosing the reversal isn't the saga's job either. `OrderCancelled` carries `paymentState` and `shipmentState`, and the saga only reads them:
+Choosing the reversal isn't the process's job either. The internal `OrderCancelled` carries `paymentState` and `shipmentState`, and the cancelling policy only reads them:
 
-| state | the saga sends |
+| state | the policy sends |
 |---|---|
 | `paymentState = Authorized` | `VoidPayment` |
-| `paymentState = Captured` | `RefundPayment` |
 | `shipmentState = Reserved` | `ReleaseStock` |
 | anything else | nothing — there is no hold to undo |
 
-Those are the three reversals a gateway gives you, and which one applies comes down to whether the money has moved yet. A chargeback is a fourth reversal, but not one we can send: the issuer starts it, on the customer's word.
+There's no refund in that table, because an order can only be cancelled before it ships, and nothing is captured before it ships. Once the parcel has left, cancelling is a return, and returns are a process of their own. `RefundPayment` stays in the payments module for that. A chargeback is another reversal, but not one we can send: the issuer starts it, on the customer's word.
+
+The states stay inside the orders module. The public `OrderCancelled` carries a `Reason` — `ProductsOutOfStock`, `PaymentFailed` or `Requested` — because that is what someone outside can act on; whether a hold was still open is the order's business.
 
 Read more about why compensation matters in [What texting your Ex has to do with Event-Driven Design?](https://event-driven.io/en/what_texting_ex_has_to_do_with_event_driven_design?utm_source=event_sourcing_jvm).
 
-### The order decides, the saga only translates
+### The order decides, the policies only translate
 
 `Order` holds one state per participant, just as `GroupCheckout` holds one status per guest stay:
 
 | Participant | States |
 |---|---|
-| payment | `Pending` → `Authorized` → `Captured`, or `Failed` |
+| payment | `Pending` → `Authorized` → `Captured` (only after `Sent`), or `Failed` |
 | shipment | `Pending` → `Reserved` → `Sent` → `Delivered`, or `Failed` |
 
 The record that completes a phase appends a second event in the same batch: `OrderConfirmed` once both holds are in, `OrderCompleted` once the capture and the delivery are both in, `OrderCancelled` otherwise. There's no `CompleteOrder` or `ConfirmOrder` command, because nobody outside the order is in a position to know that the order moved on.
@@ -350,39 +355,48 @@ public void recordPaymentAuthorization(PaymentId paymentId, OffsetDateTime autho
 
 Idempotency also keeps the process moving. A handler that throws inside an asynchronous process blocks it: the message becomes poison and the workflow hangs behind it. So orders, payments and shipments stay quiet about messages they can't use. `ShoppingCart` still throws, because its commands come from a person over HTTP, where a rejected action has to reach the caller as an error instead of vanishing.
 
-### Why the saga stays stateless
+### Why the policies stay stateless
 
-A saga should be a "stupid" dispatcher: it waits for an event and sends a command built from that event's data alone. That takes some care, because an event doesn't always carry what the next command needs.
+The process is three policies, one per phase: [placing](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/placing/OrderPlacingPolicy.java), [fulfilling](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/fulfilling/OrderFulfillingPolicy.java) and [cancelling](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/cancelling/OrderCancellingPolicy.java). Each should be a "stupid" dispatcher: it waits for an event and sends a command built from that event's data alone. That takes some care, because an event doesn't always carry what the next command needs.
 
-`PaymentCaptured` doesn't know which shipment is waiting on it, and it shouldn't: the payments module has never heard of a shipment. Looking the shipment up inside the saga would work, at the price of giving the saga a store and a state to keep. The sample routes it through the order instead — the saga records the capture, and the order republishes it as `OrderPaymentCaptured` with the `shipmentId` it already knows. That's the event the dispatch is sent from:
+`PackageWasSent` doesn't know which payment is waiting on it, and it shouldn't: the shipments module has never heard of a payment. Looking the payment up inside the policy would work, at the price of giving it a store and a state to keep. The sample routes it through the order instead — the policy records the dispatch, and the order answers with its own `OrderPackageSent`, carrying the `paymentId` it already knows. That's the event the capture is sent from:
 
 ```java
-public void on(PaymentExternalEvent.PaymentCaptured event) {
+public void on(ShipmentExternalEvent.PackageWasSent event) {
   commandBus.send(
-    new RecordOrderPaymentCapture(new OrderId(event.referenceId()), event.capturedAt())
+    new RecordOrderPackageSent(
+      new OrderId(event.referenceId()),
+      event.carrier(),
+      event.trackingNumber(),
+      event.sentAt()
+    )
   );
 }
 
-// The payment does not know the shipment. The order does, and republishes it here.
-public void on(OrderExternalEvent.OrderPaymentCaptured event) {
-  commandBus.send(new ShipmentCommand.SendPackage(event.shipmentId()));
+// The shipment does not know the payment. The order does, and names it here.
+public void on(OrderEvent.OrderPackageSent event) {
+  commandBus.send(new PaymentCommand.CapturePayment(event.paymentId()));
 }
 ```
 
-The saga ends up with no state, no store, no clock and no id supplier; its only field is the command bus. Identifiers are derived rather than generated: the order id comes from the cart id, the payment and shipment ids from the order id. Handling the same event twice therefore sends two identical commands, and the modules no-op on the second. See [OrderSaga.java](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/OrderSaga.java).
+Note which `OrderPackageSent` that is: the internal one. The policies belong to the orders module, so they read the order's own events straight from its store and the other modules' events from the integration bus. A module that drove its own process through its public events would have to publish whatever that process needs — a `paymentId` here, a `shipmentId` there, the internal states on a cancellation — and the contract would turn into a dump of its internals.
+
+The policies end up with no state, no store, no clock and no id supplier; their only field is the command bus. Identifiers are derived rather than generated: the order id comes from the cart id, the payment and shipment ids from the order id. Handling the same event twice therefore sends two identical commands, and the modules no-op on the second.
 
 ### Internal events and the published contract
 
 If a module exposed its internal events, every other module would end up coupled to its private vocabulary — the leaking abstraction described in [Events should be as small as possible, right?](https://event-driven.io/en/events_should_be_as_small_as_possible?utm_source=event_sourcing_jvm). So each module keeps two vocabularies, and a forwarder turns one into the other:
 
-| Module | What it publishes |
-|---|---|
-| shopping carts | `ShoppingCartFinalized` |
-| orders | `OrderInitialized`, `OrderConfirmed`, `OrderPaymentCaptured`, `OrderCompleted`, `OrderCancelled` |
-| payments | `PaymentAuthorized`, `PaymentCaptured`, `PaymentFailed` |
-| shipments | `StockReserved`, `PackageWasSent`, `PackageWasDelivered`, `StockReservationFailed` |
+| Module | What it publishes | Who it is for |
+|---|---|---|
+| shopping carts | `ShoppingCartFinalized` | orders |
+| orders | `OrderConfirmed`, `OrderShipped`, `OrderCompleted`, `OrderCancelled` | customer notifications, finance, anyone outside |
+| payments | `PaymentAuthorized`, `PaymentCaptured`, `PaymentFailed` | orders, through a `referenceId` |
+| shipments | `StockReserved`, `PackageWasSent`, `PackageWasDelivered`, `StockReservationFailed` | orders, through a `referenceId` |
 
 Each module publishes a `sealed interface <Module>ExternalEvent`, so the contract is one type you can switch over exhaustively.
+
+Payments and shipments are generic services: they know a `referenceId` and an amount or a list of items, never an order. Their contracts are what any client of such a service needs. The orders module is the other way round. Nobody in this sample reacts to its public events, so they are designed for the consumers a shop would have — the order's milestones, each carrying the client, the items and the total, and `OrderShipped` carrying the carrier and the tracking number the customer will ask for. `OrderInitialized` and the order's record of the capture are not published: they are steps of its own process, and only that process needs them.
 
 Two of those names cover more than one internal event. `PaymentFailed` carries a `Reason` of `Declined`, `TimedOut` or `AuthorizationExpired`, and `StockReservationFailed` carries `ProductsOutOfStock` or `ReservationExpired`. Internally those stay separate events, because the module needs to tell them apart. Outside, the only thing anyone does with them is release the other hold, so publishing them separately would ask every consumer to learn a distinction it has no use for.
 
@@ -442,13 +456,15 @@ The first three are what the expiry workers poll. `PendingOrders` has no worker 
 
 The in-memory event store follows the one in the [introduction-to-event-sourcing](../../workshops/introduction-to-event-sourcing/) workshop: appending to a stream dispatches the events. There's no gap between storing and publishing to get wrong, and no facade has to call a bus. In memory that comes for free; against a real database it's what an outbox is for. Either way, if you find yourself writing `store.getAndUpdate(...)` followed by `bus.publish(...)`, you're working around the store instead of using it.
 
-That store is the module's internal channel. The integration bus is a separate object, and only forwarders write to it. The saga subscribes to the integration bus alone, so it has no way to reach into another module's internals.
+That store is the module's internal channel. The integration bus is a separate object, and only forwarders write to it. The orders policies listen to both: to the order's own internal events, and to the other modules' public ones. They never see another module's internals.
 
-The two are separate *interfaces* — `InternalEventBus` has no `publish` at all, because publishing a module's own events is appending them. One in-memory class happens to implement both here; in production they would be different transports, and the saga would still only ever hold the integration one.
+The two are separate *interfaces* — `InternalEventBus` has no `publish` at all, because publishing a module's own events is appending them. One in-memory class happens to implement both here; in production they would be different transports.
+
+[ECommerceConfig](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceConfig.java) is the composition root. It configures the four modules on one command bus, one store and one integration bus, then wires the orders process last: the policies send commands to payments and shipments, so those modules have to handle them first, and each module's forwarder has to be subscribed before them, so that a public event goes out before the steps it causes. [ECommerceTests](./src/test/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceTests.java) drives whole orders through it and checks the commands and the public events in the order they happen.
 
 ### The two settlement seams
 
-Neither the card authorisation nor the courier delivery happens inside a command handler. Both sit behind an interface, called by a small client that reacts to the module's own internal event:
+The card and the courier both sit behind an interface:
 
 ```java
 public interface PaymentGateway {
@@ -459,17 +475,19 @@ public interface PaymentGateway {
 }
 
 public interface DeliveryProvider {
-  void deliver(ShipmentId shipmentId, ProductItem[] productItems);
+  ParcelBooking book(ShipmentId shipmentId, ProductItem[] productItems);
 }
 ```
 
-In production the provider would answer later through a webhook. In the sample the test double answers by sending a command back, which keeps settling a command rather than a return value. Only the authorisation answers back at all, since that's the step where a real gateway says no.
+The gateway is called by small clients that react to the payment's own internal events: [authorisation](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/payments/authorization/AuthorizationGatewayClient.java) and [capture](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/payments/capture/CaptureGatewayClient.java). In production the gateway would answer the authorisation later through a webhook. In the sample the test double answers by sending a command back, which keeps settling a command rather than a return value. Only the authorisation answers back at all, since that's the step where a real gateway says no.
+
+The delivery provider is different, because the answer the shipment needs comes at once. Booking a parcel with a carrier's label API returns the carrier and the tracking number in the same call, so `Shipment.send` books before it records `PackageWasSent`, and the event carries both. The delivery confirmation still comes back later, as `DeliverPackage`. If the booking fails, nothing is recorded: the shipment stays reserved until someone sends it again or the reservation expires.
 
 ### When things go wrong
 
 Three things keep the process from getting stuck.
 
-**1. Failure events instead of exceptions.** `PaymentGatewayClient` calls the gateway inside a try/catch and sends `DeclinePayment(UnexpectedError)` if it throws. A charge that didn't go through is a business outcome; rethrowing it would only leave the payment pending forever.
+**1. Failure events instead of exceptions.** `AuthorizationGatewayClient` calls the gateway inside a try/catch and sends `DeclinePayment(UnexpectedError)` if it throws. A charge that didn't go through is a business outcome; rethrowing it would only leave the payment pending forever.
 
 **2. Timeouts, as three workers.** Nothing in the process is allowed to wait indefinitely:
 
@@ -481,14 +499,30 @@ Three things keep the process from getting stuck.
 
 The first watches a request, the other two watch a hold. A hold that can only be freed by compensation leaks whenever the release message is lost: the units stay unsellable and the customer's funds stay blocked. Each worker ends at the order, as `PaymentFailed` or `StockReservationFailed`, so the order is never left waiting for a message that isn't coming. Production would run them on a schedule; tests call `run(now)` with a chosen instant.
 
-**3. Manual compensation.** An operator cancels a stuck order by sending `CancelOrder(orderId, Requested)` on the same command bus, with no special path to maintain. The `OrderCancelled` that follows carries where each participant stood, so the money and the goods come back through the same commands as every other cancellation.
+**3. Manual compensation.** An operator cancels a stuck order by sending `CancelOrder(orderId, Requested)` on the same command bus, with no special path to maintain. The `OrderCancelled` that follows carries where each participant stood, so the money and the goods come back through the same commands as every other cancellation. Once the parcel has left, `CancelOrder` does nothing: what remains is a return.
+
+**4. Late failures stay visible.** A card hold can still lapse after the parcel left but before the capture went through. The order records `OrderPaymentFailed` and stays open; it doesn't cancel, because the goods are gone, and it doesn't complete, because nobody was charged. That's where a person has to step in, as shops do: Shopify's merchants collect the payment again, and Amazon asks the customer to revise the payment method.
+
+### Where the code lives
+
+Each module keeps its aggregate, its events, its commands, its facade and its `Config` at the top of its package. The `sealed` interfaces have to stay there, since without a `module-info.java` a sealed type's records must share its package. Everything else is grouped by what it does in the business:
+
+| Module | Packages |
+|---|---|
+| orders | `placing`, `fulfilling`, `cancelling` (the policies, and `PendingOrders` for orders that got stuck), `external` |
+| payments | `authorization` (the gateway call, the timeout and the hold expiry), `capture`, `external` |
+| shipments | `reservation` (the reservation expiry), `delivery` (the provider), `external` |
+| shopping carts | `pricing`, `productitems`, `external` |
+
+`external` holds the module's contract, its forwarder and the summary projection the forwarder reads, since that projection exists only to feed the contract.
 
 ### What this sample doesn't cover
 
 - **Capture cannot fail.** Only the authorisation makes a gateway round-trip. Modelling three more callbacks would repeat what the authorisation already shows.
-- **A sent package has no return path.** Nothing ships before the capture, so this only comes up when an operator cancels a paid, dispatched order. The money is refunded; the parcel is not recalled. Returns are a process of their own.
+- **A lapsed hold before shipping cancels the order.** Real shops usually ask the customer to pay again first — Shopify's "collect payment", Amazon's "revise payment" — and cancel only if that fails. Modelling that is one more step with its own deadline, and it would teach nothing the authorisation doesn't.
+- **A payment failure after shipping is left to a person.** The order stays open, and nothing reminds anyone that it does.
+- **A sent package has no return path.** Returns and refunds are a process of their own.
 - **Partial reservations do not exist.** A reservation covers every line or none.
-- **The composition root is still per module.** Each module has its own `Config` that registers its commands, its projections, its forwarder and its clients, and builds its own `Database`. The single `ECommerceConfig` that knits them together, and the end-to-end transcript test that drives one order through all four, are the next step. Until it exists, `OrderSaga` is wired nowhere but its own tests.
 - **The infrastructure is in memory.** The ESDB implementations exist but are not wired. The projection `Database` is a `HashMap` behind a store/get/getAndUpdate/find API, so swapping it for a real one is a change in one class.
 - **A view can be resurrected by a replay.** `Database.getAndUpdate` skips an event a view has already applied, but `store` and `delete` carry no such guard. Replay a `StockReserved` after its `PackageWasSent` and the reservation comes back. Nothing breaks downstream — the expiry worker sends `ExpireStockReservation` and the aggregate no-ops on it — but a versioned delete would close it properly.
 - **`core/messaging` duplicates the older `core/commands` and `core/events`.** Both stay, because `hotelmanagement` still depends on the older pair.

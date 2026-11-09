@@ -32,6 +32,8 @@ public class OrderFacadeTests {
     new PricedProductItem(UUID.randomUUID(), 2, 12.5)
   };
   private final double totalPrice = 25;
+  private final String carrier = "DHL";
+  private final String trackingNumber = "JD014600006281234567";
   private final OffsetDateTime now = OffsetDateTime.now();
   private final OffsetDateTime authorizedAt = now.plusMinutes(1);
   private final OffsetDateTime reservedAt = now.plusMinutes(2);
@@ -68,35 +70,35 @@ public class OrderFacadeTests {
     published.shouldReceiveMessages(
       new OrderPaymentAuthorized(orderId, paymentId, authorizedAt),
       new OrderStockReserved(orderId, shipmentId, reservedAt),
-      new OrderConfirmed(orderId, paymentId, reservedAt)
+      new OrderConfirmed(orderId, paymentId, shipmentId, reservedAt)
     );
   }
 
   @Test
-  public void recordOrderPaymentCaptureDispatchesOrderPaymentCapturedNamingTheShipmentToSend() {
+  public void recordOrderPackageSentDispatchesOrderPackageSentNamingThePaymentToCapture() {
     confirm();
+
+    commandBus.send(new RecordOrderPackageSent(orderId, carrier, trackingNumber, sentAt));
+
+    published.shouldReceiveMessages(new OrderPackageSent(orderId, paymentId, shipmentId, carrier, trackingNumber, sentAt));
+  }
+
+  @Test
+  public void recordOrderPaymentCaptureDispatchesOrderPaymentCaptured() {
+    send();
 
     commandBus.send(new RecordOrderPaymentCapture(orderId, capturedAt));
 
     published.shouldReceiveMessages(
-      new OrderPaymentCaptured(orderId, paymentId, shipmentId, totalPrice, capturedAt)
+      new OrderPaymentCaptured(orderId, paymentId, totalPrice, capturedAt)
     );
   }
 
   @Test
-  public void recordOrderPackageSentDispatchesOrderPackageSent() {
-    capture();
-
-    commandBus.send(new RecordOrderPackageSent(orderId, sentAt));
-
-    published.shouldReceiveMessages(new OrderPackageSent(orderId, shipmentId, sentAt));
-  }
-
-  @Test
-  public void recordOrderPackageSentBeforeTheCaptureStoresNothingAndDoesNotThrow() {
+  public void recordOrderPaymentCaptureBeforeTheDispatchStoresNothingAndDoesNotThrow() {
     confirm();
 
-    assertThatCode(() -> commandBus.send(new RecordOrderPackageSent(orderId, sentAt)))
+    assertThatCode(() -> commandBus.send(new RecordOrderPaymentCapture(orderId, capturedAt)))
       .doesNotThrowAnyException();
 
     published.shouldNotReceiveAnyEvent();
@@ -104,8 +106,8 @@ public class OrderFacadeTests {
 
   @Test
   public void recordOrderDeliveryCompletesTheOrder() {
-    capture();
-    commandBus.send(new RecordOrderPackageSent(orderId, sentAt));
+    send();
+    commandBus.send(new RecordOrderPaymentCapture(orderId, capturedAt));
     published.reset();
 
     commandBus.send(new RecordOrderDelivery(orderId, deliveredAt));
@@ -161,6 +163,25 @@ public class OrderFacadeTests {
   }
 
   @Test
+  public void recordOrderPaymentFailureAfterTheDispatchKeepsTheOrderOpen() {
+    send();
+
+    commandBus.send(new RecordOrderPaymentFailure(orderId, capturedAt));
+
+    published.shouldReceiveMessages(new OrderPaymentFailed(orderId, capturedAt));
+  }
+
+  @Test
+  public void cancelOrderAfterTheDispatchStoresNothingAndDoesNotThrow() {
+    send();
+
+    assertThatCode(() -> commandBus.send(new CancelOrder(orderId, OrderCancellationReason.Requested)))
+      .doesNotThrowAnyException();
+
+    published.shouldNotReceiveAnyEvent();
+  }
+
+  @Test
   public void repeatingARecordedHoldStoresNothingAndDoesNotThrow() {
     initialize();
     commandBus.send(new RecordOrderPaymentAuthorization(orderId, paymentId, authorizedAt));
@@ -211,9 +232,9 @@ public class OrderFacadeTests {
     published.reset();
   }
 
-  private void capture() {
+  private void send() {
     confirm();
-    commandBus.send(new RecordOrderPaymentCapture(orderId, capturedAt));
+    commandBus.send(new RecordOrderPackageSent(orderId, carrier, trackingNumber, sentAt));
     published.reset();
   }
 

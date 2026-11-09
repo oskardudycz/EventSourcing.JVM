@@ -22,6 +22,8 @@ public sealed interface ShipmentEvent {
     ShipmentId shipmentId,
     String referenceId,
     ProductItem[] productItems,
+    String carrier,
+    String trackingNumber,
     OffsetDateTime sentAt) implements ShipmentEvent {
   }
 

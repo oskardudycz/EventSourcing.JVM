@@ -13,7 +13,7 @@ public class ShoppingCartFacade {
   private final ProductPriceCalculator productPriceCalculator;
   private final Supplier<OffsetDateTime> now;
 
-  static String mapToStreamId(ShoppingCartId shoppingCartId) {
+  public static String mapToStreamId(ShoppingCartId shoppingCartId) {
     return "ShoppingCart-%s".formatted(shoppingCartId.tail());
   }
 

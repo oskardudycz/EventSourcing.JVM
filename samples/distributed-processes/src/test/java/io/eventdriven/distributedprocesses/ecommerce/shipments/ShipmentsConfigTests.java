@@ -4,6 +4,9 @@ import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.CallingBackDeliveryProvider;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.DeliveryProvider;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.SilentDeliveryProvider;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent;
 import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;
@@ -16,8 +19,7 @@ import java.util.function.Function;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.*;
 
-// The wiring in ShipmentsConfig is load bearing twice over: the forwarder reads the summary
-// projection, and it runs before the clients whose side effects append further events.
+// The wiring in ShipmentsConfig is load bearing: the forwarder reads the summary projection.
 public class ShipmentsConfigTests {
   private static final Duration reservationValidity = Duration.ofHours(2);
 
@@ -74,15 +76,24 @@ public class ShipmentsConfigTests {
   }
 
   @Test
-  public void dispatchIsForwardedBeforeTheDeliveryItTriggers() {
-    configure(new AutoDeliveringDeliveryProvider(commandBus));
+  public void dispatchIsForwardedWithTheTrackingBeforeTheDeliveryTheProviderReports() {
+    var deliveryProvider = new CallingBackDeliveryProvider(commandBus);
+    configure(deliveryProvider);
     commandBus.send(new ReserveStock(referenceId, available));
     externalEvents.reset();
 
     commandBus.send(new SendPackage(shipmentId));
+    deliveryProvider.deliverBookedParcels();
 
     externalEvents.shouldReceiveMessages(
-      new ShipmentExternalEvent.PackageWasSent(shipmentId, referenceId, available, now),
+      new ShipmentExternalEvent.PackageWasSent(
+        shipmentId,
+        referenceId,
+        available,
+        CallingBackDeliveryProvider.booking.carrier(),
+        CallingBackDeliveryProvider.booking.trackingNumber(),
+        now
+      ),
       new ShipmentExternalEvent.PackageWasDelivered(shipmentId, referenceId, now)
     );
   }

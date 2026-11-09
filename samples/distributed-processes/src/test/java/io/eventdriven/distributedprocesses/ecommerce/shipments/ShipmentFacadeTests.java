@@ -6,6 +6,7 @@ import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.SilentDeliveryProvider;
 import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;
 
@@ -74,12 +75,19 @@ public class ShipmentFacadeTests {
   }
 
   @Test
-  public void sendPackageDispatchesPackageWasSentWithTheReservedItems() {
+  public void sendPackageDispatchesPackageWasSentWithTheReservedItemsAndTheBookedTracking() {
     reserve();
 
     commandBus.send(new SendPackage(shipmentId));
 
-    published.shouldReceiveMessages(new PackageWasSent(shipmentId, referenceId, available, now));
+    published.shouldReceiveMessages(new PackageWasSent(
+      shipmentId,
+      referenceId,
+      available,
+      SilentDeliveryProvider.booking.carrier(),
+      SilentDeliveryProvider.booking.trackingNumber(),
+      now
+    ));
   }
 
   @Test

@@ -54,7 +54,11 @@ public class OrderFacade {
   public void recordOrderPackageSent(RecordOrderPackageSent command) {
     store.getAndUpdate(
       command.orderId(),
-      current -> current.recordPackageSent(command.sentAt())
+      current -> current.recordPackageSent(
+        command.carrier(),
+        command.trackingNumber(),
+        command.sentAt()
+      )
     );
   }
 

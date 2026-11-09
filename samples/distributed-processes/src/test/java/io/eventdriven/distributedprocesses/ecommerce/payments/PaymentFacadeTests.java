@@ -159,6 +159,19 @@ public class PaymentFacadeTests {
   }
 
   @Test
+  public void capturePaymentAfterTheAuthorizationExpiredStoresNothingAndDoesNotThrow() {
+    authorize();
+    commandBus.send(new ExpirePaymentAuthorization(paymentId, expiresAt));
+    published.reset();
+
+    assertThatCode(() -> commandBus.send(new CapturePayment(paymentId)))
+      .doesNotThrowAnyException();
+
+    published.shouldNotReceiveAnyEvent();
+    assertThat(storedEvents()).hasSize(3);
+  }
+
+  @Test
   public void confirmingAnAlreadyAuthorizedPaymentStoresNothingAndDoesNotThrow() {
     authorize();
 

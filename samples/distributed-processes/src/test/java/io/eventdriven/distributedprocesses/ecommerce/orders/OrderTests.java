@@ -22,6 +22,8 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
     new PricedProductItem(UUID.randomUUID(), 2, 12.5)
   };
   private final double totalPrice = 25;
+  private final String carrier = "DHL";
+  private final String trackingNumber = "JD014600006281234567";
   private final OffsetDateTime now = OffsetDateTime.now();
   private final OffsetDateTime authorizedAt = now.plusMinutes(1);
   private final OffsetDateTime reservedAt = now.plusMinutes(2);
@@ -35,10 +37,12 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
     new OrderPaymentAuthorized(orderId, paymentId, authorizedAt);
   private final OrderStockReserved stockReserved =
     new OrderStockReserved(orderId, shipmentId, reservedAt);
-  private final OrderConfirmed confirmed = new OrderConfirmed(orderId, paymentId, reservedAt);
+  private final OrderConfirmed confirmed =
+    new OrderConfirmed(orderId, paymentId, shipmentId, reservedAt);
   private final OrderPaymentCaptured paymentCaptured =
-    new OrderPaymentCaptured(orderId, paymentId, shipmentId, totalPrice, capturedAt);
-  private final OrderPackageSent packageSent = new OrderPackageSent(orderId, shipmentId, sentAt);
+    new OrderPaymentCaptured(orderId, paymentId, totalPrice, capturedAt);
+  private final OrderPackageSent packageSent =
+    new OrderPackageSent(orderId, paymentId, shipmentId, carrier, trackingNumber, sentAt);
   private final OrderShipmentDelivered delivered =
     new OrderShipmentDelivered(orderId, shipmentId, deliveredAt);
 
@@ -99,7 +103,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
       // When
       .when(current -> current.recordPaymentAuthorization(paymentId, authorizedAt))
       // Then
-      .then(paymentAuthorized, new OrderConfirmed(orderId, paymentId, authorizedAt));
+      .then(paymentAuthorized, new OrderConfirmed(orderId, paymentId, shipmentId, authorizedAt));
   }
 
   @Test
@@ -122,16 +126,56 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
       .thenNothing();
   }
 
-  // The commit phase
+  // The commit phase — the package leaves first, and the money moves once it has
 
   @Test
-  public void recordingTheCaptureRepublishesTheShipmentThePaymentDoesNotKnow() {
+  public void recordingTheDispatchOfAConfirmedOrderEmitsOrderPackageSentNamingThePaymentToCapture() {
+    // Given
+    given(initialized, paymentAuthorized, stockReserved, confirmed)
+      // When
+      .when(current -> current.recordPackageSent(carrier, trackingNumber, sentAt))
+      // Then
+      .then(packageSent);
+  }
+
+  @Test
+  public void recordingADispatchBeforeTheOrderIsConfirmedEmitsNothing() {
+    // Given
+    given(initialized, paymentAuthorized)
+      // When
+      .when(current -> current.recordPackageSent(carrier, trackingNumber, sentAt))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void recordingTheSameDispatchTwiceEmitsNothing() {
+    // Given
+    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent)
+      // When
+      .when(current -> current.recordPackageSent(carrier, trackingNumber, sentAt))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void recordingTheCaptureAfterTheDispatchEmitsOrderPaymentCaptured() {
+    // Given
+    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent)
+      // When
+      .when(current -> current.recordPaymentCapture(capturedAt))
+      // Then
+      .then(paymentCaptured);
+  }
+
+  @Test
+  public void recordingACaptureBeforeTheDispatchEmitsNothing() {
     // Given
     given(initialized, paymentAuthorized, stockReserved, confirmed)
       // When
       .when(current -> current.recordPaymentCapture(capturedAt))
       // Then
-      .then(paymentCaptured);
+      .thenNothing();
   }
 
   @Test
@@ -145,39 +189,9 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   }
 
   @Test
-  public void recordingTheDispatchAfterTheCaptureEmitsOrderPackageSent() {
+  public void theDeliveryCompletesACapturedOrder() {
     // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, paymentCaptured)
-      // When
-      .when(current -> current.recordPackageSent(sentAt))
-      // Then
-      .then(packageSent);
-  }
-
-  @Test
-  public void recordingADispatchBeforeTheMoneyMovedEmitsNothing() {
-    // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed)
-      // When
-      .when(current -> current.recordPackageSent(sentAt))
-      // Then
-      .thenNothing();
-  }
-
-  @Test
-  public void recordingADispatchBeforeTheOrderIsConfirmedEmitsNothing() {
-    // Given
-    given(initialized, paymentAuthorized)
-      // When
-      .when(current -> current.recordPackageSent(sentAt))
-      // Then
-      .thenNothing();
-  }
-
-  @Test
-  public void theDeliveryCompletesTheOrder() {
-    // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, paymentCaptured, packageSent)
+    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent, paymentCaptured)
       // When
       .when(current -> current.recordDelivery(deliveredAt))
       // Then
@@ -185,20 +199,30 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   }
 
   @Test
-  public void aDispatchOnItsOwnDoesNotCompleteTheOrder() {
+  public void theCaptureArrivingAfterTheDeliveryCompletesTheOrderJustTheSame() {
     // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, paymentCaptured)
+    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent, delivered)
       // When
-      .when(current -> current.recordPackageSent(sentAt))
+      .when(current -> current.recordPaymentCapture(capturedAt))
       // Then
-      .then(packageSent);
+      .then(paymentCaptured, new OrderCompleted(orderId, capturedAt));
+  }
+
+  @Test
+  public void aDeliveryBeforeTheCaptureDoesNotCompleteTheOrder() {
+    // Given
+    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent)
+      // When
+      .when(current -> current.recordDelivery(deliveredAt))
+      // Then
+      .then(delivered);
   }
 
   @Test
   public void recordingADeliveryTwiceEmitsNothing() {
     // Given
     given(
-      initialized, paymentAuthorized, stockReserved, confirmed, paymentCaptured, packageSent,
+      initialized, paymentAuthorized, stockReserved, confirmed, packageSent, paymentCaptured,
       delivered, new OrderCompleted(orderId, deliveredAt)
     )
       // When
@@ -314,9 +338,45 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   }
 
   @Test
+  public void aPaymentFailureAfterTheParcelLeftIsRecordedButDoesNotCancelTheOrder() {
+    // Given
+    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent)
+      // When
+      .when(current -> current.recordPaymentFailure(capturedAt))
+      // Then
+      .then(new OrderPaymentFailed(orderId, capturedAt));
+  }
+
+  @Test
+  public void aDeliveryAfterALatePaymentFailureDoesNotCompleteTheOrder() {
+    // Given
+    given(
+      initialized, paymentAuthorized, stockReserved, confirmed, packageSent,
+      new OrderPaymentFailed(orderId, capturedAt)
+    )
+      // When
+      .when(current -> current.recordDelivery(deliveredAt))
+      // Then
+      .then(delivered);
+  }
+
+  @Test
+  public void aCaptureAfterALatePaymentFailureEmitsNothing() {
+    // Given
+    given(
+      initialized, paymentAuthorized, stockReserved, confirmed, packageSent,
+      new OrderPaymentFailed(orderId, capturedAt)
+    )
+      // When
+      .when(current -> current.recordPaymentCapture(capturedAt))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
   public void aPaymentFailureAfterTheCaptureEmitsNothing() {
     // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, paymentCaptured, packageSent)
+    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent, paymentCaptured)
       // When
       .when(current -> current.recordPaymentFailure(capturedAt))
       // Then
@@ -360,28 +420,20 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   }
 
   @Test
-  public void anOperatorCancellingAfterTheCaptureAsksForARefund() {
+  public void anOperatorCancellingAfterTheParcelLeftEmitsNothing() {
     // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, paymentCaptured, packageSent)
+    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent)
       // When
       .when(current -> current.cancel(OrderCancellationReason.Requested, now))
       // Then
-      .then(new OrderCancelled(
-        orderId,
-        paymentId,
-        OrderPaymentState.Captured,
-        shipmentId,
-        OrderShipmentState.Sent,
-        OrderCancellationReason.Requested,
-        now
-      ));
+      .thenNothing();
   }
 
   @Test
   public void cancellingACompletedOrderEmitsNothing() {
     // Given
     given(
-      initialized, paymentAuthorized, stockReserved, confirmed, paymentCaptured, packageSent,
+      initialized, paymentAuthorized, stockReserved, confirmed, packageSent, paymentCaptured,
       delivered, new OrderCompleted(orderId, deliveredAt)
     )
       // When
