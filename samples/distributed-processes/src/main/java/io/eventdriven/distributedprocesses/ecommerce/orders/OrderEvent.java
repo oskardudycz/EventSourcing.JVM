@@ -36,6 +36,7 @@ public sealed interface OrderEvent {
   record OrderConfirmed(
     OrderId orderId,
     PaymentId paymentId,
+    ShipmentId shipmentId,
     OffsetDateTime confirmedAt
   ) implements OrderEvent {
   }
@@ -43,7 +44,6 @@ public sealed interface OrderEvent {
   record OrderPaymentCaptured(
     OrderId orderId,
     PaymentId paymentId,
-    ShipmentId shipmentId,
     double amount,
     OffsetDateTime capturedAt
   ) implements OrderEvent {
@@ -51,7 +51,10 @@ public sealed interface OrderEvent {
 
   record OrderPackageSent(
     OrderId orderId,
+    PaymentId paymentId,
     ShipmentId shipmentId,
+    String carrier,
+    String trackingNumber,
     OffsetDateTime sentAt
   ) implements OrderEvent {
   }

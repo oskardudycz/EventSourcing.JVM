@@ -1,10 +1,9 @@
 package io.eventdriven.distributedprocesses.ecommerce.orders.external;
 
 import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCancellationReason;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderSummaries;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderSummary;
 
 // The internal events say only what changed. What the outside world needs is the whole
 // picture, and that is what the summary keeps — no aggregate is loaded here.
@@ -17,17 +16,6 @@ public class OrderExternalEventForwarder {
     this.eventBus = eventBus;
   }
 
-  public void on(OrderEvent.OrderInitialized event) {
-    eventBus.publish(new OrderExternalEvent.OrderInitialized(
-      event.orderId(),
-      event.cartId(),
-      event.clientId(),
-      event.productItems(),
-      event.totalPrice(),
-      event.initializedAt()
-    ));
-  }
-
   public void on(OrderEvent.OrderConfirmed event) {
     var summary = summaryOf(event.orderId());
 
@@ -36,22 +24,20 @@ public class OrderExternalEventForwarder {
       summary.getClientId(),
       summary.getProductItems(),
       summary.getTotalPrice(),
-      event.paymentId(),
-      summary.getShipmentId(),
       event.confirmedAt()
     ));
   }
 
-  public void on(OrderEvent.OrderPaymentCaptured event) {
+  public void on(OrderEvent.OrderPackageSent event) {
     var summary = summaryOf(event.orderId());
 
-    eventBus.publish(new OrderExternalEvent.OrderPaymentCaptured(
+    eventBus.publish(new OrderExternalEvent.OrderShipped(
       event.orderId(),
       summary.getClientId(),
-      summary.getTotalPrice(),
       event.shipmentId(),
-      event.amount(),
-      event.capturedAt()
+      event.carrier(),
+      event.trackingNumber(),
+      event.sentAt()
     ));
   }
 
@@ -63,22 +49,29 @@ public class OrderExternalEventForwarder {
       summary.getClientId(),
       summary.getProductItems(),
       summary.getTotalPrice(),
-      summary.getPaymentId(),
-      summary.getShipmentId(),
       event.completedAt()
     ));
   }
 
   public void on(OrderEvent.OrderCancelled event) {
+    var summary = summaryOf(event.orderId());
+
     eventBus.publish(new OrderExternalEvent.OrderCancelled(
       event.orderId(),
-      event.paymentId(),
-      event.paymentState(),
-      event.shipmentId(),
-      event.shipmentState(),
-      event.reason(),
+      summary.getClientId(),
+      summary.getProductItems(),
+      summary.getTotalPrice(),
+      toPublicReason(event.reason()),
       event.cancelledAt()
     ));
+  }
+
+  private static OrderExternalEvent.OrderCancelled.Reason toPublicReason(OrderCancellationReason reason) {
+    return switch (reason) {
+      case ProductWasOutOfStock -> OrderExternalEvent.OrderCancelled.Reason.ProductsOutOfStock;
+      case PaymentFailed -> OrderExternalEvent.OrderCancelled.Reason.PaymentFailed;
+      case Requested -> OrderExternalEvent.OrderCancelled.Reason.Requested;
+    };
   }
 
   private OrderSummary summaryOf(OrderId orderId) {

@@ -6,7 +6,20 @@ import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
 import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
 import io.eventdriven.distributedprocesses.core.messaging.InternalEventBus;
 import io.eventdriven.distributedprocesses.core.projections.Database;
+import io.eventdriven.distributedprocesses.ecommerce.orders.cancelling.OrderCancellingPolicy;
+import io.eventdriven.distributedprocesses.ecommerce.orders.cancelling.PendingOrders;
 import io.eventdriven.distributedprocesses.ecommerce.orders.external.OrderExternalEventForwarder;
+import io.eventdriven.distributedprocesses.ecommerce.orders.external.OrderSummaries;
+import io.eventdriven.distributedprocesses.ecommerce.orders.fulfilling.OrderFulfillingPolicy;
+import io.eventdriven.distributedprocesses.ecommerce.orders.placing.OrderPlacingPolicy;
+import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized;
+import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured;
+import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasDelivered;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReservationFailed;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartFinalized;
 
 import java.time.OffsetDateTime;
 import java.util.function.Supplier;
@@ -76,12 +89,40 @@ public final class OrdersConfig {
     var forwarder = new OrderExternalEventForwarder(summaries, integrationEventBus);
 
     internalEventBus
-      .subscribe(OrderInitialized.class, forwarder::on)
       .subscribe(OrderConfirmed.class, forwarder::on)
-      .subscribe(OrderPaymentCaptured.class, forwarder::on)
+      .subscribe(OrderPackageSent.class, forwarder::on)
       .subscribe(OrderCompleted.class, forwarder::on)
       .subscribe(OrderCancelled.class, forwarder::on);
 
     return facade;
+  }
+
+  // The policies send commands to Payments and Shipments, so they can only be wired once those
+  // modules handle them, and after the forwarder, so that each public event goes out before
+  // the steps it causes.
+  public static void configureProcess(
+    CommandBus commandBus,
+    InternalEventBus internalEventBus,
+    IntegrationEventBus integrationEventBus
+  ) {
+    var placing = new OrderPlacingPolicy(commandBus);
+    var fulfilling = new OrderFulfillingPolicy(commandBus);
+    var cancelling = new OrderCancellingPolicy(commandBus);
+
+    internalEventBus
+      .subscribe(OrderInitialized.class, placing::on)
+      .subscribe(OrderConfirmed.class, fulfilling::on)
+      .subscribe(OrderPackageSent.class, fulfilling::on)
+      .subscribe(OrderCancelled.class, cancelling::on);
+
+    integrationEventBus
+      .subscribe(ShoppingCartFinalized.class, placing::on)
+      .subscribe(PaymentAuthorized.class, placing::on)
+      .subscribe(StockReserved.class, placing::on)
+      .subscribe(PackageWasSent.class, fulfilling::on)
+      .subscribe(PaymentCaptured.class, fulfilling::on)
+      .subscribe(PackageWasDelivered.class, fulfilling::on)
+      .subscribe(PaymentFailed.class, cancelling::on)
+      .subscribe(StockReservationFailed.class, cancelling::on);
   }
 }

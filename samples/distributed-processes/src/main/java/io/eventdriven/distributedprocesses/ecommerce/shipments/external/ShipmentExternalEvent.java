@@ -20,6 +20,8 @@ public sealed interface ShipmentExternalEvent {
     ShipmentId shipmentId,
     String referenceId,
     ProductItem[] productItems,
+    String carrier,
+    String trackingNumber,
     OffsetDateTime sentAt
   ) implements ShipmentExternalEvent {
   }

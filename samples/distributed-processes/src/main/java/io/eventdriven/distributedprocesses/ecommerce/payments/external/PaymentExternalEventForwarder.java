@@ -3,8 +3,6 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.external;
 import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
-import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentSummaries;
-import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentSummary;
 
 import java.time.OffsetDateTime;
 

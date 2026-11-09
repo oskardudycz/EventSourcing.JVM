@@ -6,7 +6,14 @@ import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
 import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
 import io.eventdriven.distributedprocesses.core.messaging.InternalEventBus;
 import io.eventdriven.distributedprocesses.core.projections.Database;
+import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizationExpiryWorker;
+import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizationGatewayClient;
+import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizedPayments;
+import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.PaymentTimeoutWorker;
+import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.PendingPayments;
+import io.eventdriven.distributedprocesses.ecommerce.payments.capture.CaptureGatewayClient;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEventForwarder;
+import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentSummaries;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -86,15 +93,16 @@ public final class PaymentsConfig {
       .subscribe(PaymentTimedOut.class, forwarder::on)
       .subscribe(PaymentAuthorizationExpired.class, forwarder::on);
 
-    var paymentGatewayClient = new PaymentGatewayClient(paymentGateway, commandBus);
+    var authorizationGatewayClient = new AuthorizationGatewayClient(paymentGateway, commandBus);
+    var captureGatewayClient = new CaptureGatewayClient(paymentGateway);
 
     // Last, because a provider that answers during the call appends that answer from here:
     // the projections and the forwarder have to be done with the event before that happens.
     internalEventBus
-      .subscribe(PaymentAuthorizationRequested.class, paymentGatewayClient::on)
-      .subscribe(PaymentCaptured.class, paymentGatewayClient::on)
-      .subscribe(PaymentVoided.class, paymentGatewayClient::on)
-      .subscribe(PaymentRefunded.class, paymentGatewayClient::on);
+      .subscribe(PaymentAuthorizationRequested.class, authorizationGatewayClient::on)
+      .subscribe(PaymentCaptured.class, captureGatewayClient::on)
+      .subscribe(PaymentVoided.class, authorizationGatewayClient::on)
+      .subscribe(PaymentRefunded.class, captureGatewayClient::on);
 
     return new PaymentsModule(
       facade,

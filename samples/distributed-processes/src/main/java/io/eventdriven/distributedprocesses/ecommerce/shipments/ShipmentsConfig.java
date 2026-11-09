@@ -6,7 +6,12 @@ import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
 import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
 import io.eventdriven.distributedprocesses.core.messaging.InternalEventBus;
 import io.eventdriven.distributedprocesses.core.projections.Database;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.DeliveryProvider;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.DeliveryProviderClient;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEventForwarder;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentSummaries;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.reservation.ReservationExpiryWorker;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.reservation.StockReservations;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -36,7 +41,14 @@ public final class ShipmentsConfig {
       Shipment::empty
     );
 
-    var facade = new ShipmentFacade(store, isProductAvailable, reservationValidity, now);
+    var deliveryProviderClient = new DeliveryProviderClient(deliveryProvider);
+    var facade = new ShipmentFacade(
+      store,
+      isProductAvailable,
+      deliveryProviderClient,
+      reservationValidity,
+      now
+    );
 
     commandBus
       .handle(ReserveStock.class, facade::reserveStock)
@@ -68,19 +80,14 @@ public final class ShipmentsConfig {
 
     var forwarder = new ShipmentExternalEventForwarder(summaries, integrationEventBus);
 
-    // Forwarding before the delivery provider, so that handing the parcel over does not
-    // publish the delivery before the dispatch that caused it.
+    // The delivery provider is asked while sending, before PackageWasSent is appended,
+    // so nothing has to run after the forwarder.
     internalEventBus
       .subscribe(StockReserved.class, forwarder::on)
       .subscribe(ProductWasOutOfStock.class, forwarder::on)
       .subscribe(PackageWasSent.class, forwarder::on)
       .subscribe(PackageWasDelivered.class, forwarder::on)
       .subscribe(StockReservationExpired.class, forwarder::on);
-
-    var deliveryProviderClient = new DeliveryProviderClient(deliveryProvider);
-
-    internalEventBus
-      .subscribe(PackageWasSent.class, deliveryProviderClient::on);
 
     return new ShipmentsModule(
       facade,

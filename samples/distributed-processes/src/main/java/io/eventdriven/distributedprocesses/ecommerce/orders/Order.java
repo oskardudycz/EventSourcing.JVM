@@ -98,20 +98,22 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
     progress(reservedAt);
   }
 
-  public void recordPaymentCapture(OffsetDateTime capturedAt) {
-    if (status != Status.Confirmed || payment != PaymentProgress.Authorized)
-      return;
-
-    enqueue(new OrderPaymentCaptured(id, paymentId, shipmentId, totalPrice, capturedAt));
-  }
-
-  public void recordPackageSent(OffsetDateTime sentAt) {
+  public void recordPackageSent(String carrier, String trackingNumber, OffsetDateTime sentAt) {
     if (status != Status.Confirmed
-      || payment != PaymentProgress.Captured
+      || payment != PaymentProgress.Authorized
       || shipment != ShipmentProgress.Reserved)
       return;
 
-    enqueue(new OrderPackageSent(id, shipmentId, sentAt));
+    enqueue(new OrderPackageSent(id, paymentId, shipmentId, carrier, trackingNumber, sentAt));
+  }
+
+  public void recordPaymentCapture(OffsetDateTime capturedAt) {
+    if (status != Status.Confirmed || payment != PaymentProgress.Authorized || !hasShipped())
+      return;
+
+    enqueue(new OrderPaymentCaptured(id, paymentId, totalPrice, capturedAt));
+
+    progress(capturedAt);
   }
 
   public void recordDelivery(OffsetDateTime deliveredAt) {
@@ -142,7 +144,7 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
   }
 
   public void cancel(OrderCancellationReason cancellationReason, OffsetDateTime now) {
-    if (!isOpen())
+    if (!isOpen() || hasShipped())
       return;
 
     enqueue(cancelled(cancellationReason, now));
@@ -152,11 +154,20 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
     return status == Status.Opened || status == Status.Confirmed;
   }
 
+  private boolean hasShipped() {
+    return shipment == ShipmentProgress.Sent || shipment == ShipmentProgress.Delivered;
+  }
+
   private void progress(OffsetDateTime now) {
     if (payment == PaymentProgress.Failed || shipment == ShipmentProgress.Failed) {
       // The other participant still has to say where it stands, because that is what decides
       // whether a hold must be released.
       if (payment == PaymentProgress.Pending || shipment == ShipmentProgress.Pending)
+        return;
+
+      // Goods that already left cannot be held back, so the order stays open
+      // and a person has to collect the payment.
+      if (hasShipped())
         return;
 
       var reason = payment == PaymentProgress.Failed
@@ -170,7 +181,7 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
     if (status == Status.Opened
       && payment == PaymentProgress.Authorized
       && shipment == ShipmentProgress.Reserved) {
-      enqueue(new OrderConfirmed(id, paymentId, now));
+      enqueue(new OrderConfirmed(id, paymentId, shipmentId, now));
       return;
     }
 
@@ -194,19 +205,15 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
   }
 
   private OrderPaymentState paymentState() {
-    return switch (payment) {
-      case Authorized -> OrderPaymentState.Authorized;
-      case Captured -> OrderPaymentState.Captured;
-      case Pending, Failed -> OrderPaymentState.NotAuthorized;
-    };
+    return payment == PaymentProgress.Authorized
+      ? OrderPaymentState.Authorized
+      : OrderPaymentState.NotAuthorized;
   }
 
   private OrderShipmentState shipmentState() {
-    return switch (shipment) {
-      case Reserved -> OrderShipmentState.Reserved;
-      case Sent, Delivered -> OrderShipmentState.Sent;
-      case Pending, Failed -> OrderShipmentState.NotReserved;
-    };
+    return shipment == ShipmentProgress.Reserved
+      ? OrderShipmentState.Reserved
+      : OrderShipmentState.NotReserved;
   }
 
   @Override

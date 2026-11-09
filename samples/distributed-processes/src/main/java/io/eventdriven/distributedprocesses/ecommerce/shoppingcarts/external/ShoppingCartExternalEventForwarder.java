@@ -3,8 +3,6 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 
 import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
-import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartSummaries;
-import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartSummary;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.*;
