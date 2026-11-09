@@ -18,6 +18,13 @@ public sealed interface ShipmentEvent {
     OffsetDateTime availabilityCheckedAt) implements ShipmentEvent {
   }
 
+  record ParcelBookingRequested(
+    ShipmentId shipmentId,
+    String referenceId,
+    ProductItem[] productItems,
+    OffsetDateTime requestedAt) implements ShipmentEvent {
+  }
+
   record PackageWasSent(
     ShipmentId shipmentId,
     String referenceId,

@@ -14,6 +14,13 @@ public sealed interface ShipmentCommand {
   ) implements ShipmentCommand {
   }
 
+  record ConfirmParcelBooking(
+    ShipmentId shipmentId,
+    String carrier,
+    String trackingNumber
+  ) implements ShipmentCommand {
+  }
+
   record DeliverPackage(
     ShipmentId shipmentId
   ) implements ShipmentCommand {

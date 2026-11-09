@@ -6,7 +6,7 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 // Stands in for a provider that cannot be reached at all.
 public class ThrowingDeliveryProvider implements DeliveryProvider {
   @Override
-  public ParcelBooking book(ShipmentId shipmentId, ProductItem[] productItems) {
+  public void book(ShipmentId shipmentId, ProductItem[] productItems) {
     throw new RuntimeException("Delivery provider is unreachable");
   }
 }

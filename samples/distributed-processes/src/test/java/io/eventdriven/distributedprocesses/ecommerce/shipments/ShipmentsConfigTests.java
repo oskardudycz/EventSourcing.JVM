@@ -83,15 +83,16 @@ public class ShipmentsConfigTests {
     externalEvents.reset();
 
     commandBus.send(new SendPackage(shipmentId));
-    deliveryProvider.deliverBookedParcels();
+    deliveryProvider.confirmBookings();
+    deliveryProvider.deliverParcels();
 
     externalEvents.shouldReceiveMessages(
       new ShipmentExternalEvent.PackageWasSent(
         shipmentId,
         referenceId,
         available,
-        CallingBackDeliveryProvider.booking.carrier(),
-        CallingBackDeliveryProvider.booking.trackingNumber(),
+        CallingBackDeliveryProvider.carrier,
+        CallingBackDeliveryProvider.trackingNumber,
         now
       ),
       new ShipmentExternalEvent.PackageWasDelivered(shipmentId, referenceId, now)

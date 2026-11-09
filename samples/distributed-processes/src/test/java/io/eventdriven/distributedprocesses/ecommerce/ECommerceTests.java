@@ -27,8 +27,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// The whole order process on one command bus and one integration bus: the cart, the order,
-// the payment and the shipment only meet through commands and public events.
 public class ECommerceTests {
   private final OffsetDateTime now = OffsetDateTime.now();
   private final ShoppingCartId cartId = ShoppingCartId.of(UUID.randomUUID());
