@@ -5,8 +5,9 @@ import io.micrometer.tracing.otel.bridge.OtelBaggageManager;
 import io.micrometer.tracing.otel.bridge.OtelCurrentTraceContext;
 import io.micrometer.tracing.otel.bridge.OtelTracer;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
-import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
+import org.springframework.kafka.support.micrometer.KafkaRecordReceiverContext;
 
 import java.util.Collections;
 import java.util.List;
@@ -16,19 +17,32 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class KafkaMessageBaggageHandlerTest {
   private final Tracer tracer = tracer();
+  private final KafkaMessageBaggageHandler handler = new KafkaMessageBaggageHandler(tracer);
 
   @Test
-  public void publishingWhileHandlingAMessage_SetsCausationIdToTheHandledMessageId() {
-    var record = new ProducerRecord<String, Object>("topic", "message");
+  public void handlingAMessage_MakesItsMessageIdTheCausationId() {
+    var record = new ConsumerRecord<String, Object>("topic", 0, 0, "key", "message");
+    record.headers().add(MESSAGE_ID, "handled-message-id".getBytes());
+    var context = new KafkaRecordReceiverContext(record, "listener", () -> "cluster");
 
-    try (var _ = tracer.createBaggageInScope(CAUSATION_ID, "handled-message-id");
-         var _ = tracer.createBaggageInScope(ENTITY_ID, "entity-id")) {
-      KafkaMessageBaggageHandler.setHeadersFromBaggage(record, tracer);
-    }
+    handler.onScopeOpened(context);
+    var causationId = tracer.getBaggage(CAUSATION_ID).get();
+    handler.onScopeClosed(context);
 
-    var causationId = record.headers().lastHeader(CAUSATION_ID);
-    assertThat(causationId).as("causationId header should be set").isNotNull();
-    assertThat(new String(causationId.value())).isEqualTo("handled-message-id");
+    assertThat(causationId).isEqualTo("handled-message-id");
+    assertThat(tracer.getBaggage(CAUSATION_ID).get()).as("causationId should end with the handling").isNull();
+  }
+
+  @Test
+  public void handlingAMessageWithoutMessageId_SetsNoCausationId() {
+    var record = new ConsumerRecord<String, Object>("topic", 0, 0, "key", "message");
+    var context = new KafkaRecordReceiverContext(record, "listener", () -> "cluster");
+
+    handler.onScopeOpened(context);
+    var causationId = tracer.getBaggage(CAUSATION_ID).get();
+    handler.onScopeClosed(context);
+
+    assertThat(causationId).isNull();
   }
 
   private static Tracer tracer() {
@@ -42,7 +56,7 @@ public class KafkaMessageBaggageHandlerTest {
       },
       new OtelBaggageManager(
         currentTraceContext,
-        List.of(MESSAGE_ID, CORRELATION_ID, CAUSATION_ID, ENTITY_ID, ENTITY_VERSION),
+        List.of(CORRELATION_ID, CAUSATION_ID),
         Collections.emptyList()
       )
     );

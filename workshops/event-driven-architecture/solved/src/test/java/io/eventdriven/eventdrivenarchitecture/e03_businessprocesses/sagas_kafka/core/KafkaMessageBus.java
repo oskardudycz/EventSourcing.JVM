@@ -1,15 +1,20 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core;
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageRouter;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageRoutes;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.RoutingTarget;
 import io.micrometer.tracing.Tracer;
 
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.KafkaMessageBaggageHandler.setHeadersFromBaggage;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageRouter.firstRecordComponent;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.messages.MessageMetadata.setMetadataHeaders;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.errors.InterruptException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.KafkaException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -34,17 +39,23 @@ public class KafkaMessageBus implements MessageBus {
   private final VersionedMessageConverter messageConverter;
   private final KafkaTemplate<String, Object> kafkaTemplate;
   private final KafkaMessageBusProperties properties;
+  private final MessageRouter router;
 
   public KafkaMessageBus(
     Tracer tracer,
     VersionedMessageConverter messageConverter,
     KafkaTemplate<String, Object> kafkaTemplate,
-    KafkaMessageBusProperties properties
+    KafkaMessageBusProperties properties,
+    ObjectProvider<MessageRoutes> messageRoutes
   ) {
     this.tracer = tracer;
     this.messageConverter = messageConverter;
     this.kafkaTemplate = kafkaTemplate;
     this.properties = properties;
+    this.router = new MessageRouter(
+      messageRoutes.orderedStream().toList(),
+      message -> new RoutingTarget(properties.topic(), firstRecordComponent(message))
+    );
   }
 
   public <Message> void publish(List<Message> messages) {
@@ -52,8 +63,9 @@ public class KafkaMessageBus implements MessageBus {
       for (var middleware : middlewares)
         middleware.accept(message);
 
-      var record = new ProducerRecord<String, Object>(properties.topic(), message);
-      setHeadersFromBaggage(record, tracer);
+      var route = router.routeFor(message);
+      var record = new ProducerRecord<String, Object>(route.target(), route.key(), message);
+      setMetadataHeaders(record, tracer);
       try {
         kafkaTemplate.send(record).get(properties.publishTimeout().toMillis(), TimeUnit.MILLISECONDS);
       } catch (ExecutionException e) {

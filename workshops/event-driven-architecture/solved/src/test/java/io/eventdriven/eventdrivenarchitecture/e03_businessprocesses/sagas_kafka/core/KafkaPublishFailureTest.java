@@ -46,7 +46,7 @@ public class KafkaPublishFailureTest {
       .hasCauseInstanceOf(RecordTooLargeException.class);
 
     assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(PUBLISH_TIMEOUT);
-    assertThat(output).contains("Exception thrown when sending a message with key='null' and payload='RoomInspected[id=" + tooLarge.id());
+    assertThat(output).contains("Exception thrown when sending a message with key='" + tooLarge.id() + "' and payload='RoomInspected[id=" + tooLarge.id());
   }
 
   @Test

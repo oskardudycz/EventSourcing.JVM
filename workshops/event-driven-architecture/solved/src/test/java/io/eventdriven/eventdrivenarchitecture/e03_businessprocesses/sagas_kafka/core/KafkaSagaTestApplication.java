@@ -2,7 +2,9 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka
 
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.context.TypeExcludeFilter;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 
 @SpringBootConfiguration
@@ -10,7 +12,7 @@ import org.springframework.context.annotation.Import;
 @ComponentScan(basePackages = {
   "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core",
   "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core"
-})
+}, excludeFilters = @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class))
 @Import(KafkaTestConfiguration.class)
 public class KafkaSagaTestApplication {
 }

@@ -8,6 +8,7 @@ import io.opentelemetry.sdk.OpenTelemetrySdk;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.rabbit.support.micrometer.RabbitMessageReceiverContext;
 
 import java.util.Collections;
 import java.util.List;
@@ -17,19 +18,31 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class RabbitMessageBaggageHandlerTest {
   private final Tracer tracer = tracer();
+  private final RabbitMessageBaggageHandler handler = new RabbitMessageBaggageHandler(tracer);
 
   @Test
-  public void publishingWhileHandlingAMessage_SetsCausationIdToTheHandledMessageId() {
-    var message = new Message(new byte[0], new MessageProperties());
+  public void handlingAMessage_MakesItsMessageIdTheCausationId() {
+    var properties = new MessageProperties();
+    properties.setHeader(MESSAGE_ID, "handled-message-id");
+    var context = new RabbitMessageReceiverContext(new Message(new byte[0], properties), "listener");
 
-    try (var _ = tracer.createBaggageInScope(CAUSATION_ID, "handled-message-id");
-         var _ = tracer.createBaggageInScope(ENTITY_ID, "entity-id")) {
-      RabbitMessageBaggageHandler.setHeadersFromBaggage(message, tracer);
-    }
+    handler.onScopeOpened(context);
+    var causationId = tracer.getBaggage(CAUSATION_ID).get();
+    handler.onScopeClosed(context);
 
-    assertThat(message.getMessageProperties().<String>getHeader(CAUSATION_ID))
-      .as("causationId header should be set")
-      .isEqualTo("handled-message-id");
+    assertThat(causationId).isEqualTo("handled-message-id");
+    assertThat(tracer.getBaggage(CAUSATION_ID).get()).as("causationId should end with the handling").isNull();
+  }
+
+  @Test
+  public void handlingAMessageWithoutMessageId_SetsNoCausationId() {
+    var context = new RabbitMessageReceiverContext(new Message(new byte[0], new MessageProperties()), "listener");
+
+    handler.onScopeOpened(context);
+    var causationId = tracer.getBaggage(CAUSATION_ID).get();
+    handler.onScopeClosed(context);
+
+    assertThat(causationId).isNull();
   }
 
   private static Tracer tracer() {
@@ -43,7 +56,7 @@ public class RabbitMessageBaggageHandlerTest {
       },
       new OtelBaggageManager(
         currentTraceContext,
-        List.of(MESSAGE_ID, CORRELATION_ID, CAUSATION_ID, ENTITY_ID, ENTITY_VERSION),
+        List.of(CORRELATION_ID, CAUSATION_ID),
         Collections.emptyList()
       )
     );
