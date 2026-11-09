@@ -5,25 +5,16 @@ import io.micrometer.observation.ObservationHandler;
 import io.micrometer.tracing.BaggageInScope;
 import io.micrometer.tracing.Tracer;
 import org.jetbrains.annotations.NotNull;
-import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.support.micrometer.RabbitMessageReceiverContext;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.*;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.ENTITY_ID;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.ENTITY_VERSION;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.getEntityIdFromBaggage;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.getEntityVersionFromBaggage;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.CAUSATION_ID;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.MESSAGE_ID;
 
 @Component
 public class RabbitMessageBaggageHandler implements ObservationHandler<RabbitMessageReceiverContext> {
 
-  private static final String BAGGAGE_SCOPES_KEY = "rabbit.baggage.scopes";
+  private static final String CAUSATION_SCOPE_KEY = "rabbit.baggage.causation";
   private final Tracer tracer;
 
   public RabbitMessageBaggageHandler(Tracer tracer) {
@@ -37,61 +28,17 @@ public class RabbitMessageBaggageHandler implements ObservationHandler<RabbitMes
 
   @Override
   public void onScopeOpened(RabbitMessageReceiverContext context) {
-    var headers = context.getCarrier().getMessageProperties().getHeaders();
-    List<BaggageInScope> scopes = new ArrayList<>();
+    Object messageId = context.getCarrier().getMessageProperties().getHeader(MESSAGE_ID);
+    if (messageId == null)
+      return;
 
-    addBaggageIfPresent(scopes, headers, MESSAGE_ID, CAUSATION_ID);
-    addBaggageIfPresent(scopes, headers, CORRELATION_ID);
-    addBaggageIfPresent(scopes, headers, ENTITY_ID);
-    addBaggageIfPresent(scopes, headers, ENTITY_VERSION);
-
-    if (!scopes.isEmpty()) {
-      context.put(BAGGAGE_SCOPES_KEY, scopes);
-    }
+    context.put(CAUSATION_SCOPE_KEY, tracer.createBaggageInScope(CAUSATION_ID, messageId.toString()));
   }
 
   @Override
   public void onScopeClosed(RabbitMessageReceiverContext context) {
-    List<BaggageInScope> scopes = context.get(BAGGAGE_SCOPES_KEY);
-    if (scopes != null) {
-      scopes.forEach(BaggageInScope::close);
-    }
-  }
-
-  private void addBaggageIfPresent(List<BaggageInScope> scopes, Map<String, Object> headers, String from, String to) {
-    var value = headers.get(from);
-    if (value == null) return;
-
-    String stringValue;
-    if (value instanceof byte[]) {
-      stringValue = new String((byte[]) value);
-    } else {
-      stringValue = value.toString();
-    }
-
-    scopes.add(tracer.createBaggageInScope(to, stringValue));
-  }
-
-  private void addBaggageIfPresent(List<BaggageInScope> scopes, Map<String, Object> headers, String key) {
-    addBaggageIfPresent(scopes, headers, key, key);
-  }
-
-  public static void setHeadersFromBaggage(Message message, Tracer tracer) {
-    var properties = message.getMessageProperties();
-
-    var correlationId = getCorrelationIdFromBaggage(tracer)
-      .orElse(java.util.UUID.randomUUID().toString());
-    properties.setHeader(CORRELATION_ID, correlationId);
-
-    getCausationIdFromBaggage(tracer).ifPresent(value ->
-      properties.setHeader(CAUSATION_ID, value));
-
-    var messageId = java.util.UUID.randomUUID().toString();
-    properties.setHeader(MESSAGE_ID, messageId);
-
-    getEntityIdFromBaggage(tracer).ifPresent(value ->
-      properties.setHeader(ENTITY_ID, value));
-    getEntityVersionFromBaggage(tracer).ifPresent(value ->
-      properties.setHeader(ENTITY_VERSION, value));
+    BaggageInScope causation = context.get(CAUSATION_SCOPE_KEY);
+    if (causation != null)
+      causation.close();
   }
 }
