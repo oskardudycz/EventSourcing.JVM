@@ -3,9 +3,9 @@ package io.eventdriven.distributedprocesses.ecommerce.shipments.delivery;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 
-// A real provider books the parcel and returns the carrier and tracking number at once, as
-// label APIs do, but only calls back with the delivery confirmation later, which is why
-// delivering is a separate command rather than a return value.
+// A real provider would only accept the booking here and answer through webhooks: first with the
+// carrier and tracking number, later with the delivery confirmation. In this sample that is
+// modelled by the implementation sending ConfirmParcelBooking and DeliverPackage back.
 public interface DeliveryProvider {
-  ParcelBooking book(ShipmentId shipmentId, ProductItem[] productItems);
+  void book(ShipmentId shipmentId, ProductItem[] productItems);
 }

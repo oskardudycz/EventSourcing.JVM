@@ -1,12 +1,9 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
-import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.ParcelBooking;
 
 import java.time.OffsetDateTime;
 import java.util.Arrays;
-import java.util.Optional;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent.*;
@@ -14,6 +11,7 @@ import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEv
 public class Shipment extends AbstractAggregate<ShipmentEvent, ShipmentId> {
   enum Status {
     Reserved,
+    BookingRequested,
     Sent,
     Delivered,
     Released,
@@ -53,26 +51,18 @@ public class Shipment extends AbstractAggregate<ShipmentEvent, ShipmentId> {
     enqueue(new StockReserved(shipmentId, referenceId, productItems, now, reservedUntil));
   }
 
-  public void send(
-    BiFunction<ShipmentId, ProductItem[], Optional<ParcelBooking>> bookParcel,
-    OffsetDateTime now
-  ) {
+  public void send(OffsetDateTime now) {
     if (status != Status.Reserved)
       return;
 
-    var booking = bookParcel.apply(id, productItems);
+    enqueue(new ParcelBookingRequested(id, referenceId, productItems, now));
+  }
 
-    if (booking.isEmpty())
+  public void confirmBooking(String carrier, String trackingNumber, OffsetDateTime now) {
+    if (status != Status.BookingRequested)
       return;
 
-    enqueue(new PackageWasSent(
-      id,
-      referenceId,
-      productItems,
-      booking.get().carrier(),
-      booking.get().trackingNumber(),
-      now
-    ));
+    enqueue(new PackageWasSent(id, referenceId, productItems, carrier, trackingNumber, now));
   }
 
   public void deliver(OffsetDateTime now) {
@@ -83,17 +73,21 @@ public class Shipment extends AbstractAggregate<ShipmentEvent, ShipmentId> {
   }
 
   public void releaseStock(OffsetDateTime now) {
-    if (status != Status.Reserved)
+    if (!isStockHeld())
       return;
 
     enqueue(new StockReleased(id, referenceId, now));
   }
 
   public void expireReservation(OffsetDateTime now) {
-    if (status != Status.Reserved)
+    if (!isStockHeld())
       return;
 
     enqueue(new StockReservationExpired(id, referenceId, now));
+  }
+
+  private boolean isStockHeld() {
+    return status == Status.Reserved || status == Status.BookingRequested;
   }
 
   @Override
@@ -111,6 +105,7 @@ public class Shipment extends AbstractAggregate<ShipmentEvent, ShipmentId> {
         productItems = outOfStock.productItems();
         status = Status.ProductsOutOfStock;
       }
+      case ParcelBookingRequested bookingRequested -> status = Status.BookingRequested;
       case PackageWasSent packageWasSent -> status = Status.Sent;
       case PackageWasDelivered packageWasDelivered -> status = Status.Delivered;
       case StockReleased stockReleased -> status = Status.Released;

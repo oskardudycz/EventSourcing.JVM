@@ -38,6 +38,8 @@ public class ShipmentFacadeTests {
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
   private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
   private final MessageCatcher published = new MessageCatcher();
+  private final String carrier = "DHL";
+  private final String trackingNumber = "JD014600006281234567";
 
   public ShipmentFacadeTests() {
     eventStore.use(published::catchMessage);
@@ -75,19 +77,27 @@ public class ShipmentFacadeTests {
   }
 
   @Test
-  public void sendPackageDispatchesPackageWasSentWithTheReservedItemsAndTheBookedTracking() {
+  public void sendPackageDispatchesParcelBookingRequestedWithTheReservedItems() {
     reserve();
 
     commandBus.send(new SendPackage(shipmentId));
 
-    published.shouldReceiveMessages(new PackageWasSent(
-      shipmentId,
-      referenceId,
-      available,
-      SilentDeliveryProvider.booking.carrier(),
-      SilentDeliveryProvider.booking.trackingNumber(),
-      now
-    ));
+    published.shouldReceiveMessages(
+      new ParcelBookingRequested(shipmentId, referenceId, available, now)
+    );
+  }
+
+  @Test
+  public void confirmParcelBookingDispatchesPackageWasSentWithTheCarrierAndTrackingNumber() {
+    reserve();
+    commandBus.send(new SendPackage(shipmentId));
+    published.reset();
+
+    commandBus.send(new ConfirmParcelBooking(shipmentId, carrier, trackingNumber));
+
+    published.shouldReceiveMessages(
+      new PackageWasSent(shipmentId, referenceId, available, carrier, trackingNumber, now)
+    );
   }
 
   @Test
@@ -102,8 +112,7 @@ public class ShipmentFacadeTests {
   @Test
   public void deliverPackageDispatchesPackageWasDelivered() {
     reserve();
-    commandBus.send(new SendPackage(shipmentId));
-    published.reset();
+    dispatch();
 
     commandBus.send(new DeliverPackage(shipmentId));
 
@@ -132,8 +141,7 @@ public class ShipmentFacadeTests {
   @Test
   public void releasingStockOfASentPackageStoresNothingAndDoesNotThrow() {
     reserve();
-    commandBus.send(new SendPackage(shipmentId));
-    published.reset();
+    dispatch();
 
     assertThatCode(() -> commandBus.send(new ReleaseStock(shipmentId)))
       .doesNotThrowAnyException();
@@ -172,6 +180,14 @@ public class ShipmentFacadeTests {
 
   private void reserve() {
     commandBus.send(new ReserveStock(referenceId, available));
+    published.reset();
+  }
+
+  private void dispatch() {
+    commandBus.send(
+      new SendPackage(shipmentId),
+      new ConfirmParcelBooking(shipmentId, carrier, trackingNumber)
+    );
     published.reset();
   }
 

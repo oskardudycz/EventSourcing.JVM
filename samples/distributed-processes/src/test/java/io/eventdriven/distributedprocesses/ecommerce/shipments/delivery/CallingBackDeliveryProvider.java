@@ -7,15 +7,17 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ConfirmParcelBooking;
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.DeliverPackage;
 
-// Stands in for a provider that books the parcel at once and calls back when it is delivered.
-// The parcel is booked before the shipment records it as sent, so the call back cannot come
-// from inside the booking: tests decide when the parcels arrive.
+// Stands in for a provider that answers when the test says so: first with the booking,
+// then with the delivery.
 public class CallingBackDeliveryProvider implements DeliveryProvider {
-  public static final ParcelBooking booking = new ParcelBooking("UPS", "1Z999AA10123456784");
+  public static final String carrier = "UPS";
+  public static final String trackingNumber = "1Z999AA10123456784";
 
   private final CommandBus commandBus;
+  private final List<ShipmentId> requested = new ArrayList<>();
   private final List<ShipmentId> booked = new ArrayList<>();
 
   public CallingBackDeliveryProvider(CommandBus commandBus) {
@@ -23,13 +25,21 @@ public class CallingBackDeliveryProvider implements DeliveryProvider {
   }
 
   @Override
-  public ParcelBooking book(ShipmentId shipmentId, ProductItem[] productItems) {
-    booked.add(shipmentId);
-
-    return booking;
+  public void book(ShipmentId shipmentId, ProductItem[] productItems) {
+    requested.add(shipmentId);
   }
 
-  public void deliverBookedParcels() {
+  public void confirmBookings() {
+    var confirmed = List.copyOf(requested);
+    requested.clear();
+    booked.addAll(confirmed);
+
+    for (var shipmentId : confirmed) {
+      commandBus.send(new ConfirmParcelBooking(shipmentId, carrier, trackingNumber));
+    }
+  }
+
+  public void deliverParcels() {
     var delivered = List.copyOf(booked);
     booked.clear();
 

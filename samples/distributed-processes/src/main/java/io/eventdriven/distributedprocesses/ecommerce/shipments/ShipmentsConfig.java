@@ -41,18 +41,12 @@ public final class ShipmentsConfig {
       Shipment::empty
     );
 
-    var deliveryProviderClient = new DeliveryProviderClient(deliveryProvider);
-    var facade = new ShipmentFacade(
-      store,
-      isProductAvailable,
-      deliveryProviderClient,
-      reservationValidity,
-      now
-    );
+    var facade = new ShipmentFacade(store, isProductAvailable, reservationValidity, now);
 
     commandBus
       .handle(ReserveStock.class, facade::reserveStock)
       .handle(SendPackage.class, facade::sendPackage)
+      .handle(ConfirmParcelBooking.class, facade::confirmParcelBooking)
       .handle(DeliverPackage.class, facade::deliverPackage)
       .handle(ReleaseStock.class, facade::releaseStock)
       .handle(ExpireStockReservation.class, facade::expireStockReservation);
@@ -80,14 +74,17 @@ public final class ShipmentsConfig {
 
     var forwarder = new ShipmentExternalEventForwarder(summaries, integrationEventBus);
 
-    // The delivery provider is asked while sending, before PackageWasSent is appended,
-    // so nothing has to run after the forwarder.
     internalEventBus
       .subscribe(StockReserved.class, forwarder::on)
       .subscribe(ProductWasOutOfStock.class, forwarder::on)
       .subscribe(PackageWasSent.class, forwarder::on)
       .subscribe(PackageWasDelivered.class, forwarder::on)
       .subscribe(StockReservationExpired.class, forwarder::on);
+
+    var deliveryProviderClient = new DeliveryProviderClient(deliveryProvider);
+
+    internalEventBus
+      .subscribe(ParcelBookingRequested.class, deliveryProviderClient::on);
 
     return new ShipmentsModule(
       facade,

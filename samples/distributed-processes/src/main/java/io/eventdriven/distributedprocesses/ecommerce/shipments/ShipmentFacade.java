@@ -1,7 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
-import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.DeliveryProviderClient;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -13,7 +12,6 @@ import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCo
 public class ShipmentFacade {
   private final AggregateStore<Shipment, ShipmentEvent, ShipmentId> store;
   private final Function<ProductItem, Boolean> isProductAvailable;
-  private final DeliveryProviderClient deliveryProviderClient;
   private final Duration reservationValidity;
   private final Supplier<OffsetDateTime> now;
 
@@ -24,13 +22,11 @@ public class ShipmentFacade {
   public ShipmentFacade(
     AggregateStore<Shipment, ShipmentEvent, ShipmentId> store,
     Function<ProductItem, Boolean> isProductAvailable,
-    DeliveryProviderClient deliveryProviderClient,
     Duration reservationValidity,
     Supplier<OffsetDateTime> now
   ) {
     this.store = store;
     this.isProductAvailable = isProductAvailable;
-    this.deliveryProviderClient = deliveryProviderClient;
     this.reservationValidity = reservationValidity;
     this.now = now;
   }
@@ -55,7 +51,14 @@ public class ShipmentFacade {
   public void sendPackage(SendPackage command) {
     store.getAndUpdate(
       command.shipmentId(),
-      current -> current.send(deliveryProviderClient::book, now.get())
+      current -> current.send(now.get())
+    );
+  }
+
+  public void confirmParcelBooking(ConfirmParcelBooking command) {
+    store.getAndUpdate(
+      command.shipmentId(),
+      current -> current.confirmBooking(command.carrier(), command.trackingNumber(), now.get())
     );
   }
 

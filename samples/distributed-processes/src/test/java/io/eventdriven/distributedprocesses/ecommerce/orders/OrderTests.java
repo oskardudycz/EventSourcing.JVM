@@ -126,7 +126,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
       .thenNothing();
   }
 
-  // The commit phase — the package leaves first, and the money moves once it has
+  // The commit phase
 
   @Test
   public void recordingTheDispatchOfAConfirmedOrderEmitsOrderPackageSentNamingThePaymentToCapture() {

@@ -41,23 +41,24 @@ public class DeliveryProviderClientTests {
   private final MessageCatcher published = new MessageCatcher();
 
   @Test
-  public void callingBackProviderDeliversTheParcelItBooked() {
+  public void callingBackProviderBooksThenDeliversTheParcel() {
     var deliveryProvider = new CallingBackDeliveryProvider(commandBus);
     configure(deliveryProvider);
 
     commandBus.send(new ReserveStock(referenceId, available));
+    commandBus.send(new SendPackage(shipmentId));
     published.reset();
 
-    commandBus.send(new SendPackage(shipmentId));
-    deliveryProvider.deliverBookedParcels();
+    deliveryProvider.confirmBookings();
+    deliveryProvider.deliverParcels();
 
     published.shouldReceiveMessages(
       new PackageWasSent(
         shipmentId,
         referenceId,
         available,
-        CallingBackDeliveryProvider.booking.carrier(),
-        CallingBackDeliveryProvider.booking.trackingNumber(),
+        CallingBackDeliveryProvider.carrier,
+        CallingBackDeliveryProvider.trackingNumber,
         now
       ),
       new PackageWasDelivered(shipmentId, referenceId, now)
@@ -65,7 +66,7 @@ public class DeliveryProviderClientTests {
   }
 
   @Test
-  public void silentProviderLeavesThePackageSentAndUndelivered() {
+  public void silentProviderLeavesThePackageWaitingForItsBooking() {
     configure(new SilentDeliveryProvider());
 
     commandBus.send(new ReserveStock(referenceId, available));
@@ -73,18 +74,13 @@ public class DeliveryProviderClientTests {
 
     commandBus.send(new SendPackage(shipmentId));
 
-    published.shouldReceiveMessages(new PackageWasSent(
-      shipmentId,
-      referenceId,
-      available,
-      SilentDeliveryProvider.booking.carrier(),
-      SilentDeliveryProvider.booking.trackingNumber(),
-      now
-    ));
+    published.shouldReceiveMessages(
+      new ParcelBookingRequested(shipmentId, referenceId, available, now)
+    );
   }
 
   @Test
-  public void unreachableProviderLeavesTheShipmentReservedInsteadOfThrowing() {
+  public void unreachableProviderLeavesTheStockHeldInsteadOfThrowing() {
     configure(new ThrowingDeliveryProvider());
 
     commandBus.send(new ReserveStock(referenceId, available));
@@ -93,21 +89,20 @@ public class DeliveryProviderClientTests {
     assertThatCode(() -> commandBus.send(new SendPackage(shipmentId)))
       .doesNotThrowAnyException();
 
-    published.shouldNotReceiveAnyEvent();
-
-    // Still reserved, so the stock can be released
     commandBus.send(new ReleaseStock(shipmentId));
 
-    published.shouldReceiveMessages(new StockReleased(shipmentId, referenceId, now));
+    published.shouldReceiveMessages(
+      new ParcelBookingRequested(shipmentId, referenceId, available, now),
+      new StockReleased(shipmentId, referenceId, now)
+    );
   }
 
   @Test
   public void providerIsAskedWithTheShipmentAndItsReservedItems() {
     var bookings = new ArrayList<String>();
-    configure((bookedShipmentId, productItems) -> {
-      bookings.add("%s:%s".formatted(bookedShipmentId, productItems.length));
-      return SilentDeliveryProvider.booking;
-    });
+    configure((bookedShipmentId, productItems) ->
+      bookings.add("%s:%s".formatted(bookedShipmentId, productItems.length))
+    );
 
     commandBus.send(new ReserveStock(referenceId, available));
     commandBus.send(new SendPackage(shipmentId));
@@ -118,10 +113,7 @@ public class DeliveryProviderClientTests {
   @Test
   public void sendingTheSamePackageTwiceBooksOneParcel() {
     var booked = new ArrayList<ShipmentId>();
-    configure((bookedShipmentId, productItems) -> {
-      booked.add(bookedShipmentId);
-      return SilentDeliveryProvider.booking;
-    });
+    configure((bookedShipmentId, productItems) -> booked.add(bookedShipmentId));
 
     commandBus.send(new ReserveStock(referenceId, available));
     commandBus.send(new SendPackage(shipmentId), new SendPackage(shipmentId));
@@ -132,10 +124,7 @@ public class DeliveryProviderClientTests {
   @Test
   public void aReservationIsNeverBookedBeforeItIsSent() {
     var booked = new ArrayList<ShipmentId>();
-    configure((bookedShipmentId, productItems) -> {
-      booked.add(bookedShipmentId);
-      return SilentDeliveryProvider.booking;
-    });
+    configure((bookedShipmentId, productItems) -> booked.add(bookedShipmentId));
 
     commandBus.send(new ReserveStock(referenceId, available));
 
@@ -145,10 +134,7 @@ public class DeliveryProviderClientTests {
   @Test
   public void outOfStockShipmentIsNeverBooked() {
     var booked = new ArrayList<ShipmentId>();
-    configure((bookedShipmentId, productItems) -> {
-      booked.add(bookedShipmentId);
-      return SilentDeliveryProvider.booking;
-    });
+    configure((bookedShipmentId, productItems) -> booked.add(bookedShipmentId));
 
     commandBus.send(new ReserveStock(referenceId, new ProductItem[]{unavailableItem}));
     commandBus.send(new SendPackage(shipmentId));
