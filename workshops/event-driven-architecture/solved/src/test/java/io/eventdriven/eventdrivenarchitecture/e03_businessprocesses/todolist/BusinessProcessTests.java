@@ -51,8 +51,7 @@ public class BusinessProcessTests {
 
     configureGroupCheckouts(
       messageBus,
-      new GroupCheckoutProjection(database.collection(GroupCheckout.class)),
-      new GroupCheckoutToDoList(messageBus)
+      new GroupCheckoutToDoList(new GroupCheckoutProjection(database.collection(GroupCheckout.class)), messageBus)
     );
     configureGuestStayAccounts(messageBus, guestStayFacade);
   }

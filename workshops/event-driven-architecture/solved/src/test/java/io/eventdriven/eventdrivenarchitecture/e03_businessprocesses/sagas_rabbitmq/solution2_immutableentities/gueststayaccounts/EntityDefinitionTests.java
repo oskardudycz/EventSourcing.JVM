@@ -1,21 +1,16 @@
-package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities;
+package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.gueststayaccounts;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.InMemoryMessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccount;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccountFacade;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand;
 import net.datafaker.Faker;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
-
 
 public class EntityDefinitionTests {
 
@@ -38,7 +33,6 @@ public class EntityDefinitionTests {
   }
 
   @Test
-  @Tag("Exercise")
   public void checkingInGuest_Succeeds() {
     // Given
     var guestStayId = UUID.randomUUID();
@@ -53,7 +47,6 @@ public class EntityDefinitionTests {
   }
 
   @Test
-  @Tag("Exercise")
   public void recordingChargeForCheckedInGuest_Succeeds() {
     // Given
     var guestStayId = UUID.randomUUID();
@@ -71,7 +64,6 @@ public class EntityDefinitionTests {
   }
 
   @Test
-  @Tag("Exercise")
   public void recordingPaymentForCheckedInGuest_Succeeds() {
     // Given
     var guestStayId = UUID.randomUUID();
@@ -89,7 +81,6 @@ public class EntityDefinitionTests {
   }
 
   @Test
-  @Tag("Exercise")
   public void recordingPaymentForCheckedInGuestWithCharge_Succeeds() {
     // Given
     var guestStayId = UUID.randomUUID();
@@ -108,7 +99,6 @@ public class EntityDefinitionTests {
   }
 
   @Test
-  @Tag("Exercise")
   public void checkingOutGuestWithSettledBalance_Succeeds() {
     // Given
     var guestStayId = UUID.randomUUID();
@@ -129,7 +119,6 @@ public class EntityDefinitionTests {
   }
 
   @Test
-  @Tag("Exercise")
   public void checkingOutGuestWithUnsettledBalance_FailsWithGuestCheckoutFailed() {
     // Given
     var guestStayId = UUID.randomUUID();

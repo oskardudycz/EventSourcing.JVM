@@ -19,6 +19,6 @@ public class ScheduledGroupCheckoutToDoList {
 
   @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
   public void handleAll() {
-    collection.findAll().forEach(groupCheckoutToDoList::handle);
+    collection.findAll().forEach(groupCheckoutToDoList::tryComplete);
   }
 }

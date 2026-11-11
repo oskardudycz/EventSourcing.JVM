@@ -33,7 +33,7 @@ public class GroupCheckoutFacade {
     // account.doSomething;
     var events = List.of();
 
-    collection.store(command.guestStayId(), account);
+    collection.store(command.groupCheckoutId(), account);
     messageBus.publish(events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
@@ -48,7 +48,7 @@ public class GroupCheckoutFacade {
     // account.doSomething;
     var events = List.of();
 
-    collection.store(command.guestStayId(), account);
+    collection.store(command.groupCheckoutId(), account);
     messageBus.publish(events);
 
     throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
