@@ -4,7 +4,6 @@ import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,11 +39,9 @@ public record GroupCheckout(
     return new GroupCheckout(id, checkouts, at);
   }
 
-  public Optional<UUID> nextGuestToCheckOut() {
-    return guestStayCheckouts.entrySet().stream()
-      .filter(kv -> kv.getValue().equals(CheckoutStatus.INITIATED))
-      .map(Map.Entry::getKey)
-      .findFirst();
+  public boolean areAnyOngoingCheckouts() {
+    return guestStayCheckouts.values().stream()
+      .anyMatch(guestStayStatus -> guestStayStatus.equals(CheckoutStatus.INITIATED));
   }
 
   public boolean areAnyFailedCheckouts() {

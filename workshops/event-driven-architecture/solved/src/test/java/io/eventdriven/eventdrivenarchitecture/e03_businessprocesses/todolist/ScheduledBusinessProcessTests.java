@@ -51,13 +51,13 @@ public class ScheduledBusinessProcessTests {
     }
     scheduledToDoList = new ScheduledGroupCheckoutToDoList(
       database.collection(GroupCheckout.class),
-      new GroupCheckoutToDoList(messageBus)
+      new GroupCheckoutToDoList(groupCheckoutProjection, messageBus)
     );
     configureGuestStayAccounts(messageBus, guestStayFacade);
   }
 
   @Test
-  public void groupCheckoutForMultipleGuestStay_ShouldTakeOneStepEachTimeTimeHasPassed() {
+  public void groupCheckoutForMultipleGuestStay_ShouldCompleteOnceTimeHasPassed() {
     // Given
     UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID() };
 
@@ -73,11 +73,14 @@ public class ScheduledBusinessProcessTests {
 
     // Then
     publishedMessages.shouldReceiveMessages(List.of(
-      new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now)
+      new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
+      new CheckOutGuest(guestStays[0], now, groupCheckoutId),
+      new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
+      new CheckOutGuest(guestStays[1], now, groupCheckoutId),
+      new GuestStayAccountEvent.GuestCheckedOut(guestStays[1], now, groupCheckoutId)
     ));
 
     // When
-    scheduledToDoList.handleAll();
     scheduledToDoList.handleAll();
     scheduledToDoList.handleAll();
 

@@ -1,13 +1,10 @@
-package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist;
+package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.gueststayaccounts;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccount;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.InMemoryMessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountEvent;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountFacade;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.processmanagers.gueststayaccounts.GuestStayAccountFacade.GuestStayAccountCommand;
 import net.datafaker.Faker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

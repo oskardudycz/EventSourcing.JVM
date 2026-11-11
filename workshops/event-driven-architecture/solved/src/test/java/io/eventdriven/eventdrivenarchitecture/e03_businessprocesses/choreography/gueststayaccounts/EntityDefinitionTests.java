@@ -1,13 +1,10 @@
-package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities;
+package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.gueststayaccounts;
 
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.InMemoryMessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccount;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccountFacade;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.choreography.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand;
 import net.datafaker.Faker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

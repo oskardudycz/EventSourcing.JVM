@@ -5,13 +5,10 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Message
 public final class GroupCheckoutsConfig {
   public static void configureGroupCheckouts(
     MessageBus messageBus,
-    GroupCheckoutProjection groupCheckoutProjection,
     GroupCheckoutToDoList groupCheckoutToDoList
   ) {
-    for (var eventType : groupCheckoutProjection.canHandle()) {
-      messageBus.subscribe(eventType, event ->
-        groupCheckoutProjection.handle(event).ifPresent(groupCheckoutToDoList::handle)
-      );
+    for (var eventType : groupCheckoutToDoList.canHandle()) {
+      messageBus.subscribe(eventType, groupCheckoutToDoList::handle);
     }
   }
 }
