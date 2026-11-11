@@ -5,9 +5,11 @@ import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
 
 import java.util.List;
+import java.util.UUID;
+import java.util.function.Function;
 
+import static io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.FunctionalTools.FoldLeft.reduce;
 import static io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccount.INITIAL;
-import static io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccount.evolve;
 import static io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.decide;
 
 public class GuestStayAccountFacade {
@@ -20,39 +22,34 @@ public class GuestStayAccountFacade {
   }
 
   public void checkInGuest(CheckInGuest command) {
+    if (collection.get(command.guestStayId()).isPresent())
+      return;
+
     var checkedIn = decide(command, INITIAL);
 
-    collection.store(command.guestStayId(), evolve(INITIAL, checkedIn));
-    messageBus.publish(List.of(checkedIn));
+    collection.store(command.guestStayId(), reduce(checkedIn, INITIAL, GuestStayAccount::evolve));
+    messageBus.publish(checkedIn);
   }
 
   public void recordCharge(RecordCharge command) {
-    var account = collection.get(command.guestStayId())
-      .orElseThrow(() -> new IllegalStateException("Entity not found"));
-
-    var chargeRecorded = decide(command, account);
-
-    collection.store(command.guestStayId(), evolve(account, chargeRecorded));
-    messageBus.publish(List.of(chargeRecorded));
+    handle(command.guestStayId(), account -> decide(command, account));
   }
 
   public void recordPayment(RecordPayment command) {
-    var account = collection.get(command.guestStayId())
-      .orElseThrow(() -> new IllegalStateException("Entity not found"));
-
-    var recordPayment = decide(command, account);
-
-    collection.store(command.guestStayId(), evolve(account, recordPayment));
-    messageBus.publish(List.of(recordPayment));
+    handle(command.guestStayId(), account -> decide(command, account));
   }
 
   public void checkOutGuest(CheckOutGuest command) {
-    var account = collection.get(command.guestStayId())
+    handle(command.guestStayId(), account -> decide(command, account));
+  }
+
+  private void handle(UUID guestStayId, Function<GuestStayAccount, List<GuestStayAccountEvent>> decide) {
+    var account = collection.get(guestStayId)
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
-    var checkedOut = decide(command, account);
+    var events = decide.apply(account);
 
-    collection.store(command.guestStayId(), evolve(account, checkedOut));
-    messageBus.publish(List.of(checkedOut));
+    collection.store(guestStayId, reduce(events, account, GuestStayAccount::evolve));
+    messageBus.publish(events);
   }
 }

@@ -8,44 +8,55 @@ import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutabl
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent.*;
 
 import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 public final class GuestStayAccountDecider {
-  public static GuestCheckedIn handle(CheckInGuest command) {
-    return new GuestCheckedIn(command.guestStayId(), command.now());
+  public static List<GuestStayAccountEvent> handle(CheckInGuest command) {
+    return List.of(new GuestCheckedIn(command.guestStayId(), command.now()));
   }
 
-  public static ChargeRecorded handle(RecordCharge command, GuestStayAccount state) {
+  public static List<GuestStayAccountEvent> handle(RecordCharge command, GuestStayAccount state) {
     if (state.status() != Status.OPEN)
       throw new RuntimeException("Cannot record charge if status is other than Open");
 
-    return new ChargeRecorded(state.id(), command.amount(), command.now());
+    if (state.recordedChargeIds().contains(command.chargeId()))
+      return List.of();
+
+    return List.of(new ChargeRecorded(state.id(), command.chargeId(), command.amount(), command.now()));
   }
 
-  public static PaymentRecorded handle(RecordPayment command, GuestStayAccount state) {
+  public static List<GuestStayAccountEvent> handle(RecordPayment command, GuestStayAccount state) {
     if (state.status() != Status.OPEN)
       throw new RuntimeException("Cannot record payment if status is other than Open");
 
-    return new PaymentRecorded(state.id(), command.amount(), command.now());
+    if (state.recordedPaymentIds().contains(command.paymentId()))
+      return List.of();
+
+    return List.of(new PaymentRecorded(state.id(), command.paymentId(), command.amount(), command.now()));
   }
 
-  public static GuestStayAccountEvent handle(CheckOutGuest command, GuestStayAccount state) {
+  public static List<GuestStayAccountEvent> handle(CheckOutGuest command, GuestStayAccount state) {
+    if (state.status() == Status.CHECKED_OUT && Objects.equals(state.groupCheckoutId(), command.groupCheckOutId()))
+      return List.of();
+
     if (state.status() != Status.OPEN || !state.isSettled()) {
-      return new GuestCheckoutFailed(
+      return List.of(new GuestCheckoutFailed(
         state.id(),
         !state.isSettled() ? GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED : GuestCheckoutFailed.Reason.INVALID_STATE,
         command.now(),
         command.groupCheckOutId()
-      );
+      ));
     }
-    return new GuestCheckedOut(
+    return List.of(new GuestCheckedOut(
       state.id(),
       command.now(),
       command.groupCheckOutId()
-    );
+    ));
   }
 
-  public static GuestStayAccountEvent decide(GuestStayAccountCommand command, GuestStayAccount state) {
+  public static List<GuestStayAccountEvent> decide(GuestStayAccountCommand command, GuestStayAccount state) {
     return switch (command) {
       case CheckInGuest checkInGuest -> handle(checkInGuest);
       case RecordCharge recordCharge -> handle(recordCharge, state);
@@ -63,6 +74,7 @@ public final class GuestStayAccountDecider {
 
     record RecordCharge(
       UUID guestStayId,
+      UUID chargeId,
       double amount,
       OffsetDateTime now
     ) implements GuestStayAccountCommand {
@@ -70,6 +82,7 @@ public final class GuestStayAccountDecider {
 
     record RecordPayment(
       UUID guestStayId,
+      UUID paymentId,
       double amount,
       OffsetDateTime now
     ) implements GuestStayAccountCommand {

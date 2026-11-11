@@ -24,7 +24,8 @@ You can do the workshop as a self-paced kit. If you'd like to get full coverage 
 2. [Entities definition](./exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e02_entities_definition).
 3. [Business processes](./exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e03_businessprocesses).
 4. [Idempotency](./exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e04_idempotency).
-5. [Consistency](./exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e05_consistency).
+5. [Optimistic concurrency](./exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e05_optimistic_concurrency).
+6. [Consistency](./exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e06_consistency).
 
 Each exercise has a full implementation in the [solved](./solved/) folder. Some go further than the exercise:
 

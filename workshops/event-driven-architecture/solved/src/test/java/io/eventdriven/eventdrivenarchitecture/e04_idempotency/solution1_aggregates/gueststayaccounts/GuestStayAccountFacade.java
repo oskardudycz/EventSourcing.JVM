@@ -16,6 +16,9 @@ public class GuestStayAccountFacade {
   }
 
   public void checkInGuest(GuestStayAccountCommand.CheckInGuest command) {
+    if (collection.get(command.guestStayId()).isPresent())
+      return;
+
     var account = GuestStayAccount.checkIn(command.guestStayId(), command.now());
 
     collection.store(command.guestStayId(), account);
@@ -26,7 +29,7 @@ public class GuestStayAccountFacade {
     var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
-    account.recordCharge(command.amount(), command.now());
+    account.recordCharge(command.chargeId(), command.amount(), command.now());
 
     collection.store(command.guestStayId(), account);
     messageBus.publish(account.dequeueUncommittedEvents());
@@ -36,7 +39,7 @@ public class GuestStayAccountFacade {
     var account = collection.get(command.guestStayId())
       .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
-    account.recordPayment(command.amount(), command.now());
+    account.recordPayment(command.paymentId(), command.amount(), command.now());
 
     collection.store(command.guestStayId(), account);
     messageBus.publish(account.dequeueUncommittedEvents());
@@ -61,6 +64,7 @@ public class GuestStayAccountFacade {
 
     record RecordCharge(
       UUID guestStayId,
+      UUID chargeId,
       double amount,
       OffsetDateTime now
     ) implements GuestStayAccountCommand {
@@ -68,6 +72,7 @@ public class GuestStayAccountFacade {
 
     record RecordPayment(
       UUID guestStayId,
+      UUID paymentId,
       double amount,
       OffsetDateTime now
     ) implements GuestStayAccountCommand {

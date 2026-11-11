@@ -1,0 +1,105 @@
+package io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.solution1_aggregates.gueststayaccounts;
+
+import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.core.AbstractAggregate;
+import org.jspecify.annotations.Nullable;
+
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+
+import static io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.solution1_aggregates.gueststayaccounts.GuestStayAccountEvent.*;
+
+public class GuestStayAccount  extends AbstractAggregate<GuestStayAccountEvent, UUID> {
+  private enum Status {
+    OPEN,
+    CHECKED_OUT
+  }
+
+  private Status status;
+  private double balance;
+  private List<UUID> recordedChargeIds = new ArrayList<>();
+  private List<UUID> recordedPaymentIds = new ArrayList<>();
+  private @Nullable UUID groupCheckoutId;
+
+  public static GuestStayAccount checkIn(UUID guestStayAccountId, OffsetDateTime openedAt) {
+    return new GuestStayAccount(
+      guestStayAccountId,
+      openedAt
+    );
+  }
+
+  // Default constructor for Jackson
+  private GuestStayAccount() {
+  }
+
+  private GuestStayAccount(
+    UUID guestStayAccountId,
+    OffsetDateTime openedAt
+  ) {
+    enqueue(new GuestCheckedIn(guestStayAccountId, openedAt));
+  }
+
+  public void recordCharge(UUID chargeId, double amount, OffsetDateTime now) {
+    if (status != Status.OPEN)
+      throw new RuntimeException("Cannot record charge if status is other than Open");
+
+    if (recordedChargeIds.contains(chargeId))
+      return;
+
+    enqueue(new ChargeRecorded(id(), chargeId, amount, now));
+  }
+
+  public void recordPayment(UUID paymentId, double amount, OffsetDateTime now) {
+    if (status != Status.OPEN)
+      throw new RuntimeException("Cannot record payment if status is other than Open");
+
+    if (recordedPaymentIds.contains(paymentId))
+      return;
+
+    enqueue(new PaymentRecorded(id(), paymentId, amount, now));
+  }
+
+  public void checkout(OffsetDateTime now, @Nullable UUID groupCheckoutId) {
+    if (status == Status.CHECKED_OUT && Objects.equals(this.groupCheckoutId, groupCheckoutId))
+      return;
+
+    if (status != Status.OPEN || balance != 0) {
+      enqueue(
+        new GuestCheckoutFailed(id(),
+          balance != 0 ? GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED : GuestCheckoutFailed.Reason.INVALID_STATE,
+          now,
+          groupCheckoutId
+        )
+      );
+      return;
+    }
+    enqueue(new GuestCheckedOut(id(), now, groupCheckoutId));
+  }
+
+  @Override
+  public void apply(GuestStayAccountEvent event) {
+    switch (event) {
+      case GuestCheckedIn opened -> {
+        id = opened.guestStayAccountId();
+        balance = 0;
+        status = Status.OPEN;
+      }
+      case ChargeRecorded chargeRecorded -> {
+        balance -= chargeRecorded.amount();
+        recordedChargeIds.add(chargeRecorded.chargeId());
+      }
+      case PaymentRecorded paymentRecorded -> {
+        balance += paymentRecorded.amount();
+        recordedPaymentIds.add(paymentRecorded.paymentId());
+      }
+      case GuestCheckedOut checkedOut -> {
+        status = Status.CHECKED_OUT;
+        groupCheckoutId = checkedOut.groupCheckoutId();
+      }
+      case GuestCheckoutFailed ignored -> {
+      }
+    }
+  }
+}

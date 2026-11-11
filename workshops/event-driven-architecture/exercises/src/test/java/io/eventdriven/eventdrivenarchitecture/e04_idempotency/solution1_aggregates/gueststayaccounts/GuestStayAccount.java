@@ -35,18 +35,18 @@ public class GuestStayAccount  extends AbstractAggregate<GuestStayAccountEvent, 
     enqueue(new GuestCheckedIn(guestStayAccountId, openedAt));
   }
 
-  public void recordCharge(double amount, OffsetDateTime now) {
+  public void recordCharge(UUID chargeId, double amount, OffsetDateTime now) {
     if (status != Status.OPEN)
       throw new RuntimeException("Cannot record charge if status is other than Open");
 
-    enqueue(new ChargeRecorded(id(), amount, now));
+    enqueue(new ChargeRecorded(id(), chargeId, amount, now));
   }
 
-  public void recordPayment(double amount, OffsetDateTime now) {
+  public void recordPayment(UUID paymentId, double amount, OffsetDateTime now) {
     if (status != Status.OPEN)
       throw new RuntimeException("Cannot record payment if status is other than Open");
 
-    enqueue(new PaymentRecorded(id(), amount, now));
+    enqueue(new PaymentRecorded(id(), paymentId, amount, now));
   }
 
   public void checkout(OffsetDateTime now, @Nullable UUID groupCheckoutId) {

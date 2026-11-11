@@ -14,6 +14,7 @@ public sealed interface GuestStayAccountEvent {
 
   record ChargeRecorded(
     UUID guestStayAccountId,
+    UUID chargeId,
     double amount,
     OffsetDateTime recordedAt
   ) implements GuestStayAccountEvent {
@@ -21,6 +22,7 @@ public sealed interface GuestStayAccountEvent {
 
   record PaymentRecorded(
     UUID guestStayAccountId,
+    UUID paymentId,
     double amount,
     OffsetDateTime recordedAt
   ) implements GuestStayAccountEvent {

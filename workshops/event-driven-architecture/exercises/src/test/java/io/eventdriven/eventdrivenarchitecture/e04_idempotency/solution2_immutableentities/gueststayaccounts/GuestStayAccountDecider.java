@@ -19,14 +19,14 @@ public final class GuestStayAccountDecider {
     if (state.status() != Status.OPEN)
       throw new RuntimeException("Cannot record charge if status is other than Open");
 
-    return new ChargeRecorded(state.id(), command.amount(), command.now());
+    return new ChargeRecorded(state.id(), command.chargeId(), command.amount(), command.now());
   }
 
   public static PaymentRecorded handle(RecordPayment command, GuestStayAccount state) {
     if (state.status() != Status.OPEN)
       throw new RuntimeException("Cannot record payment if status is other than Open");
 
-    return new PaymentRecorded(state.id(), command.amount(), command.now());
+    return new PaymentRecorded(state.id(), command.paymentId(), command.amount(), command.now());
   }
 
   public static GuestStayAccountEvent handle(CheckOutGuest command, GuestStayAccount state) {
@@ -63,6 +63,7 @@ public final class GuestStayAccountDecider {
 
     record RecordCharge(
       UUID guestStayId,
+      UUID chargeId,
       double amount,
       OffsetDateTime now
     ) implements GuestStayAccountCommand {
@@ -70,6 +71,7 @@ public final class GuestStayAccountDecider {
 
     record RecordPayment(
       UUID guestStayId,
+      UUID paymentId,
       double amount,
       OffsetDateTime now
     ) implements GuestStayAccountCommand {
