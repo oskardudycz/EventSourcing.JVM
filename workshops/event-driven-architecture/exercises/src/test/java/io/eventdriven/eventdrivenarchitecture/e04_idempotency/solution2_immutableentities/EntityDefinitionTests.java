@@ -62,13 +62,14 @@ public class EntityDefinitionTests {
     publishedMessages.reset();
     // And
     var amount = faker.number().randomDouble(2, 10, 1000);
-    var command = new GuestStayAccountCommand.RecordCharge(guestStayId, amount, now);
+    var chargeId = UUID.randomUUID();
+    var command = new GuestStayAccountCommand.RecordCharge(guestStayId, chargeId, amount, now);
 
     // When
     guestStayFacade.recordCharge(command);
 
     // Then
-    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.ChargeRecorded(guestStayId, amount, now));
+    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.ChargeRecorded(guestStayId, chargeId, amount, now));
   }
 
   @Test
@@ -81,13 +82,14 @@ public class EntityDefinitionTests {
     publishedMessages.reset();
     // And
     var amount = faker.number().randomDouble(2, 10, 1000);
-    var command = new GuestStayAccountCommand.RecordPayment(guestStayId, amount, now);
+    var paymentId = UUID.randomUUID();
+    var command = new GuestStayAccountCommand.RecordPayment(guestStayId, paymentId, amount, now);
 
     // When
     guestStayFacade.recordPayment(command);
 
     // Then
-    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.PaymentRecorded(guestStayId, amount, now));
+    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.PaymentRecorded(guestStayId, paymentId, amount, now));
   }
 
   @Test
@@ -97,17 +99,18 @@ public class EntityDefinitionTests {
     // Given
     var guestStayId = UUID.randomUUID();
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
-    guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(guestStayId, faker.number().randomDouble(2, 10, 1000), now.minusHours(1)));
+    guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(guestStayId, UUID.randomUUID(), faker.number().randomDouble(2, 10, 1000), now.minusHours(1)));
     publishedMessages.reset();
     // And
     var amount = faker.number().randomDouble(2, 10, 1000);
-    var command = new GuestStayAccountCommand.RecordPayment(guestStayId, amount, now);
+    var paymentId = UUID.randomUUID();
+    var command = new GuestStayAccountCommand.RecordPayment(guestStayId, paymentId, amount, now);
 
     // When
     guestStayFacade.recordPayment(command);
 
     // Then
-    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.PaymentRecorded(guestStayId, amount, now));
+    publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.PaymentRecorded(guestStayId, paymentId, amount, now));
   }
 
   @Test
@@ -119,8 +122,8 @@ public class EntityDefinitionTests {
 
     var amount = faker.number().randomDouble(2, 10, 1000);
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
-    guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(guestStayId, amount, now.minusHours(2)));
-    guestStayFacade.recordPayment(new GuestStayAccountCommand.RecordPayment(guestStayId, amount, now.minusHours(1)));
+    guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(guestStayId, UUID.randomUUID(), amount, now.minusHours(2)));
+    guestStayFacade.recordPayment(new GuestStayAccountCommand.RecordPayment(guestStayId, UUID.randomUUID(), amount, now.minusHours(1)));
     publishedMessages.reset();
     // And
     var command = new GuestStayAccountCommand.CheckOutGuest(guestStayId, now);
@@ -141,8 +144,8 @@ public class EntityDefinitionTests {
 
     var amount = faker.number().randomDouble(2, 10, 1000);
     guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
-    guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(guestStayId, amount + 10, now.minusHours(2)));
-    guestStayFacade.recordPayment(new GuestStayAccountCommand.RecordPayment(guestStayId, amount, now.minusHours(1)));
+    guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(guestStayId, UUID.randomUUID(), amount + 10, now.minusHours(2)));
+    guestStayFacade.recordPayment(new GuestStayAccountCommand.RecordPayment(guestStayId, UUID.randomUUID(), amount, now.minusHours(1)));
     publishedMessages.reset();
     // And
     var command = new GuestStayAccountCommand.CheckOutGuest(guestStayId, now);

@@ -9,6 +9,15 @@ import java.util.function.Consumer;
 public class InMemoryMessageBus implements MessageBus {
   private final Map<String, List<Consumer<Object>>> handlers = new LinkedHashMap<>();
   private final List<Consumer<Object>> middlewares = new ArrayList<>();
+  private final boolean deliverTwice;
+
+  public InMemoryMessageBus() {
+    this(false);
+  }
+
+  public InMemoryMessageBus(boolean deliverTwice) {
+    this.deliverTwice = deliverTwice;
+  }
 
   public <Message> void publish(List<Message> messages) {
     for (Object message : messages) {
@@ -21,6 +30,9 @@ public class InMemoryMessageBus implements MessageBus {
       if (messageHandlers != null)
         for (var handle : messageHandlers) {
           handle.accept(message);
+
+          if (deliverTwice)
+            handle.accept(message);
         }
     }
   }

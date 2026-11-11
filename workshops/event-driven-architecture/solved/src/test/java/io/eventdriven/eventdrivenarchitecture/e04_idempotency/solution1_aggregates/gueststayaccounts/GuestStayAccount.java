@@ -4,6 +4,9 @@ import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.AbstractAggre
 import org.jspecify.annotations.Nullable;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import static io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution1_aggregates.gueststayaccounts.GuestStayAccountEvent.*;
@@ -16,6 +19,9 @@ public class GuestStayAccount  extends AbstractAggregate<GuestStayAccountEvent, 
 
   private Status status;
   private double balance;
+  private List<UUID> recordedChargeIds = new ArrayList<>();
+  private List<UUID> recordedPaymentIds = new ArrayList<>();
+  private @Nullable UUID groupCheckoutId;
 
   public static GuestStayAccount checkIn(UUID guestStayAccountId, OffsetDateTime openedAt) {
     return new GuestStayAccount(
@@ -35,21 +41,30 @@ public class GuestStayAccount  extends AbstractAggregate<GuestStayAccountEvent, 
     enqueue(new GuestCheckedIn(guestStayAccountId, openedAt));
   }
 
-  public void recordCharge(double amount, OffsetDateTime now) {
+  public void recordCharge(UUID chargeId, double amount, OffsetDateTime now) {
     if (status != Status.OPEN)
       throw new RuntimeException("Cannot record charge if status is other than Open");
 
-    enqueue(new ChargeRecorded(id(), amount, now));
+    if (recordedChargeIds.contains(chargeId))
+      return;
+
+    enqueue(new ChargeRecorded(id(), chargeId, amount, now));
   }
 
-  public void recordPayment(double amount, OffsetDateTime now) {
+  public void recordPayment(UUID paymentId, double amount, OffsetDateTime now) {
     if (status != Status.OPEN)
       throw new RuntimeException("Cannot record payment if status is other than Open");
 
-    enqueue(new PaymentRecorded(id(), amount, now));
+    if (recordedPaymentIds.contains(paymentId))
+      return;
+
+    enqueue(new PaymentRecorded(id(), paymentId, amount, now));
   }
 
   public void checkout(OffsetDateTime now, @Nullable UUID groupCheckoutId) {
+    if (status == Status.CHECKED_OUT && Objects.equals(this.groupCheckoutId, groupCheckoutId))
+      return;
+
     if (status != Status.OPEN || balance != 0) {
       enqueue(
         new GuestCheckoutFailed(id(),
@@ -71,10 +86,18 @@ public class GuestStayAccount  extends AbstractAggregate<GuestStayAccountEvent, 
         balance = 0;
         status = Status.OPEN;
       }
-      case ChargeRecorded chargeRecorded -> balance -= chargeRecorded.amount();
-      case PaymentRecorded paymentRecorded ->
+      case ChargeRecorded chargeRecorded -> {
+        balance -= chargeRecorded.amount();
+        recordedChargeIds.add(chargeRecorded.chargeId());
+      }
+      case PaymentRecorded paymentRecorded -> {
         balance += paymentRecorded.amount();
-      case GuestCheckedOut ignored -> status = Status.CHECKED_OUT;
+        recordedPaymentIds.add(paymentRecorded.paymentId());
+      }
+      case GuestCheckedOut checkedOut -> {
+        status = Status.CHECKED_OUT;
+        groupCheckoutId = checkedOut.groupCheckoutId();
+      }
       case GuestCheckoutFailed ignored -> {
       }
     }

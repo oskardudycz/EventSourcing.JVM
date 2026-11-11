@@ -101,17 +101,17 @@ public class BusinessProcessTests {
     };
 
     guestStayFacade.checkInGuest(new CheckInGuest(guestStays[0], now.minusDays(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[0], amounts[0], now.minusHours(2)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[0], amounts[0], now.minusHours(1)));
+    guestStayFacade.recordCharge(new RecordCharge(guestStays[0], UUID.randomUUID(), amounts[0], now.minusHours(2)));
+    guestStayFacade.recordPayment(new RecordPayment(guestStays[0], UUID.randomUUID(), amounts[0], now.minusHours(1)));
 
     guestStayFacade.checkInGuest(new CheckInGuest(guestStays[1], now.minusDays(1)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[1], amounts[1], now.minusHours(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[1], amounts[1], now.minusHours(2)));
+    guestStayFacade.recordPayment(new RecordPayment(guestStays[1], UUID.randomUUID(), amounts[1], now.minusHours(1)));
+    guestStayFacade.recordCharge(new RecordCharge(guestStays[1], UUID.randomUUID(), amounts[1], now.minusHours(2)));
 
     guestStayFacade.checkInGuest(new CheckInGuest(guestStays[2], now.minusDays(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[0], amounts[2], now.minusHours(2)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[0], amounts[2] / 2, now.minusHours(1)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[0], amounts[2] / 2, now.minusHours(1)));
+    guestStayFacade.recordCharge(new RecordCharge(guestStays[0], UUID.randomUUID(), amounts[2], now.minusHours(2)));
+    guestStayFacade.recordPayment(new RecordPayment(guestStays[0], UUID.randomUUID(), amounts[2] / 2, now.minusHours(1)));
+    guestStayFacade.recordPayment(new RecordPayment(guestStays[0], UUID.randomUUID(), amounts[2] / 2, now.minusHours(1)));
     publishedMessages.reset();
     // And
     var groupCheckoutId = UUID.randomUUID();
@@ -154,17 +154,17 @@ public class BusinessProcessTests {
 
     // 🟢 settled
     guestStayFacade.checkInGuest(new CheckInGuest(guestStays[0], now.minusDays(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[0], amounts[0], now.minusHours(2)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[0], amounts[0], now.minusHours(1)));
+    guestStayFacade.recordCharge(new RecordCharge(guestStays[0], UUID.randomUUID(), amounts[0], now.minusHours(2)));
+    guestStayFacade.recordPayment(new RecordPayment(guestStays[0], UUID.randomUUID(), amounts[0], now.minusHours(1)));
 
     // 🛑 payment without charge
     guestStayFacade.checkInGuest(new CheckInGuest(guestStays[1], now.minusDays(1)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[1], amounts[1], now.minusHours(1)));
+    guestStayFacade.recordPayment(new RecordPayment(guestStays[1], UUID.randomUUID(), amounts[1], now.minusHours(1)));
 
     // 🛑 partial payment
     guestStayFacade.checkInGuest(new CheckInGuest(guestStays[2], now.minusDays(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[2], amounts[2], now.minusHours(2)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[2], amounts[2] / 2, now.minusHours(1)));
+    guestStayFacade.recordCharge(new RecordCharge(guestStays[2], UUID.randomUUID(), amounts[2], now.minusHours(2)));
+    guestStayFacade.recordPayment(new RecordPayment(guestStays[2], UUID.randomUUID(), amounts[2] / 2, now.minusHours(1)));
     publishedMessages.reset();
     // And
     var groupCheckoutId = UUID.randomUUID();
@@ -214,16 +214,16 @@ public class BusinessProcessTests {
 
     // 🛑 charge without payment
     guestStayFacade.checkInGuest(new CheckInGuest(guestStays[0], now.minusDays(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[0], amounts[0], now.minusHours(2)));
+    guestStayFacade.recordCharge(new RecordCharge(guestStays[0], UUID.randomUUID(), amounts[0], now.minusHours(2)));
 
     // 🛑 payment without charge
     guestStayFacade.checkInGuest(new CheckInGuest(guestStays[1], now.minusDays(1)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[1], amounts[1], now.minusHours(1)));
+    guestStayFacade.recordPayment(new RecordPayment(guestStays[1], UUID.randomUUID(), amounts[1], now.minusHours(1)));
 
     // 🛑 partial payment
     guestStayFacade.checkInGuest(new CheckInGuest(guestStays[2], now.minusDays(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[2], amounts[2], now.minusHours(2)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[2], amounts[2] / 2, now.minusHours(1)));
+    guestStayFacade.recordCharge(new RecordCharge(guestStays[2], UUID.randomUUID(), amounts[2], now.minusHours(2)));
+    guestStayFacade.recordPayment(new RecordPayment(guestStays[2], UUID.randomUUID(), amounts[2] / 2, now.minusHours(1)));
     publishedMessages.reset();
     // And
     var groupCheckoutId = UUID.randomUUID();
