@@ -3,8 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce.shipments.reservation;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
@@ -14,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -38,7 +38,7 @@ public class ReservationExpiryWorkerTests {
   private final OffsetDateTime afterExpiry = reservedUntil.plusMinutes(1);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher published = new MessageCatcher();
 
   private final ReservationExpiryWorker worker;
@@ -46,10 +46,8 @@ public class ReservationExpiryWorkerTests {
   public ReservationExpiryWorkerTests() {
     eventStore.use(published::catchMessage);
     worker = ShipmentsConfig.configure(
-      commandBus,
       eventStore,
-      eventStore,
-      new InMemoryEventBus(),
+      messageBus,
       new SilentDeliveryProvider(),
       isProductAvailable,
       reservationValidity,
@@ -80,7 +78,7 @@ public class ReservationExpiryWorkerTests {
   @Test
   public void reservationWaitingForItsParcelBookingStillExpires() {
     reserve();
-    commandBus.send(new SendPackage(shipmentId));
+    messageBus.publish(List.of(new SendPackage(shipmentId)));
     published.reset();
 
     worker.run(afterExpiry);
@@ -93,8 +91,8 @@ public class ReservationExpiryWorkerTests {
   @Test
   public void reservationOfASentPackageNeverExpires() {
     reserve();
-    commandBus.send(new SendPackage(shipmentId));
-    commandBus.send(new ConfirmParcelBooking(shipmentId, "DHL", "JD014600006281234567"));
+    messageBus.publish(List.of(new SendPackage(shipmentId)));
+    messageBus.publish(List.of(new ConfirmParcelBooking(shipmentId, "DHL", "JD014600006281234567")));
     published.reset();
 
     worker.run(afterExpiry);
@@ -105,7 +103,7 @@ public class ReservationExpiryWorkerTests {
   @Test
   public void releasedReservationNeverExpires() {
     reserve();
-    commandBus.send(new ReleaseStock(shipmentId));
+    messageBus.publish(List.of(new ReleaseStock(shipmentId)));
     published.reset();
 
     worker.run(afterExpiry);
@@ -126,7 +124,7 @@ public class ReservationExpiryWorkerTests {
   }
 
   private void reserve() {
-    commandBus.send(new ReserveStock(referenceId, available));
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
     published.reset();
   }
 }

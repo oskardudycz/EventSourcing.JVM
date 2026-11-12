@@ -6,8 +6,8 @@ import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCancellationReason;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderFacade;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderPaymentState;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderShipmentState;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderPaymentStatus;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderShipmentStatus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
@@ -50,8 +50,8 @@ public class PendingOrdersTests {
     assertThat(pending.getClientId()).isEqualTo(clientId);
     assertThat(pending.getTotalPrice()).isEqualTo(totalPrice);
     assertThat(pending.getInitializedAt()).isEqualTo(now);
-    assertThat(pending.getPaymentState()).isEqualTo(OrderPaymentState.NotAuthorized);
-    assertThat(pending.getShipmentState()).isEqualTo(OrderShipmentState.NotReserved);
+    assertThat(pending.getPaymentStatus()).isEqualTo(OrderPaymentStatus.NotAuthorized);
+    assertThat(pending.getShipmentStatus()).isEqualTo(OrderShipmentStatus.NotReserved);
   }
 
   @Test
@@ -63,8 +63,8 @@ public class PendingOrdersTests {
 
     var pending = pendingOrders.all().getFirst();
 
-    assertThat(pending.getPaymentState()).isEqualTo(OrderPaymentState.Authorized);
-    assertThat(pending.getShipmentState()).isEqualTo(OrderShipmentState.Reserved);
+    assertThat(pending.getPaymentStatus()).isEqualTo(OrderPaymentStatus.Authorized);
+    assertThat(pending.getShipmentStatus()).isEqualTo(OrderShipmentStatus.Reserved);
   }
 
   @Test
@@ -83,9 +83,9 @@ public class PendingOrdersTests {
     pendingOrders.onCancelled(at(orderId, 1, new OrderCancelled(
       orderId,
       null,
-      OrderPaymentState.NotAuthorized,
+      OrderPaymentStatus.NotAuthorized,
       null,
-      OrderShipmentState.NotReserved,
+      OrderShipmentStatus.NotReserved,
       OrderCancellationReason.Requested,
       later
     )));
@@ -118,7 +118,7 @@ public class PendingOrdersTests {
 
     pendingOrders.onPaymentAuthorized(authorization);
 
-    assertThat(pendingOrders.all().getFirst().getPaymentState()).isEqualTo(OrderPaymentState.Captured);
+    assertThat(pendingOrders.all().getFirst().getPaymentStatus()).isEqualTo(OrderPaymentStatus.Captured);
   }
 
   private void initialize(OrderId orderId, OffsetDateTime initializedAt) {
@@ -128,6 +128,6 @@ public class PendingOrdersTests {
   }
 
   private <Event> EventEnvelope<Event> at(OrderId orderId, long position, Event event) {
-    return new EventEnvelope<>(event, new EventMetadata(OrderFacade.mapToStreamId(orderId), position));
+    return new EventEnvelope<>(event, new EventMetadata(OrderFacade.mapToStreamId(orderId), position, position));
   }
 }

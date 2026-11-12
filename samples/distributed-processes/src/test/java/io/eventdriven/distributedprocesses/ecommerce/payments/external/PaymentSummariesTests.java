@@ -128,6 +128,6 @@ public class PaymentSummariesTests {
   }
 
   private <Event> EventEnvelope<Event> at(Event event, long streamPosition) {
-    return new EventEnvelope<>(event, new EventMetadata(streamId, streamPosition));
+    return new EventEnvelope<>(event, new EventMetadata(streamId, streamPosition, streamPosition));
   }
 }

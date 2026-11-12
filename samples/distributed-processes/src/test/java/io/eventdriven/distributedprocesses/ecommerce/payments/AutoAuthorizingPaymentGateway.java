@@ -1,21 +1,23 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments;
 
-import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
+
+import java.util.List;
 
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentAuthorization;
 
 // Stands in for a provider that grants the hold and calls back straight away.
 public class AutoAuthorizingPaymentGateway implements PaymentGateway {
-  private final CommandBus commandBus;
+  private final MessageBus messageBus;
 
-  public AutoAuthorizingPaymentGateway(CommandBus commandBus) {
-    this.commandBus = commandBus;
+  public AutoAuthorizingPaymentGateway(MessageBus messageBus) {
+    this.messageBus = messageBus;
   }
 
   @Override
   public void authorize(PaymentId paymentId, double amount) {
-    commandBus.send(new ConfirmPaymentAuthorization(paymentId));
+    messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId)));
   }
 
   @Override

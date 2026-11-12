@@ -14,7 +14,7 @@
     - [Why the saga stays stateless](#why-the-saga-stays-stateless)
     - [Internal events and the published contract](#internal-events-and-the-published-contract)
     - [The read side that feeds the contract](#the-read-side-that-feeds-the-contract)
-    - [Appending is publishing](#appending-is-publishing)
+    - [The event store is the outbox](#the-event-store-is-the-outbox)
     - [The two settlement seams](#the-two-settlement-seams)
     - [When things go wrong](#when-things-go-wrong)
     - [Where the code lives](#where-the-code-lives)
@@ -315,25 +315,25 @@ sequenceDiagram
 
 A failed payment doesn't cancel the order on its own. At that point the order still doesn't know what there is to undo: whether a stock reservation needs releasing depends on the shipment, and the shipment may not have answered yet. So the order records the failure and waits for the other participant. That wait also covers the happy path, where both modules answer at once — the two holds can arrive in either order, and the order comes out the same.
 
-Choosing the reversal isn't the process's job either. The internal `OrderCancelled` carries `paymentState` and `shipmentState`, and the saga's compensation only reads them:
+Choosing the reversal isn't the process's job either. The internal `OrderCancelled` carries `paymentStatus` and `shipmentStatus`, and the saga's compensation only reads them:
 
-| state | the saga sends |
+| status | the saga sends |
 |---|---|
-| `paymentState = Authorized` | `VoidPayment` |
-| `shipmentState = Reserved` | `ReleaseStock` |
+| `paymentStatus = Authorized` | `VoidPayment` |
+| `shipmentStatus = Reserved` | `ReleaseStock` |
 | anything else | nothing — there is no hold to undo |
 
 There's no refund in that table, because an order can only be cancelled before it ships, and nothing is captured before it ships. Once the parcel has left, cancelling is a return, and returns are a process of their own. `RefundPayment` stays in the payments module for that. A chargeback is another reversal, but not one we can send: the issuer starts it, on the customer's word.
 
-The states stay inside the orders module. The public `OrderCancelled` carries a `Reason` — `ProductsOutOfStock`, `PaymentFailed` or `Requested` — because that is what someone outside can act on; whether a hold was still open is the order's business.
+The statuses stay inside the orders module. The public `OrderCancelled` carries a `Reason` — `ProductsOutOfStock`, `PaymentFailed` or `Requested` — because that is what someone outside can act on; whether a hold was still open is the order's business.
 
 Read more about why compensation matters in [What texting your Ex has to do with Event-Driven Design?](https://event-driven.io/en/what_texting_ex_has_to_do_with_event_driven_design?utm_source=event_sourcing_jvm).
 
 ### The order decides, the saga only translates
 
-`Order` holds one state per participant, just as `GroupCheckout` holds one status per guest stay:
+`Order` holds one status per participant, just as `GroupCheckout` holds one status per guest stay:
 
-| Participant | States |
+| Participant | Statuses |
 |---|---|
 | payment | `Pending` → `Authorized` → `Captured` (only after `Sent`), or `Failed` |
 | shipment | `Pending` → `Reserved` → `Sent` → `Delivered`, or `Failed` |
@@ -363,25 +363,25 @@ The whole process is one class, [OrderSaga](./src/main/java/io/eventdriven/distr
 
 ```java
 public void on(ShipmentExternalEvent.PackageWasSent event) {
-  commandBus.send(
+  messageBus.publish(List.of(
     new RecordOrderPackageSent(
       new OrderId(event.referenceId()),
       event.carrier(),
       event.trackingNumber(),
       event.sentAt()
     )
-  );
+  ));
 }
 
 // The shipment does not know the payment. The order does, and names it here.
 public void on(OrderEvent.OrderPackageSent event) {
-  commandBus.send(new PaymentCommand.CapturePayment(event.paymentId()));
+  messageBus.publish(List.of(new PaymentCommand.CapturePayment(event.paymentId())));
 }
 ```
 
-Note which `OrderPackageSent` that is: the internal one. The saga belongs to the orders module, so it reads the order's own events straight from its store and the other modules' events from the integration bus. A module that drove its own process through its public events would have to publish whatever that process needs — a `paymentId` here, a `shipmentId` there, the internal states on a cancellation — and the contract would turn into a dump of its internals.
+Note which `OrderPackageSent` that is: the internal one. The saga belongs to the orders module, so it reads the order's own events straight from its store and the other modules' public events from the message bus. A module that drove its own process through its public events would have to publish whatever that process needs — a `paymentId` here, a `shipmentId` there, the internal states on a cancellation — and the contract would turn into a dump of its internals.
 
-The saga ends up with no state, no store, no clock and no id supplier; its only field is the command bus. Identifiers are derived rather than generated: the order id comes from the cart id, the payment and shipment ids from the order id. Handling the same event twice therefore sends two identical commands, and the modules no-op on the second.
+The saga ends up with no state, no store, no clock and no id supplier; its only field is the message bus. Identifiers are derived rather than generated: the order id comes from the cart id, the payment and shipment ids from the order id. Handling the same event twice therefore sends two identical commands, and the modules no-op on the second.
 
 ### Internal events and the published contract
 
@@ -405,17 +405,19 @@ A published event usually needs more than the internal event that triggered it. 
 So the forwarder reads that data from somewhere. It could load the aggregate, and an earlier version of this sample did. Each module keeps a projection instead:
 
 ```java
-public void on(ShoppingCartConfirmed event) {
+public void onConfirmed(EventEnvelope<ShoppingCartConfirmed> envelope) {
+  var event = envelope.data();
   var cart = summaries.get(event.shoppingCartId())
-    .orElseThrow(() -> new IllegalStateException("Cannot enrich event, as shopping cart with id '%s' was not found".formatted(event.shoppingCartId())));
+    .filter(summary -> summary.getVersion() >= envelope.metadata().streamPosition())
+    .orElseThrow(() -> new IllegalStateException("Summary has not reached the event yet"));
 
-  eventBus.publish(new ShoppingCartExternalEvent.ShoppingCartFinalized(
+  messageBus.publish(List.of(new ShoppingCartFinalized(
     event.shoppingCartId(),
     cart.getClientId(),
     cart.getProductItems(),
     cart.getTotalPrice(),
     event.confirmedAt()
-  ));
+  )));
 }
 ```
 
@@ -437,9 +439,9 @@ public void onConfirmed(EventEnvelope<OrderConfirmed> event) {
 }
 ```
 
-The stream position comes along because the internal bus can deliver an `EventEnvelope` as well as a bare event — `subscribeWithMetadata` rather than `subscribe`. A view records the position it last applied, so an event delivered twice is skipped rather than counted twice.
+The stream position comes along because a subscriber of the event store gets an `EventEnvelope`, not a bare event. A view records the position it last applied, so an event delivered twice is skipped rather than counted twice.
 
-Each module wires its projections before its forwarder, and the bus dispatches in subscription order, so the forwarder reads a view that already includes the event it is forwarding.
+The projection and the forwarder are separate subscribers, and each keeps its own checkpoint. If the projection fails on an event and the forwarder does not, the forwarder would enrich from a view that has not seen that event. So the forwarder checks the view's version against the event's stream position. If the view is behind, the forwarder throws: the store keeps its checkpoint and delivers the event again on the next append, after the projection has caught up.
 
 Besides the summaries, the modules keep views that exist to answer a question nobody can answer from an aggregate, because the question spans many of them:
 
@@ -452,15 +454,17 @@ Besides the summaries, the modules keep views that exist to answer a question no
 
 The first three are what the expiry workers poll. `PendingOrders` has no worker yet; the view comes first, and cancelling on age is the next step.
 
-### Appending is publishing
+### The event store is the outbox
 
-The in-memory event store follows the one in the [introduction-to-event-sourcing](../../workshops/introduction-to-event-sourcing/) workshop: appending to a stream dispatches the events. There's no gap between storing and publishing to get wrong, and no facade has to call a bus. In memory that comes for free; against a real database it's what an outbox is for. Either way, if you find yourself writing `store.getAndUpdate(...)` followed by `bus.publish(...)`, you're working around the store instead of using it.
+Appending only writes: to the stream, and to one global log. Every subscriber — projections, forwarders, the saga, the provider clients — reads that log from its own checkpoint. [InMemoryEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/esdb/InMemoryEventStore.java) delivers once the outermost append is done, entry by entry, to every subscriber that is behind. An event appended by a subscriber is delivered after the one it is handling, never in the middle of it.
 
-That store is the module's internal channel. The integration bus is a separate object, and only forwarders write to it. The order saga listens to both: to the order's own internal events, and to the other modules' public ones. It never sees another module's internals.
+A subscriber that throws keeps its checkpoint. It gets nothing more in that run, and the next append delivers the same event to it again, before anything newer. The append itself does not fail: the event is stored, and it is the subscriber that has to catch up. That is at-least-once delivery, and it is why every handler has to be idempotent.
 
-The two are separate *interfaces* — `InternalEventBus` has no `publish` at all, because publishing a module's own events is appending them. One in-memory class happens to implement both here; in production they would be different transports.
+So there's no gap between storing and publishing to get wrong, and no facade calls a bus. If you find yourself writing `store.getAndUpdate(...)` followed by `bus.publish(...)`, you're working around the store instead of using it. Against EventStoreDB, [ESDBEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/esdb/ESDBEventStore.java) subscribes to `$all`, filtered by event type. It starts from the beginning every time; a production version would store the checkpoint.
 
-[ECommerceConfig](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceConfig.java) is the composition root. It configures the four modules on one command bus, one store and one integration bus, then wires the order saga last: it sends commands to payments and shipments, so those modules have to handle them first, and each module's forwarder has to be subscribed before them, so that a public event goes out before the steps it causes. [ECommerceTests](./src/test/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceTests.java) drives whole orders through it and checks the commands and the public events in the order they happen.
+Commands and public events travel on one [MessageBus](./src/main/java/io/eventdriven/distributedprocesses/core/messaging/MessageBus.java), in the same shape as in the [event-driven architecture](../../workshops/event-driven-architecture/) workshop. A command and an event differ in intent, not in transport. Only forwarders publish events on it, so no module sees another module's internal events. The order saga listens to both sides: to the order's own events from the store, and to the other modules' public events from the bus.
+
+[ECommerceConfig](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceConfig.java) is the composition root. It configures the four modules on one store and one bus, then wires the order saga last. The store delivers each event to its subscribers in the order they subscribed, so each module's forwarder runs before the saga, and a public event goes out before the steps it causes. [ECommerceTests](./src/test/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceTests.java) drives whole orders through it and checks the commands and the public events in the order they happen.
 
 ### The two settlement seams
 
@@ -499,7 +503,7 @@ Three things keep the process from getting stuck.
 
 The first watches a request, the other two watch a hold. A hold that can only be freed by compensation leaks whenever the release message is lost: the units stay unsellable and the customer's funds stay blocked. Each worker ends at the order, as `PaymentFailed` or `StockReservationFailed`, so the order is never left waiting for a message that isn't coming. Production would run them on a schedule; tests call `run(now)` with a chosen instant.
 
-**3. Manual compensation.** An operator cancels a stuck order by sending `CancelOrder(orderId, Requested)` on the same command bus, with no special path to maintain. The `OrderCancelled` that follows carries where each participant stood, so the money and the goods come back through the same commands as every other cancellation. Once the parcel has left, `CancelOrder` does nothing: what remains is a return.
+**3. Manual compensation.** An operator cancels a stuck order by sending `CancelOrder(orderId, Requested)` on the same message bus, with no special path to maintain. The `OrderCancelled` that follows carries where each participant stood, so the money and the goods come back through the same commands as every other cancellation. Once the parcel has left, `CancelOrder` does nothing: what remains is a return.
 
 **4. Late failures stay visible.** A card hold can still lapse after the parcel left but before the capture went through. The order records `OrderPaymentFailed` and stays open; it doesn't cancel, because the goods are gone, and it doesn't complete, because nobody was charged. That's where a person has to step in, as shops do: Shopify's merchants collect the payment again, and Amazon asks the customer to revise the payment method.
 

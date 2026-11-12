@@ -3,8 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce.shipments.delivery;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
@@ -14,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -37,16 +37,16 @@ public class DeliveryProviderClientTests {
   private final OffsetDateTime reservedUntil = now.plus(reservationValidity);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher published = new MessageCatcher();
 
   @Test
   public void callingBackProviderBooksThenDeliversTheParcel() {
-    var deliveryProvider = new CallingBackDeliveryProvider(commandBus);
+    var deliveryProvider = new CallingBackDeliveryProvider(messageBus);
     configure(deliveryProvider);
 
-    commandBus.send(new ReserveStock(referenceId, available));
-    commandBus.send(new SendPackage(shipmentId));
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
+    messageBus.publish(List.of(new SendPackage(shipmentId)));
     published.reset();
 
     deliveryProvider.confirmBookings();
@@ -69,10 +69,10 @@ public class DeliveryProviderClientTests {
   public void silentProviderLeavesThePackageWaitingForItsBooking() {
     configure(new SilentDeliveryProvider());
 
-    commandBus.send(new ReserveStock(referenceId, available));
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
     published.reset();
 
-    commandBus.send(new SendPackage(shipmentId));
+    messageBus.publish(List.of(new SendPackage(shipmentId)));
 
     published.shouldReceiveMessages(
       new ParcelBookingRequested(shipmentId, referenceId, available, now)
@@ -83,13 +83,13 @@ public class DeliveryProviderClientTests {
   public void unreachableProviderLeavesTheStockHeldInsteadOfThrowing() {
     configure(new ThrowingDeliveryProvider());
 
-    commandBus.send(new ReserveStock(referenceId, available));
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
     published.reset();
 
-    assertThatCode(() -> commandBus.send(new SendPackage(shipmentId)))
+    assertThatCode(() -> messageBus.publish(List.of(new SendPackage(shipmentId))))
       .doesNotThrowAnyException();
 
-    commandBus.send(new ReleaseStock(shipmentId));
+    messageBus.publish(List.of(new ReleaseStock(shipmentId)));
 
     published.shouldReceiveMessages(
       new ParcelBookingRequested(shipmentId, referenceId, available, now),
@@ -104,8 +104,8 @@ public class DeliveryProviderClientTests {
       bookings.add("%s:%s".formatted(bookedShipmentId, productItems.length))
     );
 
-    commandBus.send(new ReserveStock(referenceId, available));
-    commandBus.send(new SendPackage(shipmentId));
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
+    messageBus.publish(List.of(new SendPackage(shipmentId)));
 
     assertThat(bookings).containsExactly("%s:%s".formatted(shipmentId, available.length));
   }
@@ -115,8 +115,8 @@ public class DeliveryProviderClientTests {
     var booked = new ArrayList<ShipmentId>();
     configure((bookedShipmentId, productItems) -> booked.add(bookedShipmentId));
 
-    commandBus.send(new ReserveStock(referenceId, available));
-    commandBus.send(new SendPackage(shipmentId), new SendPackage(shipmentId));
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
+    messageBus.publish(List.of(new SendPackage(shipmentId), new SendPackage(shipmentId)));
 
     assertThat(booked).containsExactly(shipmentId);
   }
@@ -126,7 +126,7 @@ public class DeliveryProviderClientTests {
     var booked = new ArrayList<ShipmentId>();
     configure((bookedShipmentId, productItems) -> booked.add(bookedShipmentId));
 
-    commandBus.send(new ReserveStock(referenceId, available));
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
 
     assertThat(booked).isEmpty();
   }
@@ -136,8 +136,8 @@ public class DeliveryProviderClientTests {
     var booked = new ArrayList<ShipmentId>();
     configure((bookedShipmentId, productItems) -> booked.add(bookedShipmentId));
 
-    commandBus.send(new ReserveStock(referenceId, new ProductItem[]{unavailableItem}));
-    commandBus.send(new SendPackage(shipmentId));
+    messageBus.publish(List.of(new ReserveStock(referenceId, new ProductItem[]{unavailableItem})));
+    messageBus.publish(List.of(new SendPackage(shipmentId)));
 
     assertThat(booked).isEmpty();
   }
@@ -146,10 +146,8 @@ public class DeliveryProviderClientTests {
     eventStore.use(published::catchMessage);
 
     ShipmentsConfig.configure(
-      commandBus,
       eventStore,
-      eventStore,
-      new InMemoryEventBus(),
+      messageBus,
       deliveryProvider,
       isProductAvailable,
       reservationValidity,

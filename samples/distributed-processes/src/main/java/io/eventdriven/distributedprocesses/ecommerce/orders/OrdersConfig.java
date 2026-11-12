@@ -2,9 +2,7 @@ package io.eventdriven.distributedprocesses.ecommerce.orders;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
 import io.eventdriven.distributedprocesses.core.esdb.EventStore;
-import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
-import io.eventdriven.distributedprocesses.core.messaging.InternalEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.orders.pending.PendingOrders;
 import io.eventdriven.distributedprocesses.ecommerce.orders.external.OrderExternalEventForwarder;
@@ -29,10 +27,8 @@ public final class OrdersConfig {
   }
 
   public static OrderFacade configure(
-    CommandBus commandBus,
     EventStore eventStore,
-    InternalEventBus internalEventBus,
-    IntegrationEventBus integrationEventBus,
+    MessageBus messageBus,
     Supplier<OffsetDateTime> now
   ) {
     var store = new AggregateStore<Order, OrderEvent, OrderId>(
@@ -43,74 +39,69 @@ public final class OrdersConfig {
 
     var facade = new OrderFacade(store, now);
 
-    commandBus
-      .handle(InitializeOrder.class, facade::initializeOrder)
-      .handle(RecordOrderPaymentAuthorization.class, facade::recordOrderPaymentAuthorization)
-      .handle(RecordOrderStockReservation.class, facade::recordOrderStockReservation)
-      .handle(RecordOrderPackageSent.class, facade::recordOrderPackageSent)
-      .handle(RecordOrderPaymentCapture.class, facade::recordOrderPaymentCapture)
-      .handle(RecordOrderDelivery.class, facade::recordOrderDelivery)
-      .handle(RecordOrderPaymentFailure.class, facade::recordOrderPaymentFailure)
-      .handle(RecordOrderShipmentFailure.class, facade::recordOrderShipmentFailure)
-      .handle(CancelOrder.class, facade::cancelOrder);
+    messageBus
+      .subscribe(InitializeOrder.class, facade::initializeOrder)
+      .subscribe(RecordOrderPaymentAuthorization.class, facade::recordOrderPaymentAuthorization)
+      .subscribe(RecordOrderStockReservation.class, facade::recordOrderStockReservation)
+      .subscribe(RecordOrderPackageSent.class, facade::recordOrderPackageSent)
+      .subscribe(RecordOrderPaymentCapture.class, facade::recordOrderPaymentCapture)
+      .subscribe(RecordOrderDelivery.class, facade::recordOrderDelivery)
+      .subscribe(RecordOrderPaymentFailure.class, facade::recordOrderPaymentFailure)
+      .subscribe(RecordOrderShipmentFailure.class, facade::recordOrderShipmentFailure)
+      .subscribe(CancelOrder.class, facade::cancelOrder);
 
     var database = new Database();
     var summaries = new OrderSummaries(database);
 
-    // The projections go first, so that what the forwarder reads already has the event in it.
-    internalEventBus
-      .subscribeWithMetadata(OrderInitialized.class, summaries::onInitialized)
-      .subscribeWithMetadata(OrderPaymentAuthorized.class, summaries::onPaymentAuthorized)
-      .subscribeWithMetadata(OrderStockReserved.class, summaries::onStockReserved)
-      .subscribeWithMetadata(OrderConfirmed.class, summaries::onConfirmed)
-      .subscribeWithMetadata(OrderPaymentCaptured.class, summaries::onPaymentCaptured)
-      .subscribeWithMetadata(OrderPackageSent.class, summaries::onPackageSent)
-      .subscribeWithMetadata(OrderPaymentFailed.class, summaries::onPaymentFailed)
-      .subscribeWithMetadata(OrderShipmentFailed.class, summaries::onShipmentFailed)
-      .subscribeWithMetadata(OrderCompleted.class, summaries::onCompleted)
-      .subscribeWithMetadata(OrderCancelled.class, summaries::onCancelled);
+    eventStore
+      .subscribe(OrderInitialized.class, summaries::onInitialized)
+      .subscribe(OrderPaymentAuthorized.class, summaries::onPaymentAuthorized)
+      .subscribe(OrderStockReserved.class, summaries::onStockReserved)
+      .subscribe(OrderConfirmed.class, summaries::onConfirmed)
+      .subscribe(OrderPaymentCaptured.class, summaries::onPaymentCaptured)
+      .subscribe(OrderPackageSent.class, summaries::onPackageSent)
+      .subscribe(OrderPaymentFailed.class, summaries::onPaymentFailed)
+      .subscribe(OrderShipmentFailed.class, summaries::onShipmentFailed)
+      .subscribe(OrderCompleted.class, summaries::onCompleted)
+      .subscribe(OrderCancelled.class, summaries::onCancelled);
 
     var pendingOrders = new PendingOrders(database);
 
-    internalEventBus
-      .subscribeWithMetadata(OrderInitialized.class, pendingOrders::onInitialized)
-      .subscribeWithMetadata(OrderPaymentAuthorized.class, pendingOrders::onPaymentAuthorized)
-      .subscribeWithMetadata(OrderPaymentCaptured.class, pendingOrders::onPaymentCaptured)
-      .subscribeWithMetadata(OrderPaymentFailed.class, pendingOrders::onPaymentFailed)
-      .subscribeWithMetadata(OrderStockReserved.class, pendingOrders::onStockReserved)
-      .subscribeWithMetadata(OrderPackageSent.class, pendingOrders::onPackageSent)
-      .subscribeWithMetadata(OrderShipmentFailed.class, pendingOrders::onShipmentFailed)
-      .subscribeWithMetadata(OrderCompleted.class, pendingOrders::onCompleted)
-      .subscribeWithMetadata(OrderCancelled.class, pendingOrders::onCancelled);
+    eventStore
+      .subscribe(OrderInitialized.class, pendingOrders::onInitialized)
+      .subscribe(OrderPaymentAuthorized.class, pendingOrders::onPaymentAuthorized)
+      .subscribe(OrderPaymentCaptured.class, pendingOrders::onPaymentCaptured)
+      .subscribe(OrderPaymentFailed.class, pendingOrders::onPaymentFailed)
+      .subscribe(OrderStockReserved.class, pendingOrders::onStockReserved)
+      .subscribe(OrderPackageSent.class, pendingOrders::onPackageSent)
+      .subscribe(OrderShipmentFailed.class, pendingOrders::onShipmentFailed)
+      .subscribe(OrderCompleted.class, pendingOrders::onCompleted)
+      .subscribe(OrderCancelled.class, pendingOrders::onCancelled);
 
-    var forwarder = new OrderExternalEventForwarder(summaries, integrationEventBus);
+    var forwarder = new OrderExternalEventForwarder(summaries, messageBus);
 
-    internalEventBus
-      .subscribe(OrderConfirmed.class, forwarder::on)
-      .subscribe(OrderPackageSent.class, forwarder::on)
-      .subscribe(OrderCompleted.class, forwarder::on)
-      .subscribe(OrderCancelled.class, forwarder::on);
+    eventStore
+      .subscribe(OrderConfirmed.class, forwarder::onConfirmed)
+      .subscribe(OrderPackageSent.class, forwarder::onPackageSent)
+      .subscribe(OrderCompleted.class, forwarder::onCompleted)
+      .subscribe(OrderCancelled.class, forwarder::onCancelled);
 
     return facade;
   }
 
-  // The saga sends commands to Payments and Shipments, so they can only be wired once those
-  // modules handle them, and after the forwarder, so that each public event goes out before
-  // the steps it causes.
   public static void configureProcess(
-    CommandBus commandBus,
-    InternalEventBus internalEventBus,
-    IntegrationEventBus integrationEventBus
+    EventStore eventStore,
+    MessageBus messageBus
   ) {
-    var saga = new OrderSaga(commandBus);
+    var saga = new OrderSaga(messageBus);
 
-    internalEventBus
-      .subscribe(OrderInitialized.class, saga::on)
-      .subscribe(OrderConfirmed.class, saga::on)
-      .subscribe(OrderPackageSent.class, saga::on)
-      .subscribe(OrderCancelled.class, saga::on);
+    eventStore
+      .subscribe(OrderInitialized.class, envelope -> saga.on(envelope.data()))
+      .subscribe(OrderConfirmed.class, envelope -> saga.on(envelope.data()))
+      .subscribe(OrderPackageSent.class, envelope -> saga.on(envelope.data()))
+      .subscribe(OrderCancelled.class, envelope -> saga.on(envelope.data()));
 
-    integrationEventBus
+    messageBus
       .subscribe(ShoppingCartFinalized.class, saga::on)
       .subscribe(PaymentAuthorized.class, saga::on)
       .subscribe(StockReserved.class, saga::on)

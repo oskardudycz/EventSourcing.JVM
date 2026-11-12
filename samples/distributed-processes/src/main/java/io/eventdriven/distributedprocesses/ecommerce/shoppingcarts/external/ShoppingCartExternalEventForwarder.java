@@ -2,25 +2,29 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external;
 
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 
-import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
+
+import java.util.List;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.*;
 
 public class ShoppingCartExternalEventForwarder {
   private final ShoppingCartSummaries summaries;
-  private final IntegrationEventBus eventBus;
+  private final MessageBus messageBus;
 
   public ShoppingCartExternalEventForwarder(
     ShoppingCartSummaries summaries,
-    IntegrationEventBus eventBus
+    MessageBus messageBus
   ) {
     this.summaries = summaries;
-    this.eventBus = eventBus;
+    this.messageBus = messageBus;
   }
 
-  public void on(ShoppingCartConfirmed event) {
-    var cart = get(event.shoppingCartId());
+  public void onConfirmed(EventEnvelope<ShoppingCartConfirmed> envelope) {
+    var event = envelope.data();
+    var cart = get(event.shoppingCartId(), envelope.metadata().streamPosition());
 
     var externalEvent = new ShoppingCartFinalized(
       event.shoppingCartId(),
@@ -30,11 +34,14 @@ public class ShoppingCartExternalEventForwarder {
       event.confirmedAt()
     );
 
-    eventBus.publish(externalEvent);
+    messageBus.publish(List.of(externalEvent));
   }
 
-  private ShoppingCartSummary get(ShoppingCartId shoppingCartId) {
+  private ShoppingCartSummary get(ShoppingCartId shoppingCartId, long streamPosition) {
     return summaries.get(shoppingCartId)
-      .orElseThrow(() -> new IllegalStateException("Cannot enrich event, as shopping cart with id '%s' was not found".formatted(shoppingCartId)));
+      .filter(summary -> summary.getVersion() >= streamPosition)
+      .orElseThrow(() -> new IllegalStateException(
+        "Summary of shopping cart '%s' has not reached position %d yet".formatted(shoppingCartId.value(), streamPosition)
+      ));
   }
 }

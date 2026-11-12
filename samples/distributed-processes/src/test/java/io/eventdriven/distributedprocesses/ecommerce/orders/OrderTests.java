@@ -255,9 +255,9 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         new OrderCancelled(
           orderId,
           null,
-          OrderPaymentState.NotAuthorized,
+          OrderPaymentStatus.NotAuthorized,
           shipmentId,
-          OrderShipmentState.Reserved,
+          OrderShipmentStatus.Reserved,
           OrderCancellationReason.PaymentFailed,
           authorizedAt
         )
@@ -276,9 +276,9 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         new OrderCancelled(
           orderId,
           paymentId,
-          OrderPaymentState.Authorized,
+          OrderPaymentStatus.Authorized,
           null,
-          OrderShipmentState.NotReserved,
+          OrderShipmentStatus.NotReserved,
           OrderCancellationReason.ProductWasOutOfStock,
           reservedAt
         )
@@ -297,9 +297,9 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         new OrderCancelled(
           orderId,
           paymentId,
-          OrderPaymentState.Authorized,
+          OrderPaymentStatus.Authorized,
           shipmentId,
-          OrderShipmentState.NotReserved,
+          OrderShipmentStatus.NotReserved,
           OrderCancellationReason.ProductWasOutOfStock,
           sentAt
         )
@@ -318,9 +318,9 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         new OrderCancelled(
           orderId,
           null,
-          OrderPaymentState.NotAuthorized,
+          OrderPaymentStatus.NotAuthorized,
           null,
-          OrderShipmentState.NotReserved,
+          OrderShipmentStatus.NotReserved,
           OrderCancellationReason.PaymentFailed,
           reservedAt
         )
@@ -393,9 +393,9 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
       .then(new OrderCancelled(
         orderId,
         null,
-        OrderPaymentState.NotAuthorized,
+        OrderPaymentStatus.NotAuthorized,
         null,
-        OrderShipmentState.NotReserved,
+        OrderShipmentStatus.NotReserved,
         OrderCancellationReason.Requested,
         now
       ));
@@ -411,9 +411,9 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
       .then(new OrderCancelled(
         orderId,
         paymentId,
-        OrderPaymentState.Authorized,
+        OrderPaymentStatus.Authorized,
         shipmentId,
-        OrderShipmentState.Reserved,
+        OrderShipmentStatus.Reserved,
         OrderCancellationReason.Requested,
         now
       ));
@@ -452,9 +452,9 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
       new OrderCancelled(
         orderId,
         null,
-        OrderPaymentState.NotAuthorized,
+        OrderPaymentStatus.NotAuthorized,
         null,
-        OrderShipmentState.NotReserved,
+        OrderShipmentStatus.NotReserved,
         OrderCancellationReason.PaymentFailed,
         authorizedAt
       )

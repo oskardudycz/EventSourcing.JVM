@@ -9,8 +9,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-// The event store dispatches what it appends, so appending here is also publishing:
-// neither this store nor the facades built on it need an event bus of their own.
 public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, Id> {
   private final EventStore eventStore;
   private final Function<Id, String> mapToStreamId;

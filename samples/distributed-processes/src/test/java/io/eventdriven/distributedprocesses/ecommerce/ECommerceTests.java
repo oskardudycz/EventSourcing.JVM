@@ -1,8 +1,7 @@
 package io.eventdriven.distributedprocesses.ecommerce;
 
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.*;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 import io.eventdriven.distributedprocesses.ecommerce.orders.external.OrderExternalEvent;
@@ -27,6 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.CallingBackDeliveryProvider.carrier;
@@ -61,15 +61,14 @@ public class ECommerceTests {
   };
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
-  private final InMemoryEventBus integrationEventBus = new InMemoryEventBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher messages = new MessageCatcher();
-  private final CallingBackDeliveryProvider deliveryProvider = new CallingBackDeliveryProvider(commandBus);
+  private final CallingBackDeliveryProvider deliveryProvider = new CallingBackDeliveryProvider(messageBus);
 
   @Test
   public void confirmingTheCartHoldsTheMoneyAndTheStockAndAsksForTheParcel() {
     // Given
-    configure(new RecordingPaymentGateway(commandBus), true);
+    configure(new RecordingPaymentGateway(messageBus), true);
     openCartWithShoes();
 
     // When
@@ -81,16 +80,16 @@ public class ECommerceTests {
       cartFinalized(),
       initializeOrder(),
       new AuthorizePayment(orderReference, totalPrice),
-      new ConfirmPaymentAuthorization(paymentId),
-      new PaymentExternalEvent.PaymentAuthorized(
-        orderReference, paymentId, totalPrice, now, now.plus(authorizationValidity)
-      ),
-      new RecordOrderPaymentAuthorization(orderId, paymentId, now),
       new ReserveStock(orderReference, shipmentItems),
+      new ConfirmPaymentAuthorization(paymentId),
       new ShipmentExternalEvent.StockReserved(
         shipmentId, orderReference, shipmentItems, now, now.plus(reservationValidity)
       ),
       new RecordOrderStockReservation(orderId, shipmentId, now),
+      new PaymentExternalEvent.PaymentAuthorized(
+        orderReference, paymentId, totalPrice, now, now.plus(authorizationValidity)
+      ),
+      new RecordOrderPaymentAuthorization(orderId, paymentId, now),
       new OrderExternalEvent.OrderConfirmed(orderId, clientId, orderItems, totalPrice, now),
       new SendPackage(shipmentId)
     );
@@ -99,7 +98,7 @@ public class ECommerceTests {
   @Test
   public void theCustomerIsChargedOnlyAfterTheParcelLeftAndGetsItsTracking() {
     // Given
-    configure(new RecordingPaymentGateway(commandBus), true);
+    configure(new RecordingPaymentGateway(messageBus), true);
     openCartWithShoes();
     confirmCart();
     messages.reset();
@@ -124,7 +123,7 @@ public class ECommerceTests {
   @Test
   public void deliveringTheParcelCompletesTheOrder() {
     // Given
-    configure(new RecordingPaymentGateway(commandBus), true);
+    configure(new RecordingPaymentGateway(messageBus), true);
     openCartWithShoes();
     confirmCart();
     deliveryProvider.confirmBookings();
@@ -145,7 +144,7 @@ public class ECommerceTests {
   @Test
   public void productsOutOfStockCancelTheOrderAndReleaseTheHoldWithoutCharging() {
     // Given
-    var paymentGateway = new RecordingPaymentGateway(commandBus);
+    var paymentGateway = new RecordingPaymentGateway(messageBus);
     configure(paymentGateway, false);
     openCartWithShoes();
 
@@ -158,12 +157,8 @@ public class ECommerceTests {
       cartFinalized(),
       initializeOrder(),
       new AuthorizePayment(orderReference, totalPrice),
-      new ConfirmPaymentAuthorization(paymentId),
-      new PaymentExternalEvent.PaymentAuthorized(
-        orderReference, paymentId, totalPrice, now, now.plus(authorizationValidity)
-      ),
-      new RecordOrderPaymentAuthorization(orderId, paymentId, now),
       new ReserveStock(orderReference, shipmentItems),
+      new ConfirmPaymentAuthorization(paymentId),
       new ShipmentExternalEvent.StockReservationFailed(
         shipmentId,
         orderReference,
@@ -172,6 +167,10 @@ public class ECommerceTests {
         now
       ),
       new RecordOrderShipmentFailure(orderId, now),
+      new PaymentExternalEvent.PaymentAuthorized(
+        orderReference, paymentId, totalPrice, now, now.plus(authorizationValidity)
+      ),
+      new RecordOrderPaymentAuthorization(orderId, paymentId, now),
       new OrderExternalEvent.OrderCancelled(
         orderId,
         clientId,
@@ -188,7 +187,7 @@ public class ECommerceTests {
   @Test
   public void aDeclinedPaymentCancelsTheOrderAndReleasesTheStock() {
     // Given
-    configure(new AutoRejectingPaymentGateway(commandBus), true);
+    configure(new AutoRejectingPaymentGateway(messageBus), true);
     openCartWithShoes();
 
     // When
@@ -200,16 +199,16 @@ public class ECommerceTests {
       cartFinalized(),
       initializeOrder(),
       new AuthorizePayment(orderReference, totalPrice),
-      new DeclinePayment(paymentId, DeclineReason.UnexpectedError),
-      new PaymentExternalEvent.PaymentFailed(
-        orderReference, paymentId, totalPrice, now, PaymentExternalEvent.PaymentFailed.Reason.Declined
-      ),
-      new RecordOrderPaymentFailure(orderId, now),
       new ReserveStock(orderReference, shipmentItems),
+      new DeclinePayment(paymentId, DeclineReason.UnexpectedError),
       new ShipmentExternalEvent.StockReserved(
         shipmentId, orderReference, shipmentItems, now, now.plus(reservationValidity)
       ),
       new RecordOrderStockReservation(orderId, shipmentId, now),
+      new PaymentExternalEvent.PaymentFailed(
+        orderReference, paymentId, totalPrice, now, PaymentExternalEvent.PaymentFailed.Reason.Declined
+      ),
+      new RecordOrderPaymentFailure(orderId, now),
       new OrderExternalEvent.OrderCancelled(
         orderId,
         clientId,
@@ -233,24 +232,21 @@ public class ECommerceTests {
   }
 
   private void openCartWithShoes() {
-    commandBus.send(new OpenShoppingCart(cartId, clientId));
-    commandBus.send(new AddProductItemToShoppingCart(cartId, shoes, 0L));
+    messageBus.publish(List.of(new OpenShoppingCart(cartId, clientId)));
+    messageBus.publish(List.of(new AddProductItemToShoppingCart(cartId, shoes, 0L)));
     messages.reset();
   }
 
   private void confirmCart() {
-    commandBus.send(new ConfirmShoppingCart(cartId, 1L));
+    messageBus.publish(List.of(new ConfirmShoppingCart(cartId, 1L)));
   }
 
   private void configure(PaymentGateway paymentGateway, boolean inStock) {
-    commandBus.use(messages::catchMessage);
-    integrationEventBus.use(messages::catchMessage);
+    messageBus.use(messages::catchMessage);
 
     ECommerceConfig.configure(
-      commandBus,
       eventStore,
-      eventStore,
-      integrationEventBus,
+      messageBus,
       item -> new PricedProductItem(item, unitPrice),
       paymentGateway,
       Duration.ofMinutes(15),

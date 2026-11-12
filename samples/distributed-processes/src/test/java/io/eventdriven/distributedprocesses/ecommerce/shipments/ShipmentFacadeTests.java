@@ -4,8 +4,7 @@ import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 
 import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.SilentDeliveryProvider;
 import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;
@@ -36,7 +35,7 @@ public class ShipmentFacadeTests {
   private final OffsetDateTime reservedUntil = now.plus(reservationValidity);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher published = new MessageCatcher();
   private final String carrier = "DHL";
   private final String trackingNumber = "JD014600006281234567";
@@ -44,10 +43,8 @@ public class ShipmentFacadeTests {
   public ShipmentFacadeTests() {
     eventStore.use(published::catchMessage);
     ShipmentsConfig.configure(
-      commandBus,
       eventStore,
-      eventStore,
-      new InMemoryEventBus(),
+      messageBus,
       new SilentDeliveryProvider(),
       isProductAvailable,
       reservationValidity,
@@ -57,7 +54,7 @@ public class ShipmentFacadeTests {
 
   @Test
   public void reserveStockWithEverythingAvailableDispatchesAndStoresStockReserved() {
-    commandBus.send(new ReserveStock(referenceId, available));
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
 
     var reserved = new StockReserved(shipmentId, referenceId, available, now, reservedUntil);
 
@@ -69,7 +66,7 @@ public class ShipmentFacadeTests {
   public void reserveStockWithAnUnavailableProductDispatchesProductWasOutOfStock() {
     var productItems = new ProductItem[]{availableItem, unavailableItem};
 
-    commandBus.send(new ReserveStock(referenceId, productItems));
+    messageBus.publish(List.of(new ReserveStock(referenceId, productItems)));
 
     published.shouldReceiveMessages(
       new ProductWasOutOfStock(shipmentId, referenceId, productItems, now)
@@ -80,7 +77,7 @@ public class ShipmentFacadeTests {
   public void sendPackageDispatchesParcelBookingRequestedWithTheReservedItems() {
     reserve();
 
-    commandBus.send(new SendPackage(shipmentId));
+    messageBus.publish(List.of(new SendPackage(shipmentId)));
 
     published.shouldReceiveMessages(
       new ParcelBookingRequested(shipmentId, referenceId, available, now)
@@ -90,10 +87,10 @@ public class ShipmentFacadeTests {
   @Test
   public void confirmParcelBookingDispatchesPackageWasSentWithTheCarrierAndTrackingNumber() {
     reserve();
-    commandBus.send(new SendPackage(shipmentId));
+    messageBus.publish(List.of(new SendPackage(shipmentId)));
     published.reset();
 
-    commandBus.send(new ConfirmParcelBooking(shipmentId, carrier, trackingNumber));
+    messageBus.publish(List.of(new ConfirmParcelBooking(shipmentId, carrier, trackingNumber)));
 
     published.shouldReceiveMessages(
       new PackageWasSent(shipmentId, referenceId, available, carrier, trackingNumber, now)
@@ -102,7 +99,7 @@ public class ShipmentFacadeTests {
 
   @Test
   public void sendPackageWithoutAReservationStoresNothingAndDoesNotThrow() {
-    assertThatCode(() -> commandBus.send(new SendPackage(shipmentId)))
+    assertThatCode(() -> messageBus.publish(List.of(new SendPackage(shipmentId))))
       .doesNotThrowAnyException();
 
     published.shouldNotReceiveAnyEvent();
@@ -114,7 +111,7 @@ public class ShipmentFacadeTests {
     reserve();
     dispatch();
 
-    commandBus.send(new DeliverPackage(shipmentId));
+    messageBus.publish(List.of(new DeliverPackage(shipmentId)));
 
     published.shouldReceiveMessages(new PackageWasDelivered(shipmentId, referenceId, now));
   }
@@ -123,7 +120,7 @@ public class ShipmentFacadeTests {
   public void deliveringAnUnsentShipmentStoresNothingAndDoesNotThrow() {
     reserve();
 
-    assertThatCode(() -> commandBus.send(new DeliverPackage(shipmentId)))
+    assertThatCode(() -> messageBus.publish(List.of(new DeliverPackage(shipmentId))))
       .doesNotThrowAnyException();
 
     published.shouldNotReceiveAnyEvent();
@@ -133,7 +130,7 @@ public class ShipmentFacadeTests {
   public void releaseStockDispatchesStockReleased() {
     reserve();
 
-    commandBus.send(new ReleaseStock(shipmentId));
+    messageBus.publish(List.of(new ReleaseStock(shipmentId)));
 
     published.shouldReceiveMessages(new StockReleased(shipmentId, referenceId, now));
   }
@@ -143,7 +140,7 @@ public class ShipmentFacadeTests {
     reserve();
     dispatch();
 
-    assertThatCode(() -> commandBus.send(new ReleaseStock(shipmentId)))
+    assertThatCode(() -> messageBus.publish(List.of(new ReleaseStock(shipmentId))))
       .doesNotThrowAnyException();
 
     published.shouldNotReceiveAnyEvent();
@@ -153,7 +150,7 @@ public class ShipmentFacadeTests {
   public void expireStockReservationDispatchesStockReservationExpired() {
     reserve();
 
-    commandBus.send(new ExpireStockReservation(shipmentId, reservedUntil));
+    messageBus.publish(List.of(new ExpireStockReservation(shipmentId, reservedUntil)));
 
     published.shouldReceiveMessages(
       new StockReservationExpired(shipmentId, referenceId, reservedUntil)
@@ -162,10 +159,10 @@ public class ShipmentFacadeTests {
 
   @Test
   public void reserveStockDerivesTheShipmentIdFromTheReferenceSoASecondReservationChangesNothing() {
-    commandBus.send(
+    messageBus.publish(List.of(
       new ReserveStock(referenceId, available),
       new ReserveStock(referenceId, available)
-    );
+    ));
 
     assertThat(storedEvents()).usingRecursiveComparison().isEqualTo(
       List.of(new StockReserved(shipmentId, referenceId, available, now, reservedUntil))
@@ -179,15 +176,15 @@ public class ShipmentFacadeTests {
   }
 
   private void reserve() {
-    commandBus.send(new ReserveStock(referenceId, available));
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
     published.reset();
   }
 
   private void dispatch() {
-    commandBus.send(
+    messageBus.publish(List.of(
       new SendPackage(shipmentId),
       new ConfirmParcelBooking(shipmentId, carrier, trackingNumber)
-    );
+    ));
     published.reset();
   }
 

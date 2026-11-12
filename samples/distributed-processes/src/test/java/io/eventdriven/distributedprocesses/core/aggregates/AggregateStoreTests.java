@@ -95,7 +95,7 @@ public class AggregateStoreTests {
 
   @Test
   public void subscriberOnTheStoreReceivesTheEventsThatWereAppended() {
-    eventStore.subscribe(CounterEvent.Opened.class, event -> log.add("opened:" + event.name()));
+    eventStore.subscribe(CounterEvent.Opened.class, envelope -> log.add("opened:" + envelope.data().name()));
 
     store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
 

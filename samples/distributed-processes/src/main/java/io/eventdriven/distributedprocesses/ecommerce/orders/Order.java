@@ -196,24 +196,24 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
     return new OrderCancelled(
       id,
       paymentId,
-      paymentState(),
+      paymentStatus(),
       shipmentId,
-      shipmentState(),
+      shipmentStatus(),
       reason,
       now
     );
   }
 
-  private OrderPaymentState paymentState() {
+  private OrderPaymentStatus paymentStatus() {
     return payment == PaymentProgress.Authorized
-      ? OrderPaymentState.Authorized
-      : OrderPaymentState.NotAuthorized;
+      ? OrderPaymentStatus.Authorized
+      : OrderPaymentStatus.NotAuthorized;
   }
 
-  private OrderShipmentState shipmentState() {
+  private OrderShipmentStatus shipmentStatus() {
     return shipment == ShipmentProgress.Reserved
-      ? OrderShipmentState.Reserved
-      : OrderShipmentState.NotReserved;
+      ? OrderShipmentStatus.Reserved
+      : OrderShipmentStatus.NotReserved;
   }
 
   @Override

@@ -3,8 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts;
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
 import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
@@ -33,7 +32,7 @@ public class ShoppingCartFacadeTests {
   private final OffsetDateTime now = OffsetDateTime.now();
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher published = new MessageCatcher();
 
   private final AggregateStore<ShoppingCart, ShoppingCartEvent, ShoppingCartId> store =
@@ -42,13 +41,13 @@ public class ShoppingCartFacadeTests {
   public ShoppingCartFacadeTests() {
     eventStore.use(published::catchMessage);
     ShoppingCartsConfig.configure(
-      commandBus, eventStore, eventStore, new InMemoryEventBus(), prices, () -> now
+      eventStore, messageBus, prices, () -> now
     );
   }
 
   @Test
   public void openShoppingCartDispatchesAndStoresShoppingCartOpened() {
-    commandBus.send(new OpenShoppingCart(shoppingCartId, clientId));
+    messageBus.publish(List.of(new OpenShoppingCart(shoppingCartId, clientId)));
 
     var opened = new ShoppingCartOpened(shoppingCartId, clientId);
 
@@ -59,10 +58,10 @@ public class ShoppingCartFacadeTests {
 
   @Test
   public void addProductItemDispatchesProductItemAddedAndPricesIt() {
-    commandBus.send(new OpenShoppingCart(shoppingCartId, clientId));
+    messageBus.publish(List.of(new OpenShoppingCart(shoppingCartId, clientId)));
     published.reset();
 
-    commandBus.send(new AddProductItemToShoppingCart(shoppingCartId, shoes, 0L));
+    messageBus.publish(List.of(new AddProductItemToShoppingCart(shoppingCartId, shoes, 0L)));
 
     published.shouldReceiveMessages(new ProductItemAddedToShoppingCart(shoppingCartId, pricedShoes));
     assertThat(currentCart().productItems()).containsExactly(pricedShoes);
@@ -74,7 +73,7 @@ public class ShoppingCartFacadeTests {
     openCartWithShoesAndShirt();
     published.reset();
 
-    commandBus.send(new RemoveProductItemFromShoppingCart(shoppingCartId, pricedShoes, 2L));
+    messageBus.publish(List.of(new RemoveProductItemFromShoppingCart(shoppingCartId, pricedShoes, 2L)));
 
     published.shouldReceiveMessages(
       new ProductItemRemovedFromShoppingCart(shoppingCartId, pricedShoes)
@@ -87,7 +86,7 @@ public class ShoppingCartFacadeTests {
     openCartWithShoesAndShirt();
     published.reset();
 
-    commandBus.send(new ConfirmShoppingCart(shoppingCartId, 2L));
+    messageBus.publish(List.of(new ConfirmShoppingCart(shoppingCartId, 2L)));
 
     published.shouldReceiveMessages(new ShoppingCartConfirmed(shoppingCartId, now));
     assertThat(currentCart().productItems()).containsExactly(pricedShoes, pricedShirt);
@@ -96,10 +95,10 @@ public class ShoppingCartFacadeTests {
 
   @Test
   public void cancelCartDispatchesShoppingCartCanceled() {
-    commandBus.send(new OpenShoppingCart(shoppingCartId, clientId));
+    messageBus.publish(List.of(new OpenShoppingCart(shoppingCartId, clientId)));
     published.reset();
 
-    commandBus.send(new CancelShoppingCart(shoppingCartId, 0L));
+    messageBus.publish(List.of(new CancelShoppingCart(shoppingCartId, 0L)));
 
     published.shouldReceiveMessages(new ShoppingCartCanceled(shoppingCartId, now));
   }
@@ -109,7 +108,7 @@ public class ShoppingCartFacadeTests {
     openCartWithShoesAndShirt();
     published.reset();
 
-    assertThatThrownBy(() -> commandBus.send(new ConfirmShoppingCart(shoppingCartId, 0L)))
+    assertThatThrownBy(() -> messageBus.publish(List.of(new ConfirmShoppingCart(shoppingCartId, 0L))))
       .isInstanceOf(IllegalStateException.class);
 
     published.shouldNotReceiveAnyEvent();
@@ -117,11 +116,11 @@ public class ShoppingCartFacadeTests {
   }
 
   private void openCartWithShoesAndShirt() {
-    commandBus.send(
+    messageBus.publish(List.of(
       new OpenShoppingCart(shoppingCartId, clientId),
       new AddProductItemToShoppingCart(shoppingCartId, shoes, 0L),
       new AddProductItemToShoppingCart(shoppingCartId, shirt, 1L)
-    );
+    ));
   }
 
   private ShoppingCart currentCart() {

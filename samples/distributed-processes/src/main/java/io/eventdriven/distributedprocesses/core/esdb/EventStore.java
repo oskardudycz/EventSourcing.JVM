@@ -2,6 +2,9 @@ package io.eventdriven.distributedprocesses.core.esdb;
 
 import com.eventstore.dbclient.ExpectedRevision;
 import com.eventstore.dbclient.Position;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+
+import java.util.function.Consumer;
 
 public interface EventStore {
   ReadResult read(String streamId);
@@ -9,6 +12,8 @@ public interface EventStore {
   AppendResult append(String streamId, Object... events);
 
   AppendResult append(String streamId, ExpectedRevision expectedRevision, Object... events);
+
+  <Event> EventStore subscribe(Class<Event> type, Consumer<EventEnvelope<Event>> handler);
 
   sealed interface ReadResult {
     record Success(
