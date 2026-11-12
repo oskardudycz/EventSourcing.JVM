@@ -10,8 +10,8 @@
     - [Two holds, then two commits](#two-holds-then-two-commits)
     - [Where this flow comes from](#where-this-flow-comes-from)
     - [Compensation](#compensation)
-    - [The order decides, the policies only translate](#the-order-decides-the-policies-only-translate)
-    - [Why the policies stay stateless](#why-the-policies-stay-stateless)
+    - [The order decides, the saga only translates](#the-order-decides-the-saga-only-translates)
+    - [Why the saga stays stateless](#why-the-saga-stays-stateless)
     - [Internal events and the published contract](#internal-events-and-the-published-contract)
     - [The read side that feeds the contract](#the-read-side-that-feeds-the-contract)
     - [Appending is publishing](#appending-is-publishing)
@@ -251,7 +251,7 @@ Both diagrams end up with the same shape: a hold, a commit, and two ways to let 
 sequenceDiagram
     participant Client
     participant Cart as ShoppingCarts
-    participant Process as Orders process
+    participant Process as OrderSaga
     participant Order as Orders
     participant Pay as Payments
     participant Ship as Shipments
@@ -297,7 +297,7 @@ The diagram shows what the process reacts to, not everything that is published. 
 
 ```mermaid
 sequenceDiagram
-    participant Process as Orders process
+    participant Process as OrderSaga
     participant Order as Orders
     participant Pay as Payments
     participant Ship as Shipments
@@ -315,9 +315,9 @@ sequenceDiagram
 
 A failed payment doesn't cancel the order on its own. At that point the order still doesn't know what there is to undo: whether a stock reservation needs releasing depends on the shipment, and the shipment may not have answered yet. So the order records the failure and waits for the other participant. That wait also covers the happy path, where both modules answer at once — the two holds can arrive in either order, and the order comes out the same.
 
-Choosing the reversal isn't the process's job either. The internal `OrderCancelled` carries `paymentState` and `shipmentState`, and the cancelling policy only reads them:
+Choosing the reversal isn't the process's job either. The internal `OrderCancelled` carries `paymentState` and `shipmentState`, and the saga's compensation only reads them:
 
-| state | the policy sends |
+| state | the saga sends |
 |---|---|
 | `paymentState = Authorized` | `VoidPayment` |
 | `shipmentState = Reserved` | `ReleaseStock` |
@@ -329,7 +329,7 @@ The states stay inside the orders module. The public `OrderCancelled` carries a 
 
 Read more about why compensation matters in [What texting your Ex has to do with Event-Driven Design?](https://event-driven.io/en/what_texting_ex_has_to_do_with_event_driven_design?utm_source=event_sourcing_jvm).
 
-### The order decides, the policies only translate
+### The order decides, the saga only translates
 
 `Order` holds one state per participant, just as `GroupCheckout` holds one status per guest stay:
 
@@ -355,11 +355,11 @@ public void recordPaymentAuthorization(PaymentId paymentId, OffsetDateTime autho
 
 Idempotency also keeps the process moving. A handler that throws inside an asynchronous process blocks it: the message becomes poison and the workflow hangs behind it. So orders, payments and shipments stay quiet about messages they can't use. `ShoppingCart` still throws, because its commands come from a person over HTTP, where a rejected action has to reach the caller as an error instead of vanishing.
 
-### Why the policies stay stateless
+### Why the saga stays stateless
 
-The process is three policies, one per phase: [placing](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/placing/OrderPlacingPolicy.java), [fulfilling](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/fulfilling/OrderFulfillingPolicy.java) and [cancelling](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/cancelling/OrderCancellingPolicy.java). Each should be a "stupid" dispatcher: it waits for an event and sends a command built from that event's data alone. That takes some care, because an event doesn't always carry what the next command needs.
+The whole process is one class, [OrderSaga](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/OrderSaga.java), with its handlers grouped by phase: hold, commit and compensation. It should be a "stupid" dispatcher: it waits for an event and sends a command built from that event's data alone. That takes some care, because an event doesn't always carry what the next command needs.
 
-`PackageWasSent` doesn't know which payment is waiting on it, and it shouldn't: the shipments module has never heard of a payment. Looking the payment up inside the policy would work, at the price of giving it a store and a state to keep. The sample routes it through the order instead — the policy records the dispatch, and the order answers with its own `OrderPackageSent`, carrying the `paymentId` it already knows. That's the event the capture is sent from:
+`PackageWasSent` doesn't know which payment is waiting on it, and it shouldn't: the shipments module has never heard of a payment. Looking the payment up inside the saga would work, at the price of giving it a store and a state to keep. The sample routes it through the order instead — the saga records the dispatch, and the order answers with its own `OrderPackageSent`, carrying the `paymentId` it already knows. That's the event the capture is sent from:
 
 ```java
 public void on(ShipmentExternalEvent.PackageWasSent event) {
@@ -379,9 +379,9 @@ public void on(OrderEvent.OrderPackageSent event) {
 }
 ```
 
-Note which `OrderPackageSent` that is: the internal one. The policies belong to the orders module, so they read the order's own events straight from its store and the other modules' events from the integration bus. A module that drove its own process through its public events would have to publish whatever that process needs — a `paymentId` here, a `shipmentId` there, the internal states on a cancellation — and the contract would turn into a dump of its internals.
+Note which `OrderPackageSent` that is: the internal one. The saga belongs to the orders module, so it reads the order's own events straight from its store and the other modules' events from the integration bus. A module that drove its own process through its public events would have to publish whatever that process needs — a `paymentId` here, a `shipmentId` there, the internal states on a cancellation — and the contract would turn into a dump of its internals.
 
-The policies end up with no state, no store, no clock and no id supplier; their only field is the command bus. Identifiers are derived rather than generated: the order id comes from the cart id, the payment and shipment ids from the order id. Handling the same event twice therefore sends two identical commands, and the modules no-op on the second.
+The saga ends up with no state, no store, no clock and no id supplier; its only field is the command bus. Identifiers are derived rather than generated: the order id comes from the cart id, the payment and shipment ids from the order id. Handling the same event twice therefore sends two identical commands, and the modules no-op on the second.
 
 ### Internal events and the published contract
 
@@ -456,11 +456,11 @@ The first three are what the expiry workers poll. `PendingOrders` has no worker 
 
 The in-memory event store follows the one in the [introduction-to-event-sourcing](../../workshops/introduction-to-event-sourcing/) workshop: appending to a stream dispatches the events. There's no gap between storing and publishing to get wrong, and no facade has to call a bus. In memory that comes for free; against a real database it's what an outbox is for. Either way, if you find yourself writing `store.getAndUpdate(...)` followed by `bus.publish(...)`, you're working around the store instead of using it.
 
-That store is the module's internal channel. The integration bus is a separate object, and only forwarders write to it. The orders policies listen to both: to the order's own internal events, and to the other modules' public ones. They never see another module's internals.
+That store is the module's internal channel. The integration bus is a separate object, and only forwarders write to it. The order saga listens to both: to the order's own internal events, and to the other modules' public ones. It never sees another module's internals.
 
 The two are separate *interfaces* — `InternalEventBus` has no `publish` at all, because publishing a module's own events is appending them. One in-memory class happens to implement both here; in production they would be different transports.
 
-[ECommerceConfig](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceConfig.java) is the composition root. It configures the four modules on one command bus, one store and one integration bus, then wires the orders process last: the policies send commands to payments and shipments, so those modules have to handle them first, and each module's forwarder has to be subscribed before them, so that a public event goes out before the steps it causes. [ECommerceTests](./src/test/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceTests.java) drives whole orders through it and checks the commands and the public events in the order they happen.
+[ECommerceConfig](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceConfig.java) is the composition root. It configures the four modules on one command bus, one store and one integration bus, then wires the order saga last: it sends commands to payments and shipments, so those modules have to handle them first, and each module's forwarder has to be subscribed before them, so that a public event goes out before the steps it causes. [ECommerceTests](./src/test/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceTests.java) drives whole orders through it and checks the commands and the public events in the order they happen.
 
 ### The two settlement seams
 
@@ -505,11 +505,11 @@ The first watches a request, the other two watch a hold. A hold that can only be
 
 ### Where the code lives
 
-Each module keeps its aggregate, its events, its commands, its facade and its `Config` at the top of its package. The `sealed` interfaces have to stay there, since without a `module-info.java` a sealed type's records must share its package. Everything else is grouped by what it does in the business:
+Each module keeps its aggregate, its events, its commands, its facade and its `Config` at the top of its package, and the orders module keeps `OrderSaga` there too. The `sealed` interfaces have to stay there, since without a `module-info.java` a sealed type's records must share its package. Everything else is grouped by what it does in the business:
 
 | Module | Packages |
 |---|---|
-| orders | `placing`, `fulfilling`, `cancelling` (the policies, and `PendingOrders` for orders that got stuck), `external` |
+| orders | `pending` (`PendingOrders`, for orders that got stuck), `external` |
 | payments | `authorization` (the gateway call, the timeout and the hold expiry), `capture`, `external` |
 | shipments | `reservation` (the reservation expiry), `delivery` (the provider), `external` |
 | shopping carts | `pricing`, `productitems`, `external` |

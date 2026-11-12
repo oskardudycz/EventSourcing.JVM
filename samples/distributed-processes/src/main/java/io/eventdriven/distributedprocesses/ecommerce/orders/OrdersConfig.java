@@ -6,12 +6,9 @@ import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
 import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
 import io.eventdriven.distributedprocesses.core.messaging.InternalEventBus;
 import io.eventdriven.distributedprocesses.core.projections.Database;
-import io.eventdriven.distributedprocesses.ecommerce.orders.cancelling.OrderCancellingPolicy;
-import io.eventdriven.distributedprocesses.ecommerce.orders.cancelling.PendingOrders;
+import io.eventdriven.distributedprocesses.ecommerce.orders.pending.PendingOrders;
 import io.eventdriven.distributedprocesses.ecommerce.orders.external.OrderExternalEventForwarder;
 import io.eventdriven.distributedprocesses.ecommerce.orders.external.OrderSummaries;
-import io.eventdriven.distributedprocesses.ecommerce.orders.fulfilling.OrderFulfillingPolicy;
-import io.eventdriven.distributedprocesses.ecommerce.orders.placing.OrderPlacingPolicy;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed;
@@ -97,7 +94,7 @@ public final class OrdersConfig {
     return facade;
   }
 
-  // The policies send commands to Payments and Shipments, so they can only be wired once those
+  // The saga sends commands to Payments and Shipments, so they can only be wired once those
   // modules handle them, and after the forwarder, so that each public event goes out before
   // the steps it causes.
   public static void configureProcess(
@@ -105,24 +102,22 @@ public final class OrdersConfig {
     InternalEventBus internalEventBus,
     IntegrationEventBus integrationEventBus
   ) {
-    var placing = new OrderPlacingPolicy(commandBus);
-    var fulfilling = new OrderFulfillingPolicy(commandBus);
-    var cancelling = new OrderCancellingPolicy(commandBus);
+    var saga = new OrderSaga(commandBus);
 
     internalEventBus
-      .subscribe(OrderInitialized.class, placing::on)
-      .subscribe(OrderConfirmed.class, fulfilling::on)
-      .subscribe(OrderPackageSent.class, fulfilling::on)
-      .subscribe(OrderCancelled.class, cancelling::on);
+      .subscribe(OrderInitialized.class, saga::on)
+      .subscribe(OrderConfirmed.class, saga::on)
+      .subscribe(OrderPackageSent.class, saga::on)
+      .subscribe(OrderCancelled.class, saga::on);
 
     integrationEventBus
-      .subscribe(ShoppingCartFinalized.class, placing::on)
-      .subscribe(PaymentAuthorized.class, placing::on)
-      .subscribe(StockReserved.class, placing::on)
-      .subscribe(PackageWasSent.class, fulfilling::on)
-      .subscribe(PaymentCaptured.class, fulfilling::on)
-      .subscribe(PackageWasDelivered.class, fulfilling::on)
-      .subscribe(PaymentFailed.class, cancelling::on)
-      .subscribe(StockReservationFailed.class, cancelling::on);
+      .subscribe(ShoppingCartFinalized.class, saga::on)
+      .subscribe(PaymentAuthorized.class, saga::on)
+      .subscribe(StockReserved.class, saga::on)
+      .subscribe(PackageWasSent.class, saga::on)
+      .subscribe(PaymentCaptured.class, saga::on)
+      .subscribe(PackageWasDelivered.class, saga::on)
+      .subscribe(PaymentFailed.class, saga::on)
+      .subscribe(StockReservationFailed.class, saga::on);
   }
 }

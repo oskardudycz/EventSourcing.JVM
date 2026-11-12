@@ -4,13 +4,17 @@ import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.*;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 import io.eventdriven.distributedprocesses.ecommerce.orders.external.OrderExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.payments.AutoRejectingPaymentGateway;
+import io.eventdriven.distributedprocesses.ecommerce.payments.DeclineReason;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentGateway;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.payments.RecordingPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.*;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.CallingBackDeliveryProvider;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartCommand.*;
@@ -25,141 +29,235 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+import static io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.CallingBackDeliveryProvider.carrier;
+import static io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.CallingBackDeliveryProvider.trackingNumber;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class ECommerceTests {
+  private static final double unitPrice = 100;
+  private static final Duration authorizationValidity = Duration.ofDays(7);
+  private static final Duration reservationValidity = Duration.ofHours(2);
+
   private final OffsetDateTime now = OffsetDateTime.now();
   private final ShoppingCartId cartId = ShoppingCartId.of(UUID.randomUUID());
+  private final UUID clientId = UUID.randomUUID();
   private final ProductItem shoes = new ProductItem(UUID.randomUUID(), 2);
+  private final double totalPrice = shoes.quantity() * unitPrice;
+
+  private final OrderId orderId = OrderId.derivedFrom(cartId.value());
+  private final String orderReference = orderId.value();
+  private final PaymentId paymentId = PaymentId.derivedFrom(orderReference);
+  private final ShipmentId shipmentId = ShipmentId.derivedFrom(orderReference);
+
+  private final io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem[] orderItems = {
+    new io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem(
+      shoes.productId(), shoes.quantity(), unitPrice
+    )
+  };
+  private final io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem[] shipmentItems = {
+    new io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem(
+      shoes.productId(), shoes.quantity()
+    )
+  };
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
   private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
   private final InMemoryEventBus integrationEventBus = new InMemoryEventBus();
-  private final MessageCatcher publicEvents = new MessageCatcher();
-  private final MessageCatcher commands = new MessageCatcher();
+  private final MessageCatcher messages = new MessageCatcher();
   private final CallingBackDeliveryProvider deliveryProvider = new CallingBackDeliveryProvider(commandBus);
 
   @Test
-  public void theCustomerIsChargedOnlyAfterTheParcelLeft() {
-    var paymentGateway = new RecordingPaymentGateway(commandBus);
-    configure(paymentGateway, true);
+  public void confirmingTheCartHoldsTheMoneyAndTheStockAndAsksForTheParcel() {
+    // Given
+    configure(new RecordingPaymentGateway(commandBus), true);
+    openCartWithShoes();
 
+    // When
     confirmCart();
-    deliveryProvider.deliverBookedParcels();
 
-    assertThat(commands.published).extracting(Object::getClass).containsExactly(
-      ConfirmShoppingCart.class,
-      InitializeOrder.class,
-      AuthorizePayment.class,
-      ConfirmPaymentAuthorization.class,
-      RecordOrderPaymentAuthorization.class,
-      ReserveStock.class,
-      RecordOrderStockReservation.class,
-      SendPackage.class,
-      RecordOrderPackageSent.class,
-      CapturePayment.class,
-      RecordOrderPaymentCapture.class,
-      DeliverPackage.class,
-      RecordOrderDelivery.class
+    // Then
+    messages.shouldReceiveMessages(
+      new ConfirmShoppingCart(cartId, 1L),
+      cartFinalized(),
+      initializeOrder(),
+      new AuthorizePayment(orderReference, totalPrice),
+      new ConfirmPaymentAuthorization(paymentId),
+      new PaymentExternalEvent.PaymentAuthorized(
+        orderReference, paymentId, totalPrice, now, now.plus(authorizationValidity)
+      ),
+      new RecordOrderPaymentAuthorization(orderId, paymentId, now),
+      new ReserveStock(orderReference, shipmentItems),
+      new ShipmentExternalEvent.StockReserved(
+        shipmentId, orderReference, shipmentItems, now, now.plus(reservationValidity)
+      ),
+      new RecordOrderStockReservation(orderId, shipmentId, now),
+      new OrderExternalEvent.OrderConfirmed(orderId, clientId, orderItems, totalPrice, now),
+      new SendPackage(shipmentId)
     );
-    assertThat(publicEvents.published).extracting(Object::getClass).containsExactly(
-      ShoppingCartExternalEvent.ShoppingCartFinalized.class,
-      PaymentExternalEvent.PaymentAuthorized.class,
-      ShipmentExternalEvent.StockReserved.class,
-      OrderExternalEvent.OrderConfirmed.class,
-      ShipmentExternalEvent.PackageWasSent.class,
-      OrderExternalEvent.OrderShipped.class,
-      PaymentExternalEvent.PaymentCaptured.class,
-      ShipmentExternalEvent.PackageWasDelivered.class,
-      OrderExternalEvent.OrderCompleted.class
-    );
-    assertThat(paymentGateway.calls)
-      .extracting(call -> call.split(":")[0])
-      .containsExactly("authorize", "capture");
   }
 
   @Test
-  public void theCustomerTellsWhereTheParcelIs() {
+  public void theCustomerIsChargedOnlyAfterTheParcelLeftAndGetsItsTracking() {
+    // Given
     configure(new RecordingPaymentGateway(commandBus), true);
-
+    openCartWithShoes();
     confirmCart();
+    messages.reset();
 
-    assertThat(publicEvents.published)
-      .filteredOn(OrderExternalEvent.OrderShipped.class::isInstance)
-      .singleElement()
-      .usingRecursiveComparison()
-      .comparingOnlyFields("carrier", "trackingNumber")
-      .isEqualTo(CallingBackDeliveryProvider.booking);
+    // When
+    deliveryProvider.confirmBookings();
+
+    // Then
+    messages.shouldReceiveMessages(
+      new ConfirmParcelBooking(shipmentId, carrier, trackingNumber),
+      new ShipmentExternalEvent.PackageWasSent(
+        shipmentId, orderReference, shipmentItems, carrier, trackingNumber, now
+      ),
+      new RecordOrderPackageSent(orderId, carrier, trackingNumber, now),
+      new OrderExternalEvent.OrderShipped(orderId, clientId, shipmentId, carrier, trackingNumber, now),
+      new CapturePayment(paymentId),
+      new PaymentExternalEvent.PaymentCaptured(orderReference, paymentId, totalPrice, now),
+      new RecordOrderPaymentCapture(orderId, now)
+    );
+  }
+
+  @Test
+  public void deliveringTheParcelCompletesTheOrder() {
+    // Given
+    configure(new RecordingPaymentGateway(commandBus), true);
+    openCartWithShoes();
+    confirmCart();
+    deliveryProvider.confirmBookings();
+    messages.reset();
+
+    // When
+    deliveryProvider.deliverParcels();
+
+    // Then
+    messages.shouldReceiveMessages(
+      new DeliverPackage(shipmentId),
+      new ShipmentExternalEvent.PackageWasDelivered(shipmentId, orderReference, now),
+      new RecordOrderDelivery(orderId, now),
+      new OrderExternalEvent.OrderCompleted(orderId, clientId, orderItems, totalPrice, now)
+    );
   }
 
   @Test
   public void productsOutOfStockCancelTheOrderAndReleaseTheHoldWithoutCharging() {
+    // Given
     var paymentGateway = new RecordingPaymentGateway(commandBus);
     configure(paymentGateway, false);
+    openCartWithShoes();
 
+    // When
     confirmCart();
 
-    assertThat(publicEvents.published).extracting(Object::getClass).containsExactly(
-      ShoppingCartExternalEvent.ShoppingCartFinalized.class,
-      PaymentExternalEvent.PaymentAuthorized.class,
-      ShipmentExternalEvent.StockReservationFailed.class,
-      OrderExternalEvent.OrderCancelled.class
+    // Then
+    messages.shouldReceiveMessages(
+      new ConfirmShoppingCart(cartId, 1L),
+      cartFinalized(),
+      initializeOrder(),
+      new AuthorizePayment(orderReference, totalPrice),
+      new ConfirmPaymentAuthorization(paymentId),
+      new PaymentExternalEvent.PaymentAuthorized(
+        orderReference, paymentId, totalPrice, now, now.plus(authorizationValidity)
+      ),
+      new RecordOrderPaymentAuthorization(orderId, paymentId, now),
+      new ReserveStock(orderReference, shipmentItems),
+      new ShipmentExternalEvent.StockReservationFailed(
+        shipmentId,
+        orderReference,
+        shipmentItems,
+        ShipmentExternalEvent.StockReservationFailed.Reason.ProductsOutOfStock,
+        now
+      ),
+      new RecordOrderShipmentFailure(orderId, now),
+      new OrderExternalEvent.OrderCancelled(
+        orderId,
+        clientId,
+        orderItems,
+        totalPrice,
+        OrderExternalEvent.OrderCancelled.Reason.ProductsOutOfStock,
+        now
+      ),
+      new VoidPayment(paymentId)
     );
-    assertThat(publicEvents.published.getLast())
-      .usingRecursiveComparison()
-      .comparingOnlyFields("reason")
-      .isEqualTo(new OrderExternalEvent.OrderCancelled(
-        null, null, null, 0, OrderExternalEvent.OrderCancelled.Reason.ProductsOutOfStock, null
-      ));
-    assertThat(commands.published).extracting(Object::getClass)
-      .contains(VoidPayment.class)
-      .doesNotContain(CapturePayment.class, ReleaseStock.class, SendPackage.class);
-    assertThat(paymentGateway.calls)
-      .extracting(call -> call.split(":")[0])
-      .containsExactly("authorize", "void");
+    assertThat(paymentGateway.calls).contains("void:%s".formatted(paymentId));
   }
 
   @Test
   public void aDeclinedPaymentCancelsTheOrderAndReleasesTheStock() {
+    // Given
     configure(new AutoRejectingPaymentGateway(commandBus), true);
+    openCartWithShoes();
 
+    // When
     confirmCart();
 
-    assertThat(publicEvents.published).extracting(Object::getClass).containsExactly(
-      ShoppingCartExternalEvent.ShoppingCartFinalized.class,
-      PaymentExternalEvent.PaymentFailed.class,
-      ShipmentExternalEvent.StockReserved.class,
-      OrderExternalEvent.OrderCancelled.class
+    // Then
+    messages.shouldReceiveMessages(
+      new ConfirmShoppingCart(cartId, 1L),
+      cartFinalized(),
+      initializeOrder(),
+      new AuthorizePayment(orderReference, totalPrice),
+      new DeclinePayment(paymentId, DeclineReason.UnexpectedError),
+      new PaymentExternalEvent.PaymentFailed(
+        orderReference, paymentId, totalPrice, now, PaymentExternalEvent.PaymentFailed.Reason.Declined
+      ),
+      new RecordOrderPaymentFailure(orderId, now),
+      new ReserveStock(orderReference, shipmentItems),
+      new ShipmentExternalEvent.StockReserved(
+        shipmentId, orderReference, shipmentItems, now, now.plus(reservationValidity)
+      ),
+      new RecordOrderStockReservation(orderId, shipmentId, now),
+      new OrderExternalEvent.OrderCancelled(
+        orderId,
+        clientId,
+        orderItems,
+        totalPrice,
+        OrderExternalEvent.OrderCancelled.Reason.PaymentFailed,
+        now
+      ),
+      new ReleaseStock(shipmentId)
     );
-    assertThat(commands.published).extracting(Object::getClass)
-      .contains(ReleaseStock.class)
-      .doesNotContain(VoidPayment.class, SendPackage.class, CapturePayment.class);
+  }
+
+  private ShoppingCartExternalEvent.ShoppingCartFinalized cartFinalized() {
+    return new ShoppingCartExternalEvent.ShoppingCartFinalized(
+      cartId, clientId, new PricedProductItem[]{new PricedProductItem(shoes, unitPrice)}, totalPrice, now
+    );
+  }
+
+  private InitializeOrder initializeOrder() {
+    return new InitializeOrder(orderId, cartId, clientId, orderItems, totalPrice);
+  }
+
+  private void openCartWithShoes() {
+    commandBus.send(new OpenShoppingCart(cartId, clientId));
+    commandBus.send(new AddProductItemToShoppingCart(cartId, shoes, 0L));
+    messages.reset();
   }
 
   private void confirmCart() {
-    commandBus.send(new OpenShoppingCart(cartId, UUID.randomUUID()));
-    commandBus.send(new AddProductItemToShoppingCart(cartId, shoes, 0L));
-    commands.reset();
-
     commandBus.send(new ConfirmShoppingCart(cartId, 1L));
   }
 
   private void configure(PaymentGateway paymentGateway, boolean inStock) {
-    commandBus.use(commands::catchMessage);
-    integrationEventBus.use(publicEvents::catchMessage);
+    commandBus.use(messages::catchMessage);
+    integrationEventBus.use(messages::catchMessage);
 
     ECommerceConfig.configure(
       commandBus,
       eventStore,
       eventStore,
       integrationEventBus,
-      item -> new PricedProductItem(item, 100),
+      item -> new PricedProductItem(item, unitPrice),
       paymentGateway,
       Duration.ofMinutes(15),
-      Duration.ofDays(7),
+      authorizationValidity,
       deliveryProvider,
       item -> inStock,
-      Duration.ofHours(2),
+      reservationValidity,
       () -> now
     );
   }

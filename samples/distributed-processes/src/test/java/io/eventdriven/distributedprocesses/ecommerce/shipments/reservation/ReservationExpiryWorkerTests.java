@@ -78,9 +78,23 @@ public class ReservationExpiryWorkerTests {
   }
 
   @Test
+  public void reservationWaitingForItsParcelBookingStillExpires() {
+    reserve();
+    commandBus.send(new SendPackage(shipmentId));
+    published.reset();
+
+    worker.run(afterExpiry);
+
+    published.shouldReceiveMessages(
+      new StockReservationExpired(shipmentId, referenceId, afterExpiry)
+    );
+  }
+
+  @Test
   public void reservationOfASentPackageNeverExpires() {
     reserve();
     commandBus.send(new SendPackage(shipmentId));
+    commandBus.send(new ConfirmParcelBooking(shipmentId, "DHL", "JD014600006281234567"));
     published.reset();
 
     worker.run(afterExpiry);

@@ -1,8 +1,6 @@
-package io.eventdriven.distributedprocesses.ecommerce.orders.placing;
+package io.eventdriven.distributedprocesses.ecommerce.orders;
 
 import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent;
@@ -11,18 +9,19 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.*;
 
-// Hold phase
-public class OrderPlacingPolicy {
+public class OrderSaga {
   private final CommandBus commandBus;
 
-  public OrderPlacingPolicy(CommandBus commandBus) {
+  public OrderSaga(CommandBus commandBus) {
     this.commandBus = commandBus;
   }
 
+  // Hold phase
   public void on(ShoppingCartExternalEvent.ShoppingCartFinalized event) {
     commandBus.send(
       new InitializeOrder(
@@ -37,7 +36,6 @@ public class OrderPlacingPolicy {
 
   public void on(OrderEvent.OrderInitialized event) {
     var referenceId = event.orderId().value();
-
     commandBus.send(
       new PaymentCommand.AuthorizePayment(referenceId, event.totalPrice()),
       new ShipmentCommand.ReserveStock(referenceId, toShipmentItems(event.productItems()))
@@ -62,6 +60,63 @@ public class OrderPlacingPolicy {
         event.reservedAt()
       )
     );
+  }
+
+  // Commit phase
+  public void on(OrderEvent.OrderConfirmed event) {
+    commandBus.send(new ShipmentCommand.SendPackage(event.shipmentId()));
+  }
+
+  public void on(ShipmentExternalEvent.PackageWasSent event) {
+    commandBus.send(
+      new RecordOrderPackageSent(
+        new OrderId(event.referenceId()),
+        event.carrier(),
+        event.trackingNumber(),
+        event.sentAt()
+      )
+    );
+  }
+
+  // The shipment does not know the payment. The order does, and names it here.
+  public void on(OrderEvent.OrderPackageSent event) {
+    commandBus.send(new PaymentCommand.CapturePayment(event.paymentId()));
+  }
+
+  public void on(PaymentExternalEvent.PaymentCaptured event) {
+    commandBus.send(
+      new RecordOrderPaymentCapture(new OrderId(event.referenceId()), event.capturedAt())
+    );
+  }
+
+  public void on(ShipmentExternalEvent.PackageWasDelivered event) {
+    commandBus.send(
+      new RecordOrderDelivery(new OrderId(event.referenceId()), event.deliveredAt())
+    );
+  }
+
+  // Compensation
+  public void on(PaymentExternalEvent.PaymentFailed event) {
+    commandBus.send(
+      new RecordOrderPaymentFailure(new OrderId(event.referenceId()), event.failedAt())
+    );
+  }
+
+  public void on(ShipmentExternalEvent.StockReservationFailed event) {
+    commandBus.send(
+      new RecordOrderShipmentFailure(new OrderId(event.referenceId()), event.failedAt())
+    );
+  }
+
+  public void on(OrderEvent.OrderCancelled event) {
+    var compensations = new ArrayList<>();
+    if (event.paymentState() == OrderPaymentState.Authorized) {
+      compensations.add(new PaymentCommand.VoidPayment(event.paymentId()));
+    }
+    if (event.shipmentState() == OrderShipmentState.Reserved) {
+      compensations.add(new ShipmentCommand.ReleaseStock(event.shipmentId()));
+    }
+    commandBus.send(compensations.toArray());
   }
 
   private static PricedProductItem[] toOrderItems(ShoppingCartExternalEvent.ShoppingCartFinalized event) {

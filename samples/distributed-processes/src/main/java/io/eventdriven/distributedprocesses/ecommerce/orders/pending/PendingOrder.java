@@ -1,4 +1,4 @@
-package io.eventdriven.distributedprocesses.ecommerce.orders.cancelling;
+package io.eventdriven.distributedprocesses.ecommerce.orders.pending;
 
 import io.eventdriven.distributedprocesses.core.projections.Versioned;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;

@@ -32,6 +32,8 @@ public class ShipmentExternalEventForwarderTests {
     item -> Set.of(availableItem).contains(item);
   private final OffsetDateTime now = OffsetDateTime.now();
   private final OffsetDateTime reservedUntil = now.plus(reservationValidity);
+  private final String carrier = "DHL";
+  private final String trackingNumber = "JD014600006281234567";
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
   private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
@@ -67,14 +69,15 @@ public class ShipmentExternalEventForwarderTests {
     reserve();
 
     commandBus.send(new SendPackage(shipmentId));
+    commandBus.send(new ConfirmParcelBooking(shipmentId, carrier, trackingNumber));
 
     externalEvents.shouldReceiveMessages(
       new ShipmentExternalEvent.PackageWasSent(
         shipmentId,
         referenceId,
         available,
-        SilentDeliveryProvider.booking.carrier(),
-        SilentDeliveryProvider.booking.trackingNumber(),
+        carrier,
+        trackingNumber,
         now
       )
     );
@@ -84,6 +87,7 @@ public class ShipmentExternalEventForwarderTests {
   public void deliveringForwardsPackageWasDelivered() {
     reserve();
     commandBus.send(new SendPackage(shipmentId));
+    commandBus.send(new ConfirmParcelBooking(shipmentId, carrier, trackingNumber));
     externalEvents.reset();
 
     commandBus.send(new DeliverPackage(shipmentId));
