@@ -16,12 +16,12 @@ Scope: `samples/distributed-processes`, package `ecommerce`. State: [todo.md](to
 
 ## Open questions
 
-- Q1 (step 3): `ESDBEventStore` must implement `subscribe`. Recommended: a minimal implementation on `ESDBSubscription` over `$all`, without tests (they need Docker). Alternative: delete it, because nothing creates it.
-- Q2 (step 2): the saga goes in `orders/OrderSaga.java`, as on main.
+- Q1 (step 3), answered: implement `subscribe` in `ESDBEventStore` on `ESDBSubscription` over `$all`, with an integration test against EventStoreDB from `docker compose`.
+- Q2 (step 2), answered: `orders/OrderSaga.java`.
 
 ## Rules for every step
 
-TDD. After each step, `./gradlew test` is green and the output is pristine (the SLF4J and `When.MAYBE` warnings existed before; report them only). Tests assert behaviour, not log lines. EventStoreDB for `shoppingcarts/ShoppingCartTests` runs with `docker compose up -d eventstore.db`. Aggregates stay idempotent and never throw. Comments only for justified complexity; remove a comment only if it became false, and name it. Update the README for what the step changes. No git. All steps are sequential.
+TDD. After each step, `./gradlew test` is green and the output is pristine (the only known compiler note is the older "unchecked operations" one). Tests assert behaviour, not log lines. EventStoreDB for `shoppingcarts/ShoppingCartTests` runs with `docker compose up -d eventstore.db`. Aggregates stay idempotent and never throw. Comments only for justified complexity; remove a comment only if it became false, and name it. Update the README for what the step changes. No git. All steps are sequential.
 
 ## Steps
 
@@ -53,11 +53,13 @@ Delete the policies and the placing/, fulfilling/ and cancelling/ packages. Move
 orders/pending. Behaviour and transcripts must not change.
 ```
 
+### 2b. Bump to Spring Boot 4.1
+
+Done: Gradle 9.2.1, Spring Boot 4.1.2 BOM, `spring-boot-starter-log4j2` (fixes the SLF4J binding), Jackson 3, EventStoreDB client 5.4.5, JSpecify `@Nullable`, Java 22 kept. Tests log the sample's own output to `logs/test.log`.
+
 ### 3. Messaging: event store as outbox, one MessageBus
 
 ```text
-Answer Q1 first.
-
 InMemoryEventStore:
 - a global log with positions; AppendResult.Success returns the real position; EventMetadata gets
   logPosition;
@@ -71,7 +73,8 @@ InMemoryEventStore:
 Test first, in InMemoryEventStoreTests: an append from inside a handler is not nested; a failing
 subscriber does not fail the append; the failed entry is redelivered before newer ones.
 
-Move subscribe and subscribeWithMetadata into EventStore. Apply Q1 to ESDBEventStore.
+Move subscribe and subscribeWithMetadata into EventStore. ESDBEventStore implements them on
+ESDBSubscription over $all, with an integration test against EventStoreDB.
 Add MessageBus (publish, subscribe, use) and InMemoryMessageBus, with tests, in the shape of the
 workshop's core/MessageBus. Use it for commands and public events everywhere in ecommerce.
 Configs take (eventStore, messageBus, ...).

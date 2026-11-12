@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount;
 
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;

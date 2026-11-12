@@ -1,7 +1,7 @@
 package io.eventdriven.distributedprocesses.hotelmanagement.processmanager.gueststayaccount;
 
 import io.eventdriven.distributedprocesses.core.http.ETag;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;

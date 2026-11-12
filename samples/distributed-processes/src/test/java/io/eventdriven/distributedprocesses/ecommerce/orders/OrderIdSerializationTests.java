@@ -1,12 +1,9 @@
 package io.eventdriven.distributedprocesses.ecommerce.orders;
 
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
@@ -23,12 +20,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class OrderIdSerializationTests {
   // The same Jackson configuration InMemoryEventStore builds. Field visibility is set to ANY
   // there, which is what would out-rank @JsonValue and store a nested object instead of the urn.
-  private static final ObjectMapper mapper = new JsonMapper()
-    .registerModule(new JavaTimeModule())
+  private static final JsonMapper mapper = JsonMapper.builder()
     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-    .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-    .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
-    .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+    .configure(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
+    .changeDefaultVisibility(visibility -> visibility.withFieldVisibility(JsonAutoDetect.Visibility.ANY))
+    .build();
 
   private final ShoppingCartId cartId = ShoppingCartId.of(UUID.randomUUID());
   private final OrderId orderId = OrderId.derivedFrom(cartId.value());
