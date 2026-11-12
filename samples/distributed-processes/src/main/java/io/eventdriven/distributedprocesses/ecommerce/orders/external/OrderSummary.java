@@ -3,8 +3,8 @@ package io.eventdriven.distributedprocesses.ecommerce.orders.external;
 import io.eventdriven.distributedprocesses.core.projections.Versioned;
 import io.eventdriven.distributedprocesses.ecommerce.orders.Order;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderPaymentState;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderShipmentState;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderPaymentStatus;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderShipmentStatus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
@@ -21,8 +21,8 @@ public class OrderSummary implements Versioned {
   private Order.Status status;
   private PaymentId paymentId;
   private ShipmentId shipmentId;
-  private OrderPaymentState paymentState;
-  private OrderShipmentState shipmentState;
+  private OrderPaymentStatus paymentStatus;
+  private OrderShipmentStatus shipmentStatus;
   private long version;
 
   public OrderSummary() {
@@ -35,8 +35,8 @@ public class OrderSummary implements Versioned {
     PricedProductItem[] productItems,
     double totalPrice,
     Order.Status status,
-    OrderPaymentState paymentState,
-    OrderShipmentState shipmentState
+    OrderPaymentStatus paymentStatus,
+    OrderShipmentStatus shipmentStatus
   ) {
     this.orderId = orderId;
     this.cartId = cartId;
@@ -44,8 +44,8 @@ public class OrderSummary implements Versioned {
     this.productItems = productItems;
     this.totalPrice = totalPrice;
     this.status = status;
-    this.paymentState = paymentState;
-    this.shipmentState = shipmentState;
+    this.paymentStatus = paymentStatus;
+    this.shipmentStatus = shipmentStatus;
   }
 
   public OrderId getOrderId() {
@@ -112,20 +112,20 @@ public class OrderSummary implements Versioned {
     this.shipmentId = shipmentId;
   }
 
-  public OrderPaymentState getPaymentState() {
-    return paymentState;
+  public OrderPaymentStatus getPaymentStatus() {
+    return paymentStatus;
   }
 
-  public void setPaymentState(OrderPaymentState paymentState) {
-    this.paymentState = paymentState;
+  public void setPaymentStatus(OrderPaymentStatus paymentStatus) {
+    this.paymentStatus = paymentStatus;
   }
 
-  public OrderShipmentState getShipmentState() {
-    return shipmentState;
+  public OrderShipmentStatus getShipmentStatus() {
+    return shipmentStatus;
   }
 
-  public void setShipmentState(OrderShipmentState shipmentState) {
-    this.shipmentState = shipmentState;
+  public void setShipmentStatus(OrderShipmentStatus shipmentStatus) {
+    this.shipmentStatus = shipmentStatus;
   }
 
   @Override

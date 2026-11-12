@@ -151,7 +151,7 @@ public class ShipmentSummariesTests {
   private <Event> EventEnvelope<Event> envelope(Event event, long streamPosition) {
     return new EventEnvelope<>(
       event,
-      new EventMetadata(ShipmentFacade.mapToStreamId(shipmentId), streamPosition)
+      new EventMetadata(ShipmentFacade.mapToStreamId(shipmentId), streamPosition, streamPosition)
     );
   }
 }

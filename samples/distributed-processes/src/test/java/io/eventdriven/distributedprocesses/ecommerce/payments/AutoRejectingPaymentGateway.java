@@ -1,21 +1,23 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments;
 
-import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
+
+import java.util.List;
 
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.DeclinePayment;
 
 // Stands in for a provider that refuses the hold and says so straight away.
 public class AutoRejectingPaymentGateway implements PaymentGateway {
-  private final CommandBus commandBus;
+  private final MessageBus messageBus;
 
-  public AutoRejectingPaymentGateway(CommandBus commandBus) {
-    this.commandBus = commandBus;
+  public AutoRejectingPaymentGateway(MessageBus messageBus) {
+    this.messageBus = messageBus;
   }
 
   @Override
   public void authorize(PaymentId paymentId, double amount) {
-    commandBus.send(new DeclinePayment(paymentId, DeclineReason.UnexpectedError));
+    messageBus.publish(List.of(new DeclinePayment(paymentId, DeclineReason.UnexpectedError)));
   }
 
   @Override

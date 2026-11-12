@@ -3,8 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.authorization;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.AutoAuthorizingPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.AutoRejectingPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.DeclineReason;
@@ -19,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
@@ -39,23 +39,23 @@ public class AuthorizationGatewayClientTests {
     new PaymentAuthorizationRequested(paymentId, referenceId, amount);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher published = new MessageCatcher();
 
   @Test
   public void autoAuthorizingGatewayGrantsTheHold() {
-    configure(new AutoAuthorizingPaymentGateway(commandBus));
+    configure(new AutoAuthorizingPaymentGateway(messageBus));
 
-    commandBus.send(new AuthorizePayment(referenceId, amount));
+    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
 
     published.shouldReceiveMessages(requested, new PaymentAuthorized(paymentId, now, expiresAt));
   }
 
   @Test
   public void autoRejectingGatewayDeclinesTheRequestedAuthorization() {
-    configure(new AutoRejectingPaymentGateway(commandBus));
+    configure(new AutoRejectingPaymentGateway(messageBus));
 
-    commandBus.send(new AuthorizePayment(referenceId, amount));
+    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
 
     published.shouldReceiveMessages(
       requested,
@@ -67,7 +67,7 @@ public class AuthorizationGatewayClientTests {
   public void unreachableGatewayDeclinesThePaymentInsteadOfThrowing() {
     configure(new ThrowingPaymentGateway());
 
-    assertThatCode(() -> commandBus.send(new AuthorizePayment(referenceId, amount)))
+    assertThatCode(() -> messageBus.publish(List.of(new AuthorizePayment(referenceId, amount))))
       .doesNotThrowAnyException();
 
     published.shouldReceiveMessages(
@@ -80,29 +80,29 @@ public class AuthorizationGatewayClientTests {
   public void silentGatewayLeavesTheAuthorizationPending() {
     configure(new SilentPaymentGateway());
 
-    commandBus.send(new AuthorizePayment(referenceId, amount));
+    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
 
     published.shouldReceiveMessages(requested);
   }
 
   @Test
   public void gatewayIsAuthorizedWithThePaymentIdAndAmount() {
-    var gateway = new RecordingPaymentGateway(commandBus);
+    var gateway = new RecordingPaymentGateway(messageBus);
     configure(gateway);
 
-    commandBus.send(new AuthorizePayment(referenceId, amount));
+    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
 
     assertThat(gateway.calls).containsExactly("authorize:%s:%s".formatted(paymentId, amount));
   }
 
   @Test
   public void gatewayThatRefusesTheVoidLeavesTheRecordedOutcomeAloneInsteadOfThrowing() {
-    configure(new RefusingAfterAuthorizationGateway(commandBus));
+    configure(new RefusingAfterAuthorizationGateway(messageBus));
 
-    commandBus.send(new AuthorizePayment(referenceId, amount));
+    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
     published.reset();
 
-    assertThatCode(() -> commandBus.send(new VoidPayment(paymentId)))
+    assertThatCode(() -> messageBus.publish(List.of(new VoidPayment(paymentId))))
       .doesNotThrowAnyException();
 
     published.shouldReceiveMessages(new PaymentVoided(paymentId, now));
@@ -112,10 +112,8 @@ public class AuthorizationGatewayClientTests {
     eventStore.use(published::catchMessage);
 
     PaymentsConfig.configure(
-      commandBus,
       eventStore,
-      eventStore,
-      new InMemoryEventBus(),
+      messageBus,
       paymentGateway,
       paymentTimeout,
       authorizationValidity,
@@ -125,15 +123,15 @@ public class AuthorizationGatewayClientTests {
 
   // Grants the hold, then refuses every call that follows it.
   private static class RefusingAfterAuthorizationGateway implements PaymentGateway {
-    private final InMemoryCommandBus commandBus;
+    private final InMemoryMessageBus messageBus;
 
-    private RefusingAfterAuthorizationGateway(InMemoryCommandBus commandBus) {
-      this.commandBus = commandBus;
+    private RefusingAfterAuthorizationGateway(InMemoryMessageBus messageBus) {
+      this.messageBus = messageBus;
     }
 
     @Override
     public void authorize(PaymentId paymentId, double amount) {
-      commandBus.send(new ConfirmPaymentAuthorization(paymentId));
+      messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId)));
     }
 
     @Override

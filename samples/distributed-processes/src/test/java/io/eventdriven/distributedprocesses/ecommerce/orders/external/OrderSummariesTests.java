@@ -7,8 +7,8 @@ import io.eventdriven.distributedprocesses.ecommerce.orders.Order;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCancellationReason;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderFacade;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderPaymentState;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderShipmentState;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderPaymentStatus;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderShipmentStatus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
@@ -52,8 +52,8 @@ public class OrderSummariesTests {
     assertThat(summary.getStatus()).isEqualTo(Order.Status.Opened);
     assertThat(summary.getPaymentId()).isNull();
     assertThat(summary.getShipmentId()).isNull();
-    assertThat(summary.getPaymentState()).isEqualTo(OrderPaymentState.NotAuthorized);
-    assertThat(summary.getShipmentState()).isEqualTo(OrderShipmentState.NotReserved);
+    assertThat(summary.getPaymentStatus()).isEqualTo(OrderPaymentStatus.NotAuthorized);
+    assertThat(summary.getShipmentStatus()).isEqualTo(OrderShipmentStatus.NotReserved);
   }
 
   @Test
@@ -65,7 +65,7 @@ public class OrderSummariesTests {
     var summary = summaryOf(orderId);
 
     assertThat(summary.getPaymentId()).isEqualTo(paymentId);
-    assertThat(summary.getPaymentState()).isEqualTo(OrderPaymentState.Authorized);
+    assertThat(summary.getPaymentStatus()).isEqualTo(OrderPaymentStatus.Authorized);
   }
 
   @Test
@@ -77,7 +77,7 @@ public class OrderSummariesTests {
     var summary = summaryOf(orderId);
 
     assertThat(summary.getShipmentId()).isEqualTo(shipmentId);
-    assertThat(summary.getShipmentState()).isEqualTo(OrderShipmentState.Reserved);
+    assertThat(summary.getShipmentStatus()).isEqualTo(OrderShipmentStatus.Reserved);
   }
 
   @Test
@@ -93,7 +93,7 @@ public class OrderSummariesTests {
 
     summaries.onPaymentCaptured(at(4, new OrderPaymentCaptured(orderId, paymentId, totalPrice, now)));
 
-    assertThat(summaryOf(orderId).getPaymentState()).isEqualTo(OrderPaymentState.Captured);
+    assertThat(summaryOf(orderId).getPaymentStatus()).isEqualTo(OrderPaymentStatus.Captured);
   }
 
   @Test
@@ -102,7 +102,7 @@ public class OrderSummariesTests {
 
     summaries.onPackageSent(at(4, new OrderPackageSent(orderId, paymentId, shipmentId, carrier, trackingNumber, now)));
 
-    assertThat(summaryOf(orderId).getShipmentState()).isEqualTo(OrderShipmentState.Sent);
+    assertThat(summaryOf(orderId).getShipmentStatus()).isEqualTo(OrderShipmentStatus.Sent);
   }
 
   @Test
@@ -112,7 +112,7 @@ public class OrderSummariesTests {
 
     summaries.onPaymentFailed(at(2, new OrderPaymentFailed(orderId, now)));
 
-    assertThat(summaryOf(orderId).getPaymentState()).isEqualTo(OrderPaymentState.NotAuthorized);
+    assertThat(summaryOf(orderId).getPaymentStatus()).isEqualTo(OrderPaymentStatus.NotAuthorized);
   }
 
   @Test
@@ -122,7 +122,7 @@ public class OrderSummariesTests {
 
     summaries.onShipmentFailed(at(2, new OrderShipmentFailed(orderId, now)));
 
-    assertThat(summaryOf(orderId).getShipmentState()).isEqualTo(OrderShipmentState.NotReserved);
+    assertThat(summaryOf(orderId).getShipmentStatus()).isEqualTo(OrderShipmentStatus.NotReserved);
   }
 
   @Test
@@ -141,9 +141,9 @@ public class OrderSummariesTests {
     summaries.onCancelled(at(4, new OrderCancelled(
       orderId,
       paymentId,
-      OrderPaymentState.Authorized,
+      OrderPaymentStatus.Authorized,
       shipmentId,
-      OrderShipmentState.Reserved,
+      OrderShipmentStatus.Reserved,
       OrderCancellationReason.Requested,
       now
     )));
@@ -152,9 +152,9 @@ public class OrderSummariesTests {
 
     assertThat(summary.getStatus()).isEqualTo(Order.Status.Cancelled);
     assertThat(summary.getPaymentId()).isEqualTo(paymentId);
-    assertThat(summary.getPaymentState()).isEqualTo(OrderPaymentState.Authorized);
+    assertThat(summary.getPaymentStatus()).isEqualTo(OrderPaymentStatus.Authorized);
     assertThat(summary.getShipmentId()).isEqualTo(shipmentId);
-    assertThat(summary.getShipmentState()).isEqualTo(OrderShipmentState.Reserved);
+    assertThat(summary.getShipmentStatus()).isEqualTo(OrderShipmentStatus.Reserved);
   }
 
   @Test
@@ -166,7 +166,7 @@ public class OrderSummariesTests {
 
     summaries.onStockReserved(reservation);
 
-    assertThat(summaryOf(orderId).getShipmentState()).isEqualTo(OrderShipmentState.NotReserved);
+    assertThat(summaryOf(orderId).getShipmentStatus()).isEqualTo(OrderShipmentStatus.NotReserved);
   }
 
   @Test
@@ -190,6 +190,6 @@ public class OrderSummariesTests {
   }
 
   private <Event> EventEnvelope<Event> at(long position, Event event) {
-    return new EventEnvelope<>(event, new EventMetadata(OrderFacade.mapToStreamId(orderId), position));
+    return new EventEnvelope<>(event, new EventMetadata(OrderFacade.mapToStreamId(orderId), position, position));
   }
 }

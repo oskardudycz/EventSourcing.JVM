@@ -3,8 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.authorization;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGateway;
@@ -13,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
@@ -32,7 +32,7 @@ public class PaymentTimeoutWorkerTests {
   private final OffsetDateTime afterThreshold = requestedAt.plusMinutes(10);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher published = new MessageCatcher();
 
   private final PaymentTimeoutWorker worker;
@@ -40,10 +40,8 @@ public class PaymentTimeoutWorkerTests {
   public PaymentTimeoutWorkerTests() {
     eventStore.use(published::catchMessage);
     worker = PaymentsConfig.configure(
-      commandBus,
       eventStore,
-      eventStore,
-      new InMemoryEventBus(),
+      messageBus,
       new SilentPaymentGateway(),
       timeout,
       authorizationValidity,
@@ -53,7 +51,7 @@ public class PaymentTimeoutWorkerTests {
 
   @Test
   public void authorizationThatIsNeverAnsweredIsTimedOutOnceTheThresholdPasses() {
-    commandBus.send(new AuthorizePayment(referenceId, amount));
+    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
     published.reset();
 
     worker.run(afterThreshold);
@@ -63,7 +61,7 @@ public class PaymentTimeoutWorkerTests {
 
   @Test
   public void runningBeforeTheThresholdSendsNothing() {
-    commandBus.send(new AuthorizePayment(referenceId, amount));
+    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
     published.reset();
 
     worker.run(beforeThreshold);
@@ -73,10 +71,10 @@ public class PaymentTimeoutWorkerTests {
 
   @Test
   public void authorizationGrantedBeforeTheThresholdIsNeverTimedOut() {
-    commandBus.send(
+    messageBus.publish(List.of(
       new AuthorizePayment(referenceId, amount),
       new ConfirmPaymentAuthorization(paymentId)
-    );
+    ));
     published.reset();
 
     worker.run(afterThreshold);
@@ -86,7 +84,7 @@ public class PaymentTimeoutWorkerTests {
 
   @Test
   public void runningTwiceTimesTheSamePaymentOutOnlyOnce() {
-    commandBus.send(new AuthorizePayment(referenceId, amount));
+    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
     published.reset();
 
     worker.run(afterThreshold);

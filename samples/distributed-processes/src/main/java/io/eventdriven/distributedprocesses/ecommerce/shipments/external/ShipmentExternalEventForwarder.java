@@ -1,57 +1,64 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments.external;
 
-import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 
 import java.time.OffsetDateTime;
+import java.util.List;
+
 
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent.*;
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.*;
 
 public class ShipmentExternalEventForwarder {
   private final ShipmentSummaries shipmentSummaries;
-  private final IntegrationEventBus eventBus;
+  private final MessageBus messageBus;
 
   public ShipmentExternalEventForwarder(
     ShipmentSummaries shipmentSummaries,
-    IntegrationEventBus eventBus
+    MessageBus messageBus
   ) {
     this.shipmentSummaries = shipmentSummaries;
-    this.eventBus = eventBus;
+    this.messageBus = messageBus;
   }
 
-  public void on(ShipmentEvent.StockReserved event) {
-    eventBus.publish(new ShipmentExternalEvent.StockReserved(
+  public void onStockReserved(EventEnvelope<ShipmentEvent.StockReserved> envelope) {
+    var event = envelope.data();
+    messageBus.publish(List.of(new ShipmentExternalEvent.StockReserved(
       event.shipmentId(),
       event.referenceId(),
       event.productItems(),
       event.reservedAt(),
       event.reservedUntil()
-    ));
+    )));
   }
 
-  public void on(ShipmentEvent.PackageWasSent event) {
-    eventBus.publish(new ShipmentExternalEvent.PackageWasSent(
+  public void onPackageWasSent(EventEnvelope<ShipmentEvent.PackageWasSent> envelope) {
+    var event = envelope.data();
+    messageBus.publish(List.of(new ShipmentExternalEvent.PackageWasSent(
       event.shipmentId(),
       event.referenceId(),
       event.productItems(),
       event.carrier(),
       event.trackingNumber(),
       event.sentAt()
-    ));
+    )));
   }
 
-  public void on(ShipmentEvent.PackageWasDelivered event) {
-    eventBus.publish(new ShipmentExternalEvent.PackageWasDelivered(
+  public void onPackageWasDelivered(EventEnvelope<ShipmentEvent.PackageWasDelivered> envelope) {
+    var event = envelope.data();
+    messageBus.publish(List.of(new ShipmentExternalEvent.PackageWasDelivered(
       event.shipmentId(),
       event.referenceId(),
       event.deliveredAt()
-    ));
+    )));
   }
 
-  public void on(ProductWasOutOfStock event) {
+  public void onProductWasOutOfStock(EventEnvelope<ProductWasOutOfStock> envelope) {
+    var event = envelope.data();
     publishFailure(
       event.shipmentId(),
       event.referenceId(),
@@ -63,11 +70,12 @@ public class ShipmentExternalEventForwarder {
 
   // The expiry only knows which shipment ran out of time, so the items it reserved
   // come from the summary the reservation left behind.
-  public void on(StockReservationExpired event) {
+  public void onStockReservationExpired(EventEnvelope<StockReservationExpired> envelope) {
+    var event = envelope.data();
     publishFailure(
       event.shipmentId(),
       event.referenceId(),
-      get(event.shipmentId()).getProductItems(),
+      get(event.shipmentId(), envelope.metadata().streamPosition()).getProductItems(),
       event.expiredAt(),
       StockReservationFailed.Reason.ReservationExpired
     );
@@ -80,17 +88,20 @@ public class ShipmentExternalEventForwarder {
     OffsetDateTime failedAt,
     StockReservationFailed.Reason reason
   ) {
-    eventBus.publish(new StockReservationFailed(
+    messageBus.publish(List.of(new StockReservationFailed(
       shipmentId,
       referenceId,
       productItems,
       reason,
       failedAt
-    ));
+    )));
   }
 
-  private ShipmentSummary get(ShipmentId shipmentId) {
+  private ShipmentSummary get(ShipmentId shipmentId, long streamPosition) {
     return shipmentSummaries.get(shipmentId)
-      .orElseThrow(() -> new IllegalStateException("Cannot enrich event, as shipment with id '%s' was not found".formatted(shipmentId)));
+      .filter(summary -> summary.getVersion() >= streamPosition)
+      .orElseThrow(() -> new IllegalStateException(
+        "Summary of shipment '%s' has not reached position %d yet".formatted(shipmentId.value(), streamPosition)
+      ));
   }
 }

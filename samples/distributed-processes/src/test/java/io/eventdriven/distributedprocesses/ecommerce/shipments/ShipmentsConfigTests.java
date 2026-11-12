@@ -2,8 +2,7 @@ package io.eventdriven.distributedprocesses.ecommerce.shipments;
 
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.CallingBackDeliveryProvider;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.DeliveryProvider;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.SilentDeliveryProvider;
@@ -13,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -34,17 +34,16 @@ public class ShipmentsConfigTests {
   private final OffsetDateTime expiredAt = now.plus(reservationValidity);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
-  private final InMemoryEventBus integrationEventBus = new InMemoryEventBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher externalEvents = new MessageCatcher();
 
   @Test
   public void expiryIsForwardedWithTheItemsTheSummaryProjectionKept() {
     configure(new SilentDeliveryProvider());
-    commandBus.send(new ReserveStock(referenceId, available));
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
     externalEvents.reset();
 
-    commandBus.send(new ExpireStockReservation(shipmentId, expiredAt));
+    messageBus.publish(List.of(new ExpireStockReservation(shipmentId, expiredAt)));
 
     externalEvents.shouldReceiveMessages(
       new ShipmentExternalEvent.StockReservationFailed(
@@ -62,7 +61,7 @@ public class ShipmentsConfigTests {
     configure(new SilentDeliveryProvider());
     var productItems = new ProductItem[]{availableItem, unavailableItem};
 
-    commandBus.send(new ReserveStock(referenceId, productItems));
+    messageBus.publish(List.of(new ReserveStock(referenceId, productItems)));
 
     externalEvents.shouldReceiveMessages(
       new ShipmentExternalEvent.StockReservationFailed(
@@ -77,12 +76,12 @@ public class ShipmentsConfigTests {
 
   @Test
   public void dispatchIsForwardedWithTheTrackingBeforeTheDeliveryTheProviderReports() {
-    var deliveryProvider = new CallingBackDeliveryProvider(commandBus);
+    var deliveryProvider = new CallingBackDeliveryProvider(messageBus);
     configure(deliveryProvider);
-    commandBus.send(new ReserveStock(referenceId, available));
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
     externalEvents.reset();
 
-    commandBus.send(new SendPackage(shipmentId));
+    messageBus.publish(List.of(new SendPackage(shipmentId)));
     deliveryProvider.confirmBookings();
     deliveryProvider.deliverParcels();
 
@@ -100,13 +99,14 @@ public class ShipmentsConfigTests {
   }
 
   private void configure(DeliveryProvider deliveryProvider) {
-    integrationEventBus.use(externalEvents::catchMessage);
+    messageBus.use(message -> {
+      if (message instanceof ShipmentExternalEvent)
+        externalEvents.catchMessage(message);
+    });
 
     ShipmentsConfig.configure(
-      commandBus,
       eventStore,
-      eventStore,
-      integrationEventBus,
+      messageBus,
       deliveryProvider,
       isProductAvailable,
       reservationValidity,

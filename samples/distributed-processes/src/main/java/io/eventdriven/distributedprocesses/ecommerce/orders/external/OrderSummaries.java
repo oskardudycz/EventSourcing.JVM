@@ -4,8 +4,8 @@ import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.orders.Order;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderPaymentState;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderShipmentState;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderPaymentStatus;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderShipmentStatus;
 
 import java.util.Optional;
 
@@ -32,8 +32,8 @@ public class OrderSummaries {
         event.data().productItems(),
         event.data().totalPrice(),
         Order.Status.Opened,
-        OrderPaymentState.NotAuthorized,
-        OrderShipmentState.NotReserved
+        OrderPaymentStatus.NotAuthorized,
+        OrderShipmentStatus.NotReserved
       )
     );
   }
@@ -43,7 +43,7 @@ public class OrderSummaries {
       OrderSummary.class, event.data().orderId(), event.metadata().streamPosition(),
       summary -> {
         summary.setPaymentId(event.data().paymentId());
-        summary.setPaymentState(OrderPaymentState.Authorized);
+        summary.setPaymentStatus(OrderPaymentStatus.Authorized);
 
         return summary;
       });
@@ -54,7 +54,7 @@ public class OrderSummaries {
       OrderSummary.class, event.data().orderId(), event.metadata().streamPosition(),
       summary -> {
         summary.setShipmentId(event.data().shipmentId());
-        summary.setShipmentState(OrderShipmentState.Reserved);
+        summary.setShipmentStatus(OrderShipmentStatus.Reserved);
 
         return summary;
       });
@@ -74,7 +74,7 @@ public class OrderSummaries {
     database.getAndUpdate(
       OrderSummary.class, event.data().orderId(), event.metadata().streamPosition(),
       summary -> {
-        summary.setPaymentState(OrderPaymentState.Captured);
+        summary.setPaymentStatus(OrderPaymentStatus.Captured);
 
         return summary;
       });
@@ -84,7 +84,7 @@ public class OrderSummaries {
     database.getAndUpdate(
       OrderSummary.class, event.data().orderId(), event.metadata().streamPosition(),
       summary -> {
-        summary.setShipmentState(OrderShipmentState.Sent);
+        summary.setShipmentStatus(OrderShipmentStatus.Sent);
 
         return summary;
       });
@@ -94,7 +94,7 @@ public class OrderSummaries {
     database.getAndUpdate(
       OrderSummary.class, event.data().orderId(), event.metadata().streamPosition(),
       summary -> {
-        summary.setPaymentState(OrderPaymentState.NotAuthorized);
+        summary.setPaymentStatus(OrderPaymentStatus.NotAuthorized);
 
         return summary;
       });
@@ -104,7 +104,7 @@ public class OrderSummaries {
     database.getAndUpdate(
       OrderSummary.class, event.data().orderId(), event.metadata().streamPosition(),
       summary -> {
-        summary.setShipmentState(OrderShipmentState.NotReserved);
+        summary.setShipmentStatus(OrderShipmentStatus.NotReserved);
 
         return summary;
       });
@@ -126,9 +126,9 @@ public class OrderSummaries {
       summary -> {
         summary.setStatus(Order.Status.Cancelled);
         summary.setPaymentId(event.data().paymentId());
-        summary.setPaymentState(event.data().paymentState());
+        summary.setPaymentStatus(event.data().paymentStatus());
         summary.setShipmentId(event.data().shipmentId());
-        summary.setShipmentState(event.data().shipmentState());
+        summary.setShipmentStatus(event.data().shipmentStatus());
 
         return summary;
       });

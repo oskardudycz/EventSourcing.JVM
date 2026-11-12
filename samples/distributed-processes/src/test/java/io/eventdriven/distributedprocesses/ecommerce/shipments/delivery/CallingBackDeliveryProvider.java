@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments.delivery;
 
-import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 
@@ -16,12 +16,12 @@ public class CallingBackDeliveryProvider implements DeliveryProvider {
   public static final String carrier = "UPS";
   public static final String trackingNumber = "1Z999AA10123456784";
 
-  private final CommandBus commandBus;
+  private final MessageBus messageBus;
   private final List<ShipmentId> requested = new ArrayList<>();
   private final List<ShipmentId> booked = new ArrayList<>();
 
-  public CallingBackDeliveryProvider(CommandBus commandBus) {
-    this.commandBus = commandBus;
+  public CallingBackDeliveryProvider(MessageBus messageBus) {
+    this.messageBus = messageBus;
   }
 
   @Override
@@ -35,7 +35,7 @@ public class CallingBackDeliveryProvider implements DeliveryProvider {
     booked.addAll(confirmed);
 
     for (var shipmentId : confirmed) {
-      commandBus.send(new ConfirmParcelBooking(shipmentId, carrier, trackingNumber));
+      messageBus.publish(List.of(new ConfirmParcelBooking(shipmentId, carrier, trackingNumber)));
     }
   }
 
@@ -44,7 +44,7 @@ public class CallingBackDeliveryProvider implements DeliveryProvider {
     booked.clear();
 
     for (var shipmentId : delivered) {
-      commandBus.send(new DeliverPackage(shipmentId));
+      messageBus.publish(List.of(new DeliverPackage(shipmentId)));
     }
   }
 }

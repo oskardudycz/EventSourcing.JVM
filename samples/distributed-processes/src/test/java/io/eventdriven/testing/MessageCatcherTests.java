@@ -1,34 +1,32 @@
 package io.eventdriven.testing;
 
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.UUID;
 
 public class MessageCatcherTests {
-  private final InMemoryEventBus eventBus = new InMemoryEventBus();
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher messages = new MessageCatcher();
 
   private final UUID orderId = UUID.randomUUID();
 
   @BeforeEach
   public void setUp() {
-    eventBus.use(messages::catchMessage);
-    commandBus.use(messages::catchMessage);
+    messageBus.use(messages::catchMessage);
   }
 
   @Test
-  public void recordsEventsPublishedOnTheEventBusInOrder() {
+  public void recordsEventsPublishedOnTheBusInOrder() {
     // Given
-    eventBus.subscribe(OrderPlaced.class, ignored -> {
+    messageBus.subscribe(OrderPlaced.class, ignored -> {
     });
 
     // When
-    eventBus.publish(new OrderPlaced(orderId, new String[]{"shoes"}));
-    eventBus.publish(new OrderConfirmed(orderId));
+    messageBus.publish(List.of(new OrderPlaced(orderId, new String[]{"shoes"})));
+    messageBus.publish(List.of(new OrderConfirmed(orderId)));
 
     // Then
     messages.shouldReceiveMessages(
@@ -40,10 +38,13 @@ public class MessageCatcherTests {
   @Test
   public void recordsCommandsAndEventsOnTheOneTranscript() {
     // Given
-    commandBus.handle(ConfirmOrder.class, command -> eventBus.publish(new OrderConfirmed(command.orderId())));
+    messageBus.subscribe(
+      ConfirmOrder.class,
+      command -> messageBus.publish(List.of(new OrderConfirmed(command.orderId())))
+    );
 
     // When
-    commandBus.send(new ConfirmOrder(orderId));
+    messageBus.publish(List.of(new ConfirmOrder(orderId)));
 
     // Then
     messages.shouldReceiveMessages(
@@ -55,7 +56,7 @@ public class MessageCatcherTests {
   @Test
   public void resetForgetsWhatWasRecordedSoFar() {
     // Given
-    eventBus.publish(new OrderConfirmed(orderId));
+    messageBus.publish(List.of(new OrderConfirmed(orderId)));
 
     // When
     messages.reset();
@@ -67,11 +68,11 @@ public class MessageCatcherTests {
   @Test
   public void recordsASingleEventWhenOnlyOneWasPublished() {
     // Given
-    eventBus.subscribe(OrderConfirmed.class, ignored -> {
+    messageBus.subscribe(OrderConfirmed.class, ignored -> {
     });
 
     // When
-    eventBus.publish(new OrderConfirmed(orderId));
+    messageBus.publish(List.of(new OrderConfirmed(orderId)));
 
     // Then
     messages.shouldReceiveSingleEvent(new OrderConfirmed(orderId));

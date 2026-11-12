@@ -1,10 +1,12 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments.authorization;
 
-import io.eventdriven.distributedprocesses.core.messaging.CommandBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.DeclineReason;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentGateway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.List;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.DeclinePayment;
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
@@ -13,11 +15,11 @@ public class AuthorizationGatewayClient {
   private static final Logger logger = LoggerFactory.getLogger(AuthorizationGatewayClient.class);
 
   private final PaymentGateway paymentGateway;
-  private final CommandBus commandBus;
+  private final MessageBus messageBus;
 
-  public AuthorizationGatewayClient(PaymentGateway paymentGateway, CommandBus commandBus) {
+  public AuthorizationGatewayClient(PaymentGateway paymentGateway, MessageBus messageBus) {
     this.paymentGateway = paymentGateway;
-    this.commandBus = commandBus;
+    this.messageBus = messageBus;
   }
 
   public void on(PaymentAuthorizationRequested event) {
@@ -31,7 +33,7 @@ public class AuthorizationGatewayClient {
         failedAuthorization
       );
 
-      commandBus.send(new DeclinePayment(event.paymentId(), DeclineReason.UnexpectedError));
+      messageBus.publish(List.of(new DeclinePayment(event.paymentId(), DeclineReason.UnexpectedError)));
     }
   }
 

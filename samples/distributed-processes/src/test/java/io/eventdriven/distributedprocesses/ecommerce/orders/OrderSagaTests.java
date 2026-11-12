@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.orders;
 
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
@@ -37,43 +37,12 @@ public class OrderSagaTests {
     new PricedProductItem(productId, 2, 12.5)
   };
 
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher sent = new MessageCatcher();
-  private final OrderSaga saga = new OrderSaga(commandBus);
+  private final OrderSaga saga = new OrderSaga(messageBus);
 
   public OrderSagaTests() {
-    commandBus.use(sent::catchMessage);
-
-    // Every command the saga can send needs a handler, or the bus refuses it.
-    commandBus
-      .handle(InitializeOrder.class, _ -> {
-      })
-      .handle(RecordOrderPaymentAuthorization.class, _ -> {
-      })
-      .handle(RecordOrderStockReservation.class, _ -> {
-      })
-      .handle(RecordOrderPackageSent.class, _ -> {
-      })
-      .handle(RecordOrderPaymentCapture.class, _ -> {
-      })
-      .handle(RecordOrderDelivery.class, _ -> {
-      })
-      .handle(RecordOrderPaymentFailure.class, _ -> {
-      })
-      .handle(RecordOrderShipmentFailure.class, _ -> {
-      })
-      .handle(PaymentCommand.AuthorizePayment.class, _ -> {
-      })
-      .handle(PaymentCommand.CapturePayment.class, _ -> {
-      })
-      .handle(PaymentCommand.VoidPayment.class, _ -> {
-      })
-      .handle(ShipmentCommand.ReserveStock.class, _ -> {
-      })
-      .handle(ShipmentCommand.SendPackage.class, _ -> {
-      })
-      .handle(ShipmentCommand.ReleaseStock.class, _ -> {
-      });
+    messageBus.use(sent::catchMessage);
   }
 
   // Hold phase
@@ -203,7 +172,7 @@ public class OrderSagaTests {
 
   @Test
   public void aCancelledOrderWithAnAuthorizedHoldVoidsItAndReleasesTheStock() {
-    saga.on(orderCancelled(OrderPaymentState.Authorized, OrderShipmentState.Reserved));
+    saga.on(orderCancelled(OrderPaymentStatus.Authorized, OrderShipmentStatus.Reserved));
 
     sent.shouldReceiveMessages(
       new PaymentCommand.VoidPayment(paymentId),
@@ -213,14 +182,14 @@ public class OrderSagaTests {
 
   @Test
   public void aCancelledOrderWithOnlyTheCardHeldVoidsThatHold() {
-    saga.on(orderCancelled(OrderPaymentState.Authorized, OrderShipmentState.NotReserved));
+    saga.on(orderCancelled(OrderPaymentStatus.Authorized, OrderShipmentStatus.NotReserved));
 
     sent.shouldReceiveMessages(new PaymentCommand.VoidPayment(paymentId));
   }
 
   @Test
   public void aCancelledOrderThatTookNoHoldsUndoesNothing() {
-    saga.on(orderCancelled(OrderPaymentState.NotAuthorized, OrderShipmentState.NotReserved));
+    saga.on(orderCancelled(OrderPaymentStatus.NotAuthorized, OrderShipmentStatus.NotReserved));
 
     sent.shouldNotReceiveAnyEvent();
   }
@@ -232,15 +201,15 @@ public class OrderSagaTests {
   }
 
   private OrderEvent.OrderCancelled orderCancelled(
-    OrderPaymentState paymentState,
-    OrderShipmentState shipmentState
+    OrderPaymentStatus paymentStatus,
+    OrderShipmentStatus shipmentStatus
   ) {
     return new OrderEvent.OrderCancelled(
       orderId,
       paymentId,
-      paymentState,
+      paymentStatus,
       shipmentId,
-      shipmentState,
+      shipmentStatus,
       OrderCancellationReason.Requested,
       now
     );

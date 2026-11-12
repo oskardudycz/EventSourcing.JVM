@@ -3,8 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.authorization;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGateway;
@@ -13,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
@@ -33,7 +33,7 @@ public class AuthorizationExpiryWorkerTests {
   private final OffsetDateTime afterExpiry = expiresAt.plusDays(1);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher published = new MessageCatcher();
 
   private final AuthorizationExpiryWorker worker;
@@ -41,10 +41,8 @@ public class AuthorizationExpiryWorkerTests {
   public AuthorizationExpiryWorkerTests() {
     eventStore.use(published::catchMessage);
     worker = PaymentsConfig.configure(
-      commandBus,
       eventStore,
-      eventStore,
-      new InMemoryEventBus(),
+      messageBus,
       new SilentPaymentGateway(),
       paymentTimeout,
       authorizationValidity,
@@ -73,7 +71,7 @@ public class AuthorizationExpiryWorkerTests {
   @Test
   public void capturedPaymentNeverExpires() {
     authorize();
-    commandBus.send(new CapturePayment(paymentId));
+    messageBus.publish(List.of(new CapturePayment(paymentId)));
     published.reset();
 
     worker.run(afterExpiry);
@@ -84,7 +82,7 @@ public class AuthorizationExpiryWorkerTests {
   @Test
   public void voidedPaymentNeverExpires() {
     authorize();
-    commandBus.send(new VoidPayment(paymentId));
+    messageBus.publish(List.of(new VoidPayment(paymentId)));
     published.reset();
 
     worker.run(afterExpiry);
@@ -105,10 +103,10 @@ public class AuthorizationExpiryWorkerTests {
   }
 
   private void authorize() {
-    commandBus.send(
+    messageBus.publish(List.of(
       new AuthorizePayment(referenceId, amount),
       new ConfirmPaymentAuthorization(paymentId)
-    );
+    ));
     published.reset();
   }
 }

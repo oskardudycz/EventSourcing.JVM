@@ -1,6 +1,7 @@
 package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external;
 
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartFacade;
@@ -28,18 +29,8 @@ public class ShoppingCartSummariesTests {
   private final PricedProductItem pricedShirt = new PricedProductItem(shirt, unitPrice);
   private final OffsetDateTime now = OffsetDateTime.now();
 
-  private final InMemoryEventBus internalEventBus = new InMemoryEventBus();
   private final ShoppingCartSummaries summaries = new ShoppingCartSummaries(new Database());
   private long nextPosition = 0;
-
-  public ShoppingCartSummariesTests() {
-    internalEventBus
-      .subscribeWithMetadata(ShoppingCartOpened.class, summaries::onOpened)
-      .subscribeWithMetadata(ProductItemAddedToShoppingCart.class, summaries::onProductItemAdded)
-      .subscribeWithMetadata(ProductItemRemovedFromShoppingCart.class, summaries::onProductItemRemoved)
-      .subscribeWithMetadata(ShoppingCartConfirmed.class, summaries::onConfirmed)
-      .subscribeWithMetadata(ShoppingCartCanceled.class, summaries::onCanceled);
-  }
 
   @Test
   public void openingCartStoresEmptyPendingSummary() {
@@ -146,12 +137,22 @@ public class ShoppingCartSummariesTests {
   }
 
   private void publish(ShoppingCartEvent... events) {
-    internalEventBus.publishAt(streamId, nextPosition, (Object[]) events);
-    nextPosition += events.length;
+    for (var event : events) {
+      republishAt(nextPosition++, event);
+    }
   }
 
   private void republishAt(long position, ShoppingCartEvent event) {
-    internalEventBus.publishAt(streamId, position, event);
+    var metadata = new EventMetadata(streamId, position, position);
+
+    switch (event) {
+      case ShoppingCartOpened opened -> summaries.onOpened(new EventEnvelope<>(opened, metadata));
+      case ProductItemAddedToShoppingCart added -> summaries.onProductItemAdded(new EventEnvelope<>(added, metadata));
+      case ProductItemRemovedFromShoppingCart removed ->
+        summaries.onProductItemRemoved(new EventEnvelope<>(removed, metadata));
+      case ShoppingCartConfirmed confirmed -> summaries.onConfirmed(new EventEnvelope<>(confirmed, metadata));
+      case ShoppingCartCanceled canceled -> summaries.onCanceled(new EventEnvelope<>(canceled, metadata));
+    }
   }
 
   private ShoppingCartSummary summary() {

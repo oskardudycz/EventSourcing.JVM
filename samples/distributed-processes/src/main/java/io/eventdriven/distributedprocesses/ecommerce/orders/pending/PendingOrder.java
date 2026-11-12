@@ -2,8 +2,8 @@ package io.eventdriven.distributedprocesses.ecommerce.orders.pending;
 
 import io.eventdriven.distributedprocesses.core.projections.Versioned;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderPaymentState;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderShipmentState;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderPaymentStatus;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderShipmentStatus;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -13,8 +13,8 @@ public class PendingOrder implements Versioned {
   private UUID clientId;
   private double totalPrice;
   private OffsetDateTime initializedAt;
-  private OrderPaymentState paymentState;
-  private OrderShipmentState shipmentState;
+  private OrderPaymentStatus paymentStatus;
+  private OrderShipmentStatus shipmentStatus;
   private long version;
 
   public PendingOrder() {
@@ -25,15 +25,15 @@ public class PendingOrder implements Versioned {
     UUID clientId,
     double totalPrice,
     OffsetDateTime initializedAt,
-    OrderPaymentState paymentState,
-    OrderShipmentState shipmentState
+    OrderPaymentStatus paymentStatus,
+    OrderShipmentStatus shipmentStatus
   ) {
     this.orderId = orderId;
     this.clientId = clientId;
     this.totalPrice = totalPrice;
     this.initializedAt = initializedAt;
-    this.paymentState = paymentState;
-    this.shipmentState = shipmentState;
+    this.paymentStatus = paymentStatus;
+    this.shipmentStatus = shipmentStatus;
   }
 
   public OrderId getOrderId() {
@@ -68,20 +68,20 @@ public class PendingOrder implements Versioned {
     this.initializedAt = initializedAt;
   }
 
-  public OrderPaymentState getPaymentState() {
-    return paymentState;
+  public OrderPaymentStatus getPaymentStatus() {
+    return paymentStatus;
   }
 
-  public void setPaymentState(OrderPaymentState paymentState) {
-    this.paymentState = paymentState;
+  public void setPaymentStatus(OrderPaymentStatus paymentStatus) {
+    this.paymentStatus = paymentStatus;
   }
 
-  public OrderShipmentState getShipmentState() {
-    return shipmentState;
+  public OrderShipmentStatus getShipmentStatus() {
+    return shipmentStatus;
   }
 
-  public void setShipmentState(OrderShipmentState shipmentState) {
-    this.shipmentState = shipmentState;
+  public void setShipmentStatus(OrderShipmentStatus shipmentStatus) {
+    this.shipmentStatus = shipmentStatus;
   }
 
   @Override

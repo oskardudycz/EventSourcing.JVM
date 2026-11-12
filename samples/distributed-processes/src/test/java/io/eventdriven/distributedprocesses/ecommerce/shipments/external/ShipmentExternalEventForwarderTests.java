@@ -3,22 +3,28 @@ package io.eventdriven.distributedprocesses.ecommerce.shipments.external;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.SilentDeliveryProvider;
 import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
+import io.eventdriven.distributedprocesses.core.projections.Database;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentFacade;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.*;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class ShipmentExternalEventForwarderTests {
   private static final Duration reservationValidity = Duration.ofHours(2);
@@ -36,18 +42,18 @@ public class ShipmentExternalEventForwarderTests {
   private final String trackingNumber = "JD014600006281234567";
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
-  private final InMemoryEventBus integrationEventBus = new InMemoryEventBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher externalEvents = new MessageCatcher();
 
   public ShipmentExternalEventForwarderTests() {
-    integrationEventBus.use(externalEvents::catchMessage);
+    messageBus.use(message -> {
+      if (message instanceof ShipmentExternalEvent)
+        externalEvents.catchMessage(message);
+    });
 
     ShipmentsConfig.configure(
-      commandBus,
       eventStore,
-      eventStore,
-      integrationEventBus,
+      messageBus,
       new SilentDeliveryProvider(),
       isProductAvailable,
       reservationValidity,
@@ -57,7 +63,7 @@ public class ShipmentExternalEventForwarderTests {
 
   @Test
   public void reservingForwardsStockReservedWithItsDeadline() {
-    commandBus.send(new ReserveStock(referenceId, available));
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
 
     externalEvents.shouldReceiveMessages(
       new ShipmentExternalEvent.StockReserved(shipmentId, referenceId, available, now, reservedUntil)
@@ -68,8 +74,8 @@ public class ShipmentExternalEventForwarderTests {
   public void sendingForwardsPackageWasSentWithTheTracking() {
     reserve();
 
-    commandBus.send(new SendPackage(shipmentId));
-    commandBus.send(new ConfirmParcelBooking(shipmentId, carrier, trackingNumber));
+    messageBus.publish(List.of(new SendPackage(shipmentId)));
+    messageBus.publish(List.of(new ConfirmParcelBooking(shipmentId, carrier, trackingNumber)));
 
     externalEvents.shouldReceiveMessages(
       new ShipmentExternalEvent.PackageWasSent(
@@ -86,11 +92,11 @@ public class ShipmentExternalEventForwarderTests {
   @Test
   public void deliveringForwardsPackageWasDelivered() {
     reserve();
-    commandBus.send(new SendPackage(shipmentId));
-    commandBus.send(new ConfirmParcelBooking(shipmentId, carrier, trackingNumber));
+    messageBus.publish(List.of(new SendPackage(shipmentId)));
+    messageBus.publish(List.of(new ConfirmParcelBooking(shipmentId, carrier, trackingNumber)));
     externalEvents.reset();
 
-    commandBus.send(new DeliverPackage(shipmentId));
+    messageBus.publish(List.of(new DeliverPackage(shipmentId)));
 
     externalEvents.shouldReceiveMessages(
       new ShipmentExternalEvent.PackageWasDelivered(shipmentId, referenceId, now)
@@ -101,7 +107,7 @@ public class ShipmentExternalEventForwarderTests {
   public void runningOutOfStockForwardsStockReservationFailed() {
     var productItems = new ProductItem[]{availableItem, unavailableItem};
 
-    commandBus.send(new ReserveStock(referenceId, productItems));
+    messageBus.publish(List.of(new ReserveStock(referenceId, productItems)));
 
     externalEvents.shouldReceiveMessages(
       new ShipmentExternalEvent.StockReservationFailed(
@@ -118,7 +124,7 @@ public class ShipmentExternalEventForwarderTests {
   public void expiringForwardsStockReservationFailedSoTheOrderIsNeverLeftWaiting() {
     reserve();
 
-    commandBus.send(new ExpireStockReservation(shipmentId, reservedUntil));
+    messageBus.publish(List.of(new ExpireStockReservation(shipmentId, reservedUntil)));
 
     externalEvents.shouldReceiveMessages(
       new ShipmentExternalEvent.StockReservationFailed(
@@ -135,13 +141,46 @@ public class ShipmentExternalEventForwarderTests {
   public void releasingForwardsNothingBecauseNobodyWaitsOnIt() {
     reserve();
 
-    commandBus.send(new ReleaseStock(shipmentId));
+    messageBus.publish(List.of(new ReleaseStock(shipmentId)));
 
     externalEvents.shouldNotReceiveAnyEvent();
   }
 
   private void reserve() {
-    commandBus.send(new ReserveStock(referenceId, available));
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
     externalEvents.reset();
+  }
+
+  @Test
+  public void forwarderRefusesASummaryThatHasNotSeenTheEventSoTheStoreDeliversItAgain() {
+    var summaries = new ShipmentSummaries(new Database());
+    var bus = new InMemoryMessageBus();
+    var published = new MessageCatcher();
+    bus.use(published::catchMessage);
+    var forwarder = new ShipmentExternalEventForwarder(summaries, bus);
+    var streamId = ShipmentFacade.mapToStreamId(shipmentId);
+
+    summaries.onStockReserved(new EventEnvelope<>(
+      new ShipmentEvent.StockReserved(shipmentId, referenceId, available, now, reservedUntil),
+      new EventMetadata(streamId, 0, 0)
+    ));
+    var expired = new EventEnvelope<>(
+      new ShipmentEvent.StockReservationExpired(shipmentId, referenceId, reservedUntil),
+      new EventMetadata(streamId, 1, 1)
+    );
+
+    assertThatThrownBy(() -> forwarder.onStockReservationExpired(expired)).isInstanceOf(IllegalStateException.class);
+    published.shouldNotReceiveAnyEvent();
+
+    summaries.onStockReservationExpired(expired);
+    forwarder.onStockReservationExpired(expired);
+
+    published.shouldReceiveMessages(new ShipmentExternalEvent.StockReservationFailed(
+      shipmentId,
+      referenceId,
+      available,
+      ShipmentExternalEvent.StockReservationFailed.Reason.ReservationExpired,
+      reservedUntil
+    ));
   }
 }

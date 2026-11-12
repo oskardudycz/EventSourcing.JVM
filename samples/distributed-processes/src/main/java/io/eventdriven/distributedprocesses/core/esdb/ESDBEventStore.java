@@ -1,12 +1,17 @@
 package io.eventdriven.distributedprocesses.core.esdb;
 
 import com.eventstore.dbclient.*;
+import io.eventdriven.distributedprocesses.core.esdb.subscriptions.ESDBSubscription;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
+import io.eventdriven.distributedprocesses.core.serialization.EventTypeMapper;
 
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 
 public class ESDBEventStore implements EventStore {
   @Override
@@ -71,6 +76,30 @@ public class ESDBEventStore implements EventStore {
       }
       return new AppendResult.UnexpectedFailure(e);
     }
+  }
+
+  @Override
+  public <Event> EventStore subscribe(Class<Event> type, Consumer<EventEnvelope<Event>> handler) {
+    var options = SubscribeToAllOptions.get()
+      .fromStart()
+      .filter(
+        SubscriptionFilter.newBuilder()
+          .withEventTypeRegularExpression("^%s$".formatted(EventTypeMapper.toName(type)))
+          .build()
+      );
+
+    ESDBSubscription.subscribeToAll(eventStore, options, (subscription, resolvedEvent) -> {
+      var recorded = resolvedEvent.getEvent();
+
+      EventSerializer.deserialize(type, resolvedEvent).ifPresent(event ->
+        handler.accept(new EventEnvelope<>(
+          event,
+          new EventMetadata(recorded.getStreamId(), recorded.getRevision(), recorded.getPosition().getCommitUnsigned())
+        ))
+      );
+    });
+
+    return this;
   }
 
   public DeleteResult deleteStream(String streamId) {

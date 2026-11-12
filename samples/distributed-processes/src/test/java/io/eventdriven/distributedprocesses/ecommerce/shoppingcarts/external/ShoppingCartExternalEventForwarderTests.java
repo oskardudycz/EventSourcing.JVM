@@ -1,8 +1,7 @@
 package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external;
 
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
@@ -10,12 +9,19 @@ import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
+import io.eventdriven.distributedprocesses.core.projections.Database;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartFacade;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.*;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class ShoppingCartExternalEventForwarderTests {
   private static final double unitPrice = 12.5;
@@ -30,14 +36,16 @@ public class ShoppingCartExternalEventForwarderTests {
   private final OffsetDateTime now = OffsetDateTime.now();
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
-  private final InMemoryEventBus integrationEventBus = new InMemoryEventBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher externalEvents = new MessageCatcher();
 
   public ShoppingCartExternalEventForwarderTests() {
-    integrationEventBus.use(externalEvents::catchMessage);
+    messageBus.use(message -> {
+      if (message instanceof ShoppingCartExternalEvent)
+        externalEvents.catchMessage(message);
+    });
     ShoppingCartsConfig.configure(
-      commandBus, eventStore, eventStore, integrationEventBus, prices, () -> now
+      eventStore, messageBus, prices, () -> now
     );
   }
 
@@ -46,7 +54,7 @@ public class ShoppingCartExternalEventForwarderTests {
     openCartWithShoesAndShirt();
     externalEvents.reset();
 
-    commandBus.send(new ConfirmShoppingCart(shoppingCartId, 2L));
+    messageBus.publish(List.of(new ConfirmShoppingCart(shoppingCartId, 2L)));
 
     externalEvents.shouldReceiveMessages(
       new ShoppingCartFinalized(
@@ -71,7 +79,7 @@ public class ShoppingCartExternalEventForwarderTests {
     openCartWithShoesAndShirt();
     externalEvents.reset();
 
-    commandBus.send(new RemoveProductItemFromShoppingCart(shoppingCartId, pricedShoes, 2L));
+    messageBus.publish(List.of(new RemoveProductItemFromShoppingCart(shoppingCartId, pricedShoes, 2L)));
 
     externalEvents.shouldNotReceiveAnyEvent();
   }
@@ -81,16 +89,49 @@ public class ShoppingCartExternalEventForwarderTests {
     openCartWithShoesAndShirt();
     externalEvents.reset();
 
-    commandBus.send(new CancelShoppingCart(shoppingCartId, 2L));
+    messageBus.publish(List.of(new CancelShoppingCart(shoppingCartId, 2L)));
 
     externalEvents.shouldNotReceiveAnyEvent();
   }
 
   private void openCartWithShoesAndShirt() {
-    commandBus.send(
+    messageBus.publish(List.of(
       new OpenShoppingCart(shoppingCartId, clientId),
       new AddProductItemToShoppingCart(shoppingCartId, shoes, 0L),
       new AddProductItemToShoppingCart(shoppingCartId, shirt, 1L)
+    ));
+  }
+
+  @Test
+  public void forwarderRefusesASummaryThatHasNotSeenTheEventSoTheStoreDeliversItAgain() {
+    var summaries = new ShoppingCartSummaries(new Database());
+    var bus = new InMemoryMessageBus();
+    var published = new MessageCatcher();
+    bus.use(published::catchMessage);
+    var forwarder = new ShoppingCartExternalEventForwarder(summaries, bus);
+    var streamId = ShoppingCartFacade.mapToStreamId(shoppingCartId);
+
+    summaries.onOpened(new EventEnvelope<>(
+      new ShoppingCartEvent.ShoppingCartOpened(shoppingCartId, clientId),
+      new EventMetadata(streamId, 0, 0)
+    ));
+    summaries.onProductItemAdded(new EventEnvelope<>(
+      new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, pricedShoes),
+      new EventMetadata(streamId, 1, 1)
+    ));
+    var confirmed = new EventEnvelope<>(
+      new ShoppingCartEvent.ShoppingCartConfirmed(shoppingCartId, now),
+      new EventMetadata(streamId, 2, 2)
+    );
+
+    assertThatThrownBy(() -> forwarder.onConfirmed(confirmed)).isInstanceOf(IllegalStateException.class);
+    published.shouldNotReceiveAnyEvent();
+
+    summaries.onConfirmed(confirmed);
+    forwarder.onConfirmed(confirmed);
+
+    published.shouldReceiveMessages(
+      new ShoppingCartFinalized(shoppingCartId, clientId, new PricedProductItem[]{pricedShoes}, 25, now)
     );
   }
 }

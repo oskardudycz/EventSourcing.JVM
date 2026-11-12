@@ -1,69 +1,74 @@
 package io.eventdriven.distributedprocesses.ecommerce.orders.external;
 
-import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCancellationReason;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 
-// The internal events say only what changed. What the outside world needs is the whole
-// picture, and that is what the summary keeps — no aggregate is loaded here.
+import java.util.List;
+
 public class OrderExternalEventForwarder {
   private final OrderSummaries summaries;
-  private final IntegrationEventBus eventBus;
+  private final MessageBus messageBus;
 
-  public OrderExternalEventForwarder(OrderSummaries summaries, IntegrationEventBus eventBus) {
+  public OrderExternalEventForwarder(OrderSummaries summaries, MessageBus messageBus) {
     this.summaries = summaries;
-    this.eventBus = eventBus;
+    this.messageBus = messageBus;
   }
 
-  public void on(OrderEvent.OrderConfirmed event) {
-    var summary = summaryOf(event.orderId());
+  public void onConfirmed(EventEnvelope<OrderEvent.OrderConfirmed> envelope) {
+    var event = envelope.data();
+    var summary = summaryOf(event.orderId(), envelope.metadata().streamPosition());
 
-    eventBus.publish(new OrderExternalEvent.OrderConfirmed(
+    messageBus.publish(List.of(new OrderExternalEvent.OrderConfirmed(
       event.orderId(),
       summary.getClientId(),
       summary.getProductItems(),
       summary.getTotalPrice(),
       event.confirmedAt()
-    ));
+    )));
   }
 
-  public void on(OrderEvent.OrderPackageSent event) {
-    var summary = summaryOf(event.orderId());
+  public void onPackageSent(EventEnvelope<OrderEvent.OrderPackageSent> envelope) {
+    var event = envelope.data();
+    var summary = summaryOf(event.orderId(), envelope.metadata().streamPosition());
 
-    eventBus.publish(new OrderExternalEvent.OrderShipped(
+    messageBus.publish(List.of(new OrderExternalEvent.OrderShipped(
       event.orderId(),
       summary.getClientId(),
       event.shipmentId(),
       event.carrier(),
       event.trackingNumber(),
       event.sentAt()
-    ));
+    )));
   }
 
-  public void on(OrderEvent.OrderCompleted event) {
-    var summary = summaryOf(event.orderId());
+  public void onCompleted(EventEnvelope<OrderEvent.OrderCompleted> envelope) {
+    var event = envelope.data();
+    var summary = summaryOf(event.orderId(), envelope.metadata().streamPosition());
 
-    eventBus.publish(new OrderExternalEvent.OrderCompleted(
+    messageBus.publish(List.of(new OrderExternalEvent.OrderCompleted(
       event.orderId(),
       summary.getClientId(),
       summary.getProductItems(),
       summary.getTotalPrice(),
       event.completedAt()
-    ));
+    )));
   }
 
-  public void on(OrderEvent.OrderCancelled event) {
-    var summary = summaryOf(event.orderId());
+  public void onCancelled(EventEnvelope<OrderEvent.OrderCancelled> envelope) {
+    var event = envelope.data();
+    var summary = summaryOf(event.orderId(), envelope.metadata().streamPosition());
 
-    eventBus.publish(new OrderExternalEvent.OrderCancelled(
+    messageBus.publish(List.of(new OrderExternalEvent.OrderCancelled(
       event.orderId(),
       summary.getClientId(),
       summary.getProductItems(),
       summary.getTotalPrice(),
       toPublicReason(event.reason()),
       event.cancelledAt()
-    ));
+    )));
   }
 
   private static OrderExternalEvent.OrderCancelled.Reason toPublicReason(OrderCancellationReason reason) {
@@ -74,10 +79,11 @@ public class OrderExternalEventForwarder {
     };
   }
 
-  private OrderSummary summaryOf(OrderId orderId) {
+  private OrderSummary summaryOf(OrderId orderId, long streamPosition) {
     return summaries.get(orderId)
+      .filter(summary -> summary.getVersion() >= streamPosition)
       .orElseThrow(() -> new IllegalStateException(
-        "No summary for order '%s'".formatted(orderId.value())
+        "Summary of order '%s' has not reached position %d yet".formatted(orderId.value(), streamPosition)
       ));
   }
 }

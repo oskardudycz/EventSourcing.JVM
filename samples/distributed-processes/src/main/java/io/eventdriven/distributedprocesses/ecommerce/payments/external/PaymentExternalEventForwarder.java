@@ -1,60 +1,79 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments.external;
 
-import io.eventdriven.distributedprocesses.core.messaging.IntegrationEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 
 import java.time.OffsetDateTime;
+import java.util.List;
+
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
 import static io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.*;
 
 public class PaymentExternalEventForwarder {
   private final PaymentSummaries summaries;
-  private final IntegrationEventBus eventBus;
+  private final MessageBus messageBus;
 
   public PaymentExternalEventForwarder(
     PaymentSummaries summaries,
-    IntegrationEventBus eventBus
+    MessageBus messageBus
   ) {
     this.summaries = summaries;
-    this.eventBus = eventBus;
+    this.messageBus = messageBus;
   }
 
-  public void on(PaymentEvent.PaymentAuthorized event) {
-    var payment = get(event.paymentId());
+  public void onAuthorized(EventEnvelope<PaymentEvent.PaymentAuthorized> envelope) {
+    var event = envelope.data();
+    var payment = get(event.paymentId(), envelope.metadata().streamPosition());
 
-    eventBus.publish(new PaymentExternalEvent.PaymentAuthorized(
+    messageBus.publish(List.of(new PaymentExternalEvent.PaymentAuthorized(
       payment.getReferenceId(),
       event.paymentId(),
       payment.getAmount(),
       payment.getAuthorizedAt(),
       payment.getExpiresAt()
-    ));
+    )));
   }
 
-  public void on(PaymentEvent.PaymentCaptured event) {
-    var payment = get(event.paymentId());
+  public void onCaptured(EventEnvelope<PaymentEvent.PaymentCaptured> envelope) {
+    var event = envelope.data();
+    var payment = get(event.paymentId(), envelope.metadata().streamPosition());
 
-    eventBus.publish(new PaymentExternalEvent.PaymentCaptured(
+    messageBus.publish(List.of(new PaymentExternalEvent.PaymentCaptured(
       payment.getReferenceId(),
       event.paymentId(),
       event.amount(),
       event.capturedAt()
-    ));
+    )));
   }
 
-  public void on(PaymentDeclined event) {
-    publishFailure(event.paymentId(), event.declinedAt(), PaymentFailed.Reason.Declined);
-  }
-
-  public void on(PaymentTimedOut event) {
-    publishFailure(event.paymentId(), event.timedOutAt(), PaymentFailed.Reason.TimedOut);
-  }
-
-  public void on(PaymentAuthorizationExpired event) {
+  public void onDeclined(EventEnvelope<PaymentDeclined> envelope) {
+    var event = envelope.data();
     publishFailure(
       event.paymentId(),
+      envelope.metadata().streamPosition(),
+      event.declinedAt(),
+      PaymentFailed.Reason.Declined
+    );
+  }
+
+  public void onTimedOut(EventEnvelope<PaymentTimedOut> envelope) {
+    var event = envelope.data();
+    publishFailure(
+      event.paymentId(),
+      envelope.metadata().streamPosition(),
+      event.timedOutAt(),
+      PaymentFailed.Reason.TimedOut
+    );
+  }
+
+  public void onAuthorizationExpired(EventEnvelope<PaymentAuthorizationExpired> envelope) {
+    var event = envelope.data();
+    publishFailure(
+      event.paymentId(),
+      envelope.metadata().streamPosition(),
       event.expiredAt(),
       PaymentFailed.Reason.AuthorizationExpired
     );
@@ -62,22 +81,26 @@ public class PaymentExternalEventForwarder {
 
   private void publishFailure(
     PaymentId paymentId,
+    long streamPosition,
     OffsetDateTime failedAt,
     PaymentFailed.Reason reason
   ) {
-    var payment = get(paymentId);
+    var payment = get(paymentId, streamPosition);
 
-    eventBus.publish(new PaymentFailed(
+    messageBus.publish(List.of(new PaymentFailed(
       payment.getReferenceId(),
       paymentId,
       payment.getAmount(),
       failedAt,
       reason
-    ));
+    )));
   }
 
-  private PaymentSummary get(PaymentId paymentId) {
+  private PaymentSummary get(PaymentId paymentId, long streamPosition) {
     return summaries.get(paymentId)
-      .orElseThrow(() -> new IllegalStateException("Cannot enrich event, as payment with id '%s' was not found".formatted(paymentId)));
+      .filter(summary -> summary.getVersion() >= streamPosition)
+      .orElseThrow(() -> new IllegalStateException(
+        "Summary of payment '%s' has not reached position %d yet".formatted(paymentId.value(), streamPosition)
+      ));
   }
 }

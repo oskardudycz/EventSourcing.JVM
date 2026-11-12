@@ -2,8 +2,7 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.external;
 
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryCommandBus;
-import io.eventdriven.distributedprocesses.core.messaging.InMemoryEventBus;
+import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.AutoAuthorizingPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.AutoRejectingPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.DeclineReason;
@@ -23,8 +22,6 @@ import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentComm
 import static io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-// The gateway answers while the event that called it is still being handled, so what the
-// forwarder reads and when it publishes both depend on the order the module subscribes in.
 public class PaymentExternalEventForwarderOrderingTests {
   private static final Duration paymentTimeout = Duration.ofMinutes(5);
   private static final Duration authorizationValidity = Duration.ofDays(7);
@@ -36,16 +33,15 @@ public class PaymentExternalEventForwarderOrderingTests {
   private final OffsetDateTime expiresAt = now.plus(authorizationValidity);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
-  private final InMemoryCommandBus commandBus = new InMemoryCommandBus();
-  private final InMemoryEventBus integrationEventBus = new InMemoryEventBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher externalEvents = new MessageCatcher();
   private final List<String> transcript = new ArrayList<>();
 
   @Test
   public void authorizationGrantedWhileTheRequestIsStillHandledIsForwardedWithTheReference() {
-    configure(new AutoAuthorizingPaymentGateway(commandBus));
+    configure(new AutoAuthorizingPaymentGateway(messageBus));
 
-    commandBus.send(new AuthorizePayment(referenceId, amount));
+    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
 
     externalEvents.shouldReceiveMessages(
       new PaymentAuthorized(referenceId, paymentId, amount, now, expiresAt)
@@ -54,9 +50,9 @@ public class PaymentExternalEventForwarderOrderingTests {
 
   @Test
   public void declineComingBackWhileTheRequestIsStillHandledIsForwardedWithTheReference() {
-    configure(new AutoRejectingPaymentGateway(commandBus));
+    configure(new AutoRejectingPaymentGateway(messageBus));
 
-    commandBus.send(new AuthorizePayment(referenceId, amount));
+    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
 
     externalEvents.shouldReceiveMessages(
       new PaymentFailed(referenceId, paymentId, amount, now, PaymentFailed.Reason.Declined)
@@ -66,23 +62,25 @@ public class PaymentExternalEventForwarderOrderingTests {
   @Test
   public void outcomeIsPublishedBeforeTheGatewayIsToldAboutIt() {
     configure(new TranscribingPaymentGateway());
-    commandBus.send(new AuthorizePayment(referenceId, amount));
+    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
     transcript.clear();
 
-    commandBus.send(new CapturePayment(paymentId));
+    messageBus.publish(List.of(new CapturePayment(paymentId)));
 
     assertThat(transcript).containsExactly("published:PaymentCaptured", "capture");
   }
 
   private void configure(PaymentGateway paymentGateway) {
-    integrationEventBus.use(externalEvents::catchMessage);
-    integrationEventBus.use(event -> transcript.add("published:" + event.getClass().getSimpleName()));
+    messageBus.use(message -> {
+      if (message instanceof PaymentExternalEvent) {
+        externalEvents.catchMessage(message);
+        transcript.add("published:" + message.getClass().getSimpleName());
+      }
+    });
 
     PaymentsConfig.configure(
-      commandBus,
       eventStore,
-      eventStore,
-      integrationEventBus,
+      messageBus,
       paymentGateway,
       paymentTimeout,
       authorizationValidity,
@@ -94,7 +92,7 @@ public class PaymentExternalEventForwarderOrderingTests {
   private class TranscribingPaymentGateway implements PaymentGateway {
     @Override
     public void authorize(PaymentId paymentId, double amount) {
-      commandBus.send(new ConfirmPaymentAuthorization(paymentId));
+      messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId)));
     }
 
     @Override

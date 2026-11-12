@@ -3,8 +3,8 @@ package io.eventdriven.distributedprocesses.ecommerce.orders.pending;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderPaymentState;
-import io.eventdriven.distributedprocesses.ecommerce.orders.OrderShipmentState;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderPaymentStatus;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderShipmentStatus;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -30,8 +30,8 @@ public class PendingOrders {
         event.data().clientId(),
         event.data().totalPrice(),
         event.data().initializedAt(),
-        OrderPaymentState.NotAuthorized,
-        OrderShipmentState.NotReserved
+        OrderPaymentStatus.NotAuthorized,
+        OrderShipmentStatus.NotReserved
       )
     );
   }
@@ -40,7 +40,7 @@ public class PendingOrders {
     database.getAndUpdate(
       PendingOrder.class, event.data().orderId(), event.metadata().streamPosition(),
       pending -> {
-        pending.setPaymentState(OrderPaymentState.Authorized);
+        pending.setPaymentStatus(OrderPaymentStatus.Authorized);
 
         return pending;
       });
@@ -50,7 +50,7 @@ public class PendingOrders {
     database.getAndUpdate(
       PendingOrder.class, event.data().orderId(), event.metadata().streamPosition(),
       pending -> {
-        pending.setPaymentState(OrderPaymentState.Captured);
+        pending.setPaymentStatus(OrderPaymentStatus.Captured);
 
         return pending;
       });
@@ -60,7 +60,7 @@ public class PendingOrders {
     database.getAndUpdate(
       PendingOrder.class, event.data().orderId(), event.metadata().streamPosition(),
       pending -> {
-        pending.setPaymentState(OrderPaymentState.NotAuthorized);
+        pending.setPaymentStatus(OrderPaymentStatus.NotAuthorized);
 
         return pending;
       });
@@ -70,7 +70,7 @@ public class PendingOrders {
     database.getAndUpdate(
       PendingOrder.class, event.data().orderId(), event.metadata().streamPosition(),
       pending -> {
-        pending.setShipmentState(OrderShipmentState.Reserved);
+        pending.setShipmentStatus(OrderShipmentStatus.Reserved);
 
         return pending;
       });
@@ -80,7 +80,7 @@ public class PendingOrders {
     database.getAndUpdate(
       PendingOrder.class, event.data().orderId(), event.metadata().streamPosition(),
       pending -> {
-        pending.setShipmentState(OrderShipmentState.Sent);
+        pending.setShipmentStatus(OrderShipmentStatus.Sent);
 
         return pending;
       });
@@ -90,7 +90,7 @@ public class PendingOrders {
     database.getAndUpdate(
       PendingOrder.class, event.data().orderId(), event.metadata().streamPosition(),
       pending -> {
-        pending.setShipmentState(OrderShipmentState.NotReserved);
+        pending.setShipmentStatus(OrderShipmentStatus.NotReserved);
 
         return pending;
       });
