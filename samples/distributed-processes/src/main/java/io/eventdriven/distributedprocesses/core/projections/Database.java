@@ -1,13 +1,10 @@
 package io.eventdriven.distributedprocesses.core.projections;
 
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.core.JacksonException;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.eventdriven.distributedprocesses.core.identifiers.EntityId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,7 +77,7 @@ public class Database {
   private static <T> T copy(Class<T> typeClass, Object item) {
     try {
       return mapper.readValue(mapper.writeValueAsString(item), typeClass);
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       throw new RuntimeException(e);
     }
   }
@@ -89,11 +86,11 @@ public class Database {
     return "%s-%s".formatted(typeClass.getTypeName(), id.value());
   }
 
-  private static final ObjectMapper mapper =
-    new JsonMapper()
-      .registerModule(new JavaTimeModule())
+  private static final JsonMapper mapper =
+    JsonMapper.builder()
       .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-      .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-      .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
-      .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+      .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+      .configure(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
+      .changeDefaultVisibility(visibility -> visibility.withFieldVisibility(JsonAutoDetect.Visibility.ANY))
+      .build();
 }

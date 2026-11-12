@@ -1,5 +1,7 @@
 plugins {
   id 'java'
+  id 'org.springframework.boot' version '4.1.2'
+  id 'io.spring.dependency-management' version '1.1.7'
 }
 
 java {
@@ -18,32 +20,28 @@ repositories {
 
 dependencies {
   // Serialisation
-  implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
-  implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2'
+  implementation 'tools.jackson.core:jackson-databind'
 
   // EventStoreDB client
-  implementation 'com.eventstore:db-client-java:5.4.3'
+  implementation 'com.eventstore:db-client-java:5.4.5'
 
   // Logging
-  implementation 'org.apache.logging.log4j:log4j-api:2.23.1'
-  implementation 'org.apache.logging.log4j:log4j-core:2.23.1'
-  implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.23.1'
+  implementation 'org.springframework.boot:spring-boot-starter-log4j2'
 
   // Postgres and JPA for read models
-  implementation 'org.springframework.boot:spring-boot-starter-data-jpa:3.0.1'
-  implementation 'org.postgresql:postgresql:42.7.3'
+  implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+  implementation 'org.postgresql:postgresql'
 
   // Test frameworks
-  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.2'
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
-  testImplementation 'org.junit.platform:junit-platform-launcher:1.10.2'
-  testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
-  testImplementation 'org.springframework.boot:spring-boot-starter-test:3.2.5'
+  testImplementation 'org.springframework.boot:spring-boot-starter-test'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 configurations {
   all {
     exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+    exclude group: 'ch.qos.logback'
+    exclude group: 'org.apache.logging.log4j', module: 'log4j-to-slf4j'
   }
 }
 
