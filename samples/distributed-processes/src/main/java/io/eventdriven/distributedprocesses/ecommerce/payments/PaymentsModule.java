@@ -1,12 +1,12 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments;
 
-import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizationExpiryWorker;
-import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.PaymentTimeoutWorker;
+import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.ScheduledAuthorizationExpiryWorker;
+import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.ScheduledPaymentTimeoutWorker;
 
 
 public record PaymentsModule(
   PaymentFacade facade,
-  PaymentTimeoutWorker timeoutWorker,
-  AuthorizationExpiryWorker authorizationExpiryWorker
+  ScheduledPaymentTimeoutWorker timeoutWorker,
+  ScheduledAuthorizationExpiryWorker authorizationExpiryWorker
 ) {
 }

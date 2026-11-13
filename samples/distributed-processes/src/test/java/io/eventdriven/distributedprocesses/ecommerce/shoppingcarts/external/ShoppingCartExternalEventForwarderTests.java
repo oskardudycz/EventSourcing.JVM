@@ -111,11 +111,11 @@ public class ShoppingCartExternalEventForwarderTests {
     var forwarder = new ShoppingCartExternalEventForwarder(summaries, bus);
     var streamId = ShoppingCartFacade.mapToStreamId(shoppingCartId);
 
-    summaries.onOpened(new EventEnvelope<>(
+    summaries.handle(new EventEnvelope<>(
       new ShoppingCartEvent.ShoppingCartOpened(shoppingCartId, clientId),
       new EventMetadata(streamId, 0, 0)
     ));
-    summaries.onProductItemAdded(new EventEnvelope<>(
+    summaries.handle(new EventEnvelope<>(
       new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, pricedShoes),
       new EventMetadata(streamId, 1, 1)
     ));
@@ -127,7 +127,7 @@ public class ShoppingCartExternalEventForwarderTests {
     assertThatThrownBy(() -> forwarder.onConfirmed(confirmed)).isInstanceOf(IllegalStateException.class);
     published.shouldNotReceiveAnyEvent();
 
-    summaries.onConfirmed(confirmed);
+    summaries.handle(confirmed);
     forwarder.onConfirmed(confirmed);
 
     published.shouldReceiveMessages(

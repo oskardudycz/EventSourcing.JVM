@@ -6,7 +6,8 @@ public sealed interface PaymentEvent {
   record PaymentAuthorizationRequested(
     PaymentId paymentId,
     String referenceId,
-    double amount
+    double amount,
+    OffsetDateTime requestedAt
   ) implements PaymentEvent {
   }
 
@@ -17,6 +18,13 @@ public sealed interface PaymentEvent {
   ) implements PaymentEvent {
   }
 
+  record PaymentCaptureRequested(
+    PaymentId paymentId,
+    double amount,
+    OffsetDateTime requestedAt
+  ) implements PaymentEvent {
+  }
+
   record PaymentCaptured(
     PaymentId paymentId,
     double amount,
@@ -24,14 +32,16 @@ public sealed interface PaymentEvent {
   ) implements PaymentEvent {
   }
 
+  record PaymentCaptureFailed(
+    PaymentId paymentId,
+    CaptureFailureReason reason,
+    OffsetDateTime failedAt
+  ) implements PaymentEvent {
+  }
+
   record PaymentVoided(
     PaymentId paymentId,
     OffsetDateTime voidedAt) implements PaymentEvent {
-  }
-
-  record PaymentRefunded(
-    PaymentId paymentId,
-    OffsetDateTime refundedAt) implements PaymentEvent {
   }
 
   record PaymentDeclined(

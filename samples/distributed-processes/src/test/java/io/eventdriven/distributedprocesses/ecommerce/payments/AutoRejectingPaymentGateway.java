@@ -27,8 +27,4 @@ public class AutoRejectingPaymentGateway implements PaymentGateway {
   @Override
   public void voidAuthorization(PaymentId paymentId) {
   }
-
-  @Override
-  public void refund(PaymentId paymentId) {
-  }
 }

@@ -22,16 +22,8 @@ public class AuthorizedPayment implements Versioned {
     return paymentId;
   }
 
-  public void setPaymentId(PaymentId paymentId) {
-    this.paymentId = paymentId;
-  }
-
   public OffsetDateTime getExpiresAt() {
     return expiresAt;
-  }
-
-  public void setExpiresAt(OffsetDateTime expiresAt) {
-    this.expiresAt = expiresAt;
   }
 
   @Override

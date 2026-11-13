@@ -47,9 +47,9 @@ public class PaymentFacadeTests {
 
   @Test
   public void authorizePaymentDispatchesOnlyTheRequestAndLeavesItPending() {
-    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
 
-    var requested = new PaymentAuthorizationRequested(paymentId, referenceId, amount);
+    var requested = new PaymentAuthorizationRequested(paymentId, referenceId, amount, now);
 
     published.shouldReceiveMessages(requested);
     assertThat(storedEvents()).usingRecursiveComparison().isEqualTo(List.of(requested));
@@ -62,7 +62,7 @@ public class PaymentFacadeTests {
 
   @Test
   public void confirmPaymentAuthorizationDispatchesPaymentAuthorizedWithTheDeadlineItGrants() {
-    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
     published.reset();
 
     messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId)));
@@ -71,12 +71,36 @@ public class PaymentFacadeTests {
   }
 
   @Test
-  public void capturePaymentOnAnAuthorizedPaymentDispatchesPaymentCaptured() {
+  public void capturePaymentOnAnAuthorizedPaymentDispatchesOnlyTheRequest() {
     authorize();
 
     messageBus.publish(List.of(new CapturePayment(paymentId)));
 
+    published.shouldReceiveMessages(new PaymentCaptureRequested(paymentId, amount, now));
+  }
+
+  @Test
+  public void confirmPaymentCaptureDispatchesPaymentCapturedForTheAuthorizedAmount() {
+    authorize();
+    messageBus.publish(List.of(new CapturePayment(paymentId)));
+    published.reset();
+
+    messageBus.publish(List.of(new ConfirmPaymentCapture(paymentId)));
+
     published.shouldReceiveMessages(new PaymentCaptured(paymentId, amount, now));
+  }
+
+  @Test
+  public void failPaymentCaptureDispatchesPaymentCaptureFailedWithTheReason() {
+    authorize();
+    messageBus.publish(List.of(new CapturePayment(paymentId)));
+    published.reset();
+
+    messageBus.publish(List.of(new FailPaymentCapture(paymentId, CaptureFailureReason.UnexpectedError)));
+
+    published.shouldReceiveMessages(
+      new PaymentCaptureFailed(paymentId, CaptureFailureReason.UnexpectedError, now)
+    );
   }
 
   @Test
@@ -91,42 +115,19 @@ public class PaymentFacadeTests {
   @Test
   public void voidPaymentOnACapturedPaymentStoresNothingAndDoesNotThrow() {
     authorize();
-    messageBus.publish(List.of(new CapturePayment(paymentId)));
+    messageBus.publish(List.of(new CapturePayment(paymentId), new ConfirmPaymentCapture(paymentId)));
     published.reset();
 
     assertThatCode(() -> messageBus.publish(List.of(new VoidPayment(paymentId))))
       .doesNotThrowAnyException();
 
     published.shouldNotReceiveAnyEvent();
-    assertThat(storedEvents()).hasSize(3);
-  }
-
-  @Test
-  public void refundPaymentOnACapturedPaymentDispatchesPaymentRefunded() {
-    authorize();
-    messageBus.publish(List.of(new CapturePayment(paymentId)));
-    published.reset();
-
-    messageBus.publish(List.of(new RefundPayment(paymentId)));
-
-    published.shouldReceiveMessages(new PaymentRefunded(paymentId, now));
     assertThat(storedEvents()).hasSize(4);
   }
 
   @Test
-  public void refundPaymentOnAnAuthorizedPaymentStoresNothingAndDoesNotThrow() {
-    authorize();
-
-    assertThatCode(() -> messageBus.publish(List.of(new RefundPayment(paymentId))))
-      .doesNotThrowAnyException();
-
-    published.shouldNotReceiveAnyEvent();
-    assertThat(storedEvents()).hasSize(2);
-  }
-
-  @Test
   public void declinePaymentDispatchesPaymentDeclinedWithTheReason() {
-    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
     published.reset();
 
     messageBus.publish(List.of(new DeclinePayment(paymentId, DeclineReason.UnexpectedError)));
@@ -138,7 +139,7 @@ public class PaymentFacadeTests {
 
   @Test
   public void timeOutPaymentDispatchesPaymentTimedOut() {
-    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
     published.reset();
 
     messageBus.publish(List.of(new TimeOutPayment(paymentId, timedOutAt)));
@@ -182,12 +183,12 @@ public class PaymentFacadeTests {
   @Test
   public void authorizePaymentDerivesThePaymentIdFromTheReferenceSoASecondRequestChangesNothing() {
     messageBus.publish(List.of(
-      new AuthorizePayment(referenceId, amount),
-      new AuthorizePayment(referenceId, amount)
+      new AuthorizePayment(paymentId, referenceId, amount),
+      new AuthorizePayment(paymentId, referenceId, amount)
     ));
 
     assertThat(storedEvents()).usingRecursiveComparison()
-      .isEqualTo(List.of(new PaymentAuthorizationRequested(paymentId, referenceId, amount)));
+      .isEqualTo(List.of(new PaymentAuthorizationRequested(paymentId, referenceId, amount, now)));
   }
 
   @Test
@@ -198,7 +199,7 @@ public class PaymentFacadeTests {
 
   private void authorize() {
     messageBus.publish(List.of(
-      new AuthorizePayment(referenceId, amount),
+      new AuthorizePayment(paymentId, referenceId, amount),
       new ConfirmPaymentAuthorization(paymentId)
     ));
     published.reset();

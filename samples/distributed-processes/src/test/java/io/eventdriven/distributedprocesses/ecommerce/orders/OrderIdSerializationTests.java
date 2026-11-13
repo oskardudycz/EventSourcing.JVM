@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.OrderInitialized;
+import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.OrderPlaced;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -32,7 +32,7 @@ public class OrderIdSerializationTests {
   private final UUID clientId = UUID.randomUUID();
   private final OffsetDateTime now = OffsetDateTime.parse("2026-09-16T10:00:00Z");
 
-  private final OrderInitialized event = new OrderInitialized(
+  private final OrderPlaced event = new OrderPlaced(
     orderId,
     cartId,
     clientId,
@@ -62,7 +62,7 @@ public class OrderIdSerializationTests {
     };
 
     assertThat(read).usingRecursiveFieldByFieldElementComparator().containsExactly(event);
-    assertThat(((OrderInitialized) read[0]).orderId()).isEqualTo(orderId);
+    assertThat(((OrderPlaced) read[0]).orderId()).isEqualTo(orderId);
   }
 
   @Test
@@ -70,7 +70,7 @@ public class OrderIdSerializationTests {
     var json = mapper.writeValueAsString(event)
       .replace(orderId.value(), "urn:ecommerce:payment:%s".formatted(orderId.tail()));
 
-    assertThatThrownBy(() -> mapper.readValue(json, OrderInitialized.class))
+    assertThatThrownBy(() -> mapper.readValue(json, OrderPlaced.class))
       .hasRootCauseInstanceOf(IllegalArgumentException.class);
   }
 

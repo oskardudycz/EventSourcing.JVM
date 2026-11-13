@@ -12,6 +12,7 @@ import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProdu
 import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -38,7 +39,6 @@ public class OrderFacadeTests {
   private final OffsetDateTime reservedAt = now.plusMinutes(2);
   private final OffsetDateTime sentAt = now.plusMinutes(3);
   private final OffsetDateTime capturedAt = now.plusMinutes(4);
-  private final OffsetDateTime deliveredAt = now.plusMinutes(5);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
   private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
@@ -46,22 +46,22 @@ public class OrderFacadeTests {
 
   public OrderFacadeTests() {
     eventStore.use(published::catchMessage);
-    OrdersConfig.configure(eventStore, messageBus, () -> now);
+    OrdersConfig.configure(eventStore, messageBus, Duration.ofDays(14), () -> now);
   }
 
   @Test
-  public void initializeOrderDispatchesAndStoresOrderInitialized() {
-    messageBus.publish(List.of(new InitializeOrder(orderId, cartId, clientId, productItems, totalPrice)));
+  public void placeOrderDispatchesAndStoresOrderPlaced() {
+    messageBus.publish(List.of(new PlaceOrder(orderId, cartId, clientId, productItems, totalPrice)));
 
-    var initialized = new OrderInitialized(orderId, cartId, clientId, productItems, totalPrice, now);
+    var placed = new OrderPlaced(orderId, cartId, clientId, productItems, totalPrice, now);
 
-    published.shouldReceiveMessages(initialized);
-    assertThat(storedEvents()).usingRecursiveComparison().isEqualTo(List.of(initialized));
+    published.shouldReceiveMessages(placed);
+    assertThat(storedEvents()).usingRecursiveComparison().isEqualTo(List.of(placed));
   }
 
   @Test
   public void recordingBothHoldsDispatchesTheConfirmationInTheSameBatch() {
-    initialize();
+    place();
 
     messageBus.publish(List.of(new RecordOrderPaymentAuthorization(orderId, paymentId, authorizedAt)));
     messageBus.publish(List.of(new RecordOrderStockReservation(orderId, shipmentId, reservedAt)));
@@ -74,22 +74,26 @@ public class OrderFacadeTests {
   }
 
   @Test
-  public void recordOrderPackageSentDispatchesOrderPackageSentNamingThePaymentToCapture() {
+  public void recordOrderPackageSentDispatchesOrderPackageSentAndThePaymentDue() {
     confirm();
 
     messageBus.publish(List.of(new RecordOrderPackageSent(orderId, carrier, trackingNumber, sentAt)));
 
-    published.shouldReceiveMessages(new OrderPackageSent(orderId, paymentId, shipmentId, carrier, trackingNumber, sentAt));
+    published.shouldReceiveMessages(
+      new OrderPackageSent(orderId, carrier, trackingNumber, sentAt),
+      new OrderPaymentDue(orderId, paymentId, sentAt)
+    );
   }
 
   @Test
-  public void recordOrderPaymentCaptureDispatchesOrderPaymentCaptured() {
+  public void recordOrderPaymentCaptureCompletesTheOrder() {
     send();
 
     messageBus.publish(List.of(new RecordOrderPaymentCapture(orderId, capturedAt)));
 
     published.shouldReceiveMessages(
-      new OrderPaymentCaptured(orderId, paymentId, totalPrice, capturedAt)
+      new OrderPaymentCaptured(orderId, paymentId, totalPrice, capturedAt),
+      new OrderCompleted(orderId, capturedAt)
     );
   }
 
@@ -103,23 +107,10 @@ public class OrderFacadeTests {
     published.shouldNotReceiveAnyEvent();
   }
 
-  @Test
-  public void recordOrderDeliveryCompletesTheOrder() {
-    send();
-    messageBus.publish(List.of(new RecordOrderPaymentCapture(orderId, capturedAt)));
-    published.reset();
-
-    messageBus.publish(List.of(new RecordOrderDelivery(orderId, deliveredAt)));
-
-    published.shouldReceiveMessages(
-      new OrderShipmentDelivered(orderId, shipmentId, deliveredAt),
-      new OrderCompleted(orderId, deliveredAt)
-    );
-  }
 
   @Test
   public void recordOrderPaymentFailureWithStockReservedCancelsAndSaysTheStockIsStillHeld() {
-    initialize();
+    place();
     messageBus.publish(List.of(new RecordOrderStockReservation(orderId, shipmentId, reservedAt)));
     published.reset();
 
@@ -141,14 +132,14 @@ public class OrderFacadeTests {
 
   @Test
   public void recordOrderShipmentFailureWithTheCardAuthorizedCancelsAndSaysTheHoldIsStillThere() {
-    initialize();
+    place();
     messageBus.publish(List.of(new RecordOrderPaymentAuthorization(orderId, paymentId, authorizedAt)));
     published.reset();
 
-    messageBus.publish(List.of(new RecordOrderShipmentFailure(orderId, reservedAt)));
+    messageBus.publish(List.of(new RecordOrderShipmentFailure(orderId, OrderCancellationReason.ProductWasOutOfStock, reservedAt)));
 
     published.shouldReceiveMessages(
-      new OrderShipmentFailed(orderId, reservedAt),
+      new OrderShipmentFailed(orderId, OrderCancellationReason.ProductWasOutOfStock, reservedAt),
       new OrderCancelled(
         orderId,
         paymentId,
@@ -182,7 +173,7 @@ public class OrderFacadeTests {
 
   @Test
   public void repeatingARecordedHoldStoresNothingAndDoesNotThrow() {
-    initialize();
+    place();
     messageBus.publish(List.of(new RecordOrderPaymentAuthorization(orderId, paymentId, authorizedAt)));
     published.reset();
 
@@ -196,7 +187,9 @@ public class OrderFacadeTests {
 
   @Test
   public void cancelOrderDispatchesOrderCancelledWithWhereBothParticipantsStood() {
-    confirm();
+    place();
+    messageBus.publish(List.of(new RecordOrderPaymentAuthorization(orderId, paymentId, authorizedAt)));
+    published.reset();
 
     messageBus.publish(List.of(new CancelOrder(orderId, OrderCancellationReason.Requested)));
 
@@ -204,11 +197,45 @@ public class OrderFacadeTests {
       orderId,
       paymentId,
       OrderPaymentStatus.Authorized,
-      shipmentId,
-      OrderShipmentStatus.Reserved,
+      null,
+      OrderShipmentStatus.NotReserved,
       OrderCancellationReason.Requested,
       now
     ));
+  }
+
+  @Test
+  public void cancelOrderAfterConfirmationStoresNothingAndDoesNotThrow() {
+    confirm();
+
+    assertThatCode(() -> messageBus.publish(List.of(new CancelOrder(orderId, OrderCancellationReason.Requested))))
+      .doesNotThrowAnyException();
+
+    published.shouldNotReceiveAnyEvent();
+  }
+
+  @Test
+  public void retryOrderPaymentAfterAFailedCaptureDispatchesOrderPaymentRetried() {
+    send();
+    messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, capturedAt)));
+    published.reset();
+
+    messageBus.publish(List.of(new RetryOrderPayment(orderId)));
+
+    published.shouldReceiveMessages(
+      new OrderPaymentRetried(orderId, PaymentId.derivedFrom(orderId.value(), 2), totalPrice, now)
+    );
+  }
+
+  @Test
+  public void closeUnpaidOrderAfterAFailedCaptureDispatchesOrderClosedUnpaid() {
+    send();
+    messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, capturedAt)));
+    published.reset();
+
+    messageBus.publish(List.of(new CloseUnpaidOrder(orderId)));
+
+    published.shouldReceiveMessages(new OrderClosedUnpaid(orderId, now));
   }
 
   @Test
@@ -217,13 +244,13 @@ public class OrderFacadeTests {
       .isEqualTo("Order-%s".formatted(orderId.tail()));
   }
 
-  private void initialize() {
-    messageBus.publish(List.of(new InitializeOrder(orderId, cartId, clientId, productItems, totalPrice)));
+  private void place() {
+    messageBus.publish(List.of(new PlaceOrder(orderId, cartId, clientId, productItems, totalPrice)));
     published.reset();
   }
 
   private void confirm() {
-    initialize();
+    place();
     messageBus.publish(List.of(
       new RecordOrderPaymentAuthorization(orderId, paymentId, authorizedAt),
       new RecordOrderStockReservation(orderId, shipmentId, reservedAt)

@@ -1,4 +1,4 @@
-package io.eventdriven.distributedprocesses.ecommerce.shipments.delivery;
+package io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment;
 
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 
@@ -10,7 +10,6 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
 import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;
 
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,8 +22,7 @@ import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEv
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
-public class DeliveryProviderClientTests {
-  private static final Duration reservationValidity = Duration.ofHours(2);
+public class FulfillmentServiceClientTests {
 
   private final String referenceId = Urns.of("ecommerce", "order", UUID.randomUUID());
   private final ShipmentId shipmentId = ShipmentId.derivedFrom(referenceId);
@@ -34,31 +32,29 @@ public class DeliveryProviderClientTests {
   private final Function<ProductItem, Boolean> isProductAvailable =
     item -> Set.of(availableItem).contains(item);
   private final OffsetDateTime now = OffsetDateTime.now();
-  private final OffsetDateTime reservedUntil = now.plus(reservationValidity);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
   private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher published = new MessageCatcher();
 
   @Test
-  public void callingBackProviderBooksThenDeliversTheParcel() {
-    var deliveryProvider = new CallingBackDeliveryProvider(messageBus);
-    configure(deliveryProvider);
+  public void callingBackServiceSendsThenDeliversThePackage() {
+    var fulfillmentService = new CallingBackFulfillmentService(messageBus);
+    configure(fulfillmentService);
 
     messageBus.publish(List.of(new ReserveStock(referenceId, available)));
-    messageBus.publish(List.of(new SendPackage(shipmentId)));
+    messageBus.publish(List.of(new RequestFulfillment(shipmentId)));
     published.reset();
 
-    deliveryProvider.confirmBookings();
-    deliveryProvider.deliverParcels();
+    fulfillmentService.sendPackages();
+    fulfillmentService.deliverPackages();
 
     published.shouldReceiveMessages(
       new PackageWasSent(
         shipmentId,
         referenceId,
-        available,
-        CallingBackDeliveryProvider.carrier,
-        CallingBackDeliveryProvider.trackingNumber,
+        CallingBackFulfillmentService.carrier,
+        CallingBackFulfillmentService.trackingNumber,
         now
       ),
       new PackageWasDelivered(shipmentId, referenceId, now)
@@ -66,91 +62,104 @@ public class DeliveryProviderClientTests {
   }
 
   @Test
-  public void silentProviderLeavesThePackageWaitingForItsBooking() {
-    configure(new SilentDeliveryProvider());
+  public void silentServiceLeavesThePackageWaitingForFulfillment() {
+    configure(new SilentFulfillmentService());
 
     messageBus.publish(List.of(new ReserveStock(referenceId, available)));
     published.reset();
 
-    messageBus.publish(List.of(new SendPackage(shipmentId)));
+    messageBus.publish(List.of(new RequestFulfillment(shipmentId)));
 
     published.shouldReceiveMessages(
-      new ParcelBookingRequested(shipmentId, referenceId, available, now)
+      new FulfillmentRequested(shipmentId, referenceId, available, now)
     );
   }
 
   @Test
-  public void unreachableProviderLeavesTheStockHeldInsteadOfThrowing() {
-    configure(new ThrowingDeliveryProvider());
+  public void unreachableServiceLeavesTheStockHeldInsteadOfThrowing() {
+    configure(new ThrowingFulfillmentService());
 
     messageBus.publish(List.of(new ReserveStock(referenceId, available)));
     published.reset();
 
-    assertThatCode(() -> messageBus.publish(List.of(new SendPackage(shipmentId))))
+    assertThatCode(() -> messageBus.publish(List.of(new RequestFulfillment(shipmentId))))
       .doesNotThrowAnyException();
 
     messageBus.publish(List.of(new ReleaseStock(shipmentId)));
 
     published.shouldReceiveMessages(
-      new ParcelBookingRequested(shipmentId, referenceId, available, now),
+      new FulfillmentRequested(shipmentId, referenceId, available, now),
       new StockReleased(shipmentId, referenceId, now)
     );
   }
 
   @Test
-  public void providerIsAskedWithTheShipmentAndItsReservedItems() {
-    var bookings = new ArrayList<String>();
-    configure((bookedShipmentId, productItems) ->
-      bookings.add("%s:%s".formatted(bookedShipmentId, productItems.length))
+  public void serviceIsAskedWithTheShipmentAndItsReservedItems() {
+    var requests = new ArrayList<String>();
+    configure((requestedShipmentId, productItems) ->
+      requests.add("%s:%s".formatted(requestedShipmentId, productItems.length))
     );
 
     messageBus.publish(List.of(new ReserveStock(referenceId, available)));
-    messageBus.publish(List.of(new SendPackage(shipmentId)));
+    messageBus.publish(List.of(new RequestFulfillment(shipmentId)));
 
-    assertThat(bookings).containsExactly("%s:%s".formatted(shipmentId, available.length));
+    assertThat(requests).containsExactly("%s:%s".formatted(shipmentId, available.length));
   }
 
   @Test
-  public void sendingTheSamePackageTwiceBooksOneParcel() {
-    var booked = new ArrayList<ShipmentId>();
-    configure((bookedShipmentId, productItems) -> booked.add(bookedShipmentId));
+  public void requestingFulfillmentTwiceAsksTheServiceOnce() {
+    var asked = new ArrayList<ShipmentId>();
+    configure((requestedShipmentId, productItems) -> asked.add(requestedShipmentId));
 
     messageBus.publish(List.of(new ReserveStock(referenceId, available)));
-    messageBus.publish(List.of(new SendPackage(shipmentId), new SendPackage(shipmentId)));
+    messageBus.publish(List.of(new RequestFulfillment(shipmentId), new RequestFulfillment(shipmentId)));
 
-    assertThat(booked).containsExactly(shipmentId);
+    assertThat(asked).containsExactly(shipmentId);
   }
 
   @Test
-  public void aReservationIsNeverBookedBeforeItIsSent() {
-    var booked = new ArrayList<ShipmentId>();
-    configure((bookedShipmentId, productItems) -> booked.add(bookedShipmentId));
+  public void aReservationIsNeverSentToTheServiceBeforeFulfillmentIsRequested() {
+    var asked = new ArrayList<ShipmentId>();
+    configure((requestedShipmentId, productItems) -> asked.add(requestedShipmentId));
 
     messageBus.publish(List.of(new ReserveStock(referenceId, available)));
 
-    assertThat(booked).isEmpty();
+    assertThat(asked).isEmpty();
   }
 
   @Test
-  public void outOfStockShipmentIsNeverBooked() {
-    var booked = new ArrayList<ShipmentId>();
-    configure((bookedShipmentId, productItems) -> booked.add(bookedShipmentId));
+  public void outOfStockShipmentIsNeverSentToTheService() {
+    var asked = new ArrayList<ShipmentId>();
+    configure((requestedShipmentId, productItems) -> asked.add(requestedShipmentId));
 
     messageBus.publish(List.of(new ReserveStock(referenceId, new ProductItem[]{unavailableItem})));
-    messageBus.publish(List.of(new SendPackage(shipmentId)));
+    messageBus.publish(List.of(new RequestFulfillment(shipmentId)));
 
-    assertThat(booked).isEmpty();
+    assertThat(asked).isEmpty();
   }
 
-  private void configure(DeliveryProvider deliveryProvider) {
+  @Test
+  public void callingBackServiceCanRejectTheRequest() {
+    var fulfillmentService = new CallingBackFulfillmentService(messageBus);
+    configure(fulfillmentService);
+
+    messageBus.publish(List.of(new ReserveStock(referenceId, available)));
+    messageBus.publish(List.of(new RequestFulfillment(shipmentId)));
+    published.reset();
+
+    fulfillmentService.rejectRequests();
+
+    published.shouldReceiveMessages(new FulfillmentRejected(shipmentId, referenceId, now));
+  }
+
+  private void configure(FulfillmentService fulfillmentService) {
     eventStore.use(published::catchMessage);
 
     ShipmentsConfig.configure(
       eventStore,
       messageBus,
-      deliveryProvider,
+      fulfillmentService,
       isProductAvailable,
-      reservationValidity,
       () -> now
     );
   }

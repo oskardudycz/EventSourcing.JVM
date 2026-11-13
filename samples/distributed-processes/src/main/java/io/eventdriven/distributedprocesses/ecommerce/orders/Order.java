@@ -16,6 +16,7 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
     Opened,
     Confirmed,
     Completed,
+    ClosedUnpaid,
     Cancelled
   }
 
@@ -23,22 +24,17 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
     Pending,
     Authorized,
     Captured,
-    Failed
+    Failed,
+    Retrying
   }
 
   private enum ShipmentProgress {
     Pending,
     Reserved,
     Sent,
-    Delivered,
+    Rejected,
     Failed
   }
-
-  private ShoppingCartId cartId;
-
-  private UUID clientId;
-
-  private PricedProductItem[] productItems;
 
   private double totalPrice;
 
@@ -52,6 +48,10 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
 
   private ShipmentId shipmentId;
 
+  private int paymentAttempts;
+
+  private OrderCancellationReason shipmentFailureReason;
+
   private Order() {
   }
 
@@ -59,7 +59,7 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
     return new Order();
   }
 
-  public void initialize(
+  public void place(
     OrderId orderId,
     ShoppingCartId cartId,
     UUID clientId,
@@ -70,7 +70,7 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
     if (status != null)
       return;
 
-    enqueue(new OrderInitialized(
+    enqueue(new OrderPlaced(
       orderId,
       cartId,
       clientId,
@@ -81,12 +81,17 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
   }
 
   public void recordPaymentAuthorization(PaymentId paymentId, OffsetDateTime authorizedAt) {
-    if (status != Status.Opened || payment != PaymentProgress.Pending)
+    if (status == Status.Opened && payment == PaymentProgress.Pending) {
+      enqueue(new OrderPaymentAuthorized(id, paymentId, authorizedAt));
+
+      progress(authorizedAt);
       return;
+    }
 
-    enqueue(new OrderPaymentAuthorized(id, paymentId, authorizedAt));
-
-    progress(authorizedAt);
+    if (status == Status.Confirmed && payment == PaymentProgress.Retrying && paymentId.equals(this.paymentId)) {
+      enqueue(new OrderPaymentAuthorized(id, paymentId, authorizedAt));
+      enqueue(new OrderPaymentDue(id, paymentId, authorizedAt));
+    }
   }
 
   public void recordStockReservation(ShipmentId shipmentId, OffsetDateTime reservedAt) {
@@ -104,7 +109,8 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
       || shipment != ShipmentProgress.Reserved)
       return;
 
-    enqueue(new OrderPackageSent(id, paymentId, shipmentId, carrier, trackingNumber, sentAt));
+    enqueue(new OrderPackageSent(id, carrier, trackingNumber, sentAt));
+    enqueue(new OrderPaymentDue(id, paymentId, sentAt));
   }
 
   public void recordPaymentCapture(OffsetDateTime capturedAt) {
@@ -116,15 +122,6 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
     progress(capturedAt);
   }
 
-  public void recordDelivery(OffsetDateTime deliveredAt) {
-    if (status != Status.Confirmed || shipment != ShipmentProgress.Sent)
-      return;
-
-    enqueue(new OrderShipmentDelivered(id, shipmentId, deliveredAt));
-
-    progress(deliveredAt);
-  }
-
   public void recordPaymentFailure(OffsetDateTime failedAt) {
     if (!isOpen() || payment == PaymentProgress.Captured || payment == PaymentProgress.Failed)
       return;
@@ -134,17 +131,35 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
     progress(failedAt);
   }
 
-  public void recordShipmentFailure(OffsetDateTime failedAt) {
+  public void recordShipmentFailure(OrderCancellationReason reason, OffsetDateTime failedAt) {
     if (!isOpen() || shipment != ShipmentProgress.Pending && shipment != ShipmentProgress.Reserved)
       return;
 
-    enqueue(new OrderShipmentFailed(id, failedAt));
+    enqueue(new OrderShipmentFailed(id, reason, failedAt));
 
     progress(failedAt);
   }
 
+  public void retryPayment(OffsetDateTime now) {
+    if (status != Status.Confirmed || !hasShipped() || payment != PaymentProgress.Failed)
+      return;
+
+    var nextPaymentId = PaymentId.derivedFrom(id.value(), paymentAttempts + 1);
+
+    enqueue(new OrderPaymentRetried(id, nextPaymentId, totalPrice, now));
+  }
+
+  public void closeUnpaid(OffsetDateTime now) {
+    if (status != Status.Confirmed
+      || !hasShipped()
+      || payment != PaymentProgress.Failed && payment != PaymentProgress.Retrying)
+      return;
+
+    enqueue(new OrderClosedUnpaid(id, now));
+  }
+
   public void cancel(OrderCancellationReason cancellationReason, OffsetDateTime now) {
-    if (!isOpen() || hasShipped())
+    if (status != Status.Opened)
       return;
 
     enqueue(cancelled(cancellationReason, now));
@@ -155,24 +170,26 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
   }
 
   private boolean hasShipped() {
-    return shipment == ShipmentProgress.Sent || shipment == ShipmentProgress.Delivered;
+    return shipment == ShipmentProgress.Sent;
   }
 
   private void progress(OffsetDateTime now) {
-    if (payment == PaymentProgress.Failed || shipment == ShipmentProgress.Failed) {
+    if (payment == PaymentProgress.Failed
+      || shipment == ShipmentProgress.Failed
+      || shipment == ShipmentProgress.Rejected) {
       // The other participant still has to say where it stands, because that is what decides
       // whether a hold must be released.
       if (payment == PaymentProgress.Pending || shipment == ShipmentProgress.Pending)
         return;
 
       // Goods that already left cannot be held back, so the order stays open
-      // and a person has to collect the payment.
+      // and waits for the client to pay again.
       if (hasShipped())
         return;
 
       var reason = payment == PaymentProgress.Failed
         ? OrderCancellationReason.PaymentFailed
-        : OrderCancellationReason.ProductWasOutOfStock;
+        : shipmentFailureReason;
 
       enqueue(cancelled(reason, now));
       return;
@@ -187,7 +204,7 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
 
     if (status == Status.Confirmed
       && payment == PaymentProgress.Captured
-      && shipment == ShipmentProgress.Delivered) {
+      && shipment == ShipmentProgress.Sent) {
       enqueue(new OrderCompleted(id, now));
     }
   }
@@ -211,7 +228,7 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
   }
 
   private OrderShipmentStatus shipmentStatus() {
-    return shipment == ShipmentProgress.Reserved
+    return shipment == ShipmentProgress.Reserved || shipment == ShipmentProgress.Rejected
       ? OrderShipmentStatus.Reserved
       : OrderShipmentStatus.NotReserved;
   }
@@ -219,15 +236,13 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
   @Override
   public void evolve(OrderEvent event) {
     switch (event) {
-      case OrderInitialized orderInitialized -> {
-        id = orderInitialized.orderId();
-        cartId = orderInitialized.cartId();
-        clientId = orderInitialized.clientId();
-        productItems = orderInitialized.productItems();
-        totalPrice = orderInitialized.totalPrice();
+      case OrderPlaced orderPlaced -> {
+        id = orderPlaced.orderId();
+        totalPrice = orderPlaced.totalPrice();
         status = Status.Opened;
         payment = PaymentProgress.Pending;
         shipment = ShipmentProgress.Pending;
+        paymentAttempts = 1;
       }
       case OrderPaymentAuthorized paymentAuthorized -> {
         paymentId = paymentAuthorized.paymentId();
@@ -240,9 +255,21 @@ public class Order extends AbstractAggregate<OrderEvent, OrderId> {
       case OrderConfirmed confirmed -> status = Status.Confirmed;
       case OrderPaymentCaptured paymentCaptured -> payment = PaymentProgress.Captured;
       case OrderPackageSent packageSent -> shipment = ShipmentProgress.Sent;
-      case OrderShipmentDelivered shipmentDelivered -> shipment = ShipmentProgress.Delivered;
+      case OrderPaymentDue paymentDue -> {
+      }
       case OrderPaymentFailed paymentFailed -> payment = PaymentProgress.Failed;
-      case OrderShipmentFailed shipmentFailed -> shipment = ShipmentProgress.Failed;
+      case OrderShipmentFailed shipmentFailed -> {
+        shipment = shipmentFailed.reason() == OrderCancellationReason.CouldNotShip
+          ? ShipmentProgress.Rejected
+          : ShipmentProgress.Failed;
+        shipmentFailureReason = shipmentFailed.reason();
+      }
+      case OrderPaymentRetried paymentRetried -> {
+        paymentId = paymentRetried.paymentId();
+        paymentAttempts++;
+        payment = PaymentProgress.Retrying;
+      }
+      case OrderClosedUnpaid closedUnpaid -> status = Status.ClosedUnpaid;
       case OrderCompleted completed -> status = Status.Completed;
       case OrderCancelled cancelled -> status = Status.Cancelled;
     }

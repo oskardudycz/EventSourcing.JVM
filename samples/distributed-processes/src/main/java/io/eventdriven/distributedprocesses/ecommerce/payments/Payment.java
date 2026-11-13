@@ -18,9 +18,9 @@ public class Payment extends AbstractAggregate<PaymentEvent, PaymentId> {
   private enum Status {
     Pending,
     Authorized,
+    CaptureRequested,
     Captured,
     Voided,
-    Refunded,
     Failed
   }
 
@@ -35,11 +35,16 @@ public class Payment extends AbstractAggregate<PaymentEvent, PaymentId> {
     return new Payment();
   }
 
-  public void requestAuthorization(PaymentId paymentId, String referenceId, double amount) {
+  public void requestAuthorization(
+    PaymentId paymentId,
+    String referenceId,
+    double amount,
+    OffsetDateTime now
+  ) {
     if (status != null)
       return;
 
-    enqueue(new PaymentAuthorizationRequested(paymentId, referenceId, amount));
+    enqueue(new PaymentAuthorizationRequested(paymentId, referenceId, amount, now));
   }
 
   public void confirmAuthorization(OffsetDateTime now, OffsetDateTime expiresAt) {
@@ -49,11 +54,25 @@ public class Payment extends AbstractAggregate<PaymentEvent, PaymentId> {
     enqueue(new PaymentAuthorized(id(), now, expiresAt));
   }
 
-  public void capture(OffsetDateTime now) {
+  public void requestCapture(OffsetDateTime now) {
     if (status != Status.Authorized)
       return;
 
+    enqueue(new PaymentCaptureRequested(id(), amount, now));
+  }
+
+  public void confirmCapture(OffsetDateTime now) {
+    if (status != Status.CaptureRequested)
+      return;
+
     enqueue(new PaymentCaptured(id(), amount, now));
+  }
+
+  public void failCapture(CaptureFailureReason reason, OffsetDateTime now) {
+    if (status != Status.CaptureRequested)
+      return;
+
+    enqueue(new PaymentCaptureFailed(id(), reason, now));
   }
 
   public void voidAuthorization(OffsetDateTime now) {
@@ -61,13 +80,6 @@ public class Payment extends AbstractAggregate<PaymentEvent, PaymentId> {
       return;
 
     enqueue(new PaymentVoided(id(), now));
-  }
-
-  public void refund(OffsetDateTime now) {
-    if (status != Status.Captured)
-      return;
-
-    enqueue(new PaymentRefunded(id(), now));
   }
 
   public void decline(DeclineReason reason, OffsetDateTime now) {
@@ -101,9 +113,10 @@ public class Payment extends AbstractAggregate<PaymentEvent, PaymentId> {
         status = Status.Pending;
       }
       case PaymentAuthorized authorized -> status = Status.Authorized;
+      case PaymentCaptureRequested captureRequested -> status = Status.CaptureRequested;
       case PaymentCaptured captured -> status = Status.Captured;
+      case PaymentCaptureFailed captureFailed -> status = Status.Failed;
       case PaymentVoided voided -> status = Status.Voided;
-      case PaymentRefunded refunded -> status = Status.Refunded;
       case PaymentDeclined declined -> status = Status.Failed;
       case PaymentTimedOut timedOut -> status = Status.Failed;
       case PaymentAuthorizationExpired expired -> status = Status.Failed;

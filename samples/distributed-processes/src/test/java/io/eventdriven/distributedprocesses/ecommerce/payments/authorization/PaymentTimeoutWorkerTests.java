@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
@@ -35,7 +36,8 @@ public class PaymentTimeoutWorkerTests {
   private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher published = new MessageCatcher();
 
-  private final PaymentTimeoutWorker worker;
+  private final AtomicReference<OffsetDateTime> clock = new AtomicReference<>(requestedAt);
+  private final ScheduledPaymentTimeoutWorker worker;
 
   public PaymentTimeoutWorkerTests() {
     eventStore.use(published::catchMessage);
@@ -45,26 +47,26 @@ public class PaymentTimeoutWorkerTests {
       new SilentPaymentGateway(),
       timeout,
       authorizationValidity,
-      () -> requestedAt
+      clock::get
     ).timeoutWorker();
   }
 
   @Test
   public void authorizationThatIsNeverAnsweredIsTimedOutOnceTheThresholdPasses() {
-    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
     published.reset();
 
-    worker.run(afterThreshold);
+    handleAllAt(afterThreshold);
 
     published.shouldReceiveMessages(new PaymentTimedOut(paymentId, afterThreshold));
   }
 
   @Test
   public void runningBeforeTheThresholdSendsNothing() {
-    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
     published.reset();
 
-    worker.run(beforeThreshold);
+    handleAllAt(beforeThreshold);
 
     published.shouldNotReceiveAnyEvent();
   }
@@ -72,25 +74,30 @@ public class PaymentTimeoutWorkerTests {
   @Test
   public void authorizationGrantedBeforeTheThresholdIsNeverTimedOut() {
     messageBus.publish(List.of(
-      new AuthorizePayment(referenceId, amount),
+      new AuthorizePayment(paymentId, referenceId, amount),
       new ConfirmPaymentAuthorization(paymentId)
     ));
     published.reset();
 
-    worker.run(afterThreshold);
+    handleAllAt(afterThreshold);
 
     published.shouldNotReceiveAnyEvent();
   }
 
   @Test
   public void runningTwiceTimesTheSamePaymentOutOnlyOnce() {
-    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
     published.reset();
 
-    worker.run(afterThreshold);
-    assertThatCode(() -> worker.run(afterThreshold.plusMinutes(1))).doesNotThrowAnyException();
+    handleAllAt(afterThreshold);
+    assertThatCode(() -> handleAllAt(afterThreshold.plusMinutes(1))).doesNotThrowAnyException();
 
     assertThat(published.published).containsOnlyOnce(new PaymentTimedOut(paymentId, afterThreshold));
     assertThat(published.published).hasSize(1);
+  }
+
+  private void handleAllAt(OffsetDateTime now) {
+    clock.set(now);
+    worker.handleAll();
   }
 }

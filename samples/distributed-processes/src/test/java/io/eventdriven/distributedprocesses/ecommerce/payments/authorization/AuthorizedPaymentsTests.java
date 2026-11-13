@@ -36,10 +36,10 @@ public class AuthorizedPaymentsTests {
   }
 
   @Test
-  public void capturedHoldIsNoLongerWatched() {
+  public void holdWithARequestedCaptureIsNoLongerWatched() {
     authorize();
 
-    authorizedPayments.onCaptured(at(new PaymentCaptured(paymentId, amount, authorizedAt), 2));
+    authorizedPayments.handle(at(new PaymentCaptureRequested(paymentId, amount, authorizedAt), 2));
 
     assertThat(authorizedPayments.expiredAt(expiresAt.plusDays(1))).isEmpty();
   }
@@ -48,7 +48,7 @@ public class AuthorizedPaymentsTests {
   public void voidedHoldIsNoLongerWatched() {
     authorize();
 
-    authorizedPayments.onVoided(at(new PaymentVoided(paymentId, authorizedAt), 2));
+    authorizedPayments.handle(at(new PaymentVoided(paymentId, authorizedAt), 2));
 
     assertThat(authorizedPayments.expiredAt(expiresAt.plusDays(1))).isEmpty();
   }
@@ -57,7 +57,7 @@ public class AuthorizedPaymentsTests {
   public void expiredHoldIsNoLongerWatched() {
     authorize();
 
-    authorizedPayments.onAuthorizationExpired(at(new PaymentAuthorizationExpired(paymentId, expiresAt), 2));
+    authorizedPayments.handle(at(new PaymentAuthorizationExpired(paymentId, expiresAt), 2));
 
     assertThat(authorizedPayments.expiredAt(expiresAt.plusDays(1))).isEmpty();
   }
@@ -69,15 +69,15 @@ public class AuthorizedPaymentsTests {
 
     assertThat(authorizedPayments.expiredAt(expiresAt)).containsExactly(paymentId);
 
-    var captured = at(new PaymentCaptured(paymentId, amount, authorizedAt), 2);
-    authorizedPayments.onCaptured(captured);
-    authorizedPayments.onCaptured(captured);
+    var captureRequested = at(new PaymentCaptureRequested(paymentId, amount, authorizedAt), 2);
+    authorizedPayments.handle(captureRequested);
+    authorizedPayments.handle(captureRequested);
 
     assertThat(authorizedPayments.expiredAt(expiresAt)).isEmpty();
   }
 
   private void authorize() {
-    authorizedPayments.onAuthorized(at(new PaymentAuthorized(paymentId, authorizedAt, expiresAt), 1));
+    authorizedPayments.handle(at(new PaymentAuthorized(paymentId, authorizedAt, expiresAt), 1));
   }
 
   private <Event> EventEnvelope<Event> at(Event event, long streamPosition) {

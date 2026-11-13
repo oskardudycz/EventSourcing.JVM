@@ -23,10 +23,10 @@ public class OrderFacade {
     this.now = now;
   }
 
-  public void initializeOrder(InitializeOrder command) {
+  public void placeOrder(PlaceOrder command) {
     store.getAndUpdate(
       command.orderId(),
-      current -> current.initialize(
+      current -> current.place(
         command.orderId(),
         command.cartId(),
         command.clientId(),
@@ -69,13 +69,6 @@ public class OrderFacade {
     );
   }
 
-  public void recordOrderDelivery(RecordOrderDelivery command) {
-    store.getAndUpdate(
-      command.orderId(),
-      current -> current.recordDelivery(command.deliveredAt())
-    );
-  }
-
   public void recordOrderPaymentFailure(RecordOrderPaymentFailure command) {
     store.getAndUpdate(
       command.orderId(),
@@ -86,7 +79,21 @@ public class OrderFacade {
   public void recordOrderShipmentFailure(RecordOrderShipmentFailure command) {
     store.getAndUpdate(
       command.orderId(),
-      current -> current.recordShipmentFailure(command.failedAt())
+      current -> current.recordShipmentFailure(command.reason(), command.failedAt())
+    );
+  }
+
+  public void retryOrderPayment(RetryOrderPayment command) {
+    store.getAndUpdate(
+      command.orderId(),
+      current -> current.retryPayment(now.get())
+    );
+  }
+
+  public void closeUnpaidOrder(CloseUnpaidOrder command) {
+    store.getAndUpdate(
+      command.orderId(),
+      current -> current.closeUnpaid(now.get())
     );
   }
 

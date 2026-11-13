@@ -17,9 +17,4 @@ public class ThrowingPaymentGateway implements PaymentGateway {
   public void voidAuthorization(PaymentId paymentId) {
     throw new RuntimeException("Payment provider is unreachable");
   }
-
-  @Override
-  public void refund(PaymentId paymentId) {
-    throw new RuntimeException("Payment provider is unreachable");
-  }
 }

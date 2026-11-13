@@ -5,11 +5,10 @@ import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
-import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.SilentDeliveryProvider;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.SilentFulfillmentService;
 import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;
 
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
@@ -22,7 +21,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 public class ShipmentFacadeTests {
-  private static final Duration reservationValidity = Duration.ofHours(2);
 
   private final String referenceId = Urns.of("ecommerce", "order", UUID.randomUUID());
   private final ShipmentId shipmentId = ShipmentId.derivedFrom(referenceId);
@@ -32,7 +30,6 @@ public class ShipmentFacadeTests {
   private final Function<ProductItem, Boolean> isProductAvailable =
     item -> Set.of(availableItem).contains(item);
   private final OffsetDateTime now = OffsetDateTime.now();
-  private final OffsetDateTime reservedUntil = now.plus(reservationValidity);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
   private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
@@ -45,9 +42,8 @@ public class ShipmentFacadeTests {
     ShipmentsConfig.configure(
       eventStore,
       messageBus,
-      new SilentDeliveryProvider(),
+      new SilentFulfillmentService(),
       isProductAvailable,
-      reservationValidity,
       () -> now
     );
   }
@@ -56,7 +52,7 @@ public class ShipmentFacadeTests {
   public void reserveStockWithEverythingAvailableDispatchesAndStoresStockReserved() {
     messageBus.publish(List.of(new ReserveStock(referenceId, available)));
 
-    var reserved = new StockReserved(shipmentId, referenceId, available, now, reservedUntil);
+    var reserved = new StockReserved(shipmentId, referenceId, available, now);
 
     published.shouldReceiveMessages(reserved);
     assertThat(storedEvents()).usingRecursiveComparison().isEqualTo(List.of(reserved));
@@ -74,32 +70,32 @@ public class ShipmentFacadeTests {
   }
 
   @Test
-  public void sendPackageDispatchesParcelBookingRequestedWithTheReservedItems() {
+  public void requestFulfillmentDispatchesFulfillmentRequestedWithTheReservedItems() {
     reserve();
 
-    messageBus.publish(List.of(new SendPackage(shipmentId)));
+    messageBus.publish(List.of(new RequestFulfillment(shipmentId)));
 
     published.shouldReceiveMessages(
-      new ParcelBookingRequested(shipmentId, referenceId, available, now)
+      new FulfillmentRequested(shipmentId, referenceId, available, now)
     );
   }
 
   @Test
-  public void confirmParcelBookingDispatchesPackageWasSentWithTheCarrierAndTrackingNumber() {
+  public void confirmPackageSentDispatchesPackageWasSentWithTheCarrierAndTrackingNumber() {
     reserve();
-    messageBus.publish(List.of(new SendPackage(shipmentId)));
+    messageBus.publish(List.of(new RequestFulfillment(shipmentId)));
     published.reset();
 
-    messageBus.publish(List.of(new ConfirmParcelBooking(shipmentId, carrier, trackingNumber)));
+    messageBus.publish(List.of(new ConfirmPackageSent(shipmentId, carrier, trackingNumber)));
 
     published.shouldReceiveMessages(
-      new PackageWasSent(shipmentId, referenceId, available, carrier, trackingNumber, now)
+      new PackageWasSent(shipmentId, referenceId, carrier, trackingNumber, now)
     );
   }
 
   @Test
-  public void sendPackageWithoutAReservationStoresNothingAndDoesNotThrow() {
-    assertThatCode(() -> messageBus.publish(List.of(new SendPackage(shipmentId))))
+  public void requestFulfillmentWithoutAReservationStoresNothingAndDoesNotThrow() {
+    assertThatCode(() -> messageBus.publish(List.of(new RequestFulfillment(shipmentId))))
       .doesNotThrowAnyException();
 
     published.shouldNotReceiveAnyEvent();
@@ -146,15 +142,16 @@ public class ShipmentFacadeTests {
     published.shouldNotReceiveAnyEvent();
   }
 
+
   @Test
-  public void expireStockReservationDispatchesStockReservationExpired() {
+  public void rejectFulfillmentDispatchesFulfillmentRejected() {
     reserve();
+    messageBus.publish(List.of(new RequestFulfillment(shipmentId)));
+    published.reset();
 
-    messageBus.publish(List.of(new ExpireStockReservation(shipmentId, reservedUntil)));
+    messageBus.publish(List.of(new RejectFulfillment(shipmentId)));
 
-    published.shouldReceiveMessages(
-      new StockReservationExpired(shipmentId, referenceId, reservedUntil)
-    );
+    published.shouldReceiveMessages(new FulfillmentRejected(shipmentId, referenceId, now));
   }
 
   @Test
@@ -165,7 +162,7 @@ public class ShipmentFacadeTests {
     ));
 
     assertThat(storedEvents()).usingRecursiveComparison().isEqualTo(
-      List.of(new StockReserved(shipmentId, referenceId, available, now, reservedUntil))
+      List.of(new StockReserved(shipmentId, referenceId, available, now))
     );
   }
 
@@ -182,8 +179,8 @@ public class ShipmentFacadeTests {
 
   private void dispatch() {
     messageBus.publish(List.of(
-      new SendPackage(shipmentId),
-      new ConfirmParcelBooking(shipmentId, carrier, trackingNumber)
+      new RequestFulfillment(shipmentId),
+      new ConfirmPackageSent(shipmentId, carrier, trackingNumber)
     ));
     published.reset();
   }

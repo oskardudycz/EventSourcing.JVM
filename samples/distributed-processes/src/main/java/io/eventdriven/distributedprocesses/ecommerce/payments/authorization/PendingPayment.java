@@ -22,16 +22,8 @@ public class PendingPayment implements Versioned {
     return paymentId;
   }
 
-  public void setPaymentId(PaymentId paymentId) {
-    this.paymentId = paymentId;
-  }
-
   public OffsetDateTime getRequestedAt() {
     return requestedAt;
-  }
-
-  public void setRequestedAt(OffsetDateTime requestedAt) {
-    this.requestedAt = requestedAt;
   }
 
   @Override

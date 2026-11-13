@@ -11,11 +11,11 @@ import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEv
 public class Shipment extends AbstractAggregate<ShipmentEvent, ShipmentId> {
   enum Status {
     Reserved,
-    BookingRequested,
+    FulfillmentRequested,
+    FulfillmentRejected,
     Sent,
     Delivered,
     Released,
-    Expired,
     ProductsOutOfStock
   }
 
@@ -35,8 +35,7 @@ public class Shipment extends AbstractAggregate<ShipmentEvent, ShipmentId> {
     ShipmentId shipmentId,
     String referenceId,
     ProductItem[] productItems,
-    OffsetDateTime now,
-    OffsetDateTime reservedUntil
+    OffsetDateTime now
   ) {
     if (status != null)
       return;
@@ -48,21 +47,28 @@ public class Shipment extends AbstractAggregate<ShipmentEvent, ShipmentId> {
       return;
     }
 
-    enqueue(new StockReserved(shipmentId, referenceId, productItems, now, reservedUntil));
+    enqueue(new StockReserved(shipmentId, referenceId, productItems, now));
   }
 
-  public void send(OffsetDateTime now) {
+  public void requestFulfillment(OffsetDateTime now) {
     if (status != Status.Reserved)
       return;
 
-    enqueue(new ParcelBookingRequested(id, referenceId, productItems, now));
+    enqueue(new FulfillmentRequested(id, referenceId, productItems, now));
   }
 
-  public void confirmBooking(String carrier, String trackingNumber, OffsetDateTime now) {
-    if (status != Status.BookingRequested)
+  public void confirmSent(String carrier, String trackingNumber, OffsetDateTime now) {
+    if (status != Status.FulfillmentRequested)
       return;
 
-    enqueue(new PackageWasSent(id, referenceId, productItems, carrier, trackingNumber, now));
+    enqueue(new PackageWasSent(id, referenceId, carrier, trackingNumber, now));
+  }
+
+  public void rejectFulfillment(OffsetDateTime now) {
+    if (status != Status.FulfillmentRequested)
+      return;
+
+    enqueue(new FulfillmentRejected(id, referenceId, now));
   }
 
   public void deliver(OffsetDateTime now) {
@@ -79,15 +85,10 @@ public class Shipment extends AbstractAggregate<ShipmentEvent, ShipmentId> {
     enqueue(new StockReleased(id, referenceId, now));
   }
 
-  public void expireReservation(OffsetDateTime now) {
-    if (!isStockHeld())
-      return;
-
-    enqueue(new StockReservationExpired(id, referenceId, now));
-  }
-
   private boolean isStockHeld() {
-    return status == Status.Reserved || status == Status.BookingRequested;
+    return status == Status.Reserved
+      || status == Status.FulfillmentRequested
+      || status == Status.FulfillmentRejected;
   }
 
   @Override
@@ -102,14 +103,13 @@ public class Shipment extends AbstractAggregate<ShipmentEvent, ShipmentId> {
       case ProductWasOutOfStock outOfStock -> {
         id = outOfStock.shipmentId();
         referenceId = outOfStock.referenceId();
-        productItems = outOfStock.productItems();
         status = Status.ProductsOutOfStock;
       }
-      case ParcelBookingRequested bookingRequested -> status = Status.BookingRequested;
+      case FulfillmentRequested fulfillmentRequested -> status = Status.FulfillmentRequested;
+      case FulfillmentRejected fulfillmentRejected -> status = Status.FulfillmentRejected;
       case PackageWasSent packageWasSent -> status = Status.Sent;
       case PackageWasDelivered packageWasDelivered -> status = Status.Delivered;
       case StockReleased stockReleased -> status = Status.Released;
-      case StockReservationExpired expired -> status = Status.Expired;
     }
   }
 }

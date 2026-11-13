@@ -25,10 +25,10 @@ public class PendingPaymentsTests {
   private final OffsetDateTime expiresAt = requestedAt.plus(Duration.ofDays(7));
 
   private final Database database = new Database();
-  private final PendingPayments pendingPayments = new PendingPayments(database, () -> requestedAt);
+  private final PendingPayments pendingPayments = new PendingPayments(database);
 
   @Test
-  public void requestedAuthorizationWaitsFromTheMomentItWasTakenOn() {
+  public void requestedAuthorizationWaitsFromTheMomentItWasRequested() {
     request();
 
     assertThat(pendingPayments.olderThan(requestedAt.plusMinutes(1))).containsExactly(paymentId);
@@ -39,7 +39,7 @@ public class PendingPaymentsTests {
   public void grantedAuthorizationStopsWaiting() {
     request();
 
-    pendingPayments.onAuthorized(at(new PaymentAuthorized(paymentId, requestedAt, expiresAt), 1));
+    pendingPayments.handle(at(new PaymentAuthorized(paymentId, requestedAt, expiresAt), 1));
 
     assertThat(pendingPayments.olderThan(requestedAt.plusMinutes(1))).isEmpty();
   }
@@ -48,7 +48,7 @@ public class PendingPaymentsTests {
   public void declinedAuthorizationStopsWaiting() {
     request();
 
-    pendingPayments.onDeclined(at(new PaymentDeclined(paymentId, DeclineReason.UnexpectedError, requestedAt), 1));
+    pendingPayments.handle(at(new PaymentDeclined(paymentId, DeclineReason.UnexpectedError, requestedAt), 1));
 
     assertThat(pendingPayments.olderThan(requestedAt.plusMinutes(1))).isEmpty();
   }
@@ -57,7 +57,7 @@ public class PendingPaymentsTests {
   public void timedOutAuthorizationStopsWaiting() {
     request();
 
-    pendingPayments.onTimedOut(at(new PaymentTimedOut(paymentId, requestedAt.plusMinutes(10)), 1));
+    pendingPayments.handle(at(new PaymentTimedOut(paymentId, requestedAt.plusMinutes(10)), 1));
 
     assertThat(pendingPayments.olderThan(requestedAt.plusMinutes(20))).isEmpty();
   }
@@ -70,14 +70,14 @@ public class PendingPaymentsTests {
     assertThat(pendingPayments.olderThan(requestedAt.plusMinutes(1))).containsExactly(paymentId);
 
     var authorized = at(new PaymentAuthorized(paymentId, requestedAt, expiresAt), 1);
-    pendingPayments.onAuthorized(authorized);
-    pendingPayments.onAuthorized(authorized);
+    pendingPayments.handle(authorized);
+    pendingPayments.handle(authorized);
 
     assertThat(pendingPayments.olderThan(requestedAt.plusMinutes(1))).isEmpty();
   }
 
   private void request() {
-    pendingPayments.onAuthorizationRequested(at(new PaymentAuthorizationRequested(paymentId, referenceId, amount), 0));
+    pendingPayments.handle(at(new PaymentAuthorizationRequested(paymentId, referenceId, amount, requestedAt), 0));
   }
 
   private <Event> EventEnvelope<Event> at(Event event, long streamPosition) {

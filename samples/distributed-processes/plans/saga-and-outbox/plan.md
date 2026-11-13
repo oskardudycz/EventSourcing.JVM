@@ -8,10 +8,10 @@ Scope: `samples/distributed-processes`, package `ecommerce`. State: [todo.md](to
 2. The event store is logically the outbox. `append` only writes. Subscribers read one global log, each from its own checkpoint. Delivery runs after the outermost append and is never nested. A failing subscriber keeps its checkpoint and gets the event again. Projections, forwarders, the saga and the provider clients all subscribe to the store.
 3. Two abstractions: `EventStore` (append, read, subscribe) and one `MessageBus` for commands and public events.
 4. Each forwarder updates its own summary, then publishes.
-5. Capture is a request/answer seam, like authorization. A failed capture becomes `PaymentFailed(CaptureFailed)`. The order has already shipped, so it stays open for a person.
+5. Capture is a request/answer seam, like authorization. A failed capture becomes `PaymentFailed`. The order has already shipped, so the client pays again (`RetryOrderPayment`); an order still unpaid at the end of the retry period is closed with `OrderClosedUnpaid`. (Changed on 2026-11-13, approved by Oskar; it was "stays open for a person".)
 6. Void stays fire-and-forget, because an uncaptured hold lapses by itself. Refund goes, because nothing can trigger it. On payment timeout, the provider request is cancelled.
-7. Timeouts are to-do lists with a `@Scheduled handleAll()`, as in the workshop. Tests call `handleAll()`. There is no order-level timeout.
-8. An expired reservation cancels with "could not ship", not "out of stock". `PaymentAuthorizationRequested` carries `requestedAt`.
+7. Timeouts are to-do lists with a `@Scheduled handleAll()`, as in the workshop. Tests call `handleAll()`. The only order-level timeout is the retry period for paying again. (Changed on 2026-11-13, approved by Oskar; it was "no order-level timeout".)
+8. Stock committed to an order has no timer. A rejected fulfillment request cancels with "could not ship", not "out of stock". `PaymentAuthorizationRequested` carries `requestedAt`. (Changed on 2026-11-13, approved by Oskar; it was about an expired reservation.)
 9. End-to-end tests assert full transcripts with one `MessageCatcher`.
 
 ## Open questions
@@ -115,22 +115,43 @@ cancellation, void or release; after delivery it is still not completed; Pending
 it. Update the gateway test doubles.
 ```
 
-### 5. Timeouts
+### 5. Timeouts, fulfilment and paying again
+
+Agreed on 2026-11-13, after the research in [real-world-flow.md](real-world-flow.md).
 
 ```text
-Turn PaymentTimeoutWorker, AuthorizationExpiryWorker and ReservationExpiryWorker into to-do lists:
-handle(now) does what run(now) did, and a Scheduled variant has
-@Scheduled(fixedRate = 1, timeUnit = MINUTES) handleAll() calling handle(now.get()), not wired
-into Spring. The modules expose the Scheduled variant. Remove PendingOrders.olderThan.
+Shipments:
+- No stock timer: remove reservedUntil, StockReservations, ReservationExpiryWorker,
+  ExpireStockReservation, StockReservationExpired and ShipmentSummaries.
+- Rename to the fulfilment request: SendPackage -> RequestFulfillment, ParcelBookingRequested ->
+  FulfillmentRequested, ConfirmParcelBooking -> ConfirmPackageSent, DeliveryProvider(Client) ->
+  FulfillmentService(Client).
+- Add RejectFulfillment -> FulfillmentRejected; ReleaseStock works after a rejection.
+- Public: StockReserved, PackageWasSent, ShipmentFailed(ProductsOutOfStock, FulfillmentRejected);
+  no public PackageWasDelivered; no unread fields.
 
-Pass the reason from StockReservationFailed into RecordOrderShipmentFailure. An expired
-reservation cancels with OrderCancellationReason.CouldNotShip and public OrderCancelled.Reason
-CouldNotShip.
+Payments:
+- AuthorizePayment carries the paymentId.
+- Public events carry referenceId, paymentId and the time only; PaymentSummary keeps referenceId.
+- PaymentTimeoutWorker and AuthorizationExpiryWorker: handle(now), plus Scheduled variants with
+  @Scheduled handleAll(), exposed by the module.
+
+Orders:
+- The order completes on sent and captured; no delivery recording.
+- OrderPaymentDue names the payment to capture, after the dispatch and after a paid-again
+  authorization.
+- ShipmentFailed passes its reason: FulfillmentRejected cancels with CouldNotShip and releases the
+  stock.
+- RetryOrderPayment -> OrderPaymentRetried with a payment id derived from the order id and the
+  attempt number.
+- OrdersAwaitingPayment, UnpaidOrdersWorker and its Scheduled variant send CloseUnpaidOrder at the
+  end of the retry period -> OrderClosedUnpaid.
+- Remove PendingOrders.olderThan and PendingOrder.initializedAt.
 
 End-to-end, with a clock the test can move:
-- a payment that never answers times out, cancels the order, releases the stock, and cancels the
-  request at the provider;
-- a late authorization after that changes nothing;
-- a parcel that is never booked expires its reservation, cancels with CouldNotShip, and voids the
-  hold, with no release.
+- a payment that never answers times out, cancels the order, releases the stock and voids at the
+  gateway; a late authorization after that changes nothing;
+- a rejected fulfillment request cancels the order, voids the hold and releases the stock;
+- the client paying again after a failed capture completes the order;
+- an order still unpaid at the end of the retry period is closed unpaid, and not before.
 ```

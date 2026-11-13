@@ -6,20 +6,16 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.core.JacksonException;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import io.eventdriven.distributedprocesses.core.identifiers.EntityId;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class Database {
   private final Map<String, Object> storage = new HashMap<>();
-  private static final Logger logger = LoggerFactory.getLogger(Database.class);
 
   public <T extends Versioned> void store(Class<T> typeClass, EntityId id, long version, T item) {
     item.setVersion(version);
@@ -32,27 +28,6 @@ public class Database {
 
   public <T> Optional<T> get(Class<T> typeClass, EntityId id) {
     return Optional.ofNullable(storage.get(key(typeClass, id))).map(item -> copy(typeClass, item));
-  }
-
-  public <T extends Versioned> void getAndUpdate(
-    Class<T> typeClass,
-    EntityId id,
-    long version,
-    Function<T, T> update
-  ) {
-    var item = get(typeClass, id);
-
-    if (item.isEmpty()) {
-      logger.warn("View {} with id '{}' was not found", typeClass.getSimpleName(), id.value());
-      return;
-    }
-
-    // The same event replayed carries the position it had the first time,
-    // so a view that is already at or past it has nothing to do.
-    if (item.get().getVersion() >= version)
-      return;
-
-    store(typeClass, id, version, update.apply(item.get()));
   }
 
   public <T> List<T> find(Class<T> typeClass, Predicate<T> filter) {

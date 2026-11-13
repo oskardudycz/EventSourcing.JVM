@@ -22,23 +22,24 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
   private final Function<ProductItem, Boolean> isProductAvailable =
     item -> Set.of(availableItem).contains(item);
   private final OffsetDateTime now = OffsetDateTime.now();
-  private final OffsetDateTime reservedUntil = now.plusHours(2);
   private final String carrier = "DHL";
   private final String trackingNumber = "JD014600006281234567";
 
   private final StockReserved reserved =
-    new StockReserved(shipmentId, referenceId, available, now, reservedUntil);
-  private final ParcelBookingRequested bookingRequested =
-    new ParcelBookingRequested(shipmentId, referenceId, available, now);
+    new StockReserved(shipmentId, referenceId, available, now);
+  private final FulfillmentRequested fulfillmentRequested =
+    new FulfillmentRequested(shipmentId, referenceId, available, now);
+  private final FulfillmentRejected rejected =
+    new FulfillmentRejected(shipmentId, referenceId, now);
   private final PackageWasSent sent =
-    new PackageWasSent(shipmentId, referenceId, available, carrier, trackingNumber, now);
+    new PackageWasSent(shipmentId, referenceId, carrier, trackingNumber, now);
 
   protected ShipmentTests() {
     super(Shipment::empty);
   }
 
   @Test
-  public void reservingWithEveryProductAvailableEmitsStockReservedWithItsDeadline() {
+  public void reservingWithEveryProductAvailableEmitsStockReserved() {
     // Given
     given()
       // When
@@ -68,21 +69,21 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
   }
 
   @Test
-  public void sendingAReservedShipmentEmitsParcelBookingRequested() {
+  public void sendingAReservedShipmentEmitsFulfillmentRequested() {
     // Given
     given(reserved)
       // When
-      .when(current -> current.send(now))
+      .when(current -> current.requestFulfillment(now))
       // Then
-      .then(bookingRequested);
+      .then(fulfillmentRequested);
   }
 
   @Test
-  public void sendingAPackageWaitingForItsBookingEmitsNothing() {
+  public void requestingFulfillmentTwiceEmitsNothing() {
     // Given
-    given(reserved, bookingRequested)
+    given(reserved, fulfillmentRequested)
       // When
-      .when(current -> current.send(now))
+      .when(current -> current.requestFulfillment(now))
       // Then
       .thenNothing();
   }
@@ -92,7 +93,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
     // Given
     given()
       // When
-      .when(current -> current.send(now))
+      .when(current -> current.requestFulfillment(now))
       // Then
       .thenNothing();
   }
@@ -100,49 +101,49 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
   @Test
   public void sendingAnAlreadySentPackageEmitsNothing() {
     // Given
-    given(reserved, bookingRequested, sent)
+    given(reserved, fulfillmentRequested, sent)
       // When
-      .when(current -> current.send(now))
+      .when(current -> current.requestFulfillment(now))
       // Then
       .thenNothing();
   }
 
   @Test
-  public void confirmingTheBookingEmitsPackageWasSentWithTheCarrierAndTrackingNumber() {
+  public void confirmingThePackageSentEmitsPackageWasSentWithTheCarrierAndTrackingNumber() {
     // Given
-    given(reserved, bookingRequested)
+    given(reserved, fulfillmentRequested)
       // When
-      .when(current -> current.confirmBooking(carrier, trackingNumber, now))
+      .when(current -> current.confirmSent(carrier, trackingNumber, now))
       // Then
       .then(sent);
   }
 
   @Test
-  public void confirmingABookingThatWasNeverRequestedEmitsNothing() {
+  public void confirmingAPackageSentWithoutAFulfillmentRequestEmitsNothing() {
     // Given
     given(reserved)
       // When
-      .when(current -> current.confirmBooking(carrier, trackingNumber, now))
+      .when(current -> current.confirmSent(carrier, trackingNumber, now))
       // Then
       .thenNothing();
   }
 
   @Test
-  public void confirmingTheSameBookingTwiceEmitsNothing() {
+  public void confirmingThePackageSentTwiceEmitsNothing() {
     // Given
-    given(reserved, bookingRequested, sent)
+    given(reserved, fulfillmentRequested, sent)
       // When
-      .when(current -> current.confirmBooking(carrier, trackingNumber, now))
+      .when(current -> current.confirmSent(carrier, trackingNumber, now))
       // Then
       .thenNothing();
   }
 
   @Test
-  public void confirmingABookingAfterTheStockWasReleasedEmitsNothing() {
+  public void confirmingThePackageSentAfterTheStockWasReleasedEmitsNothing() {
     // Given
-    given(reserved, bookingRequested, new StockReleased(shipmentId, referenceId, now))
+    given(reserved, fulfillmentRequested, new StockReleased(shipmentId, referenceId, now))
       // When
-      .when(current -> current.confirmBooking(carrier, trackingNumber, now))
+      .when(current -> current.confirmSent(carrier, trackingNumber, now))
       // Then
       .thenNothing();
   }
@@ -150,7 +151,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
   @Test
   public void deliveringSentPackageEmitsPackageWasDelivered() {
     // Given
-    given(reserved, bookingRequested, sent)
+    given(reserved, fulfillmentRequested, sent)
       // When
       .when(current -> current.deliver(now))
       // Then
@@ -170,7 +171,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
   @Test
   public void deliveringAlreadyDeliveredPackageEmitsNothing() {
     // Given
-    given(reserved, bookingRequested, sent, new PackageWasDelivered(shipmentId, referenceId, now))
+    given(reserved, fulfillmentRequested, sent, new PackageWasDelivered(shipmentId, referenceId, now))
       // When
       .when(current -> current.deliver(now))
       // Then
@@ -188,9 +189,9 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
   }
 
   @Test
-  public void releasingAPackageWaitingForItsBookingEmitsStockReleased() {
+  public void releasingStockWaitingForFulfillmentEmitsStockReleased() {
     // Given
-    given(reserved, bookingRequested)
+    given(reserved, fulfillmentRequested)
       // When
       .when(current -> current.releaseStock(now))
       // Then
@@ -200,7 +201,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
   @Test
   public void releasingASentPackageEmitsNothingBecauseTheGoodsHaveLeft() {
     // Given
-    given(reserved, bookingRequested, sent)
+    given(reserved, fulfillmentRequested, sent)
       // When
       .when(current -> current.releaseStock(now))
       // Then
@@ -217,59 +218,74 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
       .thenNothing();
   }
 
+
+
+
+
+
   @Test
-  public void expiringAReservationEmitsStockReservationExpired() {
+  public void rejectingARequestedFulfillmentEmitsFulfillmentRejected() {
+    // Given
+    given(reserved, fulfillmentRequested)
+      // When
+      .when(current -> current.rejectFulfillment(now))
+      // Then
+      .then(rejected);
+  }
+
+  @Test
+  public void rejectingWithoutAFulfillmentRequestEmitsNothing() {
     // Given
     given(reserved)
       // When
-      .when(current -> current.expireReservation(reservedUntil))
-      // Then
-      .then(new StockReservationExpired(shipmentId, referenceId, reservedUntil));
-  }
-
-  @Test
-  public void expiringAReservationWaitingForItsBookingEmitsStockReservationExpired() {
-    // Given
-    given(reserved, bookingRequested)
-      // When
-      .when(current -> current.expireReservation(reservedUntil))
-      // Then
-      .then(new StockReservationExpired(shipmentId, referenceId, reservedUntil));
-  }
-
-  @Test
-  public void expiringAReservationOfAPackageThatAlreadyLeftEmitsNothing() {
-    // Given
-    given(reserved, bookingRequested, sent)
-      // When
-      .when(current -> current.expireReservation(reservedUntil))
+      .when(current -> current.rejectFulfillment(now))
       // Then
       .thenNothing();
   }
 
   @Test
-  public void expiringAReleasedReservationEmitsNothing() {
+  public void rejectingAfterThePackageWasSentEmitsNothing() {
     // Given
-    given(reserved, new StockReleased(shipmentId, referenceId, now))
+    given(reserved, fulfillmentRequested, sent)
       // When
-      .when(current -> current.expireReservation(reservedUntil))
+      .when(current -> current.rejectFulfillment(now))
       // Then
       .thenNothing();
   }
 
   @Test
-  public void sendingAnExpiredReservationEmitsNothing() {
+  public void rejectingTwiceEmitsNothing() {
     // Given
-    given(reserved, new StockReservationExpired(shipmentId, referenceId, reservedUntil))
+    given(reserved, fulfillmentRequested, rejected)
       // When
-      .when(current -> current.send(now))
+      .when(current -> current.rejectFulfillment(now))
       // Then
       .thenNothing();
+  }
+
+  @Test
+  public void confirmingThePackageSentAfterARejectionEmitsNothing() {
+    // Given
+    given(reserved, fulfillmentRequested, rejected)
+      // When
+      .when(current -> current.confirmSent(carrier, trackingNumber, now))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void releasingStockAfterARejectionEmitsStockReleased() {
+    // Given
+    given(reserved, fulfillmentRequested, rejected)
+      // When
+      .when(current -> current.releaseStock(now))
+      // Then
+      .then(new StockReleased(shipmentId, referenceId, now));
   }
 
   private java.util.function.Consumer<Shipment> reserveStock(ProductItem[] productItems) {
     return current -> current.reserveStock(
-      isProductAvailable, shipmentId, referenceId, productItems, now, reservedUntil
+      isProductAvailable, shipmentId, referenceId, productItems, now
     );
   }
 }

@@ -1,7 +1,5 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments;
 
-import java.time.OffsetDateTime;
-
 public sealed interface ShipmentCommand {
   record ReserveStock(
     String referenceId,
@@ -9,15 +7,20 @@ public sealed interface ShipmentCommand {
   ) implements ShipmentCommand {
   }
 
-  record SendPackage(
+  record RequestFulfillment(
     ShipmentId shipmentId
   ) implements ShipmentCommand {
   }
 
-  record ConfirmParcelBooking(
+  record ConfirmPackageSent(
     ShipmentId shipmentId,
     String carrier,
     String trackingNumber
+  ) implements ShipmentCommand {
+  }
+
+  record RejectFulfillment(
+    ShipmentId shipmentId
   ) implements ShipmentCommand {
   }
 
@@ -28,12 +31,6 @@ public sealed interface ShipmentCommand {
 
   record ReleaseStock(
     ShipmentId shipmentId
-  ) implements ShipmentCommand {
-  }
-
-  record ExpireStockReservation(
-    ShipmentId shipmentId,
-    OffsetDateTime expiredAt
   ) implements ShipmentCommand {
   }
 }

@@ -6,7 +6,6 @@ import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartFacade;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
-import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartStatus;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
 import org.junit.jupiter.api.Test;
@@ -33,16 +32,14 @@ public class ShoppingCartSummariesTests {
   private long nextPosition = 0;
 
   @Test
-  public void openingCartStoresEmptyPendingSummary() {
+  public void openingCartStoresEmptySummaryOfTheClient() {
     publish(new ShoppingCartOpened(shoppingCartId, clientId));
 
     var summary = summary();
 
-    assertThat(summary.getCartId()).isEqualTo(shoppingCartId);
     assertThat(summary.getClientId()).isEqualTo(clientId);
     assertThat(summary.getProductItems()).isEmpty();
     assertThat(summary.getTotalPrice()).isZero();
-    assertThat(summary.getStatus()).isEqualTo(ShoppingCartStatus.Pending);
   }
 
   @Test
@@ -95,7 +92,7 @@ public class ShoppingCartSummariesTests {
   }
 
   @Test
-  public void confirmingCartMarksSummaryAsConfirmed() {
+  public void confirmingCartKeepsTheSummaryAndReachesItsPosition() {
     publish(
       new ShoppingCartOpened(shoppingCartId, clientId),
       new ProductItemAddedToShoppingCart(shoppingCartId, pricedShoes),
@@ -104,19 +101,12 @@ public class ShoppingCartSummariesTests {
 
     var summary = summary();
 
-    assertThat(summary.getStatus()).isEqualTo(ShoppingCartStatus.Confirmed);
+    assertThat(summary.getClientId()).isEqualTo(clientId);
+    assertThat(summary.getProductItems())
+      .usingRecursiveComparison()
+      .isEqualTo(new PricedProductItem[]{pricedShoes});
     assertThat(summary.getTotalPrice()).isEqualTo(25);
-  }
-
-  @Test
-  public void cancelingCartMarksSummaryAsCanceled() {
-    publish(
-      new ShoppingCartOpened(shoppingCartId, clientId),
-      new ProductItemAddedToShoppingCart(shoppingCartId, pricedShoes),
-      new ShoppingCartCanceled(shoppingCartId, now)
-    );
-
-    assertThat(summary().getStatus()).isEqualTo(ShoppingCartStatus.Canceled);
+    assertThat(summary.getVersion()).isEqualTo(2);
   }
 
   @Test
@@ -143,16 +133,7 @@ public class ShoppingCartSummariesTests {
   }
 
   private void republishAt(long position, ShoppingCartEvent event) {
-    var metadata = new EventMetadata(streamId, position, position);
-
-    switch (event) {
-      case ShoppingCartOpened opened -> summaries.onOpened(new EventEnvelope<>(opened, metadata));
-      case ProductItemAddedToShoppingCart added -> summaries.onProductItemAdded(new EventEnvelope<>(added, metadata));
-      case ProductItemRemovedFromShoppingCart removed ->
-        summaries.onProductItemRemoved(new EventEnvelope<>(removed, metadata));
-      case ShoppingCartConfirmed confirmed -> summaries.onConfirmed(new EventEnvelope<>(confirmed, metadata));
-      case ShoppingCartCanceled canceled -> summaries.onCanceled(new EventEnvelope<>(canceled, metadata));
-    }
+    summaries.handle(new EventEnvelope<>(event, new EventMetadata(streamId, position, position)));
   }
 
   private ShoppingCartSummary summary() {
