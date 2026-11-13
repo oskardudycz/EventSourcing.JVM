@@ -22,7 +22,7 @@
 
 Those samples present how you can tackle handling distributed processes in Event Sourcing. For more background, check my articles [Saga and Process Manager - distributed processes in practice](https://event-driven.io/en/saga_process_manager_distributed_transactions?utm_source=event_sourcing_jvm) and [No, it can never happen!](https://event-driven.io/en/no_it_can_never_happen/?utm_source=event_sourcing_jvm). 
 
-Distributed processes with an event-driven approach embrace the impossibility of the two-phase commit in distributed transactions. Instead of trying to make a big transaction across modules and databases, it does a sequence of _microtransactions_. Each operation is handled by the module that's the source of truth and can make autonomous decisions. The distributed process is triggered by the event registered and published in the system, e.g. shopping cart confirmed. Then another module can subscribe to it and take it from there. It knows what should be the next operation, e.g. initiating the order process. It sends a command that is handled, and business logic creates another event. This event is the trigger for the next step of the workflow. Such _lasagne_ of event/command/event/command continues until the process is finished (with success or failure).
+Distributed processes with an event-driven approach embrace the impossibility of the two-phase commit in distributed transactions. Instead of trying to make a big transaction across modules and databases, it does a sequence of _microtransactions_. Each operation is handled by the module that's the source of truth and can make autonomous decisions. The distributed process is triggered by the event registered and published in the system, e.g. shopping cart checked out. Then another module can subscribe to it and take it from there. It knows what should be the next operation, e.g. initiating the order process. It sends a command that is handled, and business logic creates another event. This event is the trigger for the next step of the workflow. Such _lasagne_ of event/command/event/command continues until the process is finished (with success or failure).
 
 ![lasagne](./assets/lasagne.png)
 
@@ -202,6 +202,12 @@ The awkward case is a payment that fails after the goods have been prepared. Wit
 
 The names below come from the providers' own documentation. Each command is an operation you can actually call, and each state is one a provider actually reports, so the diagrams should line up with what you find in their docs.
 
+**The cart.** In Shopify, WooCommerce, Amazon and Allegro, the client never opens a cart. The first "Add to cart" starts it, so the first event in a cart's stream is `ProductItemAddedToShoppingCart`. The sample assumes that the client is logged in, as on Allegro, where buying needs an account. Each cart is a short stream, `ShoppingCart-{clientId}-{n}`. A client has at most one open cart, and the first product after a checkout starts cart `n + 1`. The [ClientShoppingCarts](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/shoppingcarts/ClientShoppingCarts.java) view knows which cart is the current one. If two requests start the same new cart, the slower append finds the stream already there, and its retry adds the product to the cart that the other request started.
+
+The client chooses a product and a quantity, never a price. The price list gives the price when the product first enters the cart, and a later add of the same product keeps the line's price. The cart does not promise that price. Amazon's [cart](https://us.amazon.com/gp/cart/view.html) "reflects each item's most recent price", and Shopify's checkout can say ["Prices for these items have changed and are updated in your cart"](https://community.shopify.com/t/prices-for-these-items-have-changed-and-are-updated-in-your-cart/284837). So `CheckOutShoppingCart` reads the current prices. If one changed, the cart records `ProductItemPriceChanged` and stays open. That moved the cart to a new version, so the client has to look at the new prices and check out again with that version. If no price changed, the cart records `ShoppingCartCheckedOut`. The name is the one the shops use: "Proceed to checkout" on Amazon and WooCommerce, "Check out" on Shopify, "Do kasy" on Allegro. No shop has a "cancel cart" action, so the sample has none: a client leaves the cart, and nothing happens.
+
+A price can still change between the check and the append. The shops accept that race: the price at the click is the price of the order. On Allegro, [the price stays as it was when the client clicked "Kup teraz"](https://spolecznosc.allegro.pl/t5/dyskusje-kupuj%C4%85cych/pytanie/m-p/705830). Amazon handles a wrong price after the order, by its [terms of sale](https://www.pinsentmasons.com/out-law/guides/amazons-pricing-error): it may contact the buyer or cancel. Locking the price list during checkout would need one transaction across pricing and the cart, which is the two-phase commit this sample avoids. The sources for the cart are collected in [real-world-flow.md](./plans/saga-and-outbox/real-world-flow.md#7-cart).
+
 **The card.** A payment service splits *authorising*, which checks that the funds are there and puts a hold on them, from *capturing*, when the money actually moves. Stripe calls the split [place a hold on a payment method](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method) and switches it on with `capture_method: manual`; Adyen calls the second half [capture](https://docs.adyen.com/online-payments/capture) and supports delaying it. Both let you drop the hold before any money moved, which is the operation this sample calls `VoidPayment`.
 
 ```mermaid
@@ -228,7 +234,7 @@ stateDiagram-v2
 
 There's no single answer to how long the hold lasts. Stripe lists around 7 days for the common card-not-present case, and [Adyen's per-scheme table](https://docs.adyen.com/online-payments/adjust-authorisation) shows the spread: Mastercard 7 days for a final authorisation and 30 for a pre-authorisation, Visa 5 to 30 depending on the merchant category, JCB up to a year. That's why `expiresAt` travels on the event. The module records the deadline it was actually granted, rather than everyone downstream agreeing on a number that isn't true for every card.
 
-**The stock.** Shopify's [inventory states](https://help.shopify.com/en/manual/products/inventory/managing-inventory-quantities/inventory-states) separate *available* from *committed*, and placing an order moves units from one to the other. A hold with a timer exists only before the order is placed: commercetools' `ReserveOnCart` reservation lasts "until the Cart is ordered or the reservation expires", and Salesforce lets a basket reservation expire after 10 minutes. Once the order exists, the stock stays with it until it ships or the order is cancelled.
+**The stock.** The cart holds no stock: on Allegro, putting a product in the cart [does not reserve it](https://spolecznosc.allegro.pl/t5/dyskusje-kupuj%C4%85cych/zmiana-cen-po-dodaniu-do-koszyka/td-p/657648). Placing the order takes the stock. Shopify's [inventory states](https://help.shopify.com/en/manual/products/inventory/managing-inventory-quantities/inventory-states) separate *available* from *committed*, and placing an order moves units from one to the other. WooCommerce [creates the order when the client clicks "Place order"](https://wordpress.org/support/?p=10149006), before the payment, and takes its stock. The committed stock has no timer of its own. WooCommerce's "Hold stock (minutes)" is a timer on the unpaid order: [when it runs out, the order is cancelled and the stock goes back](https://www.businessbloomer.com/woocommerce-automatically-cancel-orders/). The sample does the same through the payment: an authorisation that does not come in time cancels the order, and the stock is released.
 
 Shipping is a request to a warehouse service, which answers later. Shopify's [fulfillment request](https://help.shopify.com/en/manual/fulfillment/fulfilling-orders/app-fulfillment) is accepted or rejected by the service; a rejected one sends the order back to "Unfulfilled". This sample has no merchant step after a rejection, so a rejected request cancels the order.
 
@@ -259,8 +265,8 @@ sequenceDiagram
     participant Pay as Payments
     participant Ship as Shipments
 
-    Client->>Cart: ConfirmShoppingCart
-    Cart->>Process: ShoppingCartFinalized (public)
+    Client->>Cart: CheckOutShoppingCart
+    Cart->>Process: ShoppingCartCheckedOut (public)
     Process->>Order: PlaceOrder
     Order->>Process: OrderPlaced (internal)
 
@@ -357,6 +363,8 @@ public void recordPaymentAuthorization(PaymentId paymentId, OffsetDateTime autho
 
 Idempotency also keeps the process moving. A handler that throws inside an asynchronous process blocks it: the message becomes poison and the workflow hangs behind it. So orders, payments and shipments stay quiet about messages they can't use. `ShoppingCart` still throws, because its commands come from a person over HTTP, where a rejected action has to reach the caller as an error instead of vanishing.
 
+Two handlers can also append to the same stream at the same moment. A message handler passes no expected version, so `AggregateStore` retries the conflict: it reads the stream again and decides again, up to three times. That is safe because the aggregates are idempotent. Without the retry, the handler would throw, and the event store would deliver the event again only on its next append, which may never come. A person's command passes the version the person saw, so its conflict is not retried. It goes back to the caller.
+
 ### Why the saga stays stateless
 
 The whole process is one class, [OrderSaga](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/OrderSaga.java), with its handlers grouped by phase: hold, commit and compensation. It should be a "stupid" dispatcher: it waits for an event and sends a command built from that event's data alone. That takes some care, because an event doesn't always carry what the next command needs.
@@ -391,7 +399,7 @@ If a module exposed its internal events, every other module would end up coupled
 
 | Module | What it publishes | Who it is for |
 |---|---|---|
-| shopping carts | `ShoppingCartFinalized` | orders |
+| shopping carts | `ShoppingCartCheckedOut` | orders |
 | payments | `PaymentAuthorized`, `PaymentCaptured`, `PaymentFailed` | orders, through a `referenceId` |
 | shipments | `StockReserved`, `PackageWasSent`, `ShipmentFailed` | orders, through a `referenceId` |
 
@@ -403,23 +411,23 @@ Two of those names cover more than one internal event. `PaymentFailed` stands fo
 
 Each public event carries only what its consumer reads. The order needs the `referenceId` to find itself, the ids it passes on, the time and, for a shipment, the carrier and tracking number. Amounts, items and deadlines stay inside the module that owns them.
 
-A published event usually needs more than the internal event that triggered it. `ShoppingCartConfirmed` carries the cart id and a timestamp, but `ShoppingCartFinalized` has to carry the client, the items and the total, because the order module cannot call back into the cart to ask. The same is true of `PaymentAuthorized`: internally it has no `referenceId`, and the order needs one.
+A published event usually needs more than the internal event that triggered it. The internal `ShoppingCartCheckedOut` carries the cart id and a timestamp, but the public `ShoppingCartCheckedOut` has to carry the client, the items and the total, because the order module cannot call back into the cart to ask. The same is true of `PaymentAuthorized`: internally it has no `referenceId`, and the order needs one.
 
 So the forwarder reads that data from somewhere. It could load the aggregate, and an earlier version of this sample did. Each module keeps a projection instead:
 
 ```java
-public void onConfirmed(EventEnvelope<ShoppingCartConfirmed> envelope) {
+public void onCheckedOut(EventEnvelope<ShoppingCartEvent.ShoppingCartCheckedOut> envelope) {
   var event = envelope.data();
   var cart = summaries.get(event.shoppingCartId())
     .filter(summary -> summary.getVersion() >= envelope.metadata().streamPosition())
     .orElseThrow(() -> new IllegalStateException("Summary has not reached the event yet"));
 
-  messageBus.publish(List.of(new ShoppingCartFinalized(
+  messageBus.publish(List.of(new ShoppingCartExternalEvent.ShoppingCartCheckedOut(
     event.shoppingCartId(),
     cart.getClientId(),
     cart.getProductItems(),
     cart.getTotalPrice(),
-    event.confirmedAt()
+    event.checkedOutAt()
   )));
 }
 ```
@@ -461,7 +469,7 @@ The base class reads and stores the document, so no projection touches the datab
 
 A summary keeps only what its forwarder adds to the internal events, and handles only the events that change it: `PaymentSummary` holds the `referenceId`, because only the authorisation request carries it. The shipments module needs no summary, because its internal events carry the `referenceId` themselves.
 
-The projection and the forwarder are separate subscribers, and each keeps its own checkpoint. If the projection fails on an event and the forwarder does not, the forwarder would enrich from a view that has not seen that event. So the forwarder checks that the view has what it needs. If it does not, the forwarder throws: the store keeps its checkpoint and delivers the event again on the next append, after the projection has caught up. For payments, the reference is fixed once it is there, so the forwarder only checks that the summary exists. The cart's items change with every add and remove, so the cart forwarder also checks that the summary's version has reached the event's stream position.
+The projection and the forwarder are separate subscribers, and each keeps its own checkpoint. If the projection fails on an event and the forwarder does not, the forwarder would enrich from a view that has not seen that event. So the forwarder checks that the view has what it needs. If it does not, the forwarder throws: the store keeps its checkpoint and delivers the event again on the next append, after the projection has caught up. For payments, the reference is fixed once it is there, so the forwarder only checks that the summary exists. The cart's items change with every add, remove and price change, so the cart forwarder also checks that the summary's version has reached the event's stream position.
 
 Besides the summaries, the modules keep views that exist to answer a question nobody can answer from an aggregate, because the question spans many of them:
 
@@ -471,8 +479,9 @@ Besides the summaries, the modules keep views that exist to answer a question no
 | `AuthorizedPayments` | which card holds have passed `expiresAt` |
 | `OrdersAwaitingPayment` | which sent orders are still unpaid, and since when |
 | `PendingOrders` | which orders are still in flight |
+| `ClientShoppingCarts` | which cart is the client's current one, and how many carts the client has had |
 
-`PendingPayments`, `AuthorizedPayments` and `OrdersAwaitingPayment` are the to-do lists the workers read. `PendingOrders` has no worker.
+`PendingPayments`, `AuthorizedPayments` and `OrdersAwaitingPayment` are the to-do lists the workers read. `PendingOrders` has no worker. `ShoppingCartFacade` reads `ClientShoppingCarts` to choose the cart for the client's next product.
 
 ### The event store is the outbox
 
@@ -547,6 +556,8 @@ Each module keeps its aggregate, its events, its commands, its facade and its `C
 
 ### What this sample doesn't cover
 
+- **There is no web API.** The cart's commands come from a person, so a web API would call `ShoppingCartFacade` directly, as [event-sourcing-esdb-aggregates](../event-sourcing-esdb-aggregates/) does. The facade already returns the cart's new version as an `ETag`. Only `ShoppingCartCheckedOut` goes on the message bus, to the saga.
+- **Carts are never anonymous.** The client is logged in from the first product, as on Allegro. Shopify and WooCommerce also let a guest fill a cart and merge it into the account's cart at login.
 - **A lapsed hold before shipping cancels the order.** Real shops usually ask the customer to pay again first — Shopify's "collect payment", Amazon's "revise payment" — and cancel only if that fails. Modelling that is one more step with its own deadline, and it would teach nothing the authorisation doesn't.
 - **A rejected fulfillment request cancels the order.** A real shop gives the order back to the merchant, who can try another warehouse.
 - **The order does not wait for the delivery.** A delivery that never happens has no consequence for the order.

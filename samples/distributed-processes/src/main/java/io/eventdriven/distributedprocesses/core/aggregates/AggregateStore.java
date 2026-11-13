@@ -4,12 +4,15 @@ import com.eventstore.dbclient.ExpectedRevision;
 import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.http.ETag;
 
+import java.util.ConcurrentModificationException;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, Id> {
+  private static final int maxAttempts = 3;
+
   private final EventStore eventStore;
   private final Function<Id, String> mapToStreamId;
   private final Supplier<Entity> getEmpty;
@@ -37,9 +40,16 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
   }
 
   public ETag getAndUpdate(Id id, Consumer<Entity> handle) {
-    var entity = get(id).orElseGet(getEmpty);
+    for (var attempt = 1; ; attempt++) {
+      var entity = get(id).orElseGet(getEmpty);
 
-    return update(id, entity, entity.version, handle);
+      try {
+        return update(id, entity, entity.version, handle);
+      } catch (ConcurrentModificationException e) {
+        if (attempt == maxAttempts)
+          throw e;
+      }
+    }
   }
 
   public ETag getAndUpdate(Id id, long expectedVersion, Consumer<Entity> handle) {
@@ -58,11 +68,11 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
 
     return switch (eventStore.append(streamId, toExpectedRevision(expectedVersion), events)) {
       case EventStore.AppendResult.Success success -> ETag.weak(success.nextExpectedRevision());
-      case EventStore.AppendResult.StreamAlreadyExists alreadyExists -> throw new IllegalStateException(
+      case EventStore.AppendResult.StreamAlreadyExists alreadyExists -> throw new ConcurrentModificationException(
         "Cannot append to stream %s: expected no stream, but it is at %s"
           .formatted(streamId, describe(alreadyExists.actual()))
       );
-      case EventStore.AppendResult.Conflict conflict -> throw new IllegalStateException(
+      case EventStore.AppendResult.Conflict conflict -> throw new ConcurrentModificationException(
         "Cannot append to stream %s: expected %s, but it is at %s"
           .formatted(streamId, describe(conflict.expected()), describe(conflict.actual()))
       );

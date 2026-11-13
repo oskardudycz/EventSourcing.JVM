@@ -12,21 +12,7 @@ import java.util.UUID;
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
 public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, ShoppingCartId> {
-  public UUID clientId() {
-    return clientId;
-  }
-
-  public PricedProductItem[] productItems() {
-    return productItems.items().toArray(new PricedProductItem[0]);
-  }
-
-  public double totalPrice() {
-    return productItems.items().stream()
-      .mapToDouble(PricedProductItem::totalPrice)
-      .sum();
-  }
-  private UUID clientId;
-  private ProductItems productItems;
+  private ProductItems productItems = ProductItems.empty();
   private ShoppingCartStatus status;
 
   private ShoppingCart() {
@@ -36,57 +22,75 @@ public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, ShoppingC
     return new ShoppingCart();
   }
 
-  void open(ShoppingCartId shoppingCartId, UUID clientId) {
-    if (status != null)
-      return;
-
-    enqueue(new ShoppingCartOpened(shoppingCartId, clientId));
-  }
-
   void addProductItem(
+    ShoppingCartId shoppingCartId,
+    UUID clientId,
     ProductPriceCalculator productPriceCalculator,
-    ProductItem productItem
+    ProductItem productItem,
+    OffsetDateTime now
   ) {
-    if (isClosed())
+    if (status != null && status.isClosed())
       throw new IllegalStateException("Adding product item for cart in '%s' status is not allowed.".formatted(status));
 
-    var pricedProductItem = productPriceCalculator.calculate(productItem);
+    var unitPrice = productItems.find(productItem.productId())
+      .map(PricedProductItem::unitPrice)
+      .orElseGet(() -> productPriceCalculator.calculate(productItem).unitPrice());
 
     enqueue(new ProductItemAddedToShoppingCart(
-      id,
-      pricedProductItem
-    ));
-  }
-
-  void removeProductItem(
-    PricedProductItem productItem
-  ) {
-    if (isClosed())
-      throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(status));
-
-    productItems.assertThatCanRemove(productItem);
-
-    enqueue(new ProductItemRemovedFromShoppingCart(
-      id,
-      productItem
-    ));
-  }
-
-  void confirm(OffsetDateTime now) {
-    if (isClosed())
-      throw new IllegalStateException("Confirming cart in '%s' status is not allowed.".formatted(status));
-
-    enqueue(new ShoppingCartConfirmed(
-      id,
+      shoppingCartId,
+      clientId,
+      new PricedProductItem(productItem, unitPrice),
       now
     ));
   }
 
-  void cancel(OffsetDateTime now) {
+  void removeProductItem(
+    ProductItem productItem,
+    OffsetDateTime now
+  ) {
     if (isClosed())
-      throw new IllegalStateException("Canceling cart in '%s' status is not allowed.".formatted(status));
+      throw new IllegalStateException("Removing product item for cart in '%s' status is not allowed.".formatted(status));
 
-    enqueue(new ShoppingCartCanceled(
+    var pricedProductItem = productItems.find(productItem.productId())
+      .map(current -> new PricedProductItem(productItem, current.unitPrice()))
+      .orElseThrow(() -> new IllegalStateException("Product item wasn't found"));
+
+    productItems.assertThatCanRemove(pricedProductItem);
+
+    enqueue(new ProductItemRemovedFromShoppingCart(
+      id,
+      pricedProductItem,
+      now
+    ));
+  }
+
+  void checkOut(ProductPriceCalculator productPriceCalculator, OffsetDateTime now) {
+    if (status == ShoppingCartStatus.CheckedOut)
+      return;
+
+    if (isClosed())
+      throw new IllegalStateException("Checking out cart in '%s' status is not allowed.".formatted(status));
+
+    if (productItems.items().isEmpty())
+      throw new IllegalStateException("Checking out an empty cart is not allowed.");
+
+    var priceChanges = productItems.items().stream()
+      .map(current -> new ProductItemPriceChanged(
+        id,
+        current.productId(),
+        current.unitPrice(),
+        productPriceCalculator.calculate(current.productItem()).unitPrice(),
+        now
+      ))
+      .filter(change -> change.newUnitPrice() != change.oldUnitPrice())
+      .toList();
+
+    if (!priceChanges.isEmpty()) {
+      priceChanges.forEach(this::enqueue);
+      return;
+    }
+
+    enqueue(new ShoppingCartCheckedOut(
       id,
       now
     ));
@@ -99,23 +103,25 @@ public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, ShoppingC
   @Override
   public void evolve(ShoppingCartEvent event) {
     switch (event) {
-      case ShoppingCartOpened shoppingCartOpened -> {
-        id = shoppingCartOpened.shoppingCartId();
-        clientId = shoppingCartOpened.clientId();
-        productItems = ProductItems.empty();
-        status = ShoppingCartStatus.Pending;
-      }
-      case ProductItemAddedToShoppingCart productItemAddedToShoppingCart ->
+      case ProductItemAddedToShoppingCart productItemAddedToShoppingCart -> {
+        if (status == null) {
+          id = productItemAddedToShoppingCart.shoppingCartId();
+          status = ShoppingCartStatus.Pending;
+        }
         productItems = productItems.add(productItemAddedToShoppingCart.productItem());
+      }
 
       case ProductItemRemovedFromShoppingCart productItemRemovedFromShoppingCart ->
         productItems = productItems.remove(productItemRemovedFromShoppingCart.productItem());
 
-      case ShoppingCartConfirmed ignored ->
-        status = ShoppingCartStatus.Confirmed;
+      case ProductItemPriceChanged productItemPriceChanged ->
+        productItems = productItems.changeUnitPrice(
+          productItemPriceChanged.productId(),
+          productItemPriceChanged.newUnitPrice()
+        );
 
-      case ShoppingCartCanceled ignored ->
-        status = ShoppingCartStatus.Canceled;
+      case ShoppingCartCheckedOut ignored ->
+        status = ShoppingCartStatus.CheckedOut;
     }
   }
 }

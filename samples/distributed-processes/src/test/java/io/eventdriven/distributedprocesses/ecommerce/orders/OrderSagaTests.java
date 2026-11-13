@@ -46,8 +46,8 @@ public class OrderSagaTests {
   // Hold phase
 
   @Test
-  public void aFinalizedCartStartsAnOrderWhoseIdIsDerivedFromTheCart() {
-    saga.on(new ShoppingCartExternalEvent.ShoppingCartFinalized(cartId, clientId, cartItems(), totalPrice, now));
+  public void aCheckedOutCartStartsAnOrderWhoseIdIsDerivedFromTheCart() {
+    saga.on(new ShoppingCartExternalEvent.ShoppingCartCheckedOut(cartId, clientId, cartItems(), totalPrice, now));
 
     sent.shouldReceiveMessages(
       new PlaceOrder(orderId, cartId, clientId, orderItems, totalPrice)

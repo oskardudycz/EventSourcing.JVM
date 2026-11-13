@@ -14,7 +14,7 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentEx
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved;
-import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartFinalized;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -86,7 +86,7 @@ public final class OrdersConfig {
       .subscribe(OrderCancelled.class, envelope -> saga.on(envelope.data()));
 
     messageBus
-      .subscribe(ShoppingCartFinalized.class, saga::on)
+      .subscribe(ShoppingCartCheckedOut.class, saga::on)
       .subscribe(PaymentAuthorized.class, saga::on)
       .subscribe(StockReserved.class, saga::on)
       .subscribe(PackageWasSent.class, saga::on)

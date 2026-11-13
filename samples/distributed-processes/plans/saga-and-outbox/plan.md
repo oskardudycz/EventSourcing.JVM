@@ -155,3 +155,35 @@ End-to-end, with a clock the test can move:
 - the client paying again after a failed capture completes the order;
 - an order still unpaid at the end of the retry period is closed unpaid, and not before.
 ```
+
+### 6. The shopping cart from real shops
+
+Agreed on 2026-11-13, after the research in section 7 of [real-world-flow.md](real-world-flow.md#7-cart), and with the short streams of the Emmett D1 sample.
+
+```text
+Shopping carts:
+- The client is logged in from the first product (Allegro).
+- No OpenShoppingCart and no ShoppingCartOpened: the first ProductItemAddedToShoppingCart starts
+  the cart.
+- Short streams: ShoppingCartId.of(clientId, n). One open cart per client; ClientShoppingCarts
+  knows the current one. The first product after a checkout starts cart n + 1. A lost race to
+  start a cart is retried.
+- AddProductItemToShoppingCart(clientId, productItem): the line keeps the first price of its
+  product.
+- RemoveProductItemFromShoppingCart(shoppingCartId, productItem, expectedVersion): the event
+  records the cart's price.
+- CheckOutShoppingCart(shoppingCartId, expectedVersion) reads the current prices:
+  same -> ShoppingCartCheckedOut; changed -> ProductItemPriceChanged per product and no checkout.
+  An empty cart is refused; a repeated checkout appends nothing.
+- No cancel: CancelShoppingCart and ShoppingCartCanceled go.
+- Public ShoppingCartFinalized -> ShoppingCartCheckedOut.
+- The client calls ShoppingCartFacade directly, and the facade returns the ETag. The message bus
+  keeps only messages between modules.
+- RandomProductPriceCalculator keeps one price per product.
+
+Core:
+- AggregateStore throws ConcurrentModificationException on a version conflict, so a retry can tell
+  it apart from a broken business rule.
+- Without an expected version, AggregateStore retries a conflict up to 3 times on the new state.
+  With an expected version (a person's command), the conflict goes back to the caller.
+```

@@ -10,6 +10,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
@@ -21,20 +22,20 @@ public class ShoppingCartSummaries extends Projection<ShoppingCartSummary> {
   @Override
   public List<Class<?>> canHandle() {
     return List.of(
-      ShoppingCartOpened.class,
       ProductItemAddedToShoppingCart.class,
       ProductItemRemovedFromShoppingCart.class,
-      ShoppingCartConfirmed.class
+      ProductItemPriceChanged.class,
+      ShoppingCartCheckedOut.class
     );
   }
 
   @Override
   protected EntityId getDocumentId(Object event) {
     return switch (event) {
-      case ShoppingCartOpened e -> e.shoppingCartId();
       case ProductItemAddedToShoppingCart e -> e.shoppingCartId();
       case ProductItemRemovedFromShoppingCart e -> e.shoppingCartId();
-      case ShoppingCartConfirmed e -> e.shoppingCartId();
+      case ProductItemPriceChanged e -> e.shoppingCartId();
+      case ShoppingCartCheckedOut e -> e.shoppingCartId();
       default -> throw new IllegalArgumentException("Unexpected event %s".formatted(event));
     };
   }
@@ -42,17 +43,20 @@ public class ShoppingCartSummaries extends Projection<ShoppingCartSummary> {
   @Override
   protected @Nullable ShoppingCartSummary evolve(@Nullable ShoppingCartSummary current, Object event) {
     return switch (event) {
-      case ShoppingCartOpened e -> new ShoppingCartSummary(e.clientId(), new PricedProductItem[0], 0);
-      case ProductItemAddedToShoppingCart e -> withProductItems(current, productItemsOf(current).add(e.productItem()));
+      case ProductItemAddedToShoppingCart e -> current == null
+        ? withProductItems(e.clientId(), ProductItems.empty().add(e.productItem()))
+        : withProductItems(current.getClientId(), productItemsOf(current).add(e.productItem()));
       case ProductItemRemovedFromShoppingCart e ->
-        withProductItems(current, productItemsOf(current).remove(e.productItem()));
+        withProductItems(current.getClientId(), productItemsOf(current).remove(e.productItem()));
+      case ProductItemPriceChanged e ->
+        withProductItems(current.getClientId(), productItemsOf(current).changeUnitPrice(e.productId(), e.newUnitPrice()));
       default -> current;
     };
   }
 
-  private static ShoppingCartSummary withProductItems(ShoppingCartSummary summary, ProductItems productItems) {
+  private static ShoppingCartSummary withProductItems(UUID clientId, ProductItems productItems) {
     return new ShoppingCartSummary(
-      summary.getClientId(),
+      clientId,
       productItems.items().toArray(new PricedProductItem[0]),
       productItems.items().stream()
         .mapToDouble(PricedProductItem::totalPrice)

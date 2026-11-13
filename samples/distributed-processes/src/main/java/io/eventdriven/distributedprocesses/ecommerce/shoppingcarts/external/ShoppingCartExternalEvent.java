@@ -8,12 +8,12 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public sealed interface ShoppingCartExternalEvent {
-  record ShoppingCartFinalized(
+  record ShoppingCartCheckedOut(
     ShoppingCartId cartId,
     UUID clientId,
     PricedProductItem[] productItems,
     double totalPrice,
-    OffsetDateTime finalizedAt
+    OffsetDateTime checkedOutAt
   ) implements ShoppingCartExternalEvent {
   }
 }

@@ -63,6 +63,25 @@ public class ProductItemsTests {
   }
 
   @Test
+  public void changingTheUnitPriceOfAProductChangesOnlyItsLine() {
+    var productItems = ProductItems.empty()
+      .add(pricedProductItem(shoes, 2, 10))
+      .add(pricedProductItem(shirt, 3, 5))
+      .changeUnitPrice(shoes, 12);
+
+    assertThat(productItems.items())
+      .containsExactly(pricedProductItem(shoes, 2, 12), pricedProductItem(shirt, 3, 5));
+  }
+
+  @Test
+  public void findingAProductGivesItsLine() {
+    var productItems = ProductItems.empty().add(pricedProductItem(shoes, 2, 10));
+
+    assertThat(productItems.find(shoes)).contains(pricedProductItem(shoes, 2, 10));
+    assertThat(productItems.find(shirt)).isEmpty();
+  }
+
+  @Test
   public void removingMoreThanWasAddedThrows() {
     var productItems = ProductItems.empty().add(pricedProductItem(shoes, 2, 10));
 

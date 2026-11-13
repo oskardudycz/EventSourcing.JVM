@@ -4,10 +4,9 @@ import java.util.EnumSet;
 
 public enum ShoppingCartStatus {
   Pending,
-  Confirmed,
-  Canceled;
+  CheckedOut;
 
-  public static final EnumSet<ShoppingCartStatus> Closed = EnumSet.of(Confirmed, Canceled);
+  public static final EnumSet<ShoppingCartStatus> Closed = EnumSet.of(CheckedOut);
 
   public boolean isClosed() {
     return Closed.contains(this);
