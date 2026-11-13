@@ -5,7 +5,9 @@ import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -87,9 +89,71 @@ public class AggregateStoreTests {
     store.getAndUpdate(counterId, current -> current.increment(1));
 
     assertThatThrownBy(() -> store.getAndUpdate(counterId, 0, current -> current.increment(1)))
-      .isInstanceOf(IllegalStateException.class)
+      .isInstanceOf(ConcurrentModificationException.class)
       .hasMessageContaining(mapToStreamId(counterId));
 
+    assertThat(store.get(counterId).orElseThrow().total()).isEqualTo(1);
+  }
+
+  @Test
+  public void startingAStreamThatSomebodyElseStartedFirstIsRetriedOnTheirStream() {
+    var attempts = new AtomicInteger();
+
+    store.getAndUpdate(counterId, current -> {
+      if (attempts.incrementAndGet() == 1)
+        store.getAndUpdate(counterId, other -> other.open(counterId, "clicks"));
+      current.open(counterId, "views");
+    });
+
+    assertThat(attempts).hasValue(2);
+    assertThat(store.get(counterId).orElseThrow().name()).isEqualTo("clicks");
+  }
+
+  @Test
+  public void aConflictWithoutAnExpectedVersionIsRetriedOnTheNewState() {
+    store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
+    var attempts = new AtomicInteger();
+
+    store.getAndUpdate(counterId, current -> {
+      if (attempts.incrementAndGet() == 1)
+        store.getAndUpdate(counterId, other -> other.increment(1));
+      current.increment(1);
+    });
+
+    assertThat(attempts).hasValue(2);
+    assertThat(store.get(counterId).orElseThrow().total()).isEqualTo(2);
+  }
+
+  @Test
+  public void aConflictThatKeepsHappeningFailsAfterThreeAttempts() {
+    store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
+    var attempts = new AtomicInteger();
+
+    assertThatThrownBy(() -> store.getAndUpdate(counterId, current -> {
+      attempts.incrementAndGet();
+      store.getAndUpdate(counterId, other -> other.increment(1));
+      current.increment(1);
+    }))
+      .isInstanceOf(ConcurrentModificationException.class)
+      .hasMessageContaining(mapToStreamId(counterId));
+
+    assertThat(attempts).hasValue(3);
+    assertThat(store.get(counterId).orElseThrow().total()).isEqualTo(3);
+  }
+
+  @Test
+  public void aConflictWithAnExpectedVersionIsNotRetried() {
+    store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
+    var attempts = new AtomicInteger();
+
+    assertThatThrownBy(() -> store.getAndUpdate(counterId, 0, current -> {
+      attempts.incrementAndGet();
+      store.getAndUpdate(counterId, other -> other.increment(1));
+      current.increment(1);
+    }))
+      .isInstanceOf(ConcurrentModificationException.class);
+
+    assertThat(attempts).hasValue(1);
     assertThat(store.get(counterId).orElseThrow().total()).isEqualTo(1);
   }
 

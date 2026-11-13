@@ -1,5 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external;
 
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
@@ -7,8 +8,6 @@ import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 
 import java.util.List;
 
-import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
-import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.*;
 
 public class ShoppingCartExternalEventForwarder {
   private final ShoppingCartSummaries summaries;
@@ -22,16 +21,16 @@ public class ShoppingCartExternalEventForwarder {
     this.messageBus = messageBus;
   }
 
-  public void onConfirmed(EventEnvelope<ShoppingCartConfirmed> envelope) {
+  public void onCheckedOut(EventEnvelope<ShoppingCartEvent.ShoppingCartCheckedOut> envelope) {
     var event = envelope.data();
     var cart = get(event.shoppingCartId(), envelope.metadata().streamPosition());
 
-    var externalEvent = new ShoppingCartFinalized(
+    var externalEvent = new ShoppingCartExternalEvent.ShoppingCartCheckedOut(
       event.shoppingCartId(),
       cart.getClientId(),
       cart.getProductItems(),
       cart.getTotalPrice(),
-      event.confirmedAt()
+      event.checkedOutAt()
     );
 
     messageBus.publish(List.of(externalEvent));

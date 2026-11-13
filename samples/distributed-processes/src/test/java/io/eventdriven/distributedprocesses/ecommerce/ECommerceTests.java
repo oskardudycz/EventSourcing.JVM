@@ -46,8 +46,8 @@ public class ECommerceTests {
   private static final Duration paymentRetryPeriod = Duration.ofDays(14);
 
   private final OffsetDateTime now = OffsetDateTime.now();
-  private final ShoppingCartId cartId = ShoppingCartId.of(UUID.randomUUID());
   private final UUID clientId = UUID.randomUUID();
+  private final ShoppingCartId cartId = ShoppingCartId.of(clientId, 1);
   private final ProductItem shoes = new ProductItem(UUID.randomUUID(), 2);
   private final double totalPrice = shoes.quantity() * unitPrice;
 
@@ -76,18 +76,17 @@ public class ECommerceTests {
   private ECommerceModule eCommerce;
 
   @Test
-  public void confirmingTheCartHoldsTheMoneyAndTheStockAndRequestsFulfillment() {
+  public void checkingOutTheCartHoldsTheMoneyAndTheStockAndRequestsFulfillment() {
     // Given
     configure(new RecordingPaymentGateway(messageBus), true);
-    openCartWithShoes();
+    addShoesToCart();
 
     // When
-    confirmCart();
+    checkOutCart();
 
     // Then
     messages.shouldReceiveMessages(
-      new ConfirmShoppingCart(cartId, 1L),
-      cartFinalized(),
+      cartCheckedOut(),
       placeOrder(),
       new AuthorizePayment(paymentId, orderReference, totalPrice),
       new ReserveStock(orderReference, shipmentItems),
@@ -104,8 +103,8 @@ public class ECommerceTests {
   public void theCustomerIsChargedOnlyAfterThePackageWasSentAndThatCompletesTheOrder() {
     // Given
     configure(new RecordingPaymentGateway(messageBus), true);
-    openCartWithShoes();
-    confirmCart();
+    addShoesToCart();
+    checkOutCart();
     messages.reset();
 
     // When
@@ -128,8 +127,8 @@ public class ECommerceTests {
   public void theDeliveryIsRecordedByTheShipmentOnlyBecauseTheOrderAlreadyCompleted() {
     // Given
     configure(new RecordingPaymentGateway(messageBus), true);
-    openCartWithShoes();
-    confirmCart();
+    addShoesToCart();
+    checkOutCart();
     fulfillmentService.sendPackages();
     messages.reset();
 
@@ -145,15 +144,14 @@ public class ECommerceTests {
     // Given
     var paymentGateway = new RecordingPaymentGateway(messageBus);
     configure(paymentGateway, false);
-    openCartWithShoes();
+    addShoesToCart();
 
     // When
-    confirmCart();
+    checkOutCart();
 
     // Then
     messages.shouldReceiveMessages(
-      new ConfirmShoppingCart(cartId, 1L),
-      cartFinalized(),
+      cartCheckedOut(),
       placeOrder(),
       new AuthorizePayment(paymentId, orderReference, totalPrice),
       new ReserveStock(orderReference, shipmentItems),
@@ -173,15 +171,14 @@ public class ECommerceTests {
   public void aDeclinedPaymentCancelsTheOrderAndReleasesTheStock() {
     // Given
     configure(new AutoRejectingPaymentGateway(messageBus), true);
-    openCartWithShoes();
+    addShoesToCart();
 
     // When
-    confirmCart();
+    checkOutCart();
 
     // Then
     messages.shouldReceiveMessages(
-      new ConfirmShoppingCart(cartId, 1L),
-      cartFinalized(),
+      cartCheckedOut(),
       placeOrder(),
       new AuthorizePayment(paymentId, orderReference, totalPrice),
       new ReserveStock(orderReference, shipmentItems),
@@ -199,8 +196,8 @@ public class ECommerceTests {
     // Given
     var paymentGateway = new RecordingPaymentGateway(messageBus);
     configure(paymentGateway, true);
-    openCartWithShoes();
-    confirmCart();
+    addShoesToCart();
+    checkOutCart();
     messages.reset();
 
     // When
@@ -224,8 +221,8 @@ public class ECommerceTests {
     // Given
     var paymentGateway = new SilentPaymentGateway();
     configure(paymentGateway, true);
-    openCartWithShoes();
-    confirmCart();
+    addShoesToCart();
+    checkOutCart();
     messages.reset();
     var timedOutAt = now.plus(paymentTimeout).plusMinutes(1);
 
@@ -247,8 +244,8 @@ public class ECommerceTests {
   public void anAuthorizationArrivingAfterTheTimeoutChangesNothing() {
     // Given
     configure(new SilentPaymentGateway(), true);
-    openCartWithShoes();
-    confirmCart();
+    addShoesToCart();
+    checkOutCart();
     clock.set(now.plus(paymentTimeout).plusMinutes(1));
     eCommerce.payments().timeoutWorker().handleAll();
     messages.reset();
@@ -264,8 +261,8 @@ public class ECommerceTests {
   public void aFailedCaptureAfterThePackageWasSentWaitsForTheClientToPayAgain() {
     // Given
     configure(new RefusingAfterAuthorizationPaymentGateway(messageBus), true);
-    openCartWithShoes();
-    confirmCart();
+    addShoesToCart();
+    checkOutCart();
     messages.reset();
 
     // When
@@ -290,8 +287,8 @@ public class ECommerceTests {
   public void theClientPayingAgainAfterAFailedCaptureCompletesTheOrder() {
     // Given
     configure(new FailingFirstCapturePaymentGateway(messageBus), true);
-    openCartWithShoes();
-    confirmCart();
+    addShoesToCart();
+    checkOutCart();
     fulfillmentService.sendPackages();
     messages.reset();
 
@@ -317,8 +314,8 @@ public class ECommerceTests {
   public void anOrderStillUnpaidAfterTheRetryPeriodIsClosedUnpaid() {
     // Given
     configure(new RefusingAfterAuthorizationPaymentGateway(messageBus), true);
-    openCartWithShoes();
-    confirmCart();
+    addShoesToCart();
+    checkOutCart();
     fulfillmentService.sendPackages();
     messages.reset();
 
@@ -335,8 +332,8 @@ public class ECommerceTests {
   public void anOrderIsNotClosedBeforeTheRetryPeriodEnds() {
     // Given
     configure(new RefusingAfterAuthorizationPaymentGateway(messageBus), true);
-    openCartWithShoes();
-    confirmCart();
+    addShoesToCart();
+    checkOutCart();
     fulfillmentService.sendPackages();
     messages.reset();
 
@@ -348,8 +345,8 @@ public class ECommerceTests {
     messages.shouldNotReceiveAnyEvent();
   }
 
-  private ShoppingCartExternalEvent.ShoppingCartFinalized cartFinalized() {
-    return new ShoppingCartExternalEvent.ShoppingCartFinalized(
+  private ShoppingCartExternalEvent.ShoppingCartCheckedOut cartCheckedOut() {
+    return new ShoppingCartExternalEvent.ShoppingCartCheckedOut(
       cartId, clientId, new PricedProductItem[]{new PricedProductItem(shoes, unitPrice)}, totalPrice, now
     );
   }
@@ -358,14 +355,13 @@ public class ECommerceTests {
     return new PlaceOrder(orderId, cartId, clientId, orderItems, totalPrice);
   }
 
-  private void openCartWithShoes() {
-    messageBus.publish(List.of(new OpenShoppingCart(cartId, clientId)));
-    messageBus.publish(List.of(new AddProductItemToShoppingCart(cartId, shoes, 0L)));
+  private void addShoesToCart() {
+    eCommerce.shoppingCarts().addProductItem(new AddProductItemToShoppingCart(clientId, shoes));
     messages.reset();
   }
 
-  private void confirmCart() {
-    messageBus.publish(List.of(new ConfirmShoppingCart(cartId, 1L)));
+  private void checkOutCart() {
+    eCommerce.shoppingCarts().checkOut(new CheckOutShoppingCart(cartId, 0L));
   }
 
   private void configure(PaymentGateway paymentGateway, boolean inStock) {

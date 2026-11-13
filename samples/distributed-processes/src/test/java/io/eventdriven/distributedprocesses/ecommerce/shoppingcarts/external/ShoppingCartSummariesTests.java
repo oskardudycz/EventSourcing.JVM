@@ -19,9 +19,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class ShoppingCartSummariesTests {
   private static final double unitPrice = 12.5;
 
-  private final ShoppingCartId shoppingCartId = ShoppingCartId.of(UUID.randomUUID());
-  private final String streamId = ShoppingCartFacade.mapToStreamId(shoppingCartId);
   private final UUID clientId = UUID.randomUUID();
+  private final ShoppingCartId shoppingCartId = ShoppingCartId.of(clientId, 1);
+  private final String streamId = ShoppingCartFacade.mapToStreamId(shoppingCartId);
   private final ProductItem shoes = new ProductItem(UUID.randomUUID(), 2);
   private final ProductItem shirt = new ProductItem(UUID.randomUUID(), 3);
   private final PricedProductItem pricedShoes = new PricedProductItem(shoes, unitPrice);
@@ -32,22 +32,23 @@ public class ShoppingCartSummariesTests {
   private long nextPosition = 0;
 
   @Test
-  public void openingCartStoresEmptySummaryOfTheClient() {
-    publish(new ShoppingCartOpened(shoppingCartId, clientId));
+  public void theFirstProductStoresTheSummaryOfTheClient() {
+    publish(added(pricedShoes));
 
     var summary = summary();
 
     assertThat(summary.getClientId()).isEqualTo(clientId);
-    assertThat(summary.getProductItems()).isEmpty();
-    assertThat(summary.getTotalPrice()).isZero();
+    assertThat(summary.getProductItems())
+      .usingRecursiveComparison()
+      .isEqualTo(new PricedProductItem[]{pricedShoes});
+    assertThat(summary.getTotalPrice()).isEqualTo(25);
   }
 
   @Test
   public void addingProductItemsSumsTheirPrices() {
     publish(
-      new ShoppingCartOpened(shoppingCartId, clientId),
-      new ProductItemAddedToShoppingCart(shoppingCartId, pricedShoes),
-      new ProductItemAddedToShoppingCart(shoppingCartId, pricedShirt)
+      added(pricedShoes),
+      added(pricedShirt)
     );
 
     var summary = summary();
@@ -61,9 +62,8 @@ public class ShoppingCartSummariesTests {
   @Test
   public void addingTheSameProductTwiceMergesQuantities() {
     publish(
-      new ShoppingCartOpened(shoppingCartId, clientId),
-      new ProductItemAddedToShoppingCart(shoppingCartId, pricedShoes),
-      new ProductItemAddedToShoppingCart(shoppingCartId, pricedShoes)
+      added(pricedShoes),
+      added(pricedShoes)
     );
 
     var summary = summary();
@@ -77,10 +77,9 @@ public class ShoppingCartSummariesTests {
   @Test
   public void removingProductItemSubtractsItsPrice() {
     publish(
-      new ShoppingCartOpened(shoppingCartId, clientId),
-      new ProductItemAddedToShoppingCart(shoppingCartId, pricedShoes),
-      new ProductItemAddedToShoppingCart(shoppingCartId, pricedShirt),
-      new ProductItemRemovedFromShoppingCart(shoppingCartId, pricedShoes)
+      added(pricedShoes),
+      added(pricedShirt),
+      new ProductItemRemovedFromShoppingCart(shoppingCartId, pricedShoes, now)
     );
 
     var summary = summary();
@@ -92,11 +91,26 @@ public class ShoppingCartSummariesTests {
   }
 
   @Test
-  public void confirmingCartKeepsTheSummaryAndReachesItsPosition() {
+  public void aPriceChangeUpdatesTheLineAndTheTotal() {
     publish(
-      new ShoppingCartOpened(shoppingCartId, clientId),
-      new ProductItemAddedToShoppingCart(shoppingCartId, pricedShoes),
-      new ShoppingCartConfirmed(shoppingCartId, now)
+      added(pricedShoes),
+      added(pricedShirt),
+      new ProductItemPriceChanged(shoppingCartId, shoes.productId(), unitPrice, 15, now)
+    );
+
+    var summary = summary();
+
+    assertThat(summary.getProductItems())
+      .usingRecursiveComparison()
+      .isEqualTo(new PricedProductItem[]{new PricedProductItem(shoes, 15), pricedShirt});
+    assertThat(summary.getTotalPrice()).isEqualTo(67.5);
+  }
+
+  @Test
+  public void checkingOutKeepsTheSummaryAndReachesItsPosition() {
+    publish(
+      added(pricedShoes),
+      new ShoppingCartCheckedOut(shoppingCartId, now)
     );
 
     var summary = summary();
@@ -106,17 +120,14 @@ public class ShoppingCartSummariesTests {
       .usingRecursiveComparison()
       .isEqualTo(new PricedProductItem[]{pricedShoes});
     assertThat(summary.getTotalPrice()).isEqualTo(25);
-    assertThat(summary.getVersion()).isEqualTo(2);
+    assertThat(summary.getVersion()).isEqualTo(1);
   }
 
   @Test
   public void redeliveredEventIsAppliedOnlyOnce() {
-    publish(
-      new ShoppingCartOpened(shoppingCartId, clientId),
-      new ProductItemAddedToShoppingCart(shoppingCartId, pricedShoes)
-    );
+    publish(added(pricedShoes));
 
-    republishAt(1, new ProductItemAddedToShoppingCart(shoppingCartId, pricedShoes));
+    republishAt(0, added(pricedShoes));
 
     var summary = summary();
 
@@ -124,6 +135,10 @@ public class ShoppingCartSummariesTests {
       .usingRecursiveComparison()
       .isEqualTo(new PricedProductItem[]{pricedShoes});
     assertThat(summary.getTotalPrice()).isEqualTo(25);
+  }
+
+  private ProductItemAddedToShoppingCart added(PricedProductItem productItem) {
+    return new ProductItemAddedToShoppingCart(shoppingCartId, clientId, productItem, now);
   }
 
   private void publish(ShoppingCartEvent... events) {

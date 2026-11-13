@@ -11,7 +11,6 @@ import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.Produ
 import java.time.OffsetDateTime;
 import java.util.function.Supplier;
 
-import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
 public final class ShoppingCartsConfig {
@@ -30,14 +29,13 @@ public final class ShoppingCartsConfig {
       ShoppingCart::empty
     );
 
-    var facade = new ShoppingCartFacade(store, prices, now);
+    var clientShoppingCarts = new ClientShoppingCarts(new Database());
 
-    messageBus
-      .subscribe(OpenShoppingCart.class, facade::open)
-      .subscribe(AddProductItemToShoppingCart.class, facade::addProductItem)
-      .subscribe(RemoveProductItemFromShoppingCart.class, facade::removeProductItem)
-      .subscribe(ConfirmShoppingCart.class, facade::confirm)
-      .subscribe(CancelShoppingCart.class, facade::cancel);
+    for (var eventType : clientShoppingCarts.canHandle()) {
+      eventStore.subscribe(eventType, clientShoppingCarts::handle);
+    }
+
+    var facade = new ShoppingCartFacade(store, clientShoppingCarts, prices, now);
 
     var summaries = new ShoppingCartSummaries(new Database());
 
@@ -48,7 +46,7 @@ public final class ShoppingCartsConfig {
     var forwarder = new ShoppingCartExternalEventForwarder(summaries, messageBus);
 
     eventStore
-      .subscribe(ShoppingCartConfirmed.class, forwarder::onConfirmed);
+      .subscribe(ShoppingCartCheckedOut.class, forwarder::onCheckedOut);
 
     return facade;
   }

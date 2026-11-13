@@ -3,6 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public record ProductItems(
   List<PricedProductItem> items
@@ -31,6 +32,20 @@ public record ProductItems(
       clone.set(clone.indexOf(currentProductItem), currentProductItem.subtract(productItem));
 
     return new ProductItems(clone);
+  }
+
+  public ProductItems changeUnitPrice(UUID productId, double unitPrice) {
+    var clone = new ArrayList<>(items);
+
+    find(productId).ifPresent(current ->
+      clone.set(clone.indexOf(current), new PricedProductItem(current.productItem(), unitPrice))
+    );
+
+    return new ProductItems(clone);
+  }
+
+  public Optional<PricedProductItem> find(UUID productId) {
+    return items.stream().filter(pi -> pi.productId().equals(productId)).findAny();
   }
 
   Optional<PricedProductItem> find(PricedProductItem productItem) {

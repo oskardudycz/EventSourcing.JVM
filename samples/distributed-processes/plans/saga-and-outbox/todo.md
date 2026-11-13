@@ -8,6 +8,7 @@
 - [x] 3. Messaging: event store as outbox, one `MessageBus`
 - [x] 4. Payment settlement
 - [x] 5. Timeouts, fulfilment and paying again
+- [x] 6. The shopping cart from real shops
 
 Notes:
 - Step 1: `ShoppingCartTests` needs EventStoreDB: `docker compose up -d eventstore.db` (allowed by Oskar).
@@ -27,3 +28,7 @@ Notes:
 - Step 5 follow-up: the order is placed, not initialized: `PlaceOrder`, `OrderPlaced(placedAt)`, `Order.place`, `OrderFacade.placeOrder`. Older notes in this folder still use the old names. `Order` keeps only what its rules use; `cartId`, `clientId` and `productItems` are gone from its state.
 - Step 5: a payment hold that expires before shipping still cancels the order. After shipping, the client pays again, and the order is closed unpaid at the end of the retry period.
 - Step 5: `PendingPayments.olderThan` is strict (`isBefore`), while `AuthorizedPayments.expiredAt` and `OrdersAwaitingPayment.unpaidSinceBefore` include the exact instant.
+- Step 6: the price change during checkout is an accepted race, as in the shops: the price at the click is the price of the order (real-world-flow.md, section 7).
+- Step 6: there is no web API yet. Tests call `ShoppingCartFacade` directly, and the end-to-end transcripts no longer start with a cart command.
+- Step 6: `ShoppingCart` no longer exposes `clientId()`, `productItems()` or `totalPrice()`; tests assert the events.
+- Step 6 follow-up: `AggregateStore.getAndUpdate` without an expected version retries a version conflict up to 3 times, for every module, including `hotelmanagement/processmanager`. The cart facade has no retry loop of its own.

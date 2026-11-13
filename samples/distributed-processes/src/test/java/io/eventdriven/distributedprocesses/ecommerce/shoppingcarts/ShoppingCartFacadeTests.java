@@ -1,6 +1,5 @@
 package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts;
 
-import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
 import io.eventdriven.distributedprocesses.core.esdb.EventStore;
 import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
@@ -11,7 +10,10 @@ import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
+import java.util.ConcurrentModificationException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartCommand.*;
@@ -20,114 +22,156 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class ShoppingCartFacadeTests {
-  private static final double unitPrice = 12.5;
-
-  private final ShoppingCartId shoppingCartId = ShoppingCartId.of(UUID.randomUUID());
   private final UUID clientId = UUID.randomUUID();
+  private final ShoppingCartId firstCartId = ShoppingCartId.of(clientId, 1);
+  private final ShoppingCartId secondCartId = ShoppingCartId.of(clientId, 2);
   private final ProductItem shoes = new ProductItem(UUID.randomUUID(), 2);
   private final ProductItem shirt = new ProductItem(UUID.randomUUID(), 3);
-  private final PricedProductItem pricedShoes = new PricedProductItem(shoes, unitPrice);
-  private final PricedProductItem pricedShirt = new PricedProductItem(shirt, unitPrice);
-  private final ProductPriceCalculator prices = item -> new PricedProductItem(item, unitPrice);
+  private final Map<UUID, Double> unitPrices = new HashMap<>(Map.of(shoes.productId(), 12.5, shirt.productId(), 5.0));
   private final OffsetDateTime now = OffsetDateTime.now();
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
   private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher published = new MessageCatcher();
-
-  private final AggregateStore<ShoppingCart, ShoppingCartEvent, ShoppingCartId> store =
-    new AggregateStore<>(eventStore, ShoppingCartFacade::mapToStreamId, ShoppingCart::empty);
+  private Runnable beforePricing = () -> { };
+  private final ProductPriceCalculator prices = item -> {
+    var run = beforePricing;
+    beforePricing = () -> { };
+    run.run();
+    return new PricedProductItem(item, unitPrices.get(item.productId()));
+  };
+  private final ShoppingCartFacade shoppingCarts;
 
   public ShoppingCartFacadeTests() {
     eventStore.use(published::catchMessage);
-    ShoppingCartsConfig.configure(
-      eventStore, messageBus, prices, () -> now
-    );
+    shoppingCarts = ShoppingCartsConfig.configure(eventStore, messageBus, prices, () -> now);
   }
 
   @Test
-  public void openShoppingCartDispatchesAndStoresShoppingCartOpened() {
-    messageBus.publish(List.of(new OpenShoppingCart(shoppingCartId, clientId)));
-
-    var opened = new ShoppingCartOpened(shoppingCartId, clientId);
-
-    published.shouldReceiveMessages(opened);
-    assertThat(storedEvents()).usingRecursiveComparison().isEqualTo(List.of(opened));
-    assertThat(currentCart().clientId()).isEqualTo(clientId);
-  }
-
-  @Test
-  public void addProductItemDispatchesProductItemAddedAndPricesIt() {
-    messageBus.publish(List.of(new OpenShoppingCart(shoppingCartId, clientId)));
-    published.reset();
-
-    messageBus.publish(List.of(new AddProductItemToShoppingCart(shoppingCartId, shoes, 0L)));
-
-    published.shouldReceiveMessages(new ProductItemAddedToShoppingCart(shoppingCartId, pricedShoes));
-    assertThat(currentCart().productItems()).containsExactly(pricedShoes);
-    assertThat(currentCart().totalPrice()).isEqualTo(25);
-  }
-
-  @Test
-  public void removeProductItemDispatchesProductItemRemoved() {
-    openCartWithShoesAndShirt();
-    published.reset();
-
-    messageBus.publish(List.of(new RemoveProductItemFromShoppingCart(shoppingCartId, pricedShoes, 2L)));
+  public void theClientsFirstProductStartsTheirFirstCart() {
+    var eTag = shoppingCarts.addProductItem(new AddProductItemToShoppingCart(clientId, shoes));
 
     published.shouldReceiveMessages(
-      new ProductItemRemovedFromShoppingCart(shoppingCartId, pricedShoes)
+      new ProductItemAddedToShoppingCart(firstCartId, clientId, new PricedProductItem(shoes, 12.5), now)
     );
-    assertThat(currentCart().productItems()).containsExactly(pricedShirt);
+    assertThat(eTag.toLong()).isEqualTo(0);
   }
 
   @Test
-  public void confirmCartWithTwoProductItemsDispatchesShoppingCartConfirmed() {
-    openCartWithShoesAndShirt();
+  public void anotherProductGoesToTheCartThatIsStillOpen() {
+    shoppingCarts.addProductItem(new AddProductItemToShoppingCart(clientId, shoes));
     published.reset();
 
-    messageBus.publish(List.of(new ConfirmShoppingCart(shoppingCartId, 2L)));
+    var eTag = shoppingCarts.addProductItem(new AddProductItemToShoppingCart(clientId, shirt));
 
-    published.shouldReceiveMessages(new ShoppingCartConfirmed(shoppingCartId, now));
-    assertThat(currentCart().productItems()).containsExactly(pricedShoes, pricedShirt);
-    assertThat(currentCart().totalPrice()).isEqualTo(62.5);
+    published.shouldReceiveMessages(
+      new ProductItemAddedToShoppingCart(firstCartId, clientId, new PricedProductItem(shirt, 5), now)
+    );
+    assertThat(eTag.toLong()).isEqualTo(1);
   }
 
   @Test
-  public void cancelCartDispatchesShoppingCartCanceled() {
-    messageBus.publish(List.of(new OpenShoppingCart(shoppingCartId, clientId)));
+  public void aProductAddedAfterCheckoutStartsTheNextCart() {
+    shoppingCarts.addProductItem(new AddProductItemToShoppingCart(clientId, shoes));
+    shoppingCarts.checkOut(new CheckOutShoppingCart(firstCartId, 0L));
     published.reset();
 
-    messageBus.publish(List.of(new CancelShoppingCart(shoppingCartId, 0L)));
+    shoppingCarts.addProductItem(new AddProductItemToShoppingCart(clientId, shirt));
 
-    published.shouldReceiveMessages(new ShoppingCartCanceled(shoppingCartId, now));
+    published.shouldReceiveMessages(
+      new ProductItemAddedToShoppingCart(secondCartId, clientId, new PricedProductItem(shirt, 5), now)
+    );
+  }
+
+  @Test
+  public void twoRequestsStartingTheSameCartEndUpInOneCart() {
+    beforePricing = () -> shoppingCarts.addProductItem(new AddProductItemToShoppingCart(clientId, shirt));
+
+    shoppingCarts.addProductItem(new AddProductItemToShoppingCart(clientId, shoes));
+
+    assertThat(storedEvents(firstCartId)).usingRecursiveComparison().isEqualTo(List.of(
+      new ProductItemAddedToShoppingCart(firstCartId, clientId, new PricedProductItem(shirt, 5), now),
+      new ProductItemAddedToShoppingCart(firstCartId, clientId, new PricedProductItem(shoes, 12.5), now)
+    ));
+    assertThat(storedEvents(secondCartId)).isEmpty();
+  }
+
+  @Test
+  public void removeProductItemRecordsItAtTheCartsPrice() {
+    shoppingCarts.addProductItem(new AddProductItemToShoppingCart(clientId, shoes));
+    unitPrices.put(shoes.productId(), 20.0);
+    published.reset();
+
+    var oneShoe = new ProductItem(shoes.productId(), 1);
+    var eTag = shoppingCarts.removeProductItem(new RemoveProductItemFromShoppingCart(firstCartId, oneShoe, 0L));
+
+    published.shouldReceiveMessages(
+      new ProductItemRemovedFromShoppingCart(firstCartId, new PricedProductItem(oneShoe, 12.5), now)
+    );
+    assertThat(eTag.toLong()).isEqualTo(1);
+  }
+
+  @Test
+  public void checkOutWithUnchangedPricesChecksTheCartOut() {
+    addShoesAndShirt();
+
+    var eTag = shoppingCarts.checkOut(new CheckOutShoppingCart(firstCartId, 1L));
+
+    published.shouldReceiveMessages(new ShoppingCartCheckedOut(firstCartId, now));
+    assertThat(eTag.toLong()).isEqualTo(2);
+  }
+
+  @Test
+  public void checkOutAfterAPriceChangeRecordsTheChangeAndTheClientChecksOutAgainWithTheNewVersion() {
+    addShoesAndShirt();
+    unitPrices.put(shoes.productId(), 15.0);
+
+    var afterPriceChange = shoppingCarts.checkOut(new CheckOutShoppingCart(firstCartId, 1L));
+
+    published.shouldReceiveMessages(new ProductItemPriceChanged(firstCartId, shoes.productId(), 12.5, 15, now));
+    assertThat(afterPriceChange.toLong()).isEqualTo(2);
+    published.reset();
+
+    assertThatThrownBy(() -> shoppingCarts.checkOut(new CheckOutShoppingCart(firstCartId, 1L)))
+      .isInstanceOf(ConcurrentModificationException.class);
+    published.shouldNotReceiveAnyEvent();
+
+    shoppingCarts.checkOut(new CheckOutShoppingCart(firstCartId, afterPriceChange.toLong()));
+
+    published.shouldReceiveMessages(new ShoppingCartCheckedOut(firstCartId, now));
   }
 
   @Test
   public void commandWithStaleExpectedVersionFailsInsteadOfAppending() {
-    openCartWithShoesAndShirt();
-    published.reset();
+    addShoesAndShirt();
 
-    assertThatThrownBy(() -> messageBus.publish(List.of(new ConfirmShoppingCart(shoppingCartId, 0L))))
-      .isInstanceOf(IllegalStateException.class);
+    assertThatThrownBy(() -> shoppingCarts.checkOut(new CheckOutShoppingCart(firstCartId, 0L)))
+      .isInstanceOf(ConcurrentModificationException.class);
 
     published.shouldNotReceiveAnyEvent();
-    assertThat(storedEvents()).hasSize(3);
+    assertThat(storedEvents(firstCartId)).hasSize(2);
   }
 
-  private void openCartWithShoesAndShirt() {
-    messageBus.publish(List.of(
-      new OpenShoppingCart(shoppingCartId, clientId),
-      new AddProductItemToShoppingCart(shoppingCartId, shoes, 0L),
-      new AddProductItemToShoppingCart(shoppingCartId, shirt, 1L)
-    ));
+  @Test
+  public void clientCommandsAreNotTakenFromTheMessageBus() {
+    messageBus.publish(List.of(new AddProductItemToShoppingCart(clientId, shoes)));
+
+    published.shouldNotReceiveAnyEvent();
   }
 
-  private ShoppingCart currentCart() {
-    return store.get(shoppingCartId).orElseThrow();
+  @Test
+  public void mapsIdToItsOwnStream() {
+    assertThat(ShoppingCartFacade.mapToStreamId(firstCartId))
+      .isEqualTo("ShoppingCart-%s-1".formatted(clientId));
   }
 
-  private List<Object> storedEvents() {
+  private void addShoesAndShirt() {
+    shoppingCarts.addProductItem(new AddProductItemToShoppingCart(clientId, shoes));
+    shoppingCarts.addProductItem(new AddProductItemToShoppingCart(clientId, shirt));
+    published.reset();
+  }
+
+  private List<Object> storedEvents(ShoppingCartId shoppingCartId) {
     return switch (eventStore.read(ShoppingCartFacade.mapToStreamId(shoppingCartId))) {
       case EventStore.ReadResult.Success success -> List.of(success.events());
       default -> List.of();

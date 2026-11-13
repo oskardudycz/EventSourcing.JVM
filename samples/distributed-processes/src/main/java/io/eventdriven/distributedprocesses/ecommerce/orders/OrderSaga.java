@@ -24,7 +24,7 @@ public class OrderSaga {
   }
 
   // Hold phase
-  public void on(ShoppingCartExternalEvent.ShoppingCartFinalized event) {
+  public void on(ShoppingCartExternalEvent.ShoppingCartCheckedOut event) {
     messageBus.publish(List.of(
       new PlaceOrder(
         OrderId.derivedFrom(event.cartId().value()),
@@ -127,7 +127,7 @@ public class OrderSaga {
     messageBus.publish(compensations);
   }
 
-  private static PricedProductItem[] toOrderItems(ShoppingCartExternalEvent.ShoppingCartFinalized event) {
+  private static PricedProductItem[] toOrderItems(ShoppingCartExternalEvent.ShoppingCartCheckedOut event) {
     return Arrays.stream(event.productItems())
       .map(pi -> new PricedProductItem(pi.productId(), pi.quantity(), pi.unitPrice()))
       .toArray(PricedProductItem[]::new);
