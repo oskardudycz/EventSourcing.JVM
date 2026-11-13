@@ -19,11 +19,14 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
   private final OffsetDateTime expiresAt = now.plusDays(7);
 
   private final PaymentAuthorizationRequested authorizationRequested =
-    new PaymentAuthorizationRequested(paymentId, referenceId, amount);
+    new PaymentAuthorizationRequested(paymentId, referenceId, amount, now);
   private final PaymentAuthorized authorized = new PaymentAuthorized(paymentId, now, expiresAt);
+  private final PaymentCaptureRequested captureRequested =
+    new PaymentCaptureRequested(paymentId, amount, now);
   private final PaymentCaptured captured = new PaymentCaptured(paymentId, amount, now);
+  private final PaymentCaptureFailed captureFailed =
+    new PaymentCaptureFailed(paymentId, CaptureFailureReason.UnexpectedError, now);
   private final PaymentVoided voided = new PaymentVoided(paymentId, now);
-  private final PaymentRefunded refunded = new PaymentRefunded(paymentId, now);
   private final PaymentDeclined declined =
     new PaymentDeclined(paymentId, DeclineReason.UnexpectedError, now);
   private final PaymentTimedOut timedOut = new PaymentTimedOut(paymentId, now);
@@ -32,9 +35,11 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
 
   private final Consumer<Payment> confirmAuthorization =
     current -> current.confirmAuthorization(now, expiresAt);
-  private final Consumer<Payment> capture = current -> current.capture(now);
+  private final Consumer<Payment> requestCapture = current -> current.requestCapture(now);
+  private final Consumer<Payment> confirmCapture = current -> current.confirmCapture(now);
+  private final Consumer<Payment> failCapture =
+    current -> current.failCapture(CaptureFailureReason.UnexpectedError, now);
   private final Consumer<Payment> voidAuthorization = current -> current.voidAuthorization(now);
-  private final Consumer<Payment> refund = current -> current.refund(now);
   private final Consumer<Payment> decline =
     current -> current.decline(DeclineReason.UnexpectedError, now);
   private final Consumer<Payment> timeOut = current -> current.timeOut(now);
@@ -49,7 +54,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
     // Given
     given()
       // When
-      .when(current -> current.requestAuthorization(paymentId, referenceId, amount))
+      .when(current -> current.requestAuthorization(paymentId, referenceId, amount, now))
       // Then
       .then(authorizationRequested);
   }
@@ -59,7 +64,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
     // Given
     given(authorizationRequested)
       // When
-      .when(current -> current.requestAuthorization(paymentId, referenceId, amount))
+      .when(current -> current.requestAuthorization(paymentId, referenceId, amount, now))
       // Then
       .thenNothing();
   }
@@ -75,21 +80,101 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
   }
 
   @Test
-  public void capturingAnAuthorizedPaymentEmitsPaymentCapturedForTheAuthorizedAmount() {
+  public void requestingCaptureOfAnAuthorizedPaymentEmitsPaymentCaptureRequestedForTheAuthorizedAmount() {
     // Given
     given(authorizationRequested, authorized)
       // When
-      .when(capture)
+      .when(requestCapture)
+      // Then
+      .then(captureRequested);
+  }
+
+  @Test
+  public void requestingCaptureOfAPaymentThatWasNeverAuthorizedEmitsNothing() {
+    // Given
+    given(authorizationRequested)
+      // When
+      .when(requestCapture)
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void requestingCaptureTwiceEmitsNothing() {
+    // Given
+    given(authorizationRequested, authorized, captureRequested)
+      // When
+      .when(requestCapture)
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void confirmingARequestedCaptureEmitsPaymentCapturedForTheAuthorizedAmount() {
+    // Given
+    given(authorizationRequested, authorized, captureRequested)
+      // When
+      .when(confirmCapture)
       // Then
       .then(captured);
   }
 
   @Test
-  public void capturingAPaymentThatWasNeverAuthorizedEmitsNothing() {
+  public void confirmingACaptureThatWasNeverRequestedEmitsNothing() {
     // Given
-    given(authorizationRequested)
+    given(authorizationRequested, authorized)
       // When
-      .when(capture)
+      .when(confirmCapture)
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void confirmingACapturedPaymentEmitsNothing() {
+    // Given
+    given(authorizationRequested, authorized, captureRequested, captured)
+      // When
+      .when(confirmCapture)
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void confirmingAFailedCaptureEmitsNothing() {
+    // Given
+    given(authorizationRequested, authorized, captureRequested, captureFailed)
+      // When
+      .when(confirmCapture)
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void failingARequestedCaptureEmitsPaymentCaptureFailedWithTheReason() {
+    // Given
+    given(authorizationRequested, authorized, captureRequested)
+      // When
+      .when(failCapture)
+      // Then
+      .then(captureFailed);
+  }
+
+  @Test
+  public void failingACaptureThatWasNeverRequestedEmitsNothing() {
+    // Given
+    given(authorizationRequested, authorized)
+      // When
+      .when(failCapture)
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void failingACapturedPaymentEmitsNothing() {
+    // Given
+    given(authorizationRequested, authorized, captureRequested, captured)
+      // When
+      .when(failCapture)
       // Then
       .thenNothing();
   }
@@ -105,9 +190,9 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
   }
 
   @Test
-  public void voidingACapturedPaymentEmitsNothingBecauseTheMoneyAlreadyMoved() {
+  public void voidingAPaymentWithARequestedCaptureEmitsNothingBecauseTheMoneyIsAlreadyMoving() {
     // Given
-    given(authorizationRequested, authorized, captured)
+    given(authorizationRequested, authorized, captureRequested)
       // When
       .when(voidAuthorization)
       // Then
@@ -115,31 +200,11 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
   }
 
   @Test
-  public void refundingACapturedPaymentEmitsPaymentRefunded() {
+  public void voidingACapturedPaymentEmitsNothingBecauseTheMoneyAlreadyMoved() {
     // Given
-    given(authorizationRequested, authorized, captured)
+    given(authorizationRequested, authorized, captureRequested, captured)
       // When
-      .when(refund)
-      // Then
-      .then(refunded);
-  }
-
-  @Test
-  public void refundingAnAuthorizedPaymentEmitsNothingBecauseNoMoneyMoved() {
-    // Given
-    given(authorizationRequested, authorized)
-      // When
-      .when(refund)
-      // Then
-      .thenNothing();
-  }
-
-  @Test
-  public void refundingARefundedPaymentEmitsNothing() {
-    // Given
-    given(authorizationRequested, authorized, captured, refunded)
-      // When
-      .when(refund)
+      .when(voidAuthorization)
       // Then
       .thenNothing();
   }
@@ -185,9 +250,9 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
   }
 
   @Test
-  public void expiringACapturedPaymentEmitsNothing() {
+  public void expiringAPaymentWithARequestedCaptureEmitsNothing() {
     // Given
-    given(authorizationRequested, authorized, captured)
+    given(authorizationRequested, authorized, captureRequested)
       // When
       .when(expireAuthorization)
       // Then
@@ -240,21 +305,21 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
   }
 
   @Test
-  public void capturingAVoidedPaymentEmitsNothing() {
+  public void requestingCaptureOfAVoidedPaymentEmitsNothing() {
     // Given
     given(authorizationRequested, authorized, voided)
       // When
-      .when(capture)
+      .when(requestCapture)
       // Then
       .thenNothing();
   }
 
   @Test
-  public void capturingAnExpiredAuthorizationEmitsNothing() {
+  public void requestingCaptureOfAnExpiredAuthorizationEmitsNothing() {
     // Given
     given(authorizationRequested, authorized, authorizationExpired)
       // When
-      .when(capture)
+      .when(requestCapture)
       // Then
       .thenNothing();
   }

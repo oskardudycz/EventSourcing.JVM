@@ -7,7 +7,7 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
-import io.eventdriven.distributedprocesses.ecommerce.shipments.delivery.DeliveryProvider;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.FulfillmentService;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
 
@@ -27,16 +27,16 @@ public final class ECommerceConfig {
     PaymentGateway paymentGateway,
     Duration paymentTimeout,
     Duration authorizationValidity,
-    DeliveryProvider deliveryProvider,
+    Duration paymentRetryPeriod,
+    FulfillmentService fulfillmentService,
     Function<ProductItem, Boolean> isProductAvailable,
-    Duration reservationValidity,
     Supplier<OffsetDateTime> now
   ) {
     var shoppingCarts = ShoppingCartsConfig.configure(
       eventStore, messageBus, prices, now
     );
     var orders = OrdersConfig.configure(
-      eventStore, messageBus, now
+      eventStore, messageBus, paymentRetryPeriod, now
     );
     var payments = PaymentsConfig.configure(
       eventStore, messageBus,
@@ -44,7 +44,7 @@ public final class ECommerceConfig {
     );
     var shipments = ShipmentsConfig.configure(
       eventStore, messageBus,
-      deliveryProvider, isProductAvailable, reservationValidity, now
+      fulfillmentService, isProductAvailable, now
     );
 
     OrdersConfig.configureProcess(eventStore, messageBus);

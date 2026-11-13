@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 
 public sealed interface PaymentCommand {
   record AuthorizePayment(
+    PaymentId paymentId,
     String referenceId,
     double amount) implements PaymentCommand {
   }
@@ -18,12 +19,18 @@ public sealed interface PaymentCommand {
   ) implements PaymentCommand {
   }
 
-  record VoidPayment(
+  record ConfirmPaymentCapture(
     PaymentId paymentId
   ) implements PaymentCommand {
   }
 
-  record RefundPayment(
+  record FailPaymentCapture(
+    PaymentId paymentId,
+    CaptureFailureReason reason
+  ) implements PaymentCommand {
+  }
+
+  record VoidPayment(
     PaymentId paymentId
   ) implements PaymentCommand {
   }

@@ -41,12 +41,9 @@ public final class ShoppingCartsConfig {
 
     var summaries = new ShoppingCartSummaries(new Database());
 
-    eventStore
-      .subscribe(ShoppingCartOpened.class, summaries::onOpened)
-      .subscribe(ProductItemAddedToShoppingCart.class, summaries::onProductItemAdded)
-      .subscribe(ProductItemRemovedFromShoppingCart.class, summaries::onProductItemRemoved)
-      .subscribe(ShoppingCartConfirmed.class, summaries::onConfirmed)
-      .subscribe(ShoppingCartCanceled.class, summaries::onCanceled);
+    for (var eventType : summaries.canHandle()) {
+      eventStore.subscribe(eventType, summaries::handle);
+    }
 
     var forwarder = new ShoppingCartExternalEventForwarder(summaries, messageBus);
 

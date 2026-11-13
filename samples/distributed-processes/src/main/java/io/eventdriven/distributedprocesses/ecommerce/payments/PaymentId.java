@@ -23,6 +23,13 @@ public record PaymentId(@JsonValue String value) implements EntityId {
     return new PaymentId(Urns.derive(sourceUrn, type));
   }
 
+  public static PaymentId derivedFrom(String sourceUrn, int attempt) {
+    if (attempt == 1)
+      return derivedFrom(sourceUrn);
+
+    return new PaymentId(Urns.of(Urns.namespaceOf(sourceUrn), type, "%s-%d".formatted(Urns.tailOf(sourceUrn), attempt)));
+  }
+
   @Override
   public String toString() {
     return value;

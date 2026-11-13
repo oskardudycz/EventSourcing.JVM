@@ -7,8 +7,7 @@ public sealed interface ShipmentEvent {
     ShipmentId shipmentId,
     String referenceId,
     ProductItem[] productItems,
-    OffsetDateTime reservedAt,
-    OffsetDateTime reservedUntil) implements ShipmentEvent {
+    OffsetDateTime reservedAt) implements ShipmentEvent {
   }
 
   record ProductWasOutOfStock(
@@ -18,17 +17,22 @@ public sealed interface ShipmentEvent {
     OffsetDateTime availabilityCheckedAt) implements ShipmentEvent {
   }
 
-  record ParcelBookingRequested(
+  record FulfillmentRequested(
     ShipmentId shipmentId,
     String referenceId,
     ProductItem[] productItems,
     OffsetDateTime requestedAt) implements ShipmentEvent {
   }
 
+  record FulfillmentRejected(
+    ShipmentId shipmentId,
+    String referenceId,
+    OffsetDateTime rejectedAt) implements ShipmentEvent {
+  }
+
   record PackageWasSent(
     ShipmentId shipmentId,
     String referenceId,
-    ProductItem[] productItems,
     String carrier,
     String trackingNumber,
     OffsetDateTime sentAt) implements ShipmentEvent {
@@ -44,11 +48,5 @@ public sealed interface ShipmentEvent {
     ShipmentId shipmentId,
     String referenceId,
     OffsetDateTime releasedAt) implements ShipmentEvent {
-  }
-
-  record StockReservationExpired(
-    ShipmentId shipmentId,
-    String referenceId,
-    OffsetDateTime expiredAt) implements ShipmentEvent {
   }
 }

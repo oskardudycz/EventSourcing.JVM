@@ -3,6 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce.orders;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand;
@@ -25,7 +26,7 @@ public class OrderSaga {
   // Hold phase
   public void on(ShoppingCartExternalEvent.ShoppingCartFinalized event) {
     messageBus.publish(List.of(
-      new InitializeOrder(
+      new PlaceOrder(
         OrderId.derivedFrom(event.cartId().value()),
         event.cartId(),
         event.clientId(),
@@ -35,10 +36,10 @@ public class OrderSaga {
     ));
   }
 
-  public void on(OrderEvent.OrderInitialized event) {
+  public void on(OrderEvent.OrderPlaced event) {
     var referenceId = event.orderId().value();
     messageBus.publish(List.of(
-      new PaymentCommand.AuthorizePayment(referenceId, event.totalPrice()),
+      new PaymentCommand.AuthorizePayment(PaymentId.derivedFrom(referenceId), referenceId, event.totalPrice()),
       new ShipmentCommand.ReserveStock(referenceId, toShipmentItems(event.productItems()))
     ));
   }
@@ -65,7 +66,7 @@ public class OrderSaga {
 
   // Commit phase
   public void on(OrderEvent.OrderConfirmed event) {
-    messageBus.publish(List.of(new ShipmentCommand.SendPackage(event.shipmentId())));
+    messageBus.publish(List.of(new ShipmentCommand.RequestFulfillment(event.shipmentId())));
   }
 
   public void on(ShipmentExternalEvent.PackageWasSent event) {
@@ -80,19 +81,13 @@ public class OrderSaga {
   }
 
   // The shipment does not know the payment. The order does, and names it here.
-  public void on(OrderEvent.OrderPackageSent event) {
+  public void on(OrderEvent.OrderPaymentDue event) {
     messageBus.publish(List.of(new PaymentCommand.CapturePayment(event.paymentId())));
   }
 
   public void on(PaymentExternalEvent.PaymentCaptured event) {
     messageBus.publish(List.of(
       new RecordOrderPaymentCapture(new OrderId(event.referenceId()), event.capturedAt())
-    ));
-  }
-
-  public void on(ShipmentExternalEvent.PackageWasDelivered event) {
-    messageBus.publish(List.of(
-      new RecordOrderDelivery(new OrderId(event.referenceId()), event.deliveredAt())
     ));
   }
 
@@ -103,9 +98,21 @@ public class OrderSaga {
     ));
   }
 
-  public void on(ShipmentExternalEvent.StockReservationFailed event) {
+  public void on(ShipmentExternalEvent.ShipmentFailed event) {
+    var reason = switch (event.reason()) {
+      case ProductsOutOfStock -> OrderCancellationReason.ProductWasOutOfStock;
+      case FulfillmentRejected -> OrderCancellationReason.CouldNotShip;
+    };
+
     messageBus.publish(List.of(
-      new RecordOrderShipmentFailure(new OrderId(event.referenceId()), event.failedAt())
+      new RecordOrderShipmentFailure(new OrderId(event.referenceId()), reason, event.failedAt())
+    ));
+  }
+
+  // Paying again
+  public void on(OrderEvent.OrderPaymentRetried event) {
+    messageBus.publish(List.of(
+      new PaymentCommand.AuthorizePayment(event.paymentId(), event.orderId().value(), event.amount())
     ));
   }
 

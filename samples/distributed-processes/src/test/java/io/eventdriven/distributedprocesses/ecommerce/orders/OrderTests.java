@@ -29,10 +29,12 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   private final OffsetDateTime reservedAt = now.plusMinutes(2);
   private final OffsetDateTime sentAt = now.plusMinutes(3);
   private final OffsetDateTime capturedAt = now.plusMinutes(4);
-  private final OffsetDateTime deliveredAt = now.plusMinutes(5);
+  private final OffsetDateTime retriedAt = now.plusMinutes(5);
+  private final OffsetDateTime closedAt = now.plusDays(14);
+  private final PaymentId retriedPaymentId = PaymentId.derivedFrom(orderId.value(), 2);
 
-  private final OrderInitialized initialized =
-    new OrderInitialized(orderId, cartId, clientId, productItems, totalPrice, now);
+  private final OrderPlaced placed =
+    new OrderPlaced(orderId, cartId, clientId, productItems, totalPrice, now);
   private final OrderPaymentAuthorized paymentAuthorized =
     new OrderPaymentAuthorized(orderId, paymentId, authorizedAt);
   private final OrderStockReserved stockReserved =
@@ -42,32 +44,36 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   private final OrderPaymentCaptured paymentCaptured =
     new OrderPaymentCaptured(orderId, paymentId, totalPrice, capturedAt);
   private final OrderPackageSent packageSent =
-    new OrderPackageSent(orderId, paymentId, shipmentId, carrier, trackingNumber, sentAt);
-  private final OrderShipmentDelivered delivered =
-    new OrderShipmentDelivered(orderId, shipmentId, deliveredAt);
+    new OrderPackageSent(orderId, carrier, trackingNumber, sentAt);
+  private final OrderPaymentDue paymentDue =
+    new OrderPaymentDue(orderId, paymentId, sentAt);
+  private final OrderPaymentFailed latePaymentFailure =
+    new OrderPaymentFailed(orderId, capturedAt);
+  private final OrderPaymentRetried paymentRetried =
+    new OrderPaymentRetried(orderId, retriedPaymentId, totalPrice, retriedAt);
 
   protected OrderTests() {
     super(Order::empty);
   }
 
   @Test
-  public void initializingEmitsOrderInitializedCarryingTheCartItCameFrom() {
+  public void placingEmitsOrderPlacedCarryingTheCartItCameFrom() {
     // Given
     given()
       // When
-      .when(current -> current.initialize(
+      .when(current -> current.place(
         orderId, cartId, clientId, productItems, totalPrice, now
       ))
       // Then
-      .then(initialized);
+      .then(placed);
   }
 
   @Test
-  public void initializingAnInitializedOrderEmitsNothing() {
+  public void placingAPlacedOrderEmitsNothing() {
     // Given
-    given(initialized)
+    given(placed)
       // When
-      .when(current -> current.initialize(
+      .when(current -> current.place(
         orderId, cartId, clientId, productItems, totalPrice, now
       ))
       // Then
@@ -79,7 +85,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   @Test
   public void theFirstHoldOnItsOwnDoesNotConfirmTheOrder() {
     // Given
-    given(initialized)
+    given(placed)
       // When
       .when(current -> current.recordPaymentAuthorization(paymentId, authorizedAt))
       // Then
@@ -89,7 +95,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   @Test
   public void theStockReservationArrivingLastConfirmsTheOrder() {
     // Given
-    given(initialized, paymentAuthorized)
+    given(placed, paymentAuthorized)
       // When
       .when(current -> current.recordStockReservation(shipmentId, reservedAt))
       // Then
@@ -99,7 +105,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   @Test
   public void theAuthorizationArrivingLastConfirmsTheOrderJustTheSame() {
     // Given
-    given(initialized, stockReserved)
+    given(placed, stockReserved)
       // When
       .when(current -> current.recordPaymentAuthorization(paymentId, authorizedAt))
       // Then
@@ -109,7 +115,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   @Test
   public void recordingTheSameAuthorizationTwiceEmitsNothing() {
     // Given
-    given(initialized, paymentAuthorized)
+    given(placed, paymentAuthorized)
       // When
       .when(current -> current.recordPaymentAuthorization(paymentId, authorizedAt))
       // Then
@@ -119,7 +125,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   @Test
   public void recordingTheSameReservationTwiceEmitsNothing() {
     // Given
-    given(initialized, stockReserved)
+    given(placed, stockReserved)
       // When
       .when(current -> current.recordStockReservation(shipmentId, reservedAt))
       // Then
@@ -129,19 +135,19 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   // The commit phase
 
   @Test
-  public void recordingTheDispatchOfAConfirmedOrderEmitsOrderPackageSentNamingThePaymentToCapture() {
+  public void recordingTheDispatchOfAConfirmedOrderMakesThePaymentDue() {
     // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed)
+    given(placed, paymentAuthorized, stockReserved, confirmed)
       // When
       .when(current -> current.recordPackageSent(carrier, trackingNumber, sentAt))
       // Then
-      .then(packageSent);
+      .then(packageSent, paymentDue);
   }
 
   @Test
   public void recordingADispatchBeforeTheOrderIsConfirmedEmitsNothing() {
     // Given
-    given(initialized, paymentAuthorized)
+    given(placed, paymentAuthorized)
       // When
       .when(current -> current.recordPackageSent(carrier, trackingNumber, sentAt))
       // Then
@@ -151,7 +157,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   @Test
   public void recordingTheSameDispatchTwiceEmitsNothing() {
     // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent)
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent)
       // When
       .when(current -> current.recordPackageSent(carrier, trackingNumber, sentAt))
       // Then
@@ -159,19 +165,19 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   }
 
   @Test
-  public void recordingTheCaptureAfterTheDispatchEmitsOrderPaymentCaptured() {
+  public void theCaptureAfterTheDispatchCompletesTheOrder() {
     // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent)
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue)
       // When
       .when(current -> current.recordPaymentCapture(capturedAt))
       // Then
-      .then(paymentCaptured);
+      .then(paymentCaptured, new OrderCompleted(orderId, capturedAt));
   }
 
   @Test
   public void recordingACaptureBeforeTheDispatchEmitsNothing() {
     // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed)
+    given(placed, paymentAuthorized, stockReserved, confirmed)
       // When
       .when(current -> current.recordPaymentCapture(capturedAt))
       // Then
@@ -181,62 +187,23 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   @Test
   public void recordingACaptureBeforeTheOrderIsConfirmedEmitsNothing() {
     // Given
-    given(initialized, paymentAuthorized)
+    given(placed, paymentAuthorized)
       // When
       .when(current -> current.recordPaymentCapture(capturedAt))
       // Then
       .thenNothing();
   }
 
-  @Test
-  public void theDeliveryCompletesACapturedOrder() {
-    // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent, paymentCaptured)
-      // When
-      .when(current -> current.recordDelivery(deliveredAt))
-      // Then
-      .then(delivered, new OrderCompleted(orderId, deliveredAt));
-  }
 
-  @Test
-  public void theCaptureArrivingAfterTheDeliveryCompletesTheOrderJustTheSame() {
-    // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent, delivered)
-      // When
-      .when(current -> current.recordPaymentCapture(capturedAt))
-      // Then
-      .then(paymentCaptured, new OrderCompleted(orderId, capturedAt));
-  }
 
-  @Test
-  public void aDeliveryBeforeTheCaptureDoesNotCompleteTheOrder() {
-    // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent)
-      // When
-      .when(current -> current.recordDelivery(deliveredAt))
-      // Then
-      .then(delivered);
-  }
 
-  @Test
-  public void recordingADeliveryTwiceEmitsNothing() {
-    // Given
-    given(
-      initialized, paymentAuthorized, stockReserved, confirmed, packageSent, paymentCaptured,
-      delivered, new OrderCompleted(orderId, deliveredAt)
-    )
-      // When
-      .when(current -> current.recordDelivery(deliveredAt))
-      // Then
-      .thenNothing();
-  }
 
   // Compensation — the order waits for the other participant, then says what must be undone
 
   @Test
   public void aFailedPaymentWaitsForTheShipmentBeforeItCancels() {
     // Given
-    given(initialized)
+    given(placed)
       // When
       .when(current -> current.recordPaymentFailure(authorizedAt))
       // Then
@@ -246,7 +213,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   @Test
   public void aFailedPaymentWithStockAlreadyReservedCancelsAndAsksForThatStockBack() {
     // Given
-    given(initialized, stockReserved)
+    given(placed, stockReserved)
       // When
       .when(current -> current.recordPaymentFailure(authorizedAt))
       // Then
@@ -267,12 +234,12 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   @Test
   public void anOutOfStockShipmentWithTheCardAlreadyAuthorizedCancelsAndVoidsThatHold() {
     // Given
-    given(initialized, paymentAuthorized)
+    given(placed, paymentAuthorized)
       // When
-      .when(current -> current.recordShipmentFailure(reservedAt))
+      .when(current -> current.recordShipmentFailure(OrderCancellationReason.ProductWasOutOfStock, reservedAt))
       // Then
       .then(
-        new OrderShipmentFailed(orderId, reservedAt),
+        new OrderShipmentFailed(orderId, OrderCancellationReason.ProductWasOutOfStock, reservedAt),
         new OrderCancelled(
           orderId,
           paymentId,
@@ -285,36 +252,16 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
       );
   }
 
-  @Test
-  public void anExpiredReservationCancelsAConfirmedOrderAndVoidsTheHold() {
-    // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed)
-      // When
-      .when(current -> current.recordShipmentFailure(sentAt))
-      // Then
-      .then(
-        new OrderShipmentFailed(orderId, sentAt),
-        new OrderCancelled(
-          orderId,
-          paymentId,
-          OrderPaymentStatus.Authorized,
-          shipmentId,
-          OrderShipmentStatus.NotReserved,
-          OrderCancellationReason.ProductWasOutOfStock,
-          sentAt
-        )
-      );
-  }
 
   @Test
   public void bothParticipantsFailingCancelsTheOrderOnce() {
     // Given
-    given(initialized, new OrderPaymentFailed(orderId, authorizedAt))
+    given(placed, new OrderPaymentFailed(orderId, authorizedAt))
       // When
-      .when(current -> current.recordShipmentFailure(reservedAt))
+      .when(current -> current.recordShipmentFailure(OrderCancellationReason.ProductWasOutOfStock, reservedAt))
       // Then
       .then(
-        new OrderShipmentFailed(orderId, reservedAt),
+        new OrderShipmentFailed(orderId, OrderCancellationReason.ProductWasOutOfStock, reservedAt),
         new OrderCancelled(
           orderId,
           null,
@@ -330,9 +277,9 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   @Test
   public void aShipmentFailureAfterTheParcelLeftEmitsNothing() {
     // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent)
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent)
       // When
-      .when(current -> current.recordShipmentFailure(sentAt))
+      .when(current -> current.recordShipmentFailure(OrderCancellationReason.ProductWasOutOfStock, sentAt))
       // Then
       .thenNothing();
   }
@@ -340,32 +287,20 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   @Test
   public void aPaymentFailureAfterTheParcelLeftIsRecordedButDoesNotCancelTheOrder() {
     // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent)
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent)
       // When
       .when(current -> current.recordPaymentFailure(capturedAt))
       // Then
       .then(new OrderPaymentFailed(orderId, capturedAt));
   }
 
-  @Test
-  public void aDeliveryAfterALatePaymentFailureDoesNotCompleteTheOrder() {
-    // Given
-    given(
-      initialized, paymentAuthorized, stockReserved, confirmed, packageSent,
-      new OrderPaymentFailed(orderId, capturedAt)
-    )
-      // When
-      .when(current -> current.recordDelivery(deliveredAt))
-      // Then
-      .then(delivered);
-  }
 
   @Test
   public void aCaptureAfterALatePaymentFailureEmitsNothing() {
     // Given
     given(
-      initialized, paymentAuthorized, stockReserved, confirmed, packageSent,
-      new OrderPaymentFailed(orderId, capturedAt)
+      placed, paymentAuthorized, stockReserved, confirmed, packageSent,
+      latePaymentFailure
     )
       // When
       .when(current -> current.recordPaymentCapture(capturedAt))
@@ -376,7 +311,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   @Test
   public void aPaymentFailureAfterTheCaptureEmitsNothing() {
     // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent, paymentCaptured)
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentCaptured)
       // When
       .when(current -> current.recordPaymentFailure(capturedAt))
       // Then
@@ -384,9 +319,9 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   }
 
   @Test
-  public void anOperatorCancellingAnUntouchedOrderLeavesNothingToUndo() {
+  public void cancellingAnUntouchedOrderLeavesNothingToUndo() {
     // Given
-    given(initialized)
+    given(placed)
       // When
       .when(current -> current.cancel(OrderCancellationReason.Requested, now))
       // Then
@@ -402,9 +337,9 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   }
 
   @Test
-  public void anOperatorCancellingAConfirmedOrderAsksForBothHoldsBack() {
+  public void cancellingBeforeConfirmationAsksForTheHoldAlreadyTakenBack() {
     // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed)
+    given(placed, paymentAuthorized)
       // When
       .when(current -> current.cancel(OrderCancellationReason.Requested, now))
       // Then
@@ -412,17 +347,27 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         orderId,
         paymentId,
         OrderPaymentStatus.Authorized,
-        shipmentId,
-        OrderShipmentStatus.Reserved,
+        null,
+        OrderShipmentStatus.NotReserved,
         OrderCancellationReason.Requested,
         now
       ));
   }
 
   @Test
-  public void anOperatorCancellingAfterTheParcelLeftEmitsNothing() {
+  public void cancellingAConfirmedOrderEmitsNothing() {
     // Given
-    given(initialized, paymentAuthorized, stockReserved, confirmed, packageSent)
+    given(placed, paymentAuthorized, stockReserved, confirmed)
+      // When
+      .when(current -> current.cancel(OrderCancellationReason.Requested, now))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void cancellingAfterTheParcelLeftEmitsNothing() {
+    // Given
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent)
       // When
       .when(current -> current.cancel(OrderCancellationReason.Requested, now))
       // Then
@@ -433,8 +378,8 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   public void cancellingACompletedOrderEmitsNothing() {
     // Given
     given(
-      initialized, paymentAuthorized, stockReserved, confirmed, packageSent, paymentCaptured,
-      delivered, new OrderCompleted(orderId, deliveredAt)
+      placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, paymentCaptured,
+      new OrderCompleted(orderId, capturedAt)
     )
       // When
       .when(current -> current.cancel(OrderCancellationReason.Requested, now))
@@ -446,8 +391,8 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
   public void aHoldRecordedAfterTheOrderWasCancelledEmitsNothing() {
     // Given
     given(
-      initialized,
-      new OrderShipmentFailed(orderId, reservedAt),
+      placed,
+      new OrderShipmentFailed(orderId, OrderCancellationReason.ProductWasOutOfStock, reservedAt),
       new OrderPaymentFailed(orderId, authorizedAt),
       new OrderCancelled(
         orderId,
@@ -461,6 +406,188 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
     )
       // When
       .when(current -> current.recordPaymentAuthorization(paymentId, authorizedAt))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void aRejectedFulfillmentCancelsAConfirmedOrderAndAsksForBothHoldsBack() {
+    // Given
+    given(placed, paymentAuthorized, stockReserved, confirmed)
+      // When
+      .when(current -> current.recordShipmentFailure(OrderCancellationReason.CouldNotShip, sentAt))
+      // Then
+      .then(
+        new OrderShipmentFailed(orderId, OrderCancellationReason.CouldNotShip, sentAt),
+        new OrderCancelled(
+          orderId,
+          paymentId,
+          OrderPaymentStatus.Authorized,
+          shipmentId,
+          OrderShipmentStatus.Reserved,
+          OrderCancellationReason.CouldNotShip,
+          sentAt
+        )
+      );
+  }
+
+  // Paying again — the parcel left, the money did not come
+
+  @Test
+  public void retryingAPaymentThatFailedAfterTheParcelLeftAsksForANewPayment() {
+    // Given
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, latePaymentFailure)
+      // When
+      .when(current -> current.retryPayment(retriedAt))
+      // Then
+      .then(paymentRetried);
+  }
+
+  @Test
+  public void retryingAPaymentThatHasNotFailedEmitsNothing() {
+    // Given
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue)
+      // When
+      .when(current -> current.retryPayment(retriedAt))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void retryingBeforeTheParcelLeftEmitsNothing() {
+    // Given
+    given(placed, new OrderPaymentFailed(orderId, authorizedAt))
+      // When
+      .when(current -> current.retryPayment(retriedAt))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void retryingWhileARetryIsRunningEmitsNothing() {
+    // Given
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, latePaymentFailure, paymentRetried)
+      // When
+      .when(current -> current.retryPayment(retriedAt))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void theNewAuthorizationMakesThePaymentDue() {
+    // Given
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, latePaymentFailure, paymentRetried)
+      // When
+      .when(current -> current.recordPaymentAuthorization(retriedPaymentId, retriedAt))
+      // Then
+      .then(
+        new OrderPaymentAuthorized(orderId, retriedPaymentId, retriedAt),
+        new OrderPaymentDue(orderId, retriedPaymentId, retriedAt)
+      );
+  }
+
+  @Test
+  public void anAuthorizationOfTheFailedPaymentDuringARetryEmitsNothing() {
+    // Given
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, latePaymentFailure, paymentRetried)
+      // When
+      .when(current -> current.recordPaymentAuthorization(paymentId, retriedAt))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void capturingTheNewPaymentCompletesTheOrder() {
+    // Given
+    given(
+      placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, latePaymentFailure, paymentRetried,
+      new OrderPaymentAuthorized(orderId, retriedPaymentId, retriedAt),
+      new OrderPaymentDue(orderId, retriedPaymentId, retriedAt)
+    )
+      // When
+      .when(current -> current.recordPaymentCapture(retriedAt))
+      // Then
+      .then(
+        new OrderPaymentCaptured(orderId, retriedPaymentId, totalPrice, retriedAt),
+        new OrderCompleted(orderId, retriedAt)
+      );
+  }
+
+  @Test
+  public void aFailedRetryWaitsForTheClientAgain() {
+    // Given
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, latePaymentFailure, paymentRetried)
+      // When
+      .when(current -> current.recordPaymentFailure(retriedAt))
+      // Then
+      .then(new OrderPaymentFailed(orderId, retriedAt));
+  }
+
+  @Test
+  public void aSecondRetryAsksForTheThirdPayment() {
+    // Given
+    given(
+      placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, latePaymentFailure, paymentRetried,
+      new OrderPaymentFailed(orderId, retriedAt)
+    )
+      // When
+      .when(current -> current.retryPayment(retriedAt))
+      // Then
+      .then(new OrderPaymentRetried(orderId, PaymentId.derivedFrom(orderId.value(), 3), totalPrice, retriedAt));
+  }
+
+  @Test
+  public void closingAnOrderStillUnpaidAfterTheParcelLeftEmitsOrderClosedUnpaid() {
+    // Given
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, latePaymentFailure)
+      // When
+      .when(current -> current.closeUnpaid(closedAt))
+      // Then
+      .then(new OrderClosedUnpaid(orderId, closedAt));
+  }
+
+  @Test
+  public void closingWhileARetryIsRunningEmitsOrderClosedUnpaid() {
+    // Given
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, latePaymentFailure, paymentRetried)
+      // When
+      .when(current -> current.closeUnpaid(closedAt))
+      // Then
+      .then(new OrderClosedUnpaid(orderId, closedAt));
+  }
+
+  @Test
+  public void closingAnOrderWhosePaymentHasNotFailedEmitsNothing() {
+    // Given
+    given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue)
+      // When
+      .when(current -> current.closeUnpaid(closedAt))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void closingACompletedOrderEmitsNothing() {
+    // Given
+    given(
+      placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, paymentCaptured,
+      new OrderCompleted(orderId, capturedAt)
+    )
+      // When
+      .when(current -> current.closeUnpaid(closedAt))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void anAuthorizationAfterTheOrderWasClosedUnpaidEmitsNothing() {
+    // Given
+    given(
+      placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, latePaymentFailure, paymentRetried,
+      new OrderClosedUnpaid(orderId, closedAt)
+    )
+      // When
+      .when(current -> current.recordPaymentAuthorization(retriedPaymentId, closedAt))
       // Then
       .thenNothing();
   }

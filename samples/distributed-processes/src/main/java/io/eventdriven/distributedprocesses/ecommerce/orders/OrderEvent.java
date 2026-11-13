@@ -9,13 +9,13 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public sealed interface OrderEvent {
-  record OrderInitialized(
+  record OrderPlaced(
     OrderId orderId,
     ShoppingCartId cartId,
     UUID clientId,
     PricedProductItem[] productItems,
     double totalPrice,
-    OffsetDateTime initializedAt
+    OffsetDateTime placedAt
   ) implements OrderEvent {
   }
 
@@ -51,18 +51,16 @@ public sealed interface OrderEvent {
 
   record OrderPackageSent(
     OrderId orderId,
-    PaymentId paymentId,
-    ShipmentId shipmentId,
     String carrier,
     String trackingNumber,
     OffsetDateTime sentAt
   ) implements OrderEvent {
   }
 
-  record OrderShipmentDelivered(
+  record OrderPaymentDue(
     OrderId orderId,
-    ShipmentId shipmentId,
-    OffsetDateTime deliveredAt
+    PaymentId paymentId,
+    OffsetDateTime dueAt
   ) implements OrderEvent {
   }
 
@@ -74,7 +72,22 @@ public sealed interface OrderEvent {
 
   record OrderShipmentFailed(
     OrderId orderId,
+    OrderCancellationReason reason,
     OffsetDateTime failedAt
+  ) implements OrderEvent {
+  }
+
+  record OrderPaymentRetried(
+    OrderId orderId,
+    PaymentId paymentId,
+    double amount,
+    OffsetDateTime retriedAt
+  ) implements OrderEvent {
+  }
+
+  record OrderClosedUnpaid(
+    OrderId orderId,
+    OffsetDateTime closedAt
   ) implements OrderEvent {
   }
 

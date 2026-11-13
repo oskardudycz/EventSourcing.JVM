@@ -5,7 +5,6 @@ import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.AutoAuthorizingPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.AutoRejectingPaymentGateway;
-import io.eventdriven.distributedprocesses.ecommerce.payments.DeclineReason;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
@@ -30,7 +29,6 @@ public class PaymentExternalEventForwarderOrderingTests {
   private final PaymentId paymentId = PaymentId.derivedFrom(referenceId);
   private final double amount = 62.5;
   private final OffsetDateTime now = OffsetDateTime.now();
-  private final OffsetDateTime expiresAt = now.plus(authorizationValidity);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
   private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
@@ -41,10 +39,10 @@ public class PaymentExternalEventForwarderOrderingTests {
   public void authorizationGrantedWhileTheRequestIsStillHandledIsForwardedWithTheReference() {
     configure(new AutoAuthorizingPaymentGateway(messageBus));
 
-    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
 
     externalEvents.shouldReceiveMessages(
-      new PaymentAuthorized(referenceId, paymentId, amount, now, expiresAt)
+      new PaymentAuthorized(referenceId, paymentId, now)
     );
   }
 
@@ -52,22 +50,22 @@ public class PaymentExternalEventForwarderOrderingTests {
   public void declineComingBackWhileTheRequestIsStillHandledIsForwardedWithTheReference() {
     configure(new AutoRejectingPaymentGateway(messageBus));
 
-    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
 
     externalEvents.shouldReceiveMessages(
-      new PaymentFailed(referenceId, paymentId, amount, now, PaymentFailed.Reason.Declined)
+      new PaymentFailed(referenceId, paymentId, now)
     );
   }
 
   @Test
-  public void outcomeIsPublishedBeforeTheGatewayIsToldAboutIt() {
+  public void captureIsPublishedOnlyAfterTheGatewayConfirmedIt() {
     configure(new TranscribingPaymentGateway());
-    messageBus.publish(List.of(new AuthorizePayment(referenceId, amount)));
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
     transcript.clear();
 
     messageBus.publish(List.of(new CapturePayment(paymentId)));
 
-    assertThat(transcript).containsExactly("published:PaymentCaptured", "capture");
+    assertThat(transcript).containsExactly("capture", "published:PaymentCaptured");
   }
 
   private void configure(PaymentGateway paymentGateway) {
@@ -88,7 +86,7 @@ public class PaymentExternalEventForwarderOrderingTests {
     );
   }
 
-  // Grants the hold straight away and writes down every later call in the shared transcript.
+  // Grants the hold and the capture straight away and writes down every later call in the shared transcript.
   private class TranscribingPaymentGateway implements PaymentGateway {
     @Override
     public void authorize(PaymentId paymentId, double amount) {
@@ -98,16 +96,12 @@ public class PaymentExternalEventForwarderOrderingTests {
     @Override
     public void capture(PaymentId paymentId, double amount) {
       transcript.add("capture");
+      messageBus.publish(List.of(new ConfirmPaymentCapture(paymentId)));
     }
 
     @Override
     public void voidAuthorization(PaymentId paymentId) {
       transcript.add("void");
-    }
-
-    @Override
-    public void refund(PaymentId paymentId) {
-      transcript.add("refund");
     }
   }
 }

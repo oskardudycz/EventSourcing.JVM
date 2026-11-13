@@ -9,7 +9,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public sealed interface OrderCommand {
-  record InitializeOrder(
+  record PlaceOrder(
     OrderId orderId,
     ShoppingCartId cartId,
     UUID clientId,
@@ -41,11 +41,6 @@ public sealed interface OrderCommand {
     OffsetDateTime capturedAt) implements OrderCommand {
   }
 
-  record RecordOrderDelivery(
-    OrderId orderId,
-    OffsetDateTime deliveredAt) implements OrderCommand {
-  }
-
   record RecordOrderPaymentFailure(
     OrderId orderId,
     OffsetDateTime failedAt) implements OrderCommand {
@@ -53,7 +48,16 @@ public sealed interface OrderCommand {
 
   record RecordOrderShipmentFailure(
     OrderId orderId,
+    OrderCancellationReason reason,
     OffsetDateTime failedAt) implements OrderCommand {
+  }
+
+  record RetryOrderPayment(
+    OrderId orderId) implements OrderCommand {
+  }
+
+  record CloseUnpaidOrder(
+    OrderId orderId) implements OrderCommand {
   }
 
   record CancelOrder(

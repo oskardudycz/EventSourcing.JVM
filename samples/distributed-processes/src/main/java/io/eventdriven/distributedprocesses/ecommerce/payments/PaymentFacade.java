@@ -28,14 +28,13 @@ public class PaymentFacade {
   }
 
   public void authorizePayment(AuthorizePayment command) {
-    var paymentId = PaymentId.derivedFrom(command.referenceId());
-
     store.getAndUpdate(
-      paymentId,
+      command.paymentId(),
       current -> current.requestAuthorization(
-        paymentId,
+        command.paymentId(),
         command.referenceId(),
-        command.amount()
+        command.amount(),
+        now.get()
       )
     );
   }
@@ -55,7 +54,21 @@ public class PaymentFacade {
   public void capturePayment(CapturePayment command) {
     store.getAndUpdate(
       command.paymentId(),
-      current -> current.capture(now.get())
+      current -> current.requestCapture(now.get())
+    );
+  }
+
+  public void confirmPaymentCapture(ConfirmPaymentCapture command) {
+    store.getAndUpdate(
+      command.paymentId(),
+      current -> current.confirmCapture(now.get())
+    );
+  }
+
+  public void failPaymentCapture(FailPaymentCapture command) {
+    store.getAndUpdate(
+      command.paymentId(),
+      current -> current.failCapture(command.reason(), now.get())
     );
   }
 
@@ -63,13 +76,6 @@ public class PaymentFacade {
     store.getAndUpdate(
       command.paymentId(),
       current -> current.voidAuthorization(now.get())
-    );
-  }
-
-  public void refundPayment(RefundPayment command) {
-    store.getAndUpdate(
-      command.paymentId(),
-      current -> current.refund(now.get())
     );
   }
 

@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
@@ -36,7 +37,8 @@ public class AuthorizationExpiryWorkerTests {
   private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher published = new MessageCatcher();
 
-  private final AuthorizationExpiryWorker worker;
+  private final AtomicReference<OffsetDateTime> clock = new AtomicReference<>(authorizedAt);
+  private final ScheduledAuthorizationExpiryWorker worker;
 
   public AuthorizationExpiryWorkerTests() {
     eventStore.use(published::catchMessage);
@@ -46,7 +48,7 @@ public class AuthorizationExpiryWorkerTests {
       new SilentPaymentGateway(),
       paymentTimeout,
       authorizationValidity,
-      () -> authorizedAt
+      clock::get
     ).authorizationExpiryWorker();
   }
 
@@ -54,7 +56,7 @@ public class AuthorizationExpiryWorkerTests {
   public void holdThatIsNeverCapturedExpiresOnceItsDeadlinePasses() {
     authorize();
 
-    worker.run(afterExpiry);
+    handleAllAt(afterExpiry);
 
     published.shouldReceiveMessages(new PaymentAuthorizationExpired(paymentId, afterExpiry));
   }
@@ -63,18 +65,18 @@ public class AuthorizationExpiryWorkerTests {
   public void runningBeforeTheDeadlineSendsNothing() {
     authorize();
 
-    worker.run(beforeExpiry);
+    handleAllAt(beforeExpiry);
 
     published.shouldNotReceiveAnyEvent();
   }
 
   @Test
-  public void capturedPaymentNeverExpires() {
+  public void paymentWithARequestedCaptureNeverExpires() {
     authorize();
     messageBus.publish(List.of(new CapturePayment(paymentId)));
     published.reset();
 
-    worker.run(afterExpiry);
+    handleAllAt(afterExpiry);
 
     published.shouldNotReceiveAnyEvent();
   }
@@ -85,7 +87,7 @@ public class AuthorizationExpiryWorkerTests {
     messageBus.publish(List.of(new VoidPayment(paymentId)));
     published.reset();
 
-    worker.run(afterExpiry);
+    handleAllAt(afterExpiry);
 
     published.shouldNotReceiveAnyEvent();
   }
@@ -94,8 +96,8 @@ public class AuthorizationExpiryWorkerTests {
   public void runningTwiceExpiresTheSameHoldOnlyOnce() {
     authorize();
 
-    worker.run(afterExpiry);
-    assertThatCode(() -> worker.run(afterExpiry.plusDays(1))).doesNotThrowAnyException();
+    handleAllAt(afterExpiry);
+    assertThatCode(() -> handleAllAt(afterExpiry.plusDays(1))).doesNotThrowAnyException();
 
     assertThat(published.published)
       .containsOnlyOnce(new PaymentAuthorizationExpired(paymentId, afterExpiry));
@@ -104,9 +106,14 @@ public class AuthorizationExpiryWorkerTests {
 
   private void authorize() {
     messageBus.publish(List.of(
-      new AuthorizePayment(referenceId, amount),
+      new AuthorizePayment(paymentId, referenceId, amount),
       new ConfirmPaymentAuthorization(paymentId)
     ));
     published.reset();
+  }
+
+  private void handleAllAt(OffsetDateTime now) {
+    clock.set(now);
+    worker.handleAll();
   }
 }

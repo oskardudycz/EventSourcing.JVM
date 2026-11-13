@@ -24,8 +24,7 @@ public class PaymentTimeoutWorker {
     this.timeout = timeout;
   }
 
-  // Production would call this on a schedule; tests call it directly to keep time explicit.
-  public void run(OffsetDateTime now) {
+  public void handle(OffsetDateTime now) {
     for (var paymentId : pendingPayments.olderThan(now.minus(timeout))) {
       messageBus.publish(List.of(new TimeOutPayment(paymentId, now)));
     }

@@ -6,8 +6,9 @@ import java.util.List;
 
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentAuthorization;
+import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentCapture;
 
-// Stands in for a provider that grants the hold and calls back straight away.
+// Stands in for a provider that grants the hold and the capture, and calls back straight away.
 public class AutoAuthorizingPaymentGateway implements PaymentGateway {
   private final MessageBus messageBus;
 
@@ -22,13 +23,10 @@ public class AutoAuthorizingPaymentGateway implements PaymentGateway {
 
   @Override
   public void capture(PaymentId paymentId, double amount) {
+    messageBus.publish(List.of(new ConfirmPaymentCapture(paymentId)));
   }
 
   @Override
   public void voidAuthorization(PaymentId paymentId) {
-  }
-
-  @Override
-  public void refund(PaymentId paymentId) {
   }
 }

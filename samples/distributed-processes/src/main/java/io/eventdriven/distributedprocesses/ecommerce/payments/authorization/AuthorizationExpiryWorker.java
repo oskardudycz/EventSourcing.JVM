@@ -20,8 +20,7 @@ public class AuthorizationExpiryWorker {
     this.messageBus = messageBus;
   }
 
-  // Production would call this on a schedule; tests call it directly to keep time explicit.
-  public void run(OffsetDateTime now) {
+  public void handle(OffsetDateTime now) {
     for (var paymentId : authorizedPayments.expiredAt(now)) {
       messageBus.publish(List.of(new ExpirePaymentAuthorization(paymentId, now)));
     }

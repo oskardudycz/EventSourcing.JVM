@@ -30,8 +30,6 @@ public class OrderSagaTests {
   private final String carrier = "DHL";
   private final String trackingNumber = "JD014600006281234567";
   private final OffsetDateTime now = OffsetDateTime.now();
-  private final OffsetDateTime expiresAt = now.plusDays(7);
-  private final OffsetDateTime reservedUntil = now.plusHours(2);
 
   private final PricedProductItem[] orderItems = new PricedProductItem[]{
     new PricedProductItem(productId, 2, 12.5)
@@ -52,16 +50,16 @@ public class OrderSagaTests {
     saga.on(new ShoppingCartExternalEvent.ShoppingCartFinalized(cartId, clientId, cartItems(), totalPrice, now));
 
     sent.shouldReceiveMessages(
-      new InitializeOrder(orderId, cartId, clientId, orderItems, totalPrice)
+      new PlaceOrder(orderId, cartId, clientId, orderItems, totalPrice)
     );
   }
 
   @Test
-  public void anInitializedOrderTakesBothHoldsTogether() {
-    saga.on(orderInitialized());
+  public void aPlacedOrderTakesBothHoldsTogether() {
+    saga.on(orderPlaced());
 
     sent.shouldReceiveMessages(
-      new PaymentCommand.AuthorizePayment(orderId.value(), totalPrice),
+      new PaymentCommand.AuthorizePayment(paymentId, orderId.value(), totalPrice),
       new ShipmentCommand.ReserveStock(orderId.value(), shipmentItems())
     );
   }
@@ -69,7 +67,7 @@ public class OrderSagaTests {
   @Test
   public void anAuthorizedPaymentIsRecordedAgainstTheOrderTheReferenceNames() {
     saga.on(new PaymentExternalEvent.PaymentAuthorized(
-      orderId.value(), paymentId, totalPrice, now, expiresAt
+      orderId.value(), paymentId, now
     ));
 
     sent.shouldReceiveMessages(new RecordOrderPaymentAuthorization(orderId, paymentId, now));
@@ -78,7 +76,7 @@ public class OrderSagaTests {
   @Test
   public void reservedStockIsRecordedAgainstTheOrder() {
     saga.on(new ShipmentExternalEvent.StockReserved(
-      shipmentId, orderId.value(), shipmentItems(), now, reservedUntil
+      shipmentId, orderId.value(), now
     ));
 
     sent.shouldReceiveMessages(new RecordOrderStockReservation(orderId, shipmentId, now));
@@ -86,10 +84,10 @@ public class OrderSagaTests {
 
   @Test
   public void handlingTheSameEventTwiceSendsTwoIdenticalCommands() {
-    saga.on(orderInitialized());
-    saga.on(orderInitialized());
+    saga.on(orderPlaced());
+    saga.on(orderPlaced());
 
-    var authorizePayment = new PaymentCommand.AuthorizePayment(orderId.value(), totalPrice);
+    var authorizePayment = new PaymentCommand.AuthorizePayment(paymentId, orderId.value(), totalPrice);
     var reserveStock = new ShipmentCommand.ReserveStock(orderId.value(), shipmentItems());
 
     sent.shouldReceiveMessages(authorizePayment, reserveStock, authorizePayment, reserveStock);
@@ -101,23 +99,21 @@ public class OrderSagaTests {
   public void aConfirmedOrderSendsThePackageBeforeAnyMoneyMoves() {
     saga.on(new OrderEvent.OrderConfirmed(orderId, paymentId, shipmentId, now));
 
-    sent.shouldReceiveMessages(new ShipmentCommand.SendPackage(shipmentId));
+    sent.shouldReceiveMessages(new ShipmentCommand.RequestFulfillment(shipmentId));
   }
 
   @Test
   public void aSentPackageIsRecordedAgainstTheOrder() {
     saga.on(new ShipmentExternalEvent.PackageWasSent(
-      shipmentId, orderId.value(), shipmentItems(), carrier, trackingNumber, now
+      shipmentId, orderId.value(), carrier, trackingNumber, now
     ));
 
     sent.shouldReceiveMessages(new RecordOrderPackageSent(orderId, carrier, trackingNumber, now));
   }
 
   @Test
-  public void theOrdersOwnDispatchEventIsWhatCapturesThePayment() {
-    saga.on(new OrderEvent.OrderPackageSent(
-      orderId, paymentId, shipmentId, carrier, trackingNumber, now
-    ));
+  public void theOrdersPaymentDueEventIsWhatCapturesThePayment() {
+    saga.on(new OrderEvent.OrderPaymentDue(orderId, paymentId, now));
 
     sent.shouldReceiveMessages(new PaymentCommand.CapturePayment(paymentId));
   }
@@ -125,26 +121,19 @@ public class OrderSagaTests {
   @Test
   public void aCapturedPaymentIsRecordedAgainstTheOrder() {
     saga.on(new PaymentExternalEvent.PaymentCaptured(
-      orderId.value(), paymentId, totalPrice, now
+      orderId.value(), paymentId, now
     ));
 
     sent.shouldReceiveMessages(new RecordOrderPaymentCapture(orderId, now));
   }
 
-  @Test
-  public void aDeliveredPackageIsRecordedAgainstTheOrder() {
-    saga.on(new ShipmentExternalEvent.PackageWasDelivered(shipmentId, orderId.value(), now));
-
-    sent.shouldReceiveMessages(new RecordOrderDelivery(orderId, now));
-  }
 
   // Compensation
 
   @Test
   public void aFailedPaymentIsRecordedRatherThanCancellingTheOrderDirectly() {
     saga.on(new PaymentExternalEvent.PaymentFailed(
-      orderId.value(), paymentId, totalPrice, now,
-      PaymentExternalEvent.PaymentFailed.Reason.TimedOut
+      orderId.value(), paymentId, now
     ));
 
     sent.shouldReceiveMessages(new RecordOrderPaymentFailure(orderId, now));
@@ -152,23 +141,39 @@ public class OrderSagaTests {
 
   @Test
   public void anOutOfStockProductIsRecordedRatherThanCancellingTheOrderDirectly() {
-    saga.on(new ShipmentExternalEvent.StockReservationFailed(
-      shipmentId, orderId.value(), shipmentItems(),
-      ShipmentExternalEvent.StockReservationFailed.Reason.ProductsOutOfStock, now
+    saga.on(new ShipmentExternalEvent.ShipmentFailed(
+      shipmentId, orderId.value(), ShipmentExternalEvent.ShipmentFailed.Reason.ProductsOutOfStock, now
     ));
 
-    sent.shouldReceiveMessages(new RecordOrderShipmentFailure(orderId, now));
+    sent.shouldReceiveMessages(
+      new RecordOrderShipmentFailure(orderId, OrderCancellationReason.ProductWasOutOfStock, now)
+    );
   }
 
   @Test
-  public void anExpiredReservationReachesTheOrderSoItIsNeverLeftWaiting() {
-    saga.on(new ShipmentExternalEvent.StockReservationFailed(
-      shipmentId, orderId.value(), shipmentItems(),
-      ShipmentExternalEvent.StockReservationFailed.Reason.ReservationExpired, reservedUntil
+  public void aRejectedFulfillmentIsRecordedAsCouldNotShip() {
+    saga.on(new ShipmentExternalEvent.ShipmentFailed(
+      shipmentId, orderId.value(), ShipmentExternalEvent.ShipmentFailed.Reason.FulfillmentRejected, now
     ));
 
-    sent.shouldReceiveMessages(new RecordOrderShipmentFailure(orderId, reservedUntil));
+    sent.shouldReceiveMessages(
+      new RecordOrderShipmentFailure(orderId, OrderCancellationReason.CouldNotShip, now)
+    );
   }
+
+  // Paying again
+
+  @Test
+  public void aRetriedPaymentAsksForTheNewPaymentToBeAuthorized() {
+    var retriedPaymentId = PaymentId.derivedFrom(orderId.value(), 2);
+
+    saga.on(new OrderEvent.OrderPaymentRetried(orderId, retriedPaymentId, totalPrice, now));
+
+    sent.shouldReceiveMessages(
+      new PaymentCommand.AuthorizePayment(retriedPaymentId, orderId.value(), totalPrice)
+    );
+  }
+
 
   @Test
   public void aCancelledOrderWithAnAuthorizedHoldVoidsItAndReleasesTheStock() {
@@ -194,8 +199,8 @@ public class OrderSagaTests {
     sent.shouldNotReceiveAnyEvent();
   }
 
-  private OrderEvent.OrderInitialized orderInitialized() {
-    return new OrderEvent.OrderInitialized(
+  private OrderEvent.OrderPlaced orderPlaced() {
+    return new OrderEvent.OrderPlaced(
       orderId, cartId, clientId, orderItems, totalPrice, now
     );
   }

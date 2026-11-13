@@ -26,81 +26,53 @@ public class PaymentExternalEventForwarder {
 
   public void onAuthorized(EventEnvelope<PaymentEvent.PaymentAuthorized> envelope) {
     var event = envelope.data();
-    var payment = get(event.paymentId(), envelope.metadata().streamPosition());
 
     messageBus.publish(List.of(new PaymentExternalEvent.PaymentAuthorized(
-      payment.getReferenceId(),
+      referenceIdOf(event.paymentId()),
       event.paymentId(),
-      payment.getAmount(),
-      payment.getAuthorizedAt(),
-      payment.getExpiresAt()
+      event.authorizedAt()
     )));
   }
 
   public void onCaptured(EventEnvelope<PaymentEvent.PaymentCaptured> envelope) {
     var event = envelope.data();
-    var payment = get(event.paymentId(), envelope.metadata().streamPosition());
 
     messageBus.publish(List.of(new PaymentExternalEvent.PaymentCaptured(
-      payment.getReferenceId(),
+      referenceIdOf(event.paymentId()),
       event.paymentId(),
-      event.amount(),
       event.capturedAt()
     )));
   }
 
   public void onDeclined(EventEnvelope<PaymentDeclined> envelope) {
-    var event = envelope.data();
-    publishFailure(
-      event.paymentId(),
-      envelope.metadata().streamPosition(),
-      event.declinedAt(),
-      PaymentFailed.Reason.Declined
-    );
+    publishFailure(envelope.data().paymentId(), envelope.data().declinedAt());
   }
 
   public void onTimedOut(EventEnvelope<PaymentTimedOut> envelope) {
-    var event = envelope.data();
-    publishFailure(
-      event.paymentId(),
-      envelope.metadata().streamPosition(),
-      event.timedOutAt(),
-      PaymentFailed.Reason.TimedOut
-    );
+    publishFailure(envelope.data().paymentId(), envelope.data().timedOutAt());
   }
 
   public void onAuthorizationExpired(EventEnvelope<PaymentAuthorizationExpired> envelope) {
-    var event = envelope.data();
-    publishFailure(
-      event.paymentId(),
-      envelope.metadata().streamPosition(),
-      event.expiredAt(),
-      PaymentFailed.Reason.AuthorizationExpired
-    );
+    publishFailure(envelope.data().paymentId(), envelope.data().expiredAt());
   }
 
-  private void publishFailure(
-    PaymentId paymentId,
-    long streamPosition,
-    OffsetDateTime failedAt,
-    PaymentFailed.Reason reason
-  ) {
-    var payment = get(paymentId, streamPosition);
+  public void onCaptureFailed(EventEnvelope<PaymentCaptureFailed> envelope) {
+    publishFailure(envelope.data().paymentId(), envelope.data().failedAt());
+  }
 
+  private void publishFailure(PaymentId paymentId, OffsetDateTime failedAt) {
     messageBus.publish(List.of(new PaymentFailed(
-      payment.getReferenceId(),
+      referenceIdOf(paymentId),
       paymentId,
-      payment.getAmount(),
-      failedAt,
-      reason
+      failedAt
     )));
   }
 
-  private PaymentSummary get(PaymentId paymentId, long streamPosition) {
+  private String referenceIdOf(PaymentId paymentId) {
     return summaries.get(paymentId)
-      .filter(summary -> summary.getVersion() >= streamPosition)
       .orElseThrow(() -> new IllegalStateException(
-        "Summary of payment '%s' has not reached position %d yet".formatted(paymentId.value(), streamPosition)
-      ));
+        "Payment '%s' has no summary yet".formatted(paymentId.value())
+      ))
+      .getReferenceId();
   }
 }
