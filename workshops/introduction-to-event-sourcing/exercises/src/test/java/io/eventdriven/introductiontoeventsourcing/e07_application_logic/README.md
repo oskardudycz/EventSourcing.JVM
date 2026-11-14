@@ -13,13 +13,13 @@ Having the following shopping cart process:
 
 And business logic implemented in the [previous exercise](../e05_business_logic/) write the application code that will _glue_ the API defined in `api.ts` files with the domain code.
 
-This time you'll use EventStoreDB or MongoDB instead of the mocked one. Run `docker compose up` (or for Mac `docker compose -f docker-compose.arm.yml up`) before running test code to have database set up.
+This time you'll use KurrentDB or MongoDB instead of the mocked one. Run `docker compose up` (or for Mac `docker compose -f docker-compose.arm.yml up`) before running test code to have database set up.
 
 There are three variations:
 
-1. Classical, mutable aggregates: [EventStoreDB](./esdb/mutable/), [PostgreSQL](./postgresql/mutable/), [MongoDB](./mongodb/mutable/),
-2. Mixed approach, mutable aggregates, returning events from methods: [EventStoreDB](./esdb/mixed/), [PostgreSQL](./postgresql/mixed/), [MongoDB](./mongodb/mixed/),
-3. Immutable, with functional command handlers composition and entities as data model: [EventStoreDB](./esdb/immutable/), [PostgreSQL](./postgresql/immutable/), [MongoDB](./mongodb/immutable/),
+1. Classical, mutable aggregates: [KurrentDB](./kurrentdb/mutable/), [PostgreSQL](./postgresql/mutable/), [MongoDB](./mongodb/mutable/),
+2. Mixed approach, mutable aggregates, returning events from methods: [KurrentDB](./kurrentdb/mixed/), [PostgreSQL](./postgresql/mixed/), [MongoDB](./mongodb/mixed/),
+3. Immutable, with functional command handlers composition and entities as data model: [KurrentDB](./kurrentdb/immutable/), [PostgreSQL](./postgresql/immutable/), [MongoDB](./mongodb/immutable/),
 
 Select your preferred approach (or both) to solve this use case.
 

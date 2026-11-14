@@ -1,8 +1,8 @@
 package io.eventdriven.shoppingcarts;
 
-import com.eventstore.dbclient.ConnectionStringParsingException;
-import com.eventstore.dbclient.EventStoreDBClient;
-import com.eventstore.dbclient.EventStoreDBConnectionString;
+import io.kurrent.dbclient.ConnectionStringParsingException;
+import io.kurrent.dbclient.KurrentDBClient;
+import io.kurrent.dbclient.KurrentDBConnectionString;
 import io.eventdriven.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.shoppingcarts.productitems.ProductItem;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,11 +23,11 @@ public class ShoppingCartTests {
 
   }
 
-  private EventStoreDBClient eventStore;
+  private KurrentDBClient eventStore;
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    var settings = EventStoreDBConnectionString.parse("esdb://localhost:2113?tls=false");
-    this.eventStore = EventStoreDBClient.create(settings);
+    var settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    this.eventStore = KurrentDBClient.create(settings);
   }
 }

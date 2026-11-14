@@ -5,8 +5,8 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 
-import io.eventdriven.distributedprocesses.core.esdb.EventStore;
-import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
+import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.testing.MessageCatcher;

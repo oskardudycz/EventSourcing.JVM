@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external;
 
-import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartFacade;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;

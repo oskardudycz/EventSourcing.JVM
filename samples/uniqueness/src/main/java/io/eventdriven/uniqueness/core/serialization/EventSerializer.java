@@ -1,8 +1,8 @@
 package io.eventdriven.uniqueness.core.serialization;
 
-import com.eventstore.dbclient.EventData;
-import com.eventstore.dbclient.EventDataBuilder;
-import com.eventstore.dbclient.ResolvedEvent;
+import io.kurrent.dbclient.EventData;
+import io.kurrent.dbclient.EventDataBuilder;
+import io.kurrent.dbclient.ResolvedEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;

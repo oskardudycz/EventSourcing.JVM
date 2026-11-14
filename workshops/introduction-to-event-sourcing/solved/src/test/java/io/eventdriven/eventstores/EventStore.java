@@ -1,6 +1,6 @@
 package io.eventdriven.eventstores;
 
-import com.eventstore.dbclient.ExpectedRevision;
+import io.kurrent.dbclient.StreamState;
 
 import java.util.ArrayList;
 import java.util.List;

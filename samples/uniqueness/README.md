@@ -19,13 +19,13 @@ Have a look also at the article [Tell, don't ask! Or, how to keep an eye on boil
 
 ## Enforcing unique constraint by stream id
 
-Event stores are types of [key-value stores](https://event-driven.io/pl/key-value-stores/?utm_source=event_sourcing_jvm). They guarantee the uniqueness of the key. We can use that to guarantee the uniqueness of our data. We can add unique data as part of the stream id. It works well for use cases where unique fields do not change once they're set up. If they change, we'd need to create a new stream, deleting the old one. For instance, we'd like to enforce only a single shopping cart for the client. We could do that by having the following stream id pattern:
+Event stores are types of [key-value stores](https://event-driven.io/en/key-value-stores/?utm_source=event_sourcing_jvm). They guarantee the uniqueness of the key. We can use that to guarantee the uniqueness of our data. We can add unique data as part of the stream id. It works well for use cases where unique fields do not change once they're set up. If they change, we'd need to create a new stream, deleting the old one. For instance, we'd like to enforce only a single shopping cart for the client. We could do that by having the following stream id pattern:
 
 ```
 var shoppingCartStreamId = "shopping_cart-%s".formatted(clientId);
 ```
 
-Then we can tell the event store that we expect the stream not to exist. For example, implementation using EventStoreDB will look as follows:
+Then we can tell the event store that we expect the stream not to exist. For example, implementation using KurrentDB will look as follows:
 
 ```java
 var clientId = UUID.randomUUID();
@@ -37,7 +37,7 @@ var shoppingCartOpened = new ShoppingCartOpened(clientId, clientId);
 // This one should succeed as we don't have such stream yet
 eventStore.appendToStream(
   shoppingCartStreamId,
-  AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+  AppendToStreamOptions.get().streamState(StreamState.noStream()),
   EventSerializer.serialize(shoppingCartOpened)
 ).get();
 
@@ -45,7 +45,7 @@ eventStore.appendToStream(
 try {
   eventStore.appendToStream(
     shoppingCartStreamId,
-  AppendToStreamOptions.get().expectedRevision(ExpectedRevision.NO_STREAM),
+  AppendToStreamOptions.get().streamState(StreamState.noStream()),
     EventSerializer.serialize(shoppingCartOpened)
   ).get();
 } catch (ExecutionException exception) {
@@ -72,7 +72,7 @@ var userId = Hash.hash(email).toString();
 
 ## Revoking unique value by stream id
 
-Sometimes we need to revoke the unique value, e.g. someone cancelled a seat reservation. In EventStoreDB, we can use soft delete to mark stream events as _to-be-delted_but will allow registering it again. It will cause us to reuse the reservation stream for potentially multiple tickets. If we add new events to a soft-deleted stream, and they were not [scavenged](https://developers.eventstore.com/server/v21.10/operations.html#scavenging-events), then those events will reappear in the stream. That's why we should add a _tobstone event_ that will mark where the previous reservation finished. We could subscribe and delete the stream once such an event was appended.
+Sometimes we need to revoke the unique value, e.g. someone cancelled a seat reservation. In KurrentDB, we can use soft delete to mark stream events as _to-be-deleted_, but will allow registering it again. It will cause us to reuse the reservation stream for potentially multiple tickets. If we add new events to a soft-deleted stream, and they were not [scavenged](https://docs.kurrent.io/server/latest/operations/scavenge.html), then those events will reappear in the stream. That's why we should add a _tombstone event_ that will mark where the previous reservation finished. We could subscribe and delete the stream once such an event was appended.
 
 See more in [CinemaTicketTests](./src/test/java/io/eventdriven/uniqueness/cinematickets/CinemaTicketTests.java).
 
@@ -84,16 +84,16 @@ Most importantly, this storage should allow us to claim the resource with a uniq
 
 With a reserved resource (e.g. user email), we can run the rest of the business logic and store the results in our main data storage.
 
-Implementation of the reservation pattern in EventStoreDB could look like this:
+Implementation of the reservation pattern in KurrentDB could look like this:
 
 ```java
-public class ESDBResourceReservationHandler implements ResourceReservationHandler {
-  private static final Logger logger = LoggerFactory.getLogger(ESDBResourceReservationHandler.class);
+public class KurrentDBResourceReservationHandler implements ResourceReservationHandler {
+  private static final Logger logger = LoggerFactory.getLogger(KurrentDBResourceReservationHandler.class);
   private final Duration reservationLockDuration;
   private final EventStore eventStore;
   private final RetryPolicy retryPolicy;
 
-  public ESDBResourceReservationHandler(
+  public KurrentDBResourceReservationHandler(
     Duration reservationLockDuration,
     RetryPolicy retryPolicy,
     EventStore eventStore
@@ -118,7 +118,6 @@ public class ESDBResourceReservationHandler implements ResourceReservationHandle
         logger.error("Failed to reserve '%s'".formatted(reservationStreamId));
         return false;
       }
-
 
       var succeeded = run(onReserved).orElse(false);
 
@@ -159,26 +158,26 @@ public class ESDBResourceReservationHandler implements ResourceReservationHandle
     return retryPolicy.run(ack -> {
       var result = eventStore.append(reservationStreamId, reservationInitiated);
 
-      if(!(result instanceof EventStore.AppendResult.UnexpectedFailure))
+      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure))
         ack.accept(result);
     });
   }
 
-  private EventStore.AppendResult confirmReservation(String resourceKey, String reservationStreamId, StreamRevision expectedRevision) {
+  private EventStore.AppendResult confirmReservation(String resourceKey, String reservationStreamId, StreamState expectedRevision) {
     final var reservationConfirmed = new ResourceReservationConfirmed(
       resourceKey,
       OffsetDateTime.now()
     );
 
     return retryPolicy.run(ack -> {
-      var result = eventStore.append( reservationStreamId, expectedRevision, reservationConfirmed);
+      var result = eventStore.append(reservationStreamId, expectedRevision, reservationConfirmed);
 
-      if(!(result instanceof EventStore.AppendResult.UnexpectedFailure))
+      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure))
         ack.accept(result);
     });
   }
 
-  private void markReservationAsReleased(String resourceKey, String reservationStreamId, StreamRevision expectedRevision) {
+  private void markReservationAsReleased(String resourceKey, String reservationStreamId, StreamState expectedRevision) {
     // We're marking reservation as to be released instead of deleting stream.
     // That's needed as if we'd delete stream here, then we wouldn't get event notification through subscriptions.
     // Because of that we wouldn't be able to clear the lookup for timed out reservations.
@@ -190,24 +189,24 @@ public class ESDBResourceReservationHandler implements ResourceReservationHandle
     retryPolicy.run(ack -> {
       var result = eventStore.append(
         reservationStreamId,
-        AppendToStreamOptions.get().expectedRevision(expectedRevision),
+        AppendToStreamOptions.get().streamState(expectedRevision),
         EventSerializer.serialize(reservationReleased)
       );
 
-      if(!(result instanceof EventStore.AppendResult.UnexpectedFailure))
+      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure))
         ack.accept(result);
     });
   }
 
-  private static String streamName(String resourceKey){
+  private static String streamName(String resourceKey) {
     return "reservation-%s".formatted(resourceKey);
   }
 }
 ```
 
-See more in [ESDBResourceReservationHandler.java](./src/main/java/io/eventdriven/uniqueness/core/resourcereservation/esdb/ESDBResourceReservationHandler.java).
+See more in [KurrentDBResourceReservationHandler.java](./src/main/java/io/eventdriven/uniqueness/core/resourcereservation/kurrentdb/KurrentDBResourceReservationHandler.java).
 
-Yet, this is not enough. The logic may fail, or the process may die, and we could end up partially processed information. Primarily since EventStoreDB doesn't support transactions (only atomic appends of multiple events to the same stream). We need to ensure that we'll have failures compensated. To do that, we can store the current reservation data in external storage (e.g. relational DB, Redis, etc.). It will need to be held in other storage, as ESDB cannot: 
+Yet, this is not enough. The logic may fail, or the process may die, and we could end up partially processed information. Primarily since KurrentDB doesn't support transactions (only atomic appends of multiple events to the same stream). We need to ensure that we'll have failures compensated. To do that, we can store the current reservation data in external storage (e.g. relational DB, Redis, etc.). It will need to be held in other storage, as KurrentDB cannot: 
 - set TTL for a single event (only for all stream events), 
 - cannot send scheduled events, 
 - cannot do filtered queries.
@@ -217,7 +216,7 @@ To fill the generic reservation read model, we can use the following event handl
 When we have the read model updated, we can run the CRON job, which will clean up timed-out reservations. The scavenging logic can look as follows [ResourceReservationScavenging.java](./src/main/java/io/eventdriven/uniqueness/core/resourcereservation/jpa/ResourceReservationScavenging.java).
 
 See also tests showing the example usage:
-- fallback - [UserEmailRegistrationFallbackTests.java](./src/test/java/io/eventdriven/uniqueness/users/UserEmailRegistrationFallbackTests.java]
-- scavenging:  [UserEmailRegistrationScavengingTests.java](./src/test/java/io/eventdriven/uniqueness/users/UserEmailRegistrationScavengingTests.java).
+- fallback - [UserEmailRegistrationFallbackTests.java](./src/test/java/io/eventdriven/uniqueness/users/UserEmailRegistrationFallbackTests.java),
+- scavenging - [UserEmailRegistrationScavengingTests.java](./src/test/java/io/eventdriven/uniqueness/users/UserEmailRegistrationScavengingTests.java).
 
 Still, the reservation pattern is a complicated process to operate and orchestrate. As I mentioned at the beginning, the best is to start understanding the problem we're trying to fix, then either compensate or use stream id for uniqueness. If that's not enough, then use Reservation Pattern. It's also worth evaluating other storage for the reservation process coordination, as they may have capabilities (e.g. transactions) to simplify it.

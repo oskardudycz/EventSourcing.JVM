@@ -2,7 +2,7 @@ package io.eventdriven.distributedprocesses.shoppingcarts;
 
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 
-import com.eventstore.dbclient.*;
+import io.kurrent.dbclient.*;
 import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
@@ -34,7 +34,7 @@ public class ShoppingCartTests {
     // This one should succeed as we don't have such stream yet
     eventStore.appendToStream(
       shoppingCartStreamId,
-      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
+      AppendToStreamOptions.get().streamState(StreamState.noStream()),
       EventSerializer.serialize(productItemAdded)
     ).get();
 
@@ -42,7 +42,7 @@ public class ShoppingCartTests {
     try {
       eventStore.appendToStream(
         shoppingCartStreamId,
-        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
+        AppendToStreamOptions.get().streamState(StreamState.noStream()),
         EventSerializer.serialize(productItemAdded)
       ).get();
     } catch (ExecutionException exception) {
@@ -50,11 +50,11 @@ public class ShoppingCartTests {
     }
   }
 
-  private EventStoreDBClient eventStore;
+  private KurrentDBClient eventStore;
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parseOrThrow("esdb://localhost:2113?tls=false");
-    this.eventStore = EventStoreDBClient.create(settings);
+    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    this.eventStore = KurrentDBClient.create(settings);
   }
 }

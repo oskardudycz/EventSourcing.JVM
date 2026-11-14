@@ -1,6 +1,6 @@
 package io.eventdriven.uniqueness.cinematickets;
 
-import com.eventstore.dbclient.*;
+import io.kurrent.dbclient.*;
 import io.eventdriven.uniqueness.core.async.SyncProcessor;
 import io.eventdriven.uniqueness.core.resourcereservation.Hash;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,7 +30,7 @@ public class CinemaTicketTests {
     // This one should succeed as we don't have such stream yet
     eventStore.appendToStream(
       seatReservationId,
-      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
+      AppendToStreamOptions.get().streamState(StreamState.noStream()),
       serialize(new SeatReserved(ticketId, clientId, screeningId, seatId, price))
     ).get();
 
@@ -42,7 +42,7 @@ public class CinemaTicketTests {
 
       eventStore.appendToStream(
         seatReservationId,
-        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
+        AppendToStreamOptions.get().streamState(StreamState.noStream()),
         serialize(new SeatReserved(otherTicketId, otherClientId, screeningId, seatId, price))
       ).get();
     } catch (ExecutionException exception) {
@@ -60,7 +60,7 @@ public class CinemaTicketTests {
     // We're simulating reservation that timed out because of e.g. not paying for it
     var nextExpectedRevision = eventStore.appendToStream(
       seatReservationId,
-      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
+      AppendToStreamOptions.get().streamState(StreamState.noStream()),
       serialize(new SeatReserved(ticketId, clientId, screeningId, seatId, price)),
       reservationTimedOut
     ).get().getNextExpectedRevision();
@@ -88,7 +88,7 @@ public class CinemaTicketTests {
                 // that marks where previous reservation has finished
                 eventStore.deleteStream(
                   seatReservationId,
-                  DeleteStreamOptions.get().expectedRevision(nextExpectedRevision)
+                  DeleteStreamOptions.get().streamState(nextExpectedRevision)
                 ).get();
 
                 // finish processing
@@ -111,13 +111,13 @@ public class CinemaTicketTests {
 
     eventStore.appendToStream(
       seatReservationId,
-      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
+      AppendToStreamOptions.get().streamState(StreamState.noStream()),
       serialize(new SeatReserved(otherTicketId, otherClientId, screeningId, seatId, price))
     ).get();
   }
 
   private static final Logger logger = LoggerFactory.getLogger(CinemaTicketTests.class);
-  private EventStoreDBClient eventStore;
+  private KurrentDBClient eventStore;
 
   private UUID ticketId;
   private UUID clientId;
@@ -127,8 +127,8 @@ public class CinemaTicketTests {
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parseOrThrow("esdb://localhost:2113?tls=false");
-    this.eventStore = EventStoreDBClient.create(settings);
+    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    this.eventStore = KurrentDBClient.create(settings);
 
     ticketId = UUID.randomUUID();
     clientId = UUID.randomUUID();

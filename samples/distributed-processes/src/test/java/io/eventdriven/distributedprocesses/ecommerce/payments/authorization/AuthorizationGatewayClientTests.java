@@ -2,7 +2,7 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.authorization;
 
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 
-import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.AutoAuthorizingPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.AutoRejectingPaymentGateway;

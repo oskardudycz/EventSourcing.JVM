@@ -1,6 +1,6 @@
 package io.eventdriven.uniqueness.users.reservation;
 
-import io.eventdriven.uniqueness.core.esdb.EventStore;
+import io.eventdriven.uniqueness.core.kurrentdb.EventStore;
 import io.eventdriven.uniqueness.core.resourcereservation.Hash;
 import io.eventdriven.uniqueness.core.resourcereservation.ResourceReservationHandler;
 

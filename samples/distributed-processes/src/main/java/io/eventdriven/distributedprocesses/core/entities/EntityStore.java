@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.core.entities;
 
-import com.eventstore.dbclient.*;
+import io.kurrent.dbclient.*;
 import io.eventdriven.distributedprocesses.core.entities.EntityStore.GetEntityResult.Success;
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
@@ -16,13 +16,13 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class EntityStore<Entity, Event> {
-  private final EventStoreDBClient eventStore;
+  private final KurrentDBClient eventStore;
   private final Function<UUID, String> mapToStreamId;
   private final BiFunction<Entity, Event, Entity> evolve;
   private final Supplier<Entity> getEmpty;
 
   public EntityStore(
-    EventStoreDBClient eventStore,
+    KurrentDBClient eventStore,
     Function<UUID, String> mapToStreamId,
     BiFunction<Entity, Event, Entity> evolve,
     Supplier<Entity> getEmpty
@@ -53,9 +53,9 @@ public class EntityStore<Entity, Event> {
       success.result : getEmpty.get();
     var expectedRevision =
       eTag != null ?
-        ExpectedRevision.expectedRevision(eTag.toLong()) :
+        StreamState.streamRevision(eTag.toLong()) :
         getResult instanceof Success<Entity> success ?
-          ExpectedRevision.expectedRevision(success.revision) : ExpectedRevision.noStream();
+          StreamState.streamRevision(success.revision) : StreamState.noStream();
 
     var events = handle.apply(state);
 
@@ -111,14 +111,14 @@ public class EntityStore<Entity, Event> {
     return Pair.of(Optional.of(events), lastEventRevision);
   }
 
-  public ETag appendEvents(String streamId, Event[] events, ExpectedRevision expectedRevision) {
+  public ETag appendEvents(String streamId, Event[] events, StreamState expectedRevision) {
     var eventsToAppend = Arrays.stream(events)
       .map(EventSerializer::serialize);
 
     try {
       var result = eventStore.appendToStream(
         streamId,
-        AppendToStreamOptions.get().expectedRevision(expectedRevision),
+        AppendToStreamOptions.get().streamState(expectedRevision),
         eventsToAppend.iterator()
       ).get();
 

@@ -1,7 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http;
 
-import com.eventstore.dbclient.StreamNotFoundException;
-import com.eventstore.dbclient.WrongExpectedVersionException;
+import io.kurrent.dbclient.StreamNotFoundException;
+import io.kurrent.dbclient.WrongExpectedVersionException;
 import io.eventdriven.eventstores.EventStore;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.entities.EntityNotFoundException;
 import org.springframework.http.HttpStatus;

@@ -22,8 +22,10 @@ Tutorial, practical samples and other resources about Event Sourcing in JVM. See
   - [Support](#support)
   - [Introduction to Event Sourcing self-paced kit](#introduction-to-event-sourcing-self-paced-kit)
     - [Exercises](#exercises)
+  - [Event-Driven Architecture Workshop](#event-driven-architecture-workshop)
+    - [Event-Driven Architecture exercises](#event-driven-architecture-exercises)
   - [Samples](#samples)
-    - [Event Sourcing with Spring Boot and EventStoreDB](#event-sourcing-with-spring-boot-and-eventstoredb)
+    - [Event Sourcing with Spring Boot and KurrentDB](#event-sourcing-with-spring-boot-and-kurrentdb)
       - [Overview](#overview)
       - [Main assumptions](#main-assumptions)
       - [Prerequisites](#prerequisites)
@@ -187,7 +189,7 @@ Read more in my article:
 
 Event Sourcing is not related to any type of storage implementation. As long as it fulfils the assumptions, it can be implemented having any backing database (relational, document, etc.). The state has to be represented by the append-only log of events. The events are stored in chronological order, and new events are appended to the previous event. Event Stores are the databases' category explicitly designed for such purpose. 
 
-In the further samples, I'll use [EventStoreDB](https://developers.eventstore.com/). It's the battle-tested OSS database created and maintained by the Event Sourcing authorities. It supports many dev environments via gRPC clients, including JVM.
+In the further samples, I'll use [KurrentDB](https://docs.kurrent.io/). It's the battle-tested OSS database created and maintained by the Event Sourcing authorities. It supports many dev environments via gRPC clients, including JVM.
 
 Read more in my article:
 -   📝 [What if I told you that Relational Databases are in fact Event Stores?](https://event-driven.io/en/relational_databases_are_event_stores/=event_sourcing_jvm)
@@ -234,20 +236,20 @@ Event Sourcing is perceived as a complex pattern. Some believe that it's like Ne
 
 The workshop aims to build the knowledge of the general concept and its related patterns for the participants. The acquired knowledge will allow for the conscious design of architectural solutions and the analysis of associated risks. 
 
-The emphasis will be on a pragmatic understanding of architectures and applying it in practice using Marten and EventStoreDB.
+The emphasis will be on a pragmatic understanding of architectures and applying it in practice using Marten and KurrentDB.
 
 1. Introduction to Event-Driven Architectures. Differences from the classical approach are foundations and terminology (event, event streams, command, query).
 2. What is Event Sourcing, and how is it different from Event Streaming. Advantages and disadvantages.
-3. Write model, data consistency guarantees on examples from Marten and EventStoreDB.
+3. Write model, data consistency guarantees on examples from Marten and KurrentDB.
 4. Various ways of handling business logic: Aggregates, Command Handlers, functional approach.
-5. Projections, best practices and concerns for building read models from events on the examples from Marten and EventStoreDB.
+5. Projections, best practices and concerns for building read models from events on the examples from Marten and KurrentDB.
 6. Challenges in Event Sourcing and EDA: deliverability guarantees, sequence of event handling, idempotency, etc.
 8. Saga, Choreography, Process Manager,  distributed processes in practice.
 7. Event Sourcing in the context of application architecture, integration with other approaches (CQRS, microservices, messaging, etc.).
 8. Good and bad practices in event modelling.
 9. Event Sourcing on production, evolution, events' schema versioning, etc.
 
-You can do the workshop as a self-paced kit. That should give you a good foundation for starting your journey with Event Sourcing and learning tools like Marten and EventStoreDB. If you'd like to get full coverage with all nuances of the private workshop, feel free to contact me via [email](mailto:oskar.dudycz@gmail.com).
+You can do the workshop as a self-paced kit. That should give you a good foundation for starting your journey with Event Sourcing and learning tools like Marten and KurrentDB. If you'd like to get full coverage with all nuances of the private workshop, feel free to contact me via [email](mailto:oskar.dudycz@gmail.com).
 
 Read also more in my article [Introduction to Event Sourcing - Self Paced Kit](https://event-driven.io/en/introduction_to_event_sourcing/?utm_source=event_sourcing_jvm).
 
@@ -256,35 +258,58 @@ Read also more in my article [Introduction to Event Sourcing - Self Paced Kit](h
 1. [Events definition](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e01_events_definition).
 2. [Getting State from events](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e02_getting_state_from_events).
 3. Appending Events:
-   * [EventStoreDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e03_appending_event/esdb)
-   * _TODO: Axon Server_
-4. Getting State from events
-   * [EventStoreDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e04_getting_state_from_events)
-   * _TODO: Axon Server_
+   - [KurrentDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e03_appending_event/kurrentdb)
+   - [MongoDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e03_appending_event/mongodb)
+   - _TODO: Axon Server_
+4. Getting State from events read from event store:
+   - [KurrentDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e04_getting_state_from_events/kurrentdb)
+   - [MongoDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e04_getting_state_from_events/mongodb)
+   - _TODO: Axon Server_
 5. Business logic:
-   * [General](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e05_business_logic)
-   * [EventStoreDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e06_business_logic/esdb)
-   * _TODO: Axon Server_
-6. Optimistic Concurrency:
-   * [EventStoreDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e07_optimistic_concurrency/esdb)
-   * _TODO: Axon Server_
-7. Projections:
-   * [General](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e08_projections_singlestream)
-   * [Idempotency](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e09_projections_singlestream_idempotency)
-   * [Eventual Consistency](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e10_projections_singlestream_eventual_consistency)
+   - [General](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e05_business_logic)
+   - [Slimmed](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e06_business_logic_slimmed)
+6. Application logic with WebApi in Spring Boot:
+   - [KurrentDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e07_application_logic/kurrentdb)
+   - [MongoDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e07_application_logic/mongodb)
+7. Optimistic Concurrency:
+   - [KurrentDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e08_optimistic_concurrency/kurrentdb)
+   - [MongoDB](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e08_optimistic_concurrency/mongodb)
+   - _TODO: Axon Server_
+8. Projections:
+   - [General](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e09_projections_singlestream)
+   - [Idempotency](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e10_projections_singlestream_idempotency)
+   - [Eventual Consistency](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e11_projections_singlestream_eventual_consistency)
+9. Business Processes:
+   - [Events definition](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e12_events_definition)
+   - [Entities definition](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e13_entities_definition)
+   - [Business processes](./workshops/introduction-to-event-sourcing/exercises/src/test/java/io/eventdriven/introductiontoeventsourcing/e14_businessprocesses)
 
+## [Event-Driven Architecture Workshop](./workshops/event-driven-architecture/)
+
+The workshop builds Event-Driven Architecture knowledge step by step on a single domain, a hotel's guest stays and group checkouts. You start with modelling events and entities, then coordinate a business process across modules, first in memory and then on real message brokers.
+
+### Event-Driven Architecture exercises
+
+Follow the instructions in exercises folders. See the [workshop README](./workshops/event-driven-architecture/) for setup.
+
+1. [Events definition](./workshops/event-driven-architecture/exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e01_events_definition).
+2. [Entities definition](./workshops/event-driven-architecture/exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e02_entities_definition).
+3. [Business processes](./workshops/event-driven-architecture/exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e03_businessprocesses).
+4. [Idempotency](./workshops/event-driven-architecture/exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e04_idempotency).
+5. [Optimistic concurrency](./workshops/event-driven-architecture/exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e05_optimistic_concurrency).
+6. [Consistency](./workshops/event-driven-architecture/exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e06_consistency).
 
 ## Samples
 
-See also fully working, real-world samples of Event Sourcing and CQRS applications in [Samples folder](./samples/event-sourcing-esdb-simple).
+See also fully working, real-world samples of Event Sourcing and CQRS applications in [Samples folder](./samples/event-sourcing-kurrentdb-simple).
 
 Samples are using CQRS architecture. They're sliced based on the business modules and operations. Read more about the assumptions in ["How to slice the codebase effectively?"](https://event-driven.io/en/how_to_slice_the_codebase_effectively/?utm_source=event_sourcing_jvm).
 
-### Event Sourcing with Spring Boot and EventStoreDB
+### Event Sourcing with Spring Boot and KurrentDB
 
 #### Overview
 
-Sample is showing basic Event Sourcing flow. It uses [EventStoreDB](https://developers.eventstore.com/) for event storage and [Spring Data JPA](https://spring.io/projects/spring-data-jpa) backed with [PostgreSQL](https://www.postgresql.org/) for read models. 
+Sample is showing basic Event Sourcing flow. It uses [KurrentDB](https://docs.kurrent.io/) for event storage and [Spring Data JPA](https://spring.io/projects/spring-data-jpa) backed with [PostgreSQL](https://www.postgresql.org/) for read models. 
 
 The presented use case is Shopping Cart flow:
 1. The customer may add a product to the shopping cart only after opening it.
@@ -297,11 +322,11 @@ The presented use case is Shopping Cart flow:
 Technically it's modelled as Web API written in [Spring Boot](https://spring.io/projects/spring-boot) and [Java 22](https://www.oracle.com/java/technologies/downloads/). 
 
 There are two variations of those samples:
-- [Event Sourcing with Spring Boot and EventStoreDB](./samples/event-sourcing-esdb-simple)
-- [Event Sourcing with Spring Boot and EventStoreDB using Aggregate pattern](./samples/event-sourcing-esdb-aggregates)
+- [Event Sourcing with Spring Boot and KurrentDB](./samples/event-sourcing-kurrentdb-simple)
+- [Event Sourcing with Spring Boot and KurrentDB using Aggregate pattern](./samples/event-sourcing-kurrentdb-aggregates)
 
 #### Main assumptions
-- explain basics of Event Sourcing, both from the write model ([EventStoreDB](https://developers.eventstore.com/)) and read model part ([PostgreSQL](https://www.postgresql.org/) and [Spring Data JPA](https://spring.io/projects/spring-data-jpa)),
+- explain basics of Event Sourcing, both from the write model ([KurrentDB](https://docs.kurrent.io/)) and read model part ([PostgreSQL](https://www.postgresql.org/) and [Spring Data JPA](https://spring.io/projects/spring-data-jpa)),
 - present that you can join classical approach with Event Sourcing without making a massive revolution,
 - [CQRS](https://event-driven.io/en/cqrs_facts_and_myths_explained/) architecture sliced by business features, keeping code that changes together at the same place. Read more in [How to slice the codebase effectively?](https://event-driven.io/en/how_to_slice_the_codebase_effectively/),
 - clean, composable (pure) functions for command, events, projections, query handling, minimising the need for marker interfaces. Thanks to that testability and easier maintenance.
@@ -319,7 +344,7 @@ For running the Event Store examples you need to have:
 
 #### Tools used
 
-1. [EventStoreDB](https://eventstore.com) - Event Store 
+1. [KurrentDB](https://www.kurrent.io/kurrentdb) - Event Store 
 2. [PostgreSQL](https://www.postgresql.org/) - Read Models
 3. [Spring Boot](https://spring.io/projects/spring-boot) - Web Application framework
 
@@ -353,7 +378,7 @@ Shows how to handle distributed processes in Event Sourcing in practice. Explain
 - distributed processes in the single module and across boundaries,
 - internal vs external events,
 - compensating failures,
-- implementation of command and event bus in EventStoreDB.
+- implementation of command and event bus in KurrentDB.
 
 Read more in [How to ensure uniqueness in Event Sourcing](https://event-driven.io/en/uniqueness-in-event-sourcing/?utm_source=event_sourcing_jvm).
 
@@ -373,7 +398,7 @@ Read also more on the **Event Sourcing** and **CQRS** topics in my [blog](https:
 -   📝 [How to slice the codebase effectively?](https://event-driven.io/en/how_to_slice_the_codebase_effectively/?utm_source=event_sourcing_jvm)
 -   📝 [Generic does not mean Simple](https://event-driven.io/en/generic_does_not_mean_simple/?utm_source=event_sourcing_jvm)
 -   📝 [Can command return a value?](https://event-driven.io/en/can_command_return_a_value/?utm_source=event_sourcing_jvm)
--   📝 [Twelve things I learned about Java during my last code review](https://event-driven.io/pl/12_things_I_learned_on_last_pull_request_review/?utm_source=event_sourcing_jvm)
+-   📝 [Twelve things I learned about Java during my last code review](https://event-driven.io/en/12_things_I_learned_on_last_pull_request_review/?utm_source=event_sourcing_jvm)
 -   📝 [How to use ETag header for optimistic concurrency](https://event-driven.io/en/how_to_use_etag_header_for_optimistic_concurrency/?utm_source=event_sourcing_jvm)
 -   📝 [Dealing with Eventual Consistency and Idempotency in MongoDB projections](https://event-driven.io/en/dealing_with_eventual_consistency_and_idempotency_in_mongodb_projections/?utm_source=event_sourcing_jvm)
 -   📝 [Long-polling, how to make our async API synchronous](https://event-driven.io/en/long_polling_and_eventual_consistency/?utm_source=event_sourcing_jvm)

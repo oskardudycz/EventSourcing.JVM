@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.core.commands;
 
-import com.eventstore.dbclient.*;
+import io.kurrent.dbclient.*;
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
 import jakarta.persistence.EntityNotFoundException;
@@ -13,14 +13,14 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class CommandHandler<Entity, Command, Event> {
-  private final EventStoreDBClient eventStore;
+  private final KurrentDBClient eventStore;
   private final BiFunction<Entity, Event, Entity> when;
   private final Function<UUID, String> mapToStreamId;
   private final Supplier<Entity> getDefault;
   private final BiFunction<Command, Entity, Event> handle;
 
   public CommandHandler(
-    EventStoreDBClient eventStore,
+    KurrentDBClient eventStore,
     BiFunction<Entity, Event, Entity> when,
     BiFunction<Command, Entity, Event> handle,
     Function<UUID, String> mapToStreamId,
@@ -37,12 +37,12 @@ public class CommandHandler<Entity, Command, Event> {
   public ETag handle(
     UUID id,
     Command command,
-    ExpectedRevision expectedRevision
+    StreamState expectedRevision
   ) {
     var streamId = mapToStreamId.apply(id);
     var entity = get(id);
 
-    if(entity.isEmpty() && !expectedRevision.equals(ExpectedRevision.noStream()))
+    if(entity.isEmpty() && !expectedRevision.equals(StreamState.noStream()))
       throw new EntityNotFoundException();
 
     var event = handle.apply(command, entity.orElse(getDefault.get()));
@@ -50,7 +50,7 @@ public class CommandHandler<Entity, Command, Event> {
     try {
       var result = eventStore.appendToStream(
         streamId,
-        AppendToStreamOptions.get().expectedRevision(expectedRevision),
+        AppendToStreamOptions.get().streamState(expectedRevision),
         EventSerializer.serialize(event)
       ).get();
 
@@ -99,8 +99,8 @@ public class CommandHandler<Entity, Command, Event> {
     return Optional.of(events);
   }
 
-  //This ugly hack is needed as ESDB Java client from v4 doesn't allow to access or serialise version in an elegant manner
-  private ETag toETag(ExpectedRevision nextExpectedRevision) throws NoSuchFieldException, IllegalAccessException {
+  //This ugly hack is needed as KurrentDB Java client doesn't allow to access or serialise version in an elegant manner
+  private ETag toETag(StreamState nextExpectedRevision) throws NoSuchFieldException, IllegalAccessException {
     var field = nextExpectedRevision.getClass().getDeclaredField("version");
     field.setAccessible(true);
 

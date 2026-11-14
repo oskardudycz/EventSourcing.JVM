@@ -1,12 +1,12 @@
 package io.eventdriven.uniqueness.users;
 
-import com.eventstore.dbclient.ConnectionStringParsingException;
-import com.eventstore.dbclient.EventStoreDBClient;
-import com.eventstore.dbclient.EventStoreDBClientSettings;
-import com.eventstore.dbclient.EventStoreDBConnectionString;
-import io.eventdriven.uniqueness.core.esdb.EventStore;
+import io.kurrent.dbclient.ConnectionStringParsingException;
+import io.kurrent.dbclient.KurrentDBClient;
+import io.kurrent.dbclient.KurrentDBClientSettings;
+import io.kurrent.dbclient.KurrentDBConnectionString;
+import io.eventdriven.uniqueness.core.kurrentdb.EventStore;
 import io.eventdriven.uniqueness.core.resourcereservation.Hash;
-import io.eventdriven.uniqueness.core.resourcereservation.esdb.ESDBResourceReservationHandler;
+import io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.KurrentDBResourceReservationHandler;
 import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservation;
 import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservationRepository;
 import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservationScavenging;
@@ -25,7 +25,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 
-import static io.eventdriven.uniqueness.core.resourcereservation.esdb.ResourceReservationEvent.*;
+import static io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.ResourceReservationEvent.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
@@ -121,10 +121,10 @@ public class UserEmailRegistrationScavengingTests {
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parseOrThrow("esdb://localhost:2113?tls=false");
-    EventStoreDBClient eventStoreDBClient = EventStoreDBClient.create(settings);
-    eventStore = new EventStore(eventStoreDBClient);
-    var resourceReservationHandler = new ESDBResourceReservationHandler(Duration.ofMinutes(10), new NulloRetryPolicy(), eventStore);
+    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    KurrentDBClient kurrentDBClient = KurrentDBClient.create(settings);
+    eventStore = new EventStore(kurrentDBClient);
+    var resourceReservationHandler = new KurrentDBResourceReservationHandler(Duration.ofMinutes(10), new NulloRetryPolicy(), eventStore);
 
     resourceReservationScavenging = new ResourceReservationScavenging(repository, resourceReservationHandler);
   }

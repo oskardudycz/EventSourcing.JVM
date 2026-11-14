@@ -1,14 +1,14 @@
 package io.eventdriven.uniqueness.users;
 
-import com.eventstore.dbclient.ConnectionStringParsingException;
-import com.eventstore.dbclient.EventStoreDBClient;
-import com.eventstore.dbclient.EventStoreDBClientSettings;
-import com.eventstore.dbclient.EventStoreDBConnectionString;
+import io.kurrent.dbclient.ConnectionStringParsingException;
+import io.kurrent.dbclient.KurrentDBClient;
+import io.kurrent.dbclient.KurrentDBClientSettings;
+import io.kurrent.dbclient.KurrentDBConnectionString;
 import io.eventdriven.uniqueness.core.async.SyncProcessor;
-import io.eventdriven.uniqueness.core.esdb.EventStore;
+import io.eventdriven.uniqueness.core.kurrentdb.EventStore;
 import io.eventdriven.uniqueness.core.resourcereservation.Hash;
 import io.eventdriven.uniqueness.core.resourcereservation.ResourceReservationEventHandler;
-import io.eventdriven.uniqueness.core.resourcereservation.esdb.ESDBResourceReservationHandler;
+import io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.KurrentDBResourceReservationHandler;
 import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservation;
 import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservationRepository;
 import io.eventdriven.uniqueness.core.retries.NulloRetryPolicy;
@@ -26,8 +26,8 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import static io.eventdriven.uniqueness.core.esdb.subscriptions.ESDBSubscription.subscribeToAll;
-import static io.eventdriven.uniqueness.core.resourcereservation.esdb.ResourceReservationEvent.*;
+import static io.eventdriven.uniqueness.core.kurrentdb.subscriptions.KurrentDBSubscription.subscribeToAll;
+import static io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.ResourceReservationEvent.*;
 import static io.eventdriven.uniqueness.core.serialization.EventSerializer.deserialize;
 import static io.eventdriven.uniqueness.users.UserEvent.UserRegistered;
 import static org.junit.jupiter.api.Assertions.*;
@@ -55,7 +55,7 @@ public class UserEmailRegistrationFallbackTests {
 
     // When
     SyncProcessor.runSync((ack) ->
-      subscribeToAll(eventStoreDBClient, (subscription, resolvedEvent) -> {
+      subscribeToAll(kurrentDBClient, (subscription, resolvedEvent) -> {
         var position = resolvedEvent.getOriginalEvent().getPosition();
         if (position.equals(reservationResult.logPosition()) || position.equals(reservationConfirmedResult.logPosition())) {
           var event = deserialize(resolvedEvent).orElseThrow();
@@ -91,7 +91,7 @@ public class UserEmailRegistrationFallbackTests {
 
     // When
     SyncProcessor.runSync((ack) ->
-      subscribeToAll(eventStoreDBClient, (subscription, resolvedEvent) -> {
+      subscribeToAll(kurrentDBClient, (subscription, resolvedEvent) -> {
         var position = resolvedEvent.getOriginalEvent().getPosition();
         if (position.equals(reservationResult.logPosition())) {
           var event = deserialize(resolvedEvent).orElseThrow();
@@ -123,7 +123,7 @@ public class UserEmailRegistrationFallbackTests {
 
     // When
     SyncProcessor.runSync((ack) ->
-      subscribeToAll(eventStoreDBClient, (subscription, resolvedEvent) -> {
+      subscribeToAll(kurrentDBClient, (subscription, resolvedEvent) -> {
         var position = resolvedEvent.getOriginalEvent().getPosition();
         if (position.equals(reservationResult.logPosition())) {
           var event = deserialize(resolvedEvent).orElseThrow();
@@ -165,7 +165,7 @@ public class UserEmailRegistrationFallbackTests {
 
     // When
     SyncProcessor.runSync((ack) ->
-      subscribeToAll(eventStoreDBClient, (subscription, resolvedEvent) -> {
+      subscribeToAll(kurrentDBClient, (subscription, resolvedEvent) -> {
         var position = resolvedEvent.getOriginalEvent().getPosition();
         if (position.equals(reservationResult.logPosition()) || position.equals(reservationReleaseInitiatedResult.logPosition())) {
           var event = deserialize(resolvedEvent).orElseThrow();
@@ -183,7 +183,7 @@ public class UserEmailRegistrationFallbackTests {
 
   @Autowired
   private ResourceReservationRepository repository;
-  private EventStoreDBClient eventStoreDBClient;
+  private KurrentDBClient kurrentDBClient;
   private EventStore eventStore;
   private ResourceReservationEventHandler reservationEventHandler;
   private UserEmailReservationEventHandler emailReservationEventHandler;
@@ -197,10 +197,10 @@ public class UserEmailRegistrationFallbackTests {
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parseOrThrow("esdb://localhost:2113?tls=false");
-    eventStoreDBClient = EventStoreDBClient.create(settings);
-    eventStore = new EventStore(eventStoreDBClient);
-    var resourceReservationCommandHandler = new ESDBResourceReservationHandler(reservationLockDuration, new NulloRetryPolicy(), eventStore);
+    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    kurrentDBClient = KurrentDBClient.create(settings);
+    eventStore = new EventStore(kurrentDBClient);
+    var resourceReservationCommandHandler = new KurrentDBResourceReservationHandler(reservationLockDuration, new NulloRetryPolicy(), eventStore);
 
     reservationEventHandler = new ResourceReservationEventHandler(repository, resourceReservationCommandHandler);
     emailReservationEventHandler = new UserEmailReservationEventHandler(repository);

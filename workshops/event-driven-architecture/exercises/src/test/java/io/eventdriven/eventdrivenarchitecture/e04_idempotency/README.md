@@ -34,4 +34,4 @@ Message brokers usually guarantee at-least-once delivery, and clients retry requ
   - recording the same guest checkout completion twice,
   - recording the same guest checkout failure twice,
 - The whole process should give the same result when [the message bus](./core/InMemoryMessageBus.java) delivers every message twice,
-- Use `IdempotencyTests` to guide you and verify if you implemented it correctly. `BusinessProcessTests` and `EntityDefinitionTests` should stay green.
+- Use `IdempotencyTests` ([DDD Aggregate](./solution1_aggregates/IdempotencyTests.java), [Functional Decider](./solution2_immutableentities/IdempotencyTests.java)) to guide you and verify if you implemented it correctly. `BusinessProcessTests` and `EntityDefinitionTests` should stay green.

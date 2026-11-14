@@ -2,8 +2,8 @@ package io.eventdriven.distributedprocesses.ecommerce.payments;
 
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 
-import io.eventdriven.distributedprocesses.core.esdb.EventStore;
-import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
+import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;

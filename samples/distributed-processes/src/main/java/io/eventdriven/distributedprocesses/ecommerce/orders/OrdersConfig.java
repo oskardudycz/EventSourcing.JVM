@@ -1,7 +1,7 @@
 package io.eventdriven.distributedprocesses.ecommerce.orders;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
-import io.eventdriven.distributedprocesses.core.esdb.EventStore;
+import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.orders.pending.PendingOrders;

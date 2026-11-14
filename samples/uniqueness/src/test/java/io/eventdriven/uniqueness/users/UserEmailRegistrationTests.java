@@ -1,12 +1,12 @@
 package io.eventdriven.uniqueness.users;
 
-import com.eventstore.dbclient.ConnectionStringParsingException;
-import com.eventstore.dbclient.EventStoreDBClient;
-import com.eventstore.dbclient.EventStoreDBClientSettings;
-import com.eventstore.dbclient.EventStoreDBConnectionString;
-import io.eventdriven.uniqueness.core.esdb.EventStore;
+import io.kurrent.dbclient.ConnectionStringParsingException;
+import io.kurrent.dbclient.KurrentDBClient;
+import io.kurrent.dbclient.KurrentDBClientSettings;
+import io.kurrent.dbclient.KurrentDBConnectionString;
+import io.eventdriven.uniqueness.core.kurrentdb.EventStore;
 import io.eventdriven.uniqueness.core.resourcereservation.Hash;
-import io.eventdriven.uniqueness.core.resourcereservation.esdb.ESDBResourceReservationHandler;
+import io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.KurrentDBResourceReservationHandler;
 import io.eventdriven.uniqueness.core.retries.NulloRetryPolicy;
 import io.eventdriven.uniqueness.users.reservation.UserCommandHandler;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,8 +15,8 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.util.UUID;
 
-import static io.eventdriven.uniqueness.core.esdb.EventStore.ReadResult;
-import static io.eventdriven.uniqueness.core.resourcereservation.esdb.ResourceReservationEvent.*;
+import static io.eventdriven.uniqueness.core.kurrentdb.EventStore.ReadResult;
+import static io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.ResourceReservationEvent.*;
 import static io.eventdriven.uniqueness.core.serialization.EventSerializer.deserialize;
 import static io.eventdriven.uniqueness.users.UserEvent.UserRegistered;
 import static org.junit.jupiter.api.Assertions.*;
@@ -80,11 +80,11 @@ public class UserEmailRegistrationTests {
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parseOrThrow("esdb://localhost:2113?tls=false");
-    var esdbClient = EventStoreDBClient.create(settings);
-    eventStore = new EventStore(esdbClient);
+    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    var kurrentDBClient = KurrentDBClient.create(settings);
+    eventStore = new EventStore(kurrentDBClient);
 
-    var resourceReservationCommandHandler = new ESDBResourceReservationHandler(reservationLockDuration, new NulloRetryPolicy(), eventStore);
+    var resourceReservationCommandHandler = new KurrentDBResourceReservationHandler(reservationLockDuration, new NulloRetryPolicy(), eventStore);
     userCommandHandler = new UserCommandHandler(resourceReservationCommandHandler, eventStore);
   }
 }

@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce;
 
-import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCancellationReason;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.*;

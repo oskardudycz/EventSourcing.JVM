@@ -24,7 +24,7 @@ We still need to support regular checkouts, payments, charges etc. as we do righ
 - Fill application logic in GroupCheckoutFacade, using the [in-memory database](./core/Database.java) and [in-memory message bus](./core/InMemoryMessageBus.java) to store changes and publish events as the outcome of business logic,
 - Configure message handling in respective Config files by subscribing to commands and events on the [message bus](./core/MessageBus.java) (think about them as setup called once upon application startup),
 - You can use any preferred style of implementing process coordination,
-- Use BusinessProcessTests to guide you and verify if you implemented it correctly.
+- Use `BusinessProcessTests` ([DDD Aggregate](./solution1_aggregates/BusinessProcessTests.java), [Functional Decider](./solution2_immutableentities/BusinessProcessTests.java)) and the group checkout `EntityDefinitionTests` ([DDD Aggregate](./solution1_aggregates/groupcheckouts/EntityDefinitionTests.java), [Functional Decider](./solution2_immutableentities/groupcheckouts/EntityDefinitionTests.java)) to guide you and verify if you implemented it correctly.
 
 ### Commands and events on one message bus
 

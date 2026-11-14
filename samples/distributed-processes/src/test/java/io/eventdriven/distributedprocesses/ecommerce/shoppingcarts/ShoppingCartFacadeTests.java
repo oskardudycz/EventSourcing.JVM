@@ -1,7 +1,7 @@
 package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts;
 
-import io.eventdriven.distributedprocesses.core.esdb.EventStore;
-import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
+import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
