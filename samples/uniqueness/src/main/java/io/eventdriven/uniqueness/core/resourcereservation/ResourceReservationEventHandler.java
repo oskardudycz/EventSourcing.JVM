@@ -3,7 +3,7 @@ package io.eventdriven.uniqueness.core.resourcereservation;
 import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservation;
 import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservationRepository;
 
-import static io.eventdriven.uniqueness.core.resourcereservation.esdb.ResourceReservationEvent.*;
+import static io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.ResourceReservationEvent.*;
 
 // This class is used to maintain read model used to ensure that reservation is released
 public class ResourceReservationEventHandler {

@@ -1,7 +1,7 @@
 package io.eventdriven.distributedprocesses.core.aggregates;
 
-import com.eventstore.dbclient.ExpectedRevision;
-import io.eventdriven.distributedprocesses.core.esdb.EventStore;
+import io.kurrent.dbclient.StreamState;
+import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
 import io.eventdriven.distributedprocesses.core.http.ETag;
 
 import java.util.ConcurrentModificationException;
@@ -80,10 +80,10 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
     };
   }
 
-  private static ExpectedRevision toExpectedRevision(long version) {
+  private static StreamState toExpectedRevision(long version) {
     return version < 0 ?
-      ExpectedRevision.noStream()
-      : ExpectedRevision.expectedRevision(version);
+      StreamState.noStream()
+      : StreamState.streamRevision(version);
   }
 
   @SuppressWarnings("unchecked")
@@ -99,14 +99,14 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
     return current;
   }
 
-  private static String describe(ExpectedRevision revision) {
-    if (revision.equals(ExpectedRevision.noStream()))
+  private static String describe(StreamState revision) {
+    if (revision.equals(StreamState.noStream()))
       return "no stream";
 
-    if (revision.equals(ExpectedRevision.streamExists()))
+    if (revision.equals(StreamState.streamExists()))
       return "stream exists";
 
-    if (revision.equals(ExpectedRevision.any()))
+    if (revision.equals(StreamState.any()))
       return "any revision";
 
     return "revision %s".formatted(revision);

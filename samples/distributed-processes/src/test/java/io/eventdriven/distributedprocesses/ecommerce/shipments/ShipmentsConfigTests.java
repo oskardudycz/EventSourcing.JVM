@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments;
 
-import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.CallingBackFulfillmentService;

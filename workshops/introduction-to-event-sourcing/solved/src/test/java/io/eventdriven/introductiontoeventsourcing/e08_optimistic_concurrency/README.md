@@ -15,14 +15,14 @@ And business logic and application code implemented in the [previous exercise](.
 
 - [Optimistic concurrency for pessimistic times](https://event-driven.io/en/optimistic_concurrency_for_pessimistic_times/)
 - [MDN - HTTP conditional requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Conditional_requests)
-- [EventStoreDB Documentation - Handling concurrency](https://developers.eventstore.com/clients/grpc/appending-events.html#handling-concurrency)
+- [KurrentDB Documentation - Handling concurrency](https://docs.kurrent.io/clients/java/v1.2/appending-events.html#handling-concurrency)
 
-This time you'll use EventStoreDB instead of the mocked one. Run `docker compose up` before running test code to have database set up.
+This time you'll use KurrentDB instead of the mocked one. Run `docker compose up` before running test code to have database set up.
 
 
 There are three variations:
 
-1. Classical, mutable aggregates: [EventStoreDB](./esdb/mutable/), [MongoDB](./mongodb/mutable/),
-2. Mixed approach, mutable aggregates, returning events from methods: [EventStoreDB](./esdb/mixed/), [MongoDB](./mongodb/mixed/),
-3. Immutable, with functional command handlers composition and entities as data model: [EventStoreDB](./esdb/immutable/), [MongoDB](./mongodb/immutable/),
+1. Classical, mutable aggregates: [KurrentDB](./kurrentdb/mutable/), [MongoDB](./mongodb/mutable/),
+2. Mixed approach, mutable aggregates, returning events from methods: [KurrentDB](./kurrentdb/mixed/), [MongoDB](./mongodb/mixed/),
+3. Immutable, with functional command handlers composition and entities as data model: [KurrentDB](./kurrentdb/immutable/), [MongoDB](./mongodb/immutable/),
 

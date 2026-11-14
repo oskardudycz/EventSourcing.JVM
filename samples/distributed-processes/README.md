@@ -42,20 +42,24 @@ public class GroupCheckoutSaga {
 
   public void on(GroupCheckoutInitiated groupCheckoutInitiated) {
     for (var guestAccountId : groupCheckoutInitiated.guestStayAccountIds()) {
-      commandBus.send(
-        new CheckoutGuestAccount(guestAccountId, groupCheckoutInitiated.groupCheckoutId())
+      commandBus.schedule(
+        new GuestStayAccountCommand.CheckOutGuest(guestAccountId, groupCheckoutInitiated.groupCheckoutId(), groupCheckoutInitiated.initiatedAt())
       );
     }
-    commandBus.send(
-      new RecordGuestStayInitiation(groupCheckoutInitiated.groupCheckoutId(), groupCheckoutInitiated.guestStayAccountIds())
+    commandBus.schedule(
+      new RecordGuestCheckoutsInitiation(
+        groupCheckoutInitiated.groupCheckoutId(),
+        groupCheckoutInitiated.guestStayAccountIds(),
+        groupCheckoutInitiated.initiatedAt()
+      )
     );
   }
 
-  public void on(GuestStayAccountEvent.GuestAccountCheckoutCompleted guestCheckoutCompleted) {
+  public void on(GuestStayAccountEvent.GuestCheckedOut guestCheckoutCompleted) {
     if (guestCheckoutCompleted.groupCheckoutId() == null)
       return;
 
-    commandBus.send(
+    commandBus.schedule(
       new RecordGuestCheckoutCompletion(
         guestCheckoutCompleted.groupCheckoutId(),
         guestCheckoutCompleted.guestStayAccountId(),
@@ -64,11 +68,11 @@ public class GroupCheckoutSaga {
     );
   }
 
-  public void on(GuestStayAccountEvent.GuestAccountCheckoutFailed guestCheckoutFailed) {
+  public void on(GuestStayAccountEvent.GuestCheckoutFailed guestCheckoutFailed) {
     if (guestCheckoutFailed.groupCheckoutId() == null)
       return;
 
-    commandBus.send(
+    commandBus.schedule(
       new RecordGuestCheckoutFailure(
         guestCheckoutFailed.groupCheckoutId(),
         guestCheckoutFailed.guestStayAccountId(),
@@ -81,25 +85,25 @@ public class GroupCheckoutSaga {
 
 See more in [GroupCheckoutSaga.java](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/saga/groupcheckout/GroupCheckoutSaga.java)
 
-Saga, sens commands through command bus, storing commands durable and using outbox pattern to ensure that they're delivered. The example command bus using ESDB and its subscriptions can look like this:
+Saga schedules commands through command bus, storing commands durable and using outbox pattern to ensure that they're delivered. The example command bus using KurrentDB and its subscriptions can look like this:
 
 ```java
-public class ESDBCommandBus implements CommandBus {
+public class KurrentDBCommandBus implements CommandBus {
   private static final String commandStreamId = "_commands-all";
-  private final EventStoreDBClient eventStoreDBClient;
+  private final KurrentDBClient kurrentDBClient;
   private final EventStore eventStore;
   private final RetryPolicy retryPolicy;
   private final Supplier<String> currentCorrelationId;
   private final Supplier<String> currentCausationId;
 
-  public ESDBCommandBus(
-    EventStoreDBClient eventStoreDBClient,
+  public KurrentDBCommandBus(
+    KurrentDBClient kurrentDBClient,
     EventStore eventStore,
     RetryPolicy retryPolicy,
     Supplier<String> currentCorrelationId,
     Supplier<String> currentCausationId
   ) {
-    this.eventStoreDBClient = eventStoreDBClient;
+    this.kurrentDBClient = kurrentDBClient;
     this.eventStore = eventStore;
     this.retryPolicy = retryPolicy;
     this.currentCorrelationId = currentCorrelationId;
@@ -107,7 +111,7 @@ public class ESDBCommandBus implements CommandBus {
   }
 
   @Override
-  public <Command> EventStore.AppendResult send(Command command) {
+  public <Command> EventStore.AppendResult schedule(Command command) {
     return retryPolicy.run(ack -> {
       var result = eventStore.append(
         commandStreamId,
@@ -121,7 +125,7 @@ public class ESDBCommandBus implements CommandBus {
 
   @Override
   public void subscribe(Consumer<CommandEnvelope<Object>>... handlers) {
-    subscribeToStream(eventStoreDBClient, commandStreamId, (subscription, resolvedEvent) -> {
+    subscribeToStream(kurrentDBClient, commandStreamId, (subscription, resolvedEvent) -> {
       var commandEnvelope = deserializeCommand(resolvedEvent);
 
       if (commandEnvelope.isEmpty()) {
@@ -136,45 +140,54 @@ public class ESDBCommandBus implements CommandBus {
 }
 ```
 
-See more in [ESDBCommandBus.java](./src/main/java/io/eventdriven/distributedprocesses/core/commands/ESDBCommandBus.java)
+See more in [KurrentDBCommandBus.java](./src/main/java/io/eventdriven/distributedprocesses/core/commands/KurrentDBCommandBus.java)
 
-The business logic of the saga processing is delegated to aggregate. Thanks to that, we have a clear split of responsibility between coordination (saga) and business logic (aggregate). Thanks to that, the saga is lightweight and much easier to maintain than merging both into Process Manager.
+The business logic of the saga processing is delegated to the group checkout decider. Thanks to that, we have a clear split of responsibility between coordination (saga) and business logic (decider). Thanks to that, the saga is lightweight and much easier to maintain than merging both into Process Manager.
 
-See the in [GroupCheckout](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/saga/groupcheckout/GroupCheckout.java) aggregate.
+See the [GroupCheckoutDecider](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/saga/groupcheckout/GroupCheckoutDecider.java) and [GroupCheckout](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/saga/groupcheckout/GroupCheckout.java) state.
 
-We can check out the guest account if the balance is settled. If it's not, then it will store the failure event: 
+We can check out the guest account if the balance is settled. If it's not, then it will return the failure event: 
 
 ```java
-public void checkout(@Nullable UUID groupCheckoutId, OffsetDateTime now) {
-  if (status != Status.Open || balance != 0) {
-    enqueue(new GuestAccountCheckoutFailed(id(), groupCheckoutId, OffsetDateTime.now()));
+private static GuestStayAccountEvent handle(CheckOutGuest command, CheckedIn state) {
+  if (state.balance() != 0) {
+    return new GuestCheckoutFailed(
+      state.id(),
+      GuestCheckoutFailed.Reason.BalanceNotSettled,
+      command.groupCheckoutId(),
+      command.now()
+    );
   }
-  enqueue(new GuestAccountCheckoutCompleted(id(), groupCheckoutId, now));
+
+  return new GuestCheckedOut(
+    command.guestStayAccountId(),
+    command.groupCheckoutId(),
+    command.now()
+  );
 }
 ```
 
-See more in [GuestStayAccount](https://github.com/oskardudycz/EventSourcing.JVM/blob/distributed_processes/samples/distributed-processes/src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/gueststayaccount/GuestStayAccount.java#L48) aggregate.
+See more in [GuestStayAccountDecider](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/saga/gueststayaccount/GuestStayAccountDecider.java#L74).
 
 We should use a retry policy in the command handler/application service to ensure that we won't fail because of random transient errors.
 
 ```java
-public ETag handle(CheckoutGuestAccount command) {
-    return retryPolicy.run(ack -> {
-      var result = store.getAndUpdate(
-        current -> current.checkout(
-          command.guestStayAccountId(),
-          OffsetDateTime.now()
-        ),
-        command.guestStayAccountId()
-      );
-      ack.accept(result);
-    });
-  }
+public Optional<ETag> handle(CheckOutGuest command) {
+  return retryPolicy.run(ack -> {
+    var result = handle(command.guestStayAccountId(), command);
+    ack.accept(result);
+  });
+}
 ```
 
-See more in [GuestStayAccountService](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/saga/gueststayaccount/GuestStayAccountService.java#L60)
+See more in [GuestStayAccountService](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/saga/gueststayaccount/GuestStayAccountService.java#L38)
 
 As an alternative to the retry policy, we could do a [Pokémon exception handling](https://www.dodgycoder.net/2011/11/yoda-conditions-pokemon-exception.html) in the command handler and then publish the failure event.
+
+The same group checkout is also implemented as:
+
+- [process manager](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/processmanager/), where [GroupCheckoutProcessManager](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/processmanager/groupcheckout/GroupCheckoutProcessManager.java) keeps the process state and decides about the next steps,
+- [choreography](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/choreography/), where [GroupCheckoutService](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/choreography/groupcheckout/GroupCheckoutService.java) reacts to events and schedules commands itself, without a separate saga.
 
 ## Cross-module processes with compensation
 
@@ -485,11 +498,11 @@ Besides the summaries, the modules keep views that exist to answer a question no
 
 ### The event store is the outbox
 
-Appending only writes: to the stream, and to one global log. Every subscriber — projections, forwarders, the saga, the provider clients — reads that log from its own checkpoint. [InMemoryEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/esdb/InMemoryEventStore.java) delivers once the outermost append is done, entry by entry, to every subscriber that is behind. An event appended by a subscriber is delivered after the one it is handling, never in the middle of it.
+Appending only writes: to the stream, and to one global log. Every subscriber — projections, forwarders, the saga, the provider clients — reads that log from its own checkpoint. [InMemoryEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/kurrentdb/InMemoryEventStore.java) delivers once the outermost append is done, entry by entry, to every subscriber that is behind. An event appended by a subscriber is delivered after the one it is handling, never in the middle of it.
 
 A subscriber that throws keeps its checkpoint. It gets nothing more in that run, and the next append delivers the same event to it again, before anything newer. The append itself does not fail: the event is stored, and it is the subscriber that has to catch up. That is at-least-once delivery, and it is why every handler has to be idempotent.
 
-So there's no gap between storing and publishing to get wrong, and no facade calls a bus. If you find yourself writing `store.getAndUpdate(...)` followed by `bus.publish(...)`, you're working around the store instead of using it. Against EventStoreDB, [ESDBEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/esdb/ESDBEventStore.java) subscribes to `$all`, filtered by event type. It starts from the beginning every time; a production version would store the checkpoint.
+So there's no gap between storing and publishing to get wrong, and no facade calls a bus. If you find yourself writing `store.getAndUpdate(...)` followed by `bus.publish(...)`, you're working around the store instead of using it. Against KurrentDB, [KurrentDBEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/kurrentdb/KurrentDBEventStore.java) subscribes to `$all`, filtered by event type. It starts from the beginning every time; a production version would store the checkpoint.
 
 Commands and public events travel on one [MessageBus](./src/main/java/io/eventdriven/distributedprocesses/core/messaging/MessageBus.java), in the same shape as in the [event-driven architecture](../../workshops/event-driven-architecture/) workshop. A command and an event differ in intent, not in transport. Only forwarders publish events on it, so no module sees another module's internal events. The order saga listens to both sides: to the order's own events from the store, and to the other modules' public events from the bus.
 
@@ -556,14 +569,14 @@ Each module keeps its aggregate, its events, its commands, its facade and its `C
 
 ### What this sample doesn't cover
 
-- **There is no web API.** The cart's commands come from a person, so a web API would call `ShoppingCartFacade` directly, as [event-sourcing-esdb-aggregates](../event-sourcing-esdb-aggregates/) does. The facade already returns the cart's new version as an `ETag`. Only `ShoppingCartCheckedOut` goes on the message bus, to the saga.
+- **There is no web API.** The cart's commands come from a person, so a web API would call `ShoppingCartFacade` directly, as [event-sourcing-kurrentdb-aggregates](../event-sourcing-kurrentdb-aggregates/) does. The facade already returns the cart's new version as an `ETag`. Only `ShoppingCartCheckedOut` goes on the message bus, to the saga.
 - **Carts are never anonymous.** The client is logged in from the first product, as on Allegro. Shopify and WooCommerce also let a guest fill a cart and merge it into the account's cart at login.
 - **A lapsed hold before shipping cancels the order.** Real shops usually ask the customer to pay again first — Shopify's "collect payment", Amazon's "revise payment" — and cancel only if that fails. Modelling that is one more step with its own deadline, and it would teach nothing the authorisation doesn't.
 - **A rejected fulfillment request cancels the order.** A real shop gives the order back to the merchant, who can try another warehouse.
 - **The order does not wait for the delivery.** A delivery that never happens has no consequence for the order.
 - **A sent package has no return path.** Returns and refunds are a process of their own.
 - **Partial reservations do not exist.** A reservation covers every line or none.
-- **The infrastructure is in memory.** The ESDB implementations exist but are not wired. The projection `Database` is a `HashMap` behind a store/get/delete/find API, so swapping it for a real one is a change in one class.
+- **The infrastructure is in memory.** The KurrentDB implementations exist but are not wired. The projection `Database` is a `HashMap` behind a store/get/delete/find API, so swapping it for a real one is a change in one class.
 - **A view can be resurrected by a replay.** `Projection.handle` skips an event a stored document has already applied, but a deleted document keeps no version. Replay an `OrderPackageSent` after its `OrderCompleted` and the order is listed as awaiting payment again. Nothing breaks downstream — it never gets an `unpaidSince`, so the worker never closes it — but a versioned delete would close it properly.
 - **`core/messaging` duplicates the older `core/commands` and `core/events`.** Both stay, because `hotelmanagement` still depends on the older pair.
 

@@ -1,7 +1,7 @@
 package io.eventdriven.distributedprocesses.core.aggregates;
 
-import io.eventdriven.distributedprocesses.core.esdb.EventStore;
-import io.eventdriven.distributedprocesses.core.esdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
+import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

@@ -29,4 +29,4 @@ The [in-memory database](./core/Database.java) now versions documents and respon
 - Start from the idempotent saga of the previous exercise. Choose one path: [DDD Aggregate](./solution1_aggregates) or [Functional Decider](./solution2_immutableentities),
 - Store with the version you loaded, so a conflicting change fails instead of overwriting,
 - Handle the conflict by loading the current state and deciding again, for a few attempts. Publish only the events of the attempt that succeeded,
-- Use `OptimisticConcurrencyTests` to guide you and verify if you implemented it correctly. `BusinessProcessTests`, `EntityDefinitionTests` and `IdempotencyTests` should stay green.
+- Use `OptimisticConcurrencyTests` ([DDD Aggregate](./solution1_aggregates/OptimisticConcurrencyTests.java), [Functional Decider](./solution2_immutableentities/OptimisticConcurrencyTests.java)) to guide you and verify if you implemented it correctly. `BusinessProcessTests`, `EntityDefinitionTests` and `IdempotencyTests` should stay green.

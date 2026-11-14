@@ -20,8 +20,8 @@ dependencies {
   implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
   implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.0'
 
-  // EventStoreDB client
-  implementation 'com.eventstore:db-client-java:5.4.3'
+  // KurrentDB client
+  implementation 'io.kurrent:kurrentdb-client:1.2.1'
 
   // Logging
   implementation 'org.apache.logging.log4j:log4j-api:2.23.1'

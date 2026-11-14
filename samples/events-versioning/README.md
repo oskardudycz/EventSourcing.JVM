@@ -15,6 +15,7 @@
   - [Downcasters](#downcasters)
   - [Events Transformations](#events-transformations)
   - [Stream Transformation](#stream-transformation)
+  - [Contract testing](#contract-testing)
   - [Migrations](#migrations)
   - [Summary](#summary)
 
@@ -117,7 +118,7 @@ record ShoppingCartOpened(
 
 The benefit is that both old and the new structure will be backward and forward compatible. The downside of this solution is that we're still keeping the old JSON structure, so all consumers need to be aware of that and do mapping if they want to use the new structure.
 
-See full sample: [NewRequiredPropertyTests.java](./src/test/java/io/eventdriven/eventsversioning/simplemappings/NewRequiredPropertyTests.java).
+See full sample: [RenamedPropertyTests.java](./src/test/java/io/eventdriven/eventsversioning/simplemappings/RenamedPropertyTests.java).
 
 ## Upcasting
 
@@ -267,7 +268,7 @@ public static ShoppingCartEvent.ShoppingCartOpened downcast(
 }
 ```
 
-See full sample: [ChangedStructureTests.java](./src/test/java/io/eventdriven/eventsversioning/upcasters/ChangedStructureTests.java).
+See full sample: [ChangedStructureTests.java](./src/test/java/io/eventdriven/eventsversioning/downcasters/ChangedStructureTests.java).
 
 ## Events Transformations
 
@@ -360,9 +361,9 @@ var mapping = new EventTypeMapping()
   );
 ```
 
-See details in [EventTypeMapping](./src/test/java/io/eventdriven/eventsversioning/transformations/MultipleTransformationsWithDifferentEventTypesTests.java).
+See details of `EventTypeMapping` in [MultipleTransformationsWithDifferentEventTypesTests.java](./src/test/java/io/eventdriven/eventsversioning/transformations/MultipleTransformationsWithDifferentEventTypesTests.java).
 
-It's the most straightforward wrapper that requires manual mapping for all the event types, but it benefits from being explicit and less error-prone. For the convention-based mapper, there is a risk that refactoring accidentally changes the event type name stored in the event store. Still, a viable option is a mixed solution. See more in [EventTypeMapper in the sample project](../../samples/event-sourcing-esdb-simple/src/main/java/io/eventdriven/ecommerce/core/events/EventTypeMapper.java)
+It's the most straightforward wrapper that requires manual mapping for all the event types, but it benefits from being explicit and less error-prone. For the convention-based mapper, there is a risk that refactoring accidentally changes the event type name stored in the event store. Still, a viable option is a mixed solution. See more in [EventTypeMapper in the sample project](../../samples/event-sourcing-kurrentdb-simple/src/main/java/io/eventdriven/ecommerce/core/events/EventTypeMapper.java)
 
 Having those classes, we can define the final deserialisation logic.
 
@@ -380,7 +381,7 @@ public record EventSerializer(
 
 The logic is simple. It'll either transform JSON through registered transformations (e.g. upcasters or downcasters) or run the regular deserialisation logic.
 
-See a full sample in [MultipleTransformationsWithDifferentEventTypesTests.java](src/test/java/io/eventdriven/eventsversioning/transformations/MultipleTransformationsWithDifferentEventTypesTests.java).
+See a full sample in [MultipleTransformationsWithDifferentEventTypesTests.java](./src/test/java/io/eventdriven/eventsversioning/transformations/MultipleTransformationsWithDifferentEventTypesTests.java).
 
 ## Stream Transformation
 
@@ -548,15 +549,21 @@ private static EventData toShoppingCartInitializedWithProducts(
 
 See a full sample in:
 - [StreamTransformationsTests.java](./src/test/java/io/eventdriven/eventsversioning/transformations/StreamTransformationsTests.java).
-- [esdb/StreamTransformationsTests.java](./src/test/java/io/eventdriven/eventsversioning/transformations/esdb/StreamTransformationsTests.java) showing how to apply them in practice into EventStoreDB.
+- [kurrentdb/StreamTransformationsTests.java](./src/test/java/io/eventdriven/eventsversioning/transformations/kurrentdb/StreamTransformationsTests.java) showing how to apply them in practice into KurrentDB.
+
+## Contract testing
+
+Versioning patterns help only if you notice that the event schema changed. Snapshot tests store the serialised event and fail when it changes, so the change can't be made by accident.
+
+- [ShoppingCartVersioningTests.java](./src/test/java/io/eventdriven/eventsversioning/snapshottesting/ShoppingCartVersioningTests.java) uses [Strictland](https://github.com/event-driven-io/strictland) to verify that the serialised contract is unchanged, that a V2 event reader can read stored V1 events (backward compatibility) and the other way round (forward compatibility). It also shows that adding a required field breaks backward compatibility. Read more in [Announcing Strictland - new contract testing library for message compatibility](https://event-driven.io/en/announcing-strictland-contract-testing/).
+- [EventsSnapshotTests.java](./src/test/java/io/eventdriven/eventsversioning/snapshottesting/EventsSnapshotTests.java) uses [ApprovalTests](https://github.com/approvals/ApprovalTests.Java) with scrubbers to replace generated ids and dates in the snapshot.
+- [PackageSnapshotTests.java](./src/test/java/io/eventdriven/eventsversioning/snapshottesting/PackageSnapshotTests.java) stores the public API of the `v1` events package, so changing the events' shape fails the test.
 
 ## Migrations
 
 You can say that, well, those patterns are not migrations. Events will stay as they were, and you'll have to keep the old structure forever. That's quite true. Still, this is fine, as typically, you should not change the past. Having precise information, even including bugs, is a valid scenario. It allows you to get insights and see the precise history. However, pragmatically you may sometimes want to have a "clean" event log with only a new schema.
 
-It appears that composing the patterns described above can support such a case. For example, if you're running EventStoreDB, you can read/subscribe to the event stream, store events in the new stream, or even a new EventStoreDB cluster. Having that, you could even rewrite the whole log and switch databases once the new one caught up.
-
-I hope that those samples will show you that you can support many versioning scenarios with basic composition techniques.
+It appears that composing the patterns described above can support such a case. For example, if you're running KurrentDB, you can read/subscribe to the event stream, store events in the new stream, or even a new KurrentDB cluster. Having that, you could even rewrite the whole log and switch databases once the new one caught up.
 
 ![migrations](./assets/migration.png)
 

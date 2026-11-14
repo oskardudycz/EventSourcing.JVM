@@ -79,7 +79,7 @@ public record ShoppingCart(
   }
 }
 //
-//static ShoppingCart evolve(EventStoreDBClient eventStore, String streamName) {
+//static ShoppingCart evolve(KurrentDBClient eventStore, String streamName) {
 //  // 1. Add logic here
 //  ShoppingCart shoppingCart = null;
 //

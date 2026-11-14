@@ -1,6 +1,6 @@
 package io.eventdriven.shoppingcarts.entities;
 
-import com.eventstore.dbclient.*;
+import io.kurrent.dbclient.*;
 import io.eventdriven.shoppingcarts.serialization.EventSerializer;
 
 import java.util.List;

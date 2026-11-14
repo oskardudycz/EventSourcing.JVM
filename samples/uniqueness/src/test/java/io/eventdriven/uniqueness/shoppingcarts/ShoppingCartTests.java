@@ -1,6 +1,6 @@
 package io.eventdriven.uniqueness.shoppingcarts;
 
-import com.eventstore.dbclient.*;
+import io.kurrent.dbclient.*;
 import io.eventdriven.uniqueness.core.serialization.EventSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,7 +24,7 @@ public class ShoppingCartTests {
     // This one should succeed as we don't have such stream yet
     eventStore.appendToStream(
       shoppingCartStreamId,
-      AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
+      AppendToStreamOptions.get().streamState(StreamState.noStream()),
       EventSerializer.serialize(shoppingCartOpened)
     ).get();
 
@@ -32,7 +32,7 @@ public class ShoppingCartTests {
     try {
       eventStore.appendToStream(
         shoppingCartStreamId,
-        AppendToStreamOptions.get().expectedRevision(ExpectedRevision.noStream()),
+        AppendToStreamOptions.get().streamState(StreamState.noStream()),
         EventSerializer.serialize(shoppingCartOpened)
       ).get();
     } catch (ExecutionException exception) {
@@ -40,11 +40,11 @@ public class ShoppingCartTests {
     }
   }
 
-  private EventStoreDBClient eventStore;
+  private KurrentDBClient eventStore;
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    EventStoreDBClientSettings settings = EventStoreDBConnectionString.parseOrThrow("esdb://localhost:2113?tls=false");
-    this.eventStore = EventStoreDBClient.create(settings);
+    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    this.eventStore = KurrentDBClient.create(settings);
   }
 }
