@@ -10,7 +10,6 @@ import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -73,14 +72,14 @@ public class RabbitMQMessageRoutingTest {
   @Autowired
   private RabbitTemplate rabbitTemplate;
 
-  @Value("${app.rabbitmq.exchange}")
-  private String exchange;
+  @Autowired
+  private RabbitMQMessageBusProperties properties;
 
   @Test
   public void message_IsSentWithTheRegisteredRoutingKey() {
     var message = new GuestMoved(UUID.randomUUID().toString(), UUID.randomUUID().toString());
     var queue = amqpAdmin.declareQueue();
-    amqpAdmin.declareBinding(BindingBuilder.bind(queue).to(new TopicExchange(exchange)).with("guests." + message.guestId()));
+    amqpAdmin.declareBinding(BindingBuilder.bind(queue).to(new TopicExchange(properties.exchange())).with("guests." + message.guestId()));
 
     messageBus.publish(List.of(message));
 

@@ -1,6 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.postgresql.mutable.app;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.eventdriven.eventstores.postgresql.PostgreSQLEventStore;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.http.GlobalExceptionHandler;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.serializer.DefaultSerializer;
@@ -17,7 +17,7 @@ import java.sql.SQLException;
 @Configuration
 class Config {
   @Bean
-  ObjectMapper defaultJSONMapper() {
+  JsonMapper defaultJSONMapper() {
     return DefaultSerializer.mapper;
   }
 

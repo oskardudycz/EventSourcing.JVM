@@ -16,7 +16,6 @@ import io.opentelemetry.sdk.trace.data.SpanData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.micrometer.metrics.test.autoconfigure.AutoConfigureMetrics;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -76,8 +75,8 @@ public class KafkaErrorHandlingTest {
   @Autowired
   private InMemorySpanExporter spanExporter;
 
-  @Value("${app.kafka.topic}")
-  private String topic;
+  @Autowired
+  private KafkaMessageBusProperties properties;
 
   @BeforeEach
   public void setUp() {
@@ -181,7 +180,7 @@ public class KafkaErrorHandlingTest {
       new StringSerializer()
     );
     try {
-      var record = new ProducerRecord<String, String>(topic, payload);
+      var record = new ProducerRecord<String, String>(properties.topic(), payload);
       record.headers().add(DefaultJacksonJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME, messageType.getBytes());
       new KafkaTemplate<>(factory).send(record).join();
     } finally {
@@ -208,7 +207,7 @@ public class KafkaErrorHandlingTest {
     );
 
     try (var consumer = rawConsumerFactory.createConsumer("dlt-reader-" + UUID.randomUUID(), null, null, overrides)) {
-      consumer.subscribe(List.of(topic + "-dlt"));
+      consumer.subscribe(List.of(properties.topic() + "-dlt"));
 
       for (var record : consumer.poll(Duration.ofSeconds(2))) {
         if (record.value().contains(messageId))

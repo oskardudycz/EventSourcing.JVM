@@ -4,9 +4,9 @@ import io.kurrent.dbclient.KurrentDBClient;
 import io.kurrent.dbclient.ReadStreamOptions;
 import io.kurrent.dbclient.ResolvedEvent;
 import io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.kurrentdb.tools.KurrentDBTest;
+import tools.jackson.core.JacksonException;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -260,7 +260,7 @@ public class GettingStateFromEventsTests extends KurrentDBTest {
       var eventClass = Class.forName(
         resolvedEvent.getOriginalEvent().getEventType());
       return mapper.readValue(resolvedEvent.getEvent().getEventData(), eventClass);
-    } catch (IOException | ClassNotFoundException e) {
+    } catch (JacksonException | ClassNotFoundException e) {
       throw new RuntimeException(e);
     }
   }

@@ -2,6 +2,7 @@ package io.eventdriven.uniqueness.shoppingcarts;
 
 import io.kurrent.dbclient.*;
 import io.eventdriven.uniqueness.core.serialization.EventSerializer;
+import io.eventdriven.uniqueness.testing.TestDatabases;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -44,7 +45,7 @@ public class ShoppingCartTests {
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow(TestDatabases.kurrentDBConnectionString());
     this.eventStore = KurrentDBClient.create(settings);
   }
 }

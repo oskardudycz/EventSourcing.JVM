@@ -10,7 +10,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -83,8 +82,8 @@ public class KafkaMessageRoutingTest {
   @Autowired
   private ConsumerFactory<?, ?> consumerFactory;
 
-  @Value("${app.kafka.topic}")
-  private String topic;
+  @Autowired
+  private KafkaMessageBusProperties properties;
 
   @Test
   public void record_IsKeyedByItsFirstComponent() {
@@ -92,7 +91,7 @@ public class KafkaMessageRoutingTest {
 
     messageBus.publish(List.of(message));
 
-    assertThat(publishedRecord(topic, message.roomId()).key()).isEqualTo(message.roomId());
+    assertThat(publishedRecord(properties.topic(), message.roomId()).key()).isEqualTo(message.roomId());
   }
 
   @Test
@@ -101,7 +100,7 @@ public class KafkaMessageRoutingTest {
 
     messageBus.publish(List.of(message));
 
-    assertThat(publishedRecord(topic, message.hotelId()).key()).isEqualTo(message.guestId());
+    assertThat(publishedRecord(properties.topic(), message.hotelId()).key()).isEqualTo(message.guestId());
   }
 
   @Test

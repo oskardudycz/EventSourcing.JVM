@@ -3,14 +3,16 @@ package io.eventdriven.introductiontoeventsourcing.e07_application_logic.kurrent
 import io.kurrent.dbclient.KurrentDBClient;
 import io.kurrent.dbclient.KurrentDBClientSettings;
 import io.kurrent.dbclient.KurrentDBConnectionString;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.kurrentdb.core.eventstore.KurrentDBEventStore;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.http.GlobalExceptionHandler;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.serializer.DefaultSerializer;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.kurrentdb.immutable.app.shoppingcarts.ShoppingCartStore;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.kurrentdb.immutable.app.shoppingcarts.productItems.FakeProductPriceCalculator;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.kurrentdb.immutable.app.shoppingcarts.productItems.ProductPriceCalculator;
-import org.springframework.beans.factory.annotation.Value;
+import io.eventdriven.eventstores.kurrentdb.config.KurrentDBProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -18,17 +20,18 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.web.context.annotation.ApplicationScope;
 
 @Configuration
+@EnableConfigurationProperties(KurrentDBProperties.class)
 class Config {
   @Bean
-  ObjectMapper defaultJSONMapper() {
+  JsonMapper defaultJSONMapper() {
     return DefaultSerializer.mapper;
   }
 
   @Bean
   @Scope("singleton")
-  KurrentDBClient kurrentDBClient(@Value("${kurrentdb.connectionstring}") String connectionString) {
+  KurrentDBClient kurrentDBClient(KurrentDBProperties properties) {
     try {
-      KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow(connectionString);
+      KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow(properties.connectionString());
 
       return KurrentDBClient.create(settings);
     } catch (Throwable e) {

@@ -1,42 +1,118 @@
+name: eventsourcing
+
 services:
   #######################################################
   #  PostgreSQL
   #######################################################
   postgres:
-    image: postgres:17.2-alpine
-    ports:
-      - "5432:5432"
+    profiles: [ postgres, postgres-all, all, all-no-ui, ci, sample ]
+    image: postgres:18.7-alpine
     environment:
       - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: pg_isready -U postgres -d postgres
+      interval: 5s
+      timeout: 10s
+      retries: 100
     networks:
       - postgres
 
   pgadmin:
-    image: dpage/pgadmin4
-    container_name: pgadmin_container
+    profiles: [ postgres-ui, postgres-all, all ]
+    image: dpage/pgadmin4:9.19
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@pgadmin.org}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
-      - "${PGADMIN_PORT:-5050}:80"
+      - '${PGADMIN_PORT:-5050}:80'
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      - postgres
     networks:
       - postgres
 
   #######################################################
-  #  Grafana LGTM: OpenTelemetry collector, Tempo, Prometheus, Loki, Grafana
-  #  Start with: docker compose --profile observability up -d
+  #  OpenTelemetry (Grafana LGTM)
   #######################################################
   otel-lgtm:
-    image: grafana/otel-lgtm:0.39.0
-    profiles: [ observability ]
+    profiles: [ otel, otel-all, all ]
+    image: grafana/otel-lgtm:0.41.0
     volumes:
       - ./observability/tempo-config.yaml:/otel-lgtm/tempo-config.yaml:ro
     ports:
-      - "3000:3000"
-      - "4317:4317"
-      - "4318:4318"
+      - "${GRAFANA_PORT:-3000}:3000"
+      - "${OTEL_GRPC_PORT:-4317}:4317"
+      - "${OTEL_HTTP_PORT:-4318}:4318"
+
+  #######################################################
+  #  RabbitMQ
+  #######################################################
+  rabbitmq:
+    profiles: [ rabbitmq, rabbitmq-all, all, all-no-ui, ci ]
+    image: rabbitmq:4.4.0-management
+    ports:
+      - '${RABBITMQ_PORT:-5672}:5672'
+      - '${RABBITMQ_MANAGEMENT_PORT:-15672}:15672'
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 5s
+      timeout: 10s
+      retries: 100
+    networks:
+      - rabbitmq
+
+  #######################################################
+  #  Kafka
+  #######################################################
+  kafka:
+    profiles: [ kafka, kafka-all, all, all-no-ui, ci ]
+    image: confluentinc/confluent-local:8.4.1
+    hostname: kafka
+    networks:
+      - kafka
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+      - "9091:9091"
+    healthcheck:
+      test: kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1 || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 100
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      ADVERTISED_HOST_NAME: kafka
+      KAFKA_ADVERTISED_HOSTNAME: 127.0.0.1
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
 
 networks:
   postgres:
     driver: bridge
+  rabbitmq:
+    driver: bridge
+  kafka:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  pgadmin-data:

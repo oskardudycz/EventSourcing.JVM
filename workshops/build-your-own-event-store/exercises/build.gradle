@@ -2,6 +2,12 @@ plugins {
   id 'java'
 }
 
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(22)
+  }
+}
+
 group = 'io.event-driven'
 version = '0.0.1-SNAPSHOT'
 
@@ -11,23 +17,22 @@ repositories {
 
 dependencies {
   // Serialisation
-  implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
-  implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2'
-  implementation 'com.fasterxml.jackson.core:jackson-core:2.17.2'
+  implementation 'tools.jackson.core:jackson-databind:3.3.0'
+  implementation 'tools.jackson.core:jackson-core:3.3.0'
 
   // Postgres client
-  implementation 'org.postgresql:postgresql:42.7.3'
+  implementation 'org.postgresql:postgresql:42.7.14'
 
   // Logging
-  implementation 'org.apache.logging.log4j:log4j-api:2.23.1'
-  implementation 'org.apache.logging.log4j:log4j-core:2.23.1'
-  implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.23.1'
+  implementation 'org.apache.logging.log4j:log4j-api:2.26.1'
+  implementation 'org.apache.logging.log4j:log4j-core:2.26.1'
+  implementation 'org.apache.logging.log4j:log4j-slf4j2-impl:2.26.1'
 
   // Test frameworks
-  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.3'
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.3'
-  testImplementation 'org.junit.platform:junit-platform-launcher:1.10.3'
-  testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
+  testImplementation 'org.junit.jupiter:junit-jupiter-api:6.1.3'
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.1.3'
+  testImplementation 'org.junit.platform:junit-platform-launcher:6.1.3'
+  testImplementation 'org.testcontainers:testcontainers-postgresql:2.0.5'
 }
 
 def isCi = project.hasProperty('ci') && project.property('ci') == 'true'

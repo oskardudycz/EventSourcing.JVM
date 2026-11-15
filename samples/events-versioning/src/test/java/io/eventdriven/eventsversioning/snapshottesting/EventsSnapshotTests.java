@@ -1,6 +1,5 @@
 package io.eventdriven.eventsversioning.snapshottesting;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.eventdriven.eventsversioning.serialization.Serializer;
 import org.approvaltests.Approvals;
 import org.approvaltests.core.Options;
@@ -21,7 +20,7 @@ public class EventsSnapshotTests {
   ) {}
 
   @Test
-  public void shoppingCartConfirmed_WithScrubbers_IsCompatible() throws JsonProcessingException {
+  public void shoppingCartConfirmed_WithScrubbers_IsCompatible() {
     var event = new ShoppingCartConfirmed(UUID.randomUUID(), "anonymised", OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.SECONDS));
     var options = new Options(Scrubbers.scrubAll(
       Scrubbers::scrubGuid,

@@ -1,5 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e03_appending_event.kurrentdb;
 
+import io.eventdriven.eventstores.testing.tools.TestDatabases;
 import io.kurrent.dbclient.*;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -83,7 +84,7 @@ public class AppendingEventsTests {
         new ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
 
-    var settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    var settings = KurrentDBConnectionString.parseOrThrow(TestDatabases.kurrentDBConnectionString());
 
     var eventStore = KurrentDBClient.create(settings);
 

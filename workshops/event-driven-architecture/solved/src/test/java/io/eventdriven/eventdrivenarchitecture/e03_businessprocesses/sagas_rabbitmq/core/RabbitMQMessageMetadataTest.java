@@ -8,7 +8,6 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
@@ -39,8 +38,8 @@ public class RabbitMQMessageMetadataTest {
   @Autowired
   private RabbitTemplate rabbitTemplate;
 
-  @Value("${app.rabbitmq.exchange}")
-  private String exchange;
+  @Autowired
+  private RabbitMQMessageBusProperties properties;
 
   @Test
   public void messageStartingAProcess_CarriesAMessageIdAndAGeneratedCorrelationId() {
@@ -71,7 +70,7 @@ public class RabbitMQMessageMetadataTest {
 
   private String bindQueue() {
     var queue = amqpAdmin.declareQueue();
-    amqpAdmin.declareBinding(BindingBuilder.bind(queue).to(new TopicExchange(exchange)).with(RoomInspected.class.getName()));
+    amqpAdmin.declareBinding(BindingBuilder.bind(queue).to(new TopicExchange(properties.exchange())).with(RoomInspected.class.getName()));
     return queue.getName();
   }
 

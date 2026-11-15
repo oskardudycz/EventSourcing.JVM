@@ -9,7 +9,6 @@ import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -44,13 +43,13 @@ public class RabbitMQPublishTest {
   @Autowired
   private RabbitTemplate rabbitTemplate;
 
-  @Value("${app.rabbitmq.exchange}")
-  private String exchange;
+  @Autowired
+  private RabbitMQMessageBusProperties properties;
 
   @Test
   public void messages_AreRoutedByTheirTypeName() {
     var queue = amqpAdmin.declareQueue();
-    amqpAdmin.declareBinding(BindingBuilder.bind(queue).to(new TopicExchange(exchange)).with(RoomInspected.class.getName()));
+    amqpAdmin.declareBinding(BindingBuilder.bind(queue).to(new TopicExchange(properties.exchange())).with(RoomInspected.class.getName()));
 
     var message = new RoomInspected(UUID.randomUUID().toString());
     messageBus.publish(List.of(message));
@@ -60,22 +59,22 @@ public class RabbitMQPublishTest {
 
   @Test
   public void publishingToAnExchangeThatDoesNotExist_Fails(CapturedOutput output) {
-    amqpAdmin.deleteExchange(exchange);
+    amqpAdmin.deleteExchange(properties.exchange());
 
     try {
       var startedAt = System.nanoTime();
 
       assertThatThrownBy(() -> messageBus.publish(List.of(new RoomInspected(UUID.randomUUID().toString()))))
         .isInstanceOf(AmqpException.class)
-        .hasMessageContaining("NOT_FOUND - no exchange '" + exchange + "'");
+        .hasMessageContaining("NOT_FOUND - no exchange '" + properties.exchange() + "'");
 
       assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(PUBLISH_TIMEOUT);
       await().atMost(Duration.ofSeconds(5)).untilAsserted(() ->
         assertThat(output).contains("Shutdown Signal: channel error; protocol method: #method<channel.close>(reply-code=404")
       );
     } finally {
-      amqpAdmin.declareExchange(new TopicExchange(exchange));
-      amqpAdmin.declareBinding(BindingBuilder.bind(new Queue(exchange + "-saga")).to(new TopicExchange(exchange)).with("#"));
+      amqpAdmin.declareExchange(new TopicExchange(properties.exchange()));
+      amqpAdmin.declareBinding(BindingBuilder.bind(new Queue(properties.exchange() + "-saga")).to(new TopicExchange(properties.exchange())).with("#"));
     }
   }
 }

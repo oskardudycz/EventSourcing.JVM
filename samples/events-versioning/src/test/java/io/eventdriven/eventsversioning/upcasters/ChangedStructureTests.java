@@ -41,9 +41,9 @@ public class ChangedStructureTests {
     var oldEvent = Serializer.deserialize(oldEventJson);
 
     return new ShoppingCartOpened(
-      UUID.fromString(oldEvent.at("/shoppingCartId").asText()),
+      UUID.fromString(oldEvent.at("/shoppingCartId").asString()),
       new Client(
-        UUID.fromString(oldEvent.at("/clientId").asText()),
+        UUID.fromString(oldEvent.at("/clientId").asString()),
         null
       )
     );

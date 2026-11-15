@@ -1,0 +1,32 @@
+name: eventsourcing
+
+services:
+  #######################################################
+  #  KurrentDB
+  #######################################################
+  kurrentdb:
+    profiles: [ kurrentdb, kurrentdb-all, all, all-no-ui, ci, sample ]
+    image: ${KURRENTDB_IMAGE:-kurrentplatform/kurrentdb:26.2.3}
+    # on ARM (e.g. Apple Silicon) run: KURRENTDB_IMAGE=kurrentplatform/kurrentdb:26.2.3-experimental-arm64-10.0-noble docker compose --profile all up
+    environment:
+      - KURRENTDB_CLUSTER_SIZE=1
+      - KURRENTDB_RUN_PROJECTIONS=All
+      - KURRENTDB_START_STANDARD_PROJECTIONS=true
+      - KURRENTDB_NODE_PORT=2113
+      - KURRENTDB_INSECURE=true
+      - KURRENTDB_ENABLE_ATOM_PUB_OVER_HTTP=true
+    ports:
+      - '${KURRENTDB_PORT:-2113}:2113'
+    volumes:
+      - kurrentdb-data:/var/lib/kurrentdb
+      - kurrentdb-logs:/var/log/kurrentdb
+    networks:
+      - kurrentdb
+
+networks:
+  kurrentdb:
+    driver: bridge
+
+volumes:
+  kurrentdb-data:
+  kurrentdb-logs:

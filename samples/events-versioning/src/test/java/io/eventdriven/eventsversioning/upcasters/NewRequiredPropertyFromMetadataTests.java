@@ -40,9 +40,9 @@ public class NewRequiredPropertyFromMetadataTests {
     var eventMetadata = Serializer.deserialize(eventMetadataJson);
 
     return new ShoppingCartOpened(
-      UUID.fromString(oldEvent.at("/shoppingCartId").asText()),
-      UUID.fromString(oldEvent.at("/clientId").asText()),
-      UUID.fromString(eventMetadata.at("/userId").asText())
+      UUID.fromString(oldEvent.at("/shoppingCartId").asString()),
+      UUID.fromString(oldEvent.at("/clientId").asString()),
+      UUID.fromString(eventMetadata.at("/userId").asString())
     );
   }
 

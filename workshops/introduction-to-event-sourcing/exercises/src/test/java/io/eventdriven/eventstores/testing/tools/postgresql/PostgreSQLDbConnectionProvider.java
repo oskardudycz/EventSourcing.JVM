@@ -1,5 +1,7 @@
 package io.eventdriven.eventstores.testing.tools.postgresql;
 
+import io.eventdriven.eventstores.testing.tools.TestDatabases;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -13,13 +15,15 @@ public final class PostgreSQLDbConnectionProvider {
       .getName()
       .replace(".", "_");
 
+    var settings = TestDatabases.postgreSQL();
+
     // each test will have its own schema name to run have data isolation and not interfere other tests
     Connection connection = null;
     try {
       connection = DriverManager.getConnection(
-        Settings.connectionString + "?currentSchema=%s".formatted(testClassName),
-        Settings.userName,
-        Settings.password
+        settings.connectionString() + "?currentSchema=%s".formatted(testClassName),
+        settings.userName(),
+        settings.password()
       );
       try (var statement = connection.createStatement()) {
         statement.execute("DROP SCHEMA IF EXISTS %1$s CASCADE; CREATE SCHEMA %1$s".formatted(testClassName));

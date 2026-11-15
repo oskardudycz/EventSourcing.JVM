@@ -3,8 +3,8 @@ package io.eventdriven.distributedprocesses.hotelmanagement.choreography.groupch
 import io.eventdriven.distributedprocesses.core.commands.CommandBus;
 import io.eventdriven.distributedprocesses.core.entities.EntityStore;
 import io.eventdriven.distributedprocesses.core.http.ETag;
-import io.eventdriven.distributedprocesses.core.retries.RetryPolicy;
 import io.eventdriven.distributedprocesses.hotelmanagement.choreography.gueststayaccount.GuestStayAccountEvent;
+import org.springframework.core.retry.RetryTemplate;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -17,16 +17,16 @@ import static io.eventdriven.distributedprocesses.hotelmanagement.choreography.g
 public class GroupCheckoutService {
   private final EntityStore<GroupCheckout, GroupCheckoutEvent> store;
   private final CommandBus commandBus;
-  private RetryPolicy retryPolicy;
+  private RetryTemplate retryTemplate;
 
   public GroupCheckoutService(
     EntityStore<GroupCheckout, GroupCheckoutEvent> store,
     CommandBus commandBus,
-    RetryPolicy retryPolicy
+    RetryTemplate retryTemplate
   ) {
     this.store = store;
     this.commandBus = commandBus;
-    this.retryPolicy = retryPolicy;
+    this.retryTemplate = retryTemplate;
   }
 
   public Optional<ETag> handle(InitiateGroupCheckout command) {
@@ -79,12 +79,11 @@ public class GroupCheckoutService {
   }
 
   private Optional<ETag> handle(UUID id, GroupCheckoutCommand command) {
-    return retryPolicy.run(ack -> {
-      var result =  store.getAndUpdate(
+    return retryTemplate.invoke(() ->
+      store.getAndUpdate(
         (state) -> GroupCheckoutDecider.handle(command, state).orElse(toArray()),
         id
-      );
-      ack.accept(result);
-    });
+      )
+    );
   }
 }

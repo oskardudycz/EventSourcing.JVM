@@ -1,15 +1,12 @@
 package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core;
 
+import tools.jackson.databind.cfg.DateTimeFeature;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
@@ -31,7 +28,7 @@ public class EventStore {
           .map(e -> {
             try {
               return new EventEnvelope(e.getClass().getTypeName(), mapper.writeValueAsString(e));
-            } catch (JsonProcessingException ex) {
+            } catch (JacksonException ex) {
               throw new RuntimeException(ex);
             }
           }).toList()
@@ -74,7 +71,7 @@ public class EventStore {
       try {
         var eventClass = Class.forName(eventEnvelope.eventType);
         return (Object) mapper.readValue(eventEnvelope.json, eventClass);
-      } catch (IOException | ClassNotFoundException e) {
+      } catch (JacksonException | ClassNotFoundException e) {
         throw new RuntimeException(e);
       }
     }).toList();
@@ -104,10 +101,10 @@ public class EventStore {
   }
 
   private static final ObjectMapper mapper =
-    new JsonMapper()
-      .registerModule(new JavaTimeModule())
+    JsonMapper.builder()
       .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-      .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-      .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
-      .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+      .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+      .configure(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
+      .changeDefaultVisibility(visibility -> visibility.withFieldVisibility(JsonAutoDetect.Visibility.ANY))
+      .build();
 }

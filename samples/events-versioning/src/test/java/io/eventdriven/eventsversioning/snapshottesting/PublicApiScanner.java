@@ -1,7 +1,6 @@
 package io.eventdriven.eventsversioning.snapshottesting;
 
 import io.github.classgraph.ClassGraph;
-import io.github.classgraph.ClassInfo;
 
 import java.lang.reflect.*;
 import java.util.Arrays;
@@ -48,16 +47,25 @@ public class PublicApiScanner {
 
   public String generate() {
     try (var scanResult = new ClassGraph()
-      .enableAllInfo()
+      .enableClassInfo()
+      .enableClasspath()
       .acceptPackages(packageName)
       .scan()) {
 
       return scanResult.getAllClasses().stream()
-        .map(ClassInfo::loadClass)
+        .map(classInfo -> loadClass(classInfo.getName()))
         .filter(c -> Modifier.isPublic(c.getModifiers()))
         .sorted(Comparator.comparing(Class::getName))
         .map(this::describeType)
         .collect(Collectors.joining("\n\n"));
+    }
+  }
+
+  private static Class<?> loadClass(String className) {
+    try {
+      return Class.forName(className);
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(e);
     }
   }
 

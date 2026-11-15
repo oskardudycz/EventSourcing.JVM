@@ -7,7 +7,6 @@ import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.core.ConsumerFactory;
@@ -44,8 +43,8 @@ public class KafkaMessageMetadataTest {
   @Autowired
   private ConsumerFactory<?, ?> consumerFactory;
 
-  @Value("${app.kafka.topic}")
-  private String topic;
+  @Autowired
+  private KafkaMessageBusProperties properties;
 
   @Test
   public void messageStartingAProcess_CarriesAMessageIdAndAGeneratedCorrelationId() {
@@ -98,7 +97,7 @@ public class KafkaMessageMetadataTest {
     );
 
     try (var consumer = rawConsumerFactory.createConsumer("metadata-reader-" + UUID.randomUUID(), null, null, overrides)) {
-      consumer.subscribe(List.of(topic));
+      consumer.subscribe(List.of(properties.topic()));
 
       for (var record : consumer.poll(Duration.ofSeconds(2))) {
         if (record.value().contains(containing))

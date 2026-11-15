@@ -25,7 +25,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
   @BeforeEach
   public void openShoppingCart() {
     var result =
-      ShoppingCartRestBuilder.of(restTemplate, port)
+      ShoppingCartRestBuilder.of(restTestClient, port)
         .build(cart -> cart.withClientId(clientId));
 
     shoppingCartId = result.id();
@@ -44,7 +44,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
   @Test
   public void confirm_succeeds_forValidDataAndNonEmptyExistingShoppingCart() {
     var result =
-      ShoppingCartRestBuilder.of(restTemplate, port)
+      ShoppingCartRestBuilder.of(restTestClient, port)
         .build(cart -> cart
           .withClientId(clientId)
           .withProduct(new ProductItemRequest(UUID.randomUUID(), 10))
@@ -77,7 +77,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
   @Test
   public void confirm_fails_withConflict_forConfirmedShoppingCart() {
     var result =
-      ShoppingCartRestBuilder.of(restTemplate, port)
+      ShoppingCartRestBuilder.of(restTestClient, port)
         .build(cart -> cart.withClientId(clientId).confirmed());
 
     given(() -> result.id())
@@ -89,7 +89,7 @@ public class ConfirmShoppingCartTests extends ApiSpecification {
   @Test
   public void confirm_fails_withConflict_forCanceledShoppingCart() {
     var result =
-      ShoppingCartRestBuilder.of(restTemplate, port)
+      ShoppingCartRestBuilder.of(restTestClient, port)
         .build(builder -> builder.withClientId(clientId).canceled());
 
     given(() -> result.id())

@@ -60,16 +60,17 @@ Read also more in my article [Introduction to Event Sourcing - Self Paced Kit](h
 
 1. Install git - https://git-scm.com/downloads.
 2. Clone this repository.
-3. Install Java JDK 22 (or later) - https://www.oracle.com/java/technologies/downloads/.
+3. Install Java JDK 17 or later to run Gradle - https://www.oracle.com/java/technologies/downloads/. The build uses JDK 22 through a Gradle toolchain and downloads it if it isn't installed.
 4. Install IntelliJ, Eclipse, VSCode or other preferred IDE.
 5. Install docker - https://docs.docker.com/engine/install/.
 6. Open [exercises](./exercises/) folder as project.
 
 ## Running
 
-1. Run: `docker compose up` (or for Mac `docker compose -f docker-compose.arm.yml up`).
-2. Wait until all dockers got are downloaded and running.
-3. You should automatically get:
-   - KurrentDB UI: http://localhost:2113/
-4. Open, build and run project
-5. To see solved exercises, open [solved.sln](./solved/) folder as project.
+1. Make sure Docker is running. The tests start KurrentDB, PostgreSQL and MongoDB with [Testcontainers](https://testcontainers.com/).
+2. Open, build and run project
+3. To see solved exercises, open [solved.sln](./solved/) folder as project.
+4. To browse data in the database UIs, run `docker compose --profile all up` (or on ARM, e.g. Apple Silicon, `docker compose -f docker-compose.arm.yml --profile all up`) in the `exercises` or `solved` folder. You get KurrentDB UI at http://localhost:2113/, pgAdmin at http://localhost:5050/ and Mongo Express at http://localhost:8081/. If a port is already taken, for example by another workshop, set its variable: `KURRENTDB_PORT`, `POSTGRES_PORT`, `PGADMIN_PORT`, `MONGODB_PORT` or `MONGO_EXPRESS_PORT`, e.g. `MONGO_EXPRESS_PORT=8082 docker compose --profile all up`.
+5. To see the test data in these UIs, start docker compose: run `docker compose --profile all up`. Any compose file from this repository works, because they all define the same `eventsourcing` project. The tests then use those containers automatically, with no extra settings, even if you changed a port. Stop docker compose to go back to Testcontainers.
+6. To run a Spring Boot application from exercises 07 or 08 by hand, start `docker compose --profile all up` and run its `ECommerceApplication` class from the IDE, or use Gradle with the class name, e.g. `./gradlew bootTestRun -PmainClass=io.eventdriven.introductiontoeventsourcing.e07_application_logic.kurrentdb.immutable.app.ECommerceApplication`. The application uses the localhost settings from [application.properties](./exercises/src/test/resources/application.properties), which read `KURRENTDB_PORT`, `POSTGRES_PORT` and `MONGODB_PORT`. If you changed a database port, set the same variable when you start the application, e.g. `POSTGRES_PORT=55432 ./gradlew bootTestRun -PmainClass=...`. It listens on http://localhost:8080.
+7. Run `docker compose --profile all down -v` to stop the containers and remove their data.

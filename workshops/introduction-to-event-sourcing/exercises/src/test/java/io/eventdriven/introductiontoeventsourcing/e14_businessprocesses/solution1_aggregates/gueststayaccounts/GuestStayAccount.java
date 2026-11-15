@@ -1,7 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.solution1_aggregates.gueststayaccounts;
 
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.AbstractAggregate;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;

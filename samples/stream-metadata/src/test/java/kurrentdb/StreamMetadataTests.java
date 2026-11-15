@@ -1,7 +1,7 @@
 package kurrentdb;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 import io.kurrent.dbclient.*;
 import org.junit.jupiter.api.*;
 
@@ -14,13 +14,13 @@ public class StreamMetadataTests {
     record OrderStatusChanged(UUID orderId, OrderStatus status) {}
     record OrderClosed (UUID orderId) {}
 
-    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final JsonMapper mapper = new JsonMapper();
 
     private KurrentDBClient eventStore;
 
     @BeforeEach
     void beforeEach() throws ConnectionStringParsingException {
-        KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+        KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow(TestDatabases.kurrentDBConnectionString());
         this.eventStore = KurrentDBClient.create(settings);
     }
 
@@ -186,7 +186,7 @@ public class StreamMetadataTests {
     private static byte[] toJson(Object event) {
         try {
             return mapper.writeValueAsBytes(event);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new RuntimeException(e);
         }
     }

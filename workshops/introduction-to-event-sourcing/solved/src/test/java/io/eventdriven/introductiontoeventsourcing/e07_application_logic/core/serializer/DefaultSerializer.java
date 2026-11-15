@@ -1,18 +1,15 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.core.serializer;
 
+import tools.jackson.databind.cfg.DateTimeFeature;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 public final class DefaultSerializer {
-  public static ObjectMapper mapper = new JsonMapper()
-    .registerModule(new JavaTimeModule())
+  public static JsonMapper mapper = JsonMapper.builder()
     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-    .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-    .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
-    .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+    .configure(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
+    .changeDefaultVisibility(visibility -> visibility.withFieldVisibility(JsonAutoDetect.Visibility.ANY))
+    .build();
 }

@@ -1,13 +1,11 @@
 package io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core;
 
+import tools.jackson.databind.cfg.DateTimeFeature;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.LinkedHashMap;
@@ -20,12 +18,12 @@ public class Database {
   private final Map<String, Object> storage = new LinkedHashMap<>();
 
   private static final ObjectMapper mapper =
-    new JsonMapper()
-      .registerModule(new JavaTimeModule())
+    JsonMapper.builder()
       .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-      .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-      .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
-      .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+      .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+      .configure(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
+      .changeDefaultVisibility(visibility -> visibility.withFieldVisibility(JsonAutoDetect.Visibility.ANY))
+      .build();
 
   public <T> void store(UUID id, Object obj) {
     storage.compute(getId(obj.getClass(), id), (ignore, value) -> obj);
@@ -44,7 +42,7 @@ public class Database {
             return v != null ?
               mapper.readValue(mapper.writeValueAsString(v), typeClass)
               : null;
-          } catch (JsonProcessingException e) {
+          } catch (JacksonException e) {
             throw new RuntimeException(e);
           }
         })));

@@ -3,19 +3,7 @@
 Using a defined structure of events from the [first exercise](../../e01_events_definition), fill a `appendEvents` function to store events in [KurrentDB](https://docs.kurrent.io/clients/java/v1.2/).
 
 ## Prerequisites
-Run [docker-compose](../../../../../../../docker-compose.yml) script from the main workshop repository to start KurrentDB instance.
-
-```shell
-docker compose up
-```
-
-or for Mac:
-
-```shell
-docker compose -f docker-compose.arm.yml up
-```
-
-After that you can use KurrentDB UI to see how streams and events look like. It's available at: http://localhost:2113/.
+Have Docker running. The tests start a KurrentDB instance with [Testcontainers](https://testcontainers.com/), so you don't need to start it yourself. To see the test data, start `docker compose --profile all up`; the tests then use those containers automatically, as described in [Running](../../../../../../../../../README.md#running).
 
 ## Solution
 

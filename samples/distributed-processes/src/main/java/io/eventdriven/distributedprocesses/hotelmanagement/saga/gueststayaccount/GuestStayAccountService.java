@@ -2,22 +2,22 @@ package io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccoun
 
 import io.eventdriven.distributedprocesses.core.entities.EntityStore;
 import io.eventdriven.distributedprocesses.core.http.ETag;
-import io.eventdriven.distributedprocesses.core.retries.RetryPolicy;
 import io.eventdriven.distributedprocesses.hotelmanagement.saga.gueststayaccount.GuestStayAccountCommand.*;
+import org.springframework.core.retry.RetryTemplate;
 
 import java.util.Optional;
 import java.util.UUID;
 
 public class GuestStayAccountService {
   private final EntityStore<GuestStayAccount, GuestStayAccountEvent> store;
-  private RetryPolicy retryPolicy;
+  private RetryTemplate retryTemplate;
 
   public GuestStayAccountService(
     EntityStore<GuestStayAccount, GuestStayAccountEvent> store,
-    RetryPolicy retryPolicy
+    RetryTemplate retryTemplate
   ) {
     this.store = store;
-    this.retryPolicy = retryPolicy;
+    this.retryTemplate = retryTemplate;
   }
 
   public ETag handle(CheckInGuest command) {
@@ -36,10 +36,7 @@ public class GuestStayAccountService {
   }
 
   public Optional<ETag> handle(CheckOutGuest command) {
-    return retryPolicy.run(ack -> {
-      var result = handle(command.guestStayAccountId(), command);
-      ack.accept(result);
-    });
+    return retryTemplate.invoke(() -> handle(command.guestStayAccountId(), command));
   }
 
   private Optional<ETag> handle(UUID id, GuestStayAccountCommand command) {

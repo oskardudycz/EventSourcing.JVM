@@ -4,6 +4,7 @@ import io.kurrent.dbclient.KurrentDBClient;
 import io.kurrent.dbclient.KurrentDBConnectionString;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
+import io.eventdriven.testing.TestDatabases;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -13,10 +14,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-// Needs KurrentDB: docker compose up -d kurrentdb
 public class KurrentDBEventStoreTests {
   private final KurrentDBEventStore eventStore = new KurrentDBEventStore(
-    KurrentDBClient.create(KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false"))
+    KurrentDBClient.create(KurrentDBConnectionString.parseOrThrow(TestDatabases.kurrentDBConnectionString()))
   );
 
   private final String cartId = UUID.randomUUID().toString();
