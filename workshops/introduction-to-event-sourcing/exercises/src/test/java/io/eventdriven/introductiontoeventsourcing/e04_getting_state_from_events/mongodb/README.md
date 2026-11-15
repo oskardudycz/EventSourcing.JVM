@@ -11,10 +11,4 @@ There are two variations:
 Select your preferred approach (or both) to solve this use case. If needed you can modify entities or events.
 
 ## Prerequisites
-Run [docker-compose](../../../../../../../../docker-compose.yml) script from the main workshop repository to start MongoDB instance.
-
-```shell
-docker compose up
-```
-
-After that you can use MongoDB UI to see how streams and events look like. It's available at: http://localhost:8081/.
+Have Docker running. The tests start a MongoDB instance with [Testcontainers](https://testcontainers.com/), so you don't need to start it yourself. To see the test data, start `docker compose --profile all up`; the tests then use those containers automatically, as described in [Running](../../../../../../../../../README.md#running).

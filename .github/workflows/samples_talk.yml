@@ -1,0 +1,52 @@
+name: Samples - Talk
+
+on:
+  # run it on push to the default repository branch
+  push:
+    branches: [main]
+    paths:
+      - "samples/talk/**"
+  # run it during pull request
+  pull_request:
+    paths:
+      - "samples/talk/**"
+
+defaults:
+  run:
+    working-directory: samples/talk
+
+jobs:
+  build-and-test-code:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    strategy:
+      # define the test matrix
+      matrix:
+        java-version: [22]
+
+    steps:
+      - name: Check Out Repo
+        uses: actions/checkout@v7
+
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v6
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: "temurin"
+          cache: gradle
+          
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Build with Gradle
+        run: ./gradlew build -Pci=true
+
+      - name: Archive test report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: Test report
+          path: ./samples/talk/build/test-results/test

@@ -3,10 +3,4 @@
 Using a defined structure of events from the [first exercise](../../e01_events_definition), fill a `appendEvents` function to store events in [MongoDB](../../../eventstores/mongodb/MongoDBEventStore.java).
 
 ## Prerequisites
-Run [docker-compose](../../../../../../../../docker-compose.yml) script from the main workshop repository to start MongoDB instance.
-
-```shell
-docker compose up
-```
-
-After that you can use MongoDB UI to see how streams and events look like. It's available at: http://localhost:8081/.
+Have Docker running. The tests start a MongoDB instance with [Testcontainers](https://testcontainers.com/), so you don't need to start it yourself. To see the test data, start `docker compose --profile all up`; the tests then use those containers automatically, as described in [Running](../../../../../../../../../README.md#running).

@@ -7,10 +7,12 @@ import io.kurrent.dbclient.KurrentDBConnectionString;
 import io.eventdriven.uniqueness.core.kurrentdb.EventStore;
 import io.eventdriven.uniqueness.core.resourcereservation.Hash;
 import io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.KurrentDBResourceReservationHandler;
-import io.eventdriven.uniqueness.core.retries.NulloRetryPolicy;
 import io.eventdriven.uniqueness.users.reservation.UserCommandHandler;
+import io.eventdriven.uniqueness.testing.TestDatabases;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.retry.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -80,11 +82,11 @@ public class UserEmailRegistrationTests {
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow(TestDatabases.kurrentDBConnectionString());
     var kurrentDBClient = KurrentDBClient.create(settings);
     eventStore = new EventStore(kurrentDBClient);
 
-    var resourceReservationCommandHandler = new KurrentDBResourceReservationHandler(reservationLockDuration, new NulloRetryPolicy(), eventStore);
+    var resourceReservationCommandHandler = new KurrentDBResourceReservationHandler(reservationLockDuration, new RetryTemplate(RetryPolicy.withMaxRetries(0)), eventStore);
     userCommandHandler = new UserCommandHandler(resourceReservationCommandHandler, eventStore);
   }
 }

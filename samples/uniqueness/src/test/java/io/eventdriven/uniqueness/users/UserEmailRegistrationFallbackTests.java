@@ -11,16 +11,19 @@ import io.eventdriven.uniqueness.core.resourcereservation.ResourceReservationEve
 import io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.KurrentDBResourceReservationHandler;
 import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservation;
 import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservationRepository;
-import io.eventdriven.uniqueness.core.retries.NulloRetryPolicy;
 import io.eventdriven.uniqueness.users.reservation.UserEmailReservationEventHandler;
+import io.eventdriven.uniqueness.testing.TestDatabases;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.core.retry.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -36,6 +39,13 @@ import static org.junit.jupiter.api.Assertions.*;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ExtendWith(SpringExtension.class)
 public class UserEmailRegistrationFallbackTests {
+  @DynamicPropertySource
+  static void databaseProperties(DynamicPropertyRegistry registry) {
+    registry.add("spring.datasource.url", () -> TestDatabases.postgreSQL().connectionString());
+    registry.add("spring.datasource.username", () -> TestDatabases.postgreSQL().userName());
+    registry.add("spring.datasource.password", () -> TestDatabases.postgreSQL().password());
+  }
+
   @Test
   public void reservationHappyPath_confirmsReservation() throws InterruptedException {
     // Given
@@ -197,10 +207,10 @@ public class UserEmailRegistrationFallbackTests {
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow(TestDatabases.kurrentDBConnectionString());
     kurrentDBClient = KurrentDBClient.create(settings);
     eventStore = new EventStore(kurrentDBClient);
-    var resourceReservationCommandHandler = new KurrentDBResourceReservationHandler(reservationLockDuration, new NulloRetryPolicy(), eventStore);
+    var resourceReservationCommandHandler = new KurrentDBResourceReservationHandler(reservationLockDuration, new RetryTemplate(RetryPolicy.withMaxRetries(0)), eventStore);
 
     reservationEventHandler = new ResourceReservationEventHandler(repository, resourceReservationCommandHandler);
     emailReservationEventHandler = new UserEmailReservationEventHandler(repository);

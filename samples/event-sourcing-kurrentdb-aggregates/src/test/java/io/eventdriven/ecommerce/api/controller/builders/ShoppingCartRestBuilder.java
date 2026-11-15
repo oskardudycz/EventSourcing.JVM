@@ -2,7 +2,8 @@ package io.eventdriven.ecommerce.api.controller.builders;
 
 import io.eventdriven.ecommerce.api.requests.ShoppingCartsRequests.*;
 import io.eventdriven.ecommerce.core.http.ETag;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.test.web.servlet.client.EntityExchangeResult;
+import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.http.*;
 
 import java.util.ArrayList;
@@ -14,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class ShoppingCartRestBuilder {
   private final String apiPrefix = "api/shopping-carts";
-  private final TestRestTemplate restTemplate;
+  private final RestTestClient restTestClient;
   private final int port;
   private UUID clientId;
   private boolean isConfirmed;
@@ -25,13 +26,13 @@ public class ShoppingCartRestBuilder {
     return "http://localhost:%s/%s".formatted(port, apiPrefix);
   }
 
-  private ShoppingCartRestBuilder(TestRestTemplate restTemplate, int port) {
-    this.restTemplate = restTemplate;
+  private ShoppingCartRestBuilder(RestTestClient restTestClient, int port) {
+    this.restTestClient = restTestClient;
     this.port = port;
   }
 
-  public static ShoppingCartRestBuilder of(TestRestTemplate restTemplate, int port) {
-    return new ShoppingCartRestBuilder(restTemplate, port);
+  public static ShoppingCartRestBuilder of(RestTestClient restTestClient, int port) {
+    return new ShoppingCartRestBuilder(restTestClient, port);
   }
 
   public ShoppingCartRestBuilder withClientId(UUID clientId) {
@@ -83,12 +84,16 @@ public class ShoppingCartRestBuilder {
   }
 
   private BuilderResult open() {
-    var response = this.restTemplate
-      .postForEntity(getApiUrl(), new Open(clientId), Void.class);
+    var response = this.restTestClient
+      .post()
+      .uri(getApiUrl())
+      .body(new Open(clientId))
+      .exchange()
+      .returnResult(Void.class);
 
-    assertEquals(HttpStatus.CREATED, response.getStatusCode());
+    assertEquals(HttpStatus.CREATED, response.getStatus());
 
-    var locationHeader = response.getHeaders().getLocation();
+    var locationHeader = response.getResponseHeaders().getLocation();
 
     assertNotNull(locationHeader);
 
@@ -101,50 +106,54 @@ public class ShoppingCartRestBuilder {
   }
 
   private BuilderResult addProduct(ProductItemRequest product, BuilderResult result) {
-    var headers = new HttpHeaders();
-    headers.setContentType(MediaType.APPLICATION_JSON);
-    headers.setIfMatch(result.eTag().value());
+    var response = this.restTestClient
+      .post()
+      .uri(getApiUrl() + "/%s/products".formatted(result.id()))
+      .headers(headers -> {
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setIfMatch(result.eTag().value());
+      })
+      .body(new AddProduct(product))
+      .exchange()
+      .returnResult(Void.class);
 
-    var request = new HttpEntity<>(new AddProduct(product), headers);
-
-    var response = this.restTemplate
-      .postForEntity(getApiUrl() + "/%s/products".formatted(result.id()), request, Void.class);
-
-    assertEquals(HttpStatus.OK, response.getStatusCode());
+    assertEquals(HttpStatus.OK, response.getStatus());
     return getResult(response, result.id());
   }
 
 
   private BuilderResult confirm(BuilderResult result) {
-    var headers = new HttpHeaders();
-    headers.setContentType(MediaType.APPLICATION_JSON);
-    headers.setIfMatch(result.eTag().value());
+    var response = this.restTestClient
+      .put()
+      .uri("%s/%s".formatted(getApiUrl(), result.id()))
+      .headers(headers -> {
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setIfMatch(result.eTag().value());
+      })
+      .exchange()
+      .returnResult(Void.class);
 
-    var request = new HttpEntity<Void>(null, headers);
-
-    var response = this.restTemplate
-      .exchange("%s/%s".formatted(getApiUrl(), result.id()), HttpMethod.PUT, request, Void.class);
-
-    assertEquals(HttpStatus.OK, response.getStatusCode());
+    assertEquals(HttpStatus.OK, response.getStatus());
     return getResult(response, result.id());
   }
 
   private BuilderResult cancel(BuilderResult result) {
-    var headers = new HttpHeaders();
-    headers.setContentType(MediaType.APPLICATION_JSON);
-    headers.setIfMatch(result.eTag().value());
+    var response = this.restTestClient
+      .delete()
+      .uri("%s/%s".formatted(getApiUrl(), result.id()))
+      .headers(headers -> {
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setIfMatch(result.eTag().value());
+      })
+      .exchange()
+      .returnResult(Void.class);
 
-    var request = new HttpEntity<Void>(null, headers);
-
-    var response = this.restTemplate
-      .exchange("%s/%s".formatted(getApiUrl(), result.id()), HttpMethod.DELETE, request, Void.class);
-
-    assertEquals(HttpStatus.OK, response.getStatusCode());
+    assertEquals(HttpStatus.OK, response.getStatus());
     return getResult(response, result.id());
   }
 
-  private BuilderResult getResult(ResponseEntity<Void> response, UUID newId) {
-    var eTag = response.getHeaders().getETag();
+  private BuilderResult getResult(EntityExchangeResult<Void> response, UUID newId) {
+    var eTag = response.getResponseHeaders().getETag();
 
     return new BuilderResult(newId, new ETag(eTag));
   }

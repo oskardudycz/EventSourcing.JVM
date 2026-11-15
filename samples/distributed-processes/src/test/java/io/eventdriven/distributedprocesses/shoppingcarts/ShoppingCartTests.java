@@ -7,6 +7,7 @@ import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
+import io.eventdriven.testing.TestDatabases;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -54,7 +55,7 @@ public class ShoppingCartTests {
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow(TestDatabases.kurrentDBConnectionString());
     this.eventStore = KurrentDBClient.create(settings);
   }
 }

@@ -2,7 +2,7 @@ package io.eventdriven.distributedprocesses.hotelmanagement.saga.groupcheckout;
 
 import io.eventdriven.distributedprocesses.core.entities.EntityStore;
 import io.eventdriven.distributedprocesses.core.http.ETag;
-import io.eventdriven.distributedprocesses.core.retries.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -12,14 +12,14 @@ import static io.eventdriven.distributedprocesses.hotelmanagement.saga.groupchec
 
 public class GroupCheckoutService {
   private final EntityStore<GroupCheckout, GroupCheckoutEvent> store;
-  private RetryPolicy retryPolicy;
+  private RetryTemplate retryTemplate;
 
   public GroupCheckoutService(
     EntityStore<GroupCheckout, GroupCheckoutEvent> store,
-    RetryPolicy retryPolicy
+    RetryTemplate retryTemplate
   ) {
     this.store = store;
-    this.retryPolicy = retryPolicy;
+    this.retryTemplate = retryTemplate;
   }
 
   public Optional<ETag> handle(InitiateGroupCheckout command) {
@@ -35,19 +35,15 @@ public class GroupCheckoutService {
   }
 
   public Optional<ETag> handle(RecordGuestCheckoutFailure command) {
-    return retryPolicy.run(ack -> {
-      var result = handle(command.groupCheckoutId(), command);
-      ack.accept(result);
-    });
+    return retryTemplate.invoke(() -> handle(command.groupCheckoutId(), command));
   }
 
   private Optional<ETag> handle(UUID id, GroupCheckoutCommand command) {
-    return retryPolicy.run(ack -> {
-      var result =  store.getAndUpdate(
+    return retryTemplate.invoke(() ->
+      store.getAndUpdate(
         (state) -> GroupCheckoutDecider.handle(command, state).orElse(toArray()),
         id
-      );
-      ack.accept(result);
-    });
+      )
+    );
   }
 }

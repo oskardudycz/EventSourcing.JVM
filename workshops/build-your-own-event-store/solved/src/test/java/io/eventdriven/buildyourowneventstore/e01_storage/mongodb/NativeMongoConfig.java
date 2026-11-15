@@ -1,5 +1,6 @@
 package io.eventdriven.buildyourowneventstore.e01_storage.mongodb;
 
+import io.eventdriven.buildyourowneventstore.tools.TestDatabases;
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
@@ -30,7 +31,7 @@ public class NativeMongoConfig {
     );
 
     MongoClientSettings settings = MongoClientSettings.builder()
-      .applyConnectionString(new ConnectionString("mongodb://localhost:27017/test?replicaSet=rs0&directConnection=true"))
+      .applyConnectionString(new ConnectionString(TestDatabases.mongoDBConnectionString("test")))
       .uuidRepresentation(UuidRepresentation.STANDARD)
       .codecRegistry(codecRegistry)
       .build();

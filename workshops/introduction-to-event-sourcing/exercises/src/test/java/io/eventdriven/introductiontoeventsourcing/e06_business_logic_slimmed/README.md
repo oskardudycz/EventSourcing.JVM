@@ -19,11 +19,3 @@ There are two variations:
 Select your preferred approach (or both) to solve this use case.
 
 _**Note**: If needed update entities, events or test setup structure_
-
-## Solution
-
-1. Immutable, with functional command handlers composition and entities as anemic data model: [Immutable/BusinessLogic.java](./immutable/BusinessLogic.java). Read also more about decider pattern [Jérémie Chassaing - Functional Event Sourcing Decider](https://thinkbeforecoding.com/post/2021/12/17/functional-event-sourcing-decider)
-2. Classical, mutable aggregates (rich domain model): [Mutable/Solution1/BusinessLogic.java](./mutable/solution1/BusinessLogic.java).
-3. Mixed approach, mutable aggregates (rich domain model), returning events from methods, using immutable DTOs: [Mutable/Solution2/BusinessLogic.java](./mutable/solution1/BusinessLogic.java).
-
-

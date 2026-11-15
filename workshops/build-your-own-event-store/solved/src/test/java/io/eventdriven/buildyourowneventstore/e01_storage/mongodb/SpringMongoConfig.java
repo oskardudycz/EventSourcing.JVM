@@ -1,5 +1,6 @@
 package io.eventdriven.buildyourowneventstore.e01_storage.mongodb;
 
+import io.eventdriven.buildyourowneventstore.tools.TestDatabases;
 import com.mongodb.ConnectionString;
 import com.mongodb.client.MongoClients;
 import org.springframework.context.annotation.Bean;
@@ -12,7 +13,7 @@ public class SpringMongoConfig {
   @Bean
   public MongoTemplate mongoTemplate() {
     // no special typeMapper => default is _class
-    var connectionString = new ConnectionString("mongodb://localhost:27017/?replicaSet=rs0&directConnection=true");
+    var connectionString = new ConnectionString(TestDatabases.mongoDBConnectionString("test"));
     return new MongoTemplate(MongoClients.create(connectionString), "test");
   }
 }

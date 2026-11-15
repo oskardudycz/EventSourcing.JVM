@@ -17,30 +17,29 @@ repositories {
 
 dependencies {
   // Serialisation
-  implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
-  implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.0'
+  implementation 'tools.jackson.core:jackson-databind:3.3.0'
 
   // KurrentDB client
   implementation 'io.kurrent:kurrentdb-client:1.2.1'
 
   // Logging
-  implementation 'org.apache.logging.log4j:log4j-api:2.23.1'
-  implementation 'org.apache.logging.log4j:log4j-core:2.23.1'
-  implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.23.1'
+  implementation 'org.apache.logging.log4j:log4j-api:2.26.1'
+  implementation 'org.apache.logging.log4j:log4j-core:2.26.1'
+  implementation 'org.apache.logging.log4j:log4j-slf4j2-impl:2.26.1'
 
   // Test frameworks
-  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.2'
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
-  testImplementation 'org.junit.platform:junit-platform-launcher:1.10.2'
-  testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+  testImplementation 'org.junit.jupiter:junit-jupiter-api:6.1.3'
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.1.3'
+  testImplementation 'org.junit.platform:junit-platform-launcher:6.1.3'
+  testImplementation 'org.testcontainers:testcontainers:2.0.5'
 
   // Approval / snapshot testing
-  testImplementation 'com.approvaltests:approvaltests:24.0.0'
-  testImplementation 'io.github.classgraph:classgraph:4.8.179'
+  testImplementation 'com.approvaltests:approvaltests:31.0.0'
+  testImplementation 'io.github.classgraph:classgraph:5.0.2'
 
   // Contract testing
-  testImplementation 'io.event-driven:strictland:0.4.0'
-  testImplementation 'org.jspecify:jspecify:1.0.0'
+  testImplementation 'io.event-driven:strictland:0.4.1'
+  testImplementation 'org.jspecify:jspecify:1.0.1'
 }
 
 tasks.named('test') {

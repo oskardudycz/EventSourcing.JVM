@@ -62,25 +62,27 @@ It uses:
 ### Testing
 - Added API integration tests together with a simple wrapper with Specification Pattern to make tests cleaner using Given/When/Then approach. See more in [ApiSpecification](./src/test/java/io/eventdriven/ecommerce/testing/ApiSpecification.java). See example tests in [AddProductItemToShoppingCartTests](./src/test/java/io/eventdriven/ecommerce/api/controller/AddProductItemToShoppingCartTests.java).
 - Added basic unit tests for state rebuild in [ShoppingCartTests](./src/test/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCartTests.java)
+- API tests start KurrentDB and PostgreSQL with [Testcontainers](https://testcontainers.com/), so running them needs only Docker. `docker compose --profile all up` is needed to run the application. While it's running, the tests use its containers instead of starting their own.
 
 
 ## Prerequisites
 
 1. Install git - https://git-scm.com/downloads.
-2. Install Java JDK 22 (or later) - https://www.oracle.com/java/technologies/downloads/.
+2. Install Java JDK 17 or later to run Gradle - https://www.oracle.com/java/technologies/downloads/. The build uses JDK 22 through a Gradle toolchain and downloads it if it isn't installed.
 3. Install IntelliJ, Eclipse, VSCode or other preferred IDE.
 4. Install docker - https://docs.docker.com/engine/install/.
 5. Open project folder.
 
 ## Running
 
-1. Run: `docker compose up`.
+1. Run: `docker compose --profile all up`. On ARM (e.g. Apple Silicon) run `KURRENTDB_IMAGE=kurrentplatform/kurrentdb:26.2.3-experimental-arm64-10.0-noble docker compose --profile all up` instead.
 2. Wait until all containers are downloaded and running.
 3. You should automatically get:
     - KurrentDB UI (for event store): http://localhost:2113/
     - Postgres DB running (for read models)
     - PG Admin - IDE for postgres. Available at: http://localhost:5050.
         - Login: `pgadmin4@pgadmin.org`, Password: `admin`
-        - To connect to server Use host: `postgres`, user: `postgres`, password: `Password12!`
+        - To connect to server Use host: `postgres`, user: `postgres`, password: `postgres`
+    - If a port is already taken, set `KURRENTDB_PORT`, `POSTGRES_PORT` or `PGADMIN_PORT`, e.g. `PGADMIN_PORT=5051 docker compose --profile all up`. If you change `KURRENTDB_PORT` or `POSTGRES_PORT`, set the same variable when you start the application, e.g. `POSTGRES_PORT=55432 docker compose --profile all up` and `POSTGRES_PORT=55432 ./gradlew bootRun`. [application.properties](./src/main/resources/application.properties) reads these variables and falls back to the default ports.
 4. Open, build and run `ECommerceApplication`.
     - Swagger should be available at: http://localhost:8080/swagger-ui/index.html

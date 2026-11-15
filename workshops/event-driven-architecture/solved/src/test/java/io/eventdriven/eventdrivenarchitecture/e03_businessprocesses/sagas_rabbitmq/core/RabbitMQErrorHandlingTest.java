@@ -16,7 +16,6 @@ import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.DefaultClassMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.micrometer.metrics.test.autoconfigure.AutoConfigureMetrics;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -63,8 +62,8 @@ public class RabbitMQErrorHandlingTest {
   @Autowired
   private RabbitTemplate rabbitTemplate;
 
-  @Value("${app.rabbitmq.exchange}")
-  private String exchange;
+  @Autowired
+  private RabbitMQMessageBusProperties properties;
 
   @BeforeEach
   public void setUp() {
@@ -129,7 +128,7 @@ public class RabbitMQErrorHandlingTest {
     var handled = new CopyOnWriteArrayList<String>();
     messageBus.subscribe(PaymentReceived.class, message -> handled.add(message.id()));
 
-    rabbitTemplate.send(exchange, "raw", MessageBuilder.withBody(payload.getBytes())
+    rabbitTemplate.send(properties.exchange(), "raw", MessageBuilder.withBody(payload.getBytes())
       .setContentType(MessageProperties.CONTENT_TYPE_JSON)
       .setHeader(DefaultClassMapper.DEFAULT_CLASSID_FIELD_NAME, messageType)
       .build());
@@ -166,7 +165,7 @@ public class RabbitMQErrorHandlingTest {
   }
 
   private Message findOnDeadLetterQueue(String id) {
-    var message = rabbitTemplate.receive(exchange + "-saga-dlq", 1000);
+    var message = rabbitTemplate.receive(properties.exchange() + "-saga-dlq", 1000);
     return message != null && new String(message.getBody()).contains(id) ? message : null;
   }
 }

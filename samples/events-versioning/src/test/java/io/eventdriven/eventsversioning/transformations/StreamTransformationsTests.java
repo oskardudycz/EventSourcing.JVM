@@ -1,6 +1,6 @@
 package io.eventdriven.eventsversioning.transformations;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import io.eventdriven.eventsversioning.serialization.Serializer;
 import io.eventdriven.eventsversioning.v1.ShoppingCartEvent;
 import io.eventdriven.eventsversioning.v1.productitems.PricedProductItem;
@@ -82,15 +82,15 @@ public class StreamTransformationsTests {
       Serializer.deserialize(shoppingCartInitialized.data);
 
     var newEvent = new ShoppingCartInitializedWithProducts(
-      UUID.fromString(shoppingCartInitializedJson.at("/shoppingCartId").asText()),
-      UUID.fromString(shoppingCartInitializedJson.at("/clientId").asText()),
+      UUID.fromString(shoppingCartInitializedJson.at("/shoppingCartId").asString()),
+      UUID.fromString(shoppingCartInitializedJson.at("/clientId").asString()),
       productItemsAdded.stream()
         .map(pi -> {
           var pricedProductItem = Serializer.deserialize(pi.data);
 
           return new PricedProductItem(
             new ProductItem(
-              UUID.fromString(pricedProductItem.at("/productItem/productItem/productId").asText()),
+              UUID.fromString(pricedProductItem.at("/productItem/productItem/productId").asString()),
               pricedProductItem.at("/productItem/productItem/quantity").asInt()
             ),
             pricedProductItem.at("/productItem/unitPrice").asDouble()

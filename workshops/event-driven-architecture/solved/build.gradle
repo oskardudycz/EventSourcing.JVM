@@ -25,9 +25,13 @@ repositories {
   mavenCentral()
 }
 
+configurations {
+  mockitoAgent
+}
+
 dependencies {
   // Spring Boot Web
-  implementation 'org.springframework.boot:spring-boot-starter-web'
+  implementation 'org.springframework.boot:spring-boot-starter-webmvc'
   // Validation
   implementation 'org.springframework.boot:spring-boot-starter-validation'
   // For PostgreSQL Event Store
@@ -38,10 +42,6 @@ dependencies {
 
   // Kafka
   implementation 'org.springframework.boot:spring-boot-starter-kafka'
-
-  // Serialisation
-  implementation 'tools.jackson.core:jackson-databind'
-  implementation 'tools.jackson.core:jackson-core'
 
   // Postgres client
   implementation 'org.postgresql:postgresql'
@@ -66,8 +66,7 @@ dependencies {
   testImplementation 'io.opentelemetry:opentelemetry-sdk-testing'
 
   // Test frameworks
-  testImplementation 'org.springframework.boot:spring-boot-starter-test'
-  testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+  testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 
   testImplementation 'org.assertj:assertj-core'
   testImplementation 'org.testcontainers:testcontainers-rabbitmq'
@@ -75,6 +74,9 @@ dependencies {
   testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
   testImplementation 'net.datafaker:datafaker:2.3.0'
   testImplementation 'com.tngtech.archunit:archunit-junit5:1.5.1'
+  mockitoAgent('org.mockito:mockito-core') {
+    transitive = false
+  }
 }
 
 configurations {
@@ -93,9 +95,7 @@ test {
       excludeTags 'Exercise'
     }
   }
-  if (project.hasProperty('observability')) {
-    systemProperty 'spring.profiles.active', 'observability'
-  }
+  jvmArgs += "-javaagent:${configurations.mockitoAgent.asPath}"
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
 }

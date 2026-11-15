@@ -1,6 +1,6 @@
 package io.eventdriven.ecommerce.core.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.eventdriven.ecommerce.core.events.EventBus;
 import io.eventdriven.ecommerce.core.events.EventForwarder;
 import io.eventdriven.ecommerce.core.serialization.EventSerializer;
@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 class CoreConfig {
   @Bean
-  ObjectMapper defaultJSONMapper() {
+  JsonMapper defaultJSONMapper() {
     return EventSerializer.mapper;
   }
 

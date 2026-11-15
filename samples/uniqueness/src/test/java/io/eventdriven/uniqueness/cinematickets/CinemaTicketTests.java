@@ -3,6 +3,7 @@ package io.eventdriven.uniqueness.cinematickets;
 import io.kurrent.dbclient.*;
 import io.eventdriven.uniqueness.core.async.SyncProcessor;
 import io.eventdriven.uniqueness.core.resourcereservation.Hash;
+import io.eventdriven.uniqueness.testing.TestDatabases;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -127,7 +128,7 @@ public class CinemaTicketTests {
 
   @BeforeEach
   void beforeEach() throws ConnectionStringParsingException {
-    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow(TestDatabases.kurrentDBConnectionString());
     this.eventStore = KurrentDBClient.create(settings);
 
     ticketId = UUID.randomUUID();

@@ -1,12 +1,12 @@
 package io.eventdriven.introductiontoeventsourcing.e03_appending_event.kurrentdb;
 
+import io.eventdriven.eventstores.testing.tools.TestDatabases;
+import tools.jackson.databind.cfg.DateTimeFeature;
 import io.kurrent.dbclient.*;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
@@ -62,11 +62,11 @@ public class AppendingEventsTests {
   }
 
   public static final ObjectMapper mapper =
-    new JsonMapper()
-      .registerModule(new JavaTimeModule())
+    JsonMapper.builder()
       .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-      .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-      .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false);
+      .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+      .configure(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
+      .build();
 
   private CompletableFuture<WriteResult> appendEvents(KurrentDBClient eventStore, String streamName, Object[] events) {
     // 1. Add logic here
@@ -85,7 +85,7 @@ public class AppendingEventsTests {
         event.getClass().getTypeName(),
         mapper.writeValueAsBytes(event)
       ).build();
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       throw new RuntimeException(e);
     }
   }
@@ -110,7 +110,7 @@ public class AppendingEventsTests {
         new ShoppingCartCanceled(shoppingCartId, OffsetDateTime.now())
       };
 
-    var settings = KurrentDBConnectionString.parseOrThrow("kurrentdb://localhost:2113?tls=false");
+    var settings = KurrentDBConnectionString.parseOrThrow(TestDatabases.kurrentDBConnectionString());
 
     var eventStore = KurrentDBClient.create(settings);
 

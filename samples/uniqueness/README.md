@@ -91,16 +91,16 @@ public class KurrentDBResourceReservationHandler implements ResourceReservationH
   private static final Logger logger = LoggerFactory.getLogger(KurrentDBResourceReservationHandler.class);
   private final Duration reservationLockDuration;
   private final EventStore eventStore;
-  private final RetryPolicy retryPolicy;
+  private final RetryTemplate retryTemplate;
 
   public KurrentDBResourceReservationHandler(
     Duration reservationLockDuration,
-    RetryPolicy retryPolicy,
+    RetryTemplate retryTemplate,
     EventStore eventStore
   ) {
     this.reservationLockDuration = reservationLockDuration;
     this.eventStore = eventStore;
-    this.retryPolicy = retryPolicy;
+    this.retryTemplate = retryTemplate;
   }
 
   @Override
@@ -155,11 +155,13 @@ public class KurrentDBResourceReservationHandler implements ResourceReservationH
       tentativeLockDuration
     );
 
-    return retryPolicy.run(ack -> {
+    return retryTemplate.invoke(() -> {
       var result = eventStore.append(reservationStreamId, reservationInitiated);
 
-      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure))
-        ack.accept(result);
+      if (result instanceof EventStore.AppendResult.UnexpectedFailure)
+        throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
+
+      return result;
     });
   }
 
@@ -169,11 +171,13 @@ public class KurrentDBResourceReservationHandler implements ResourceReservationH
       OffsetDateTime.now()
     );
 
-    return retryPolicy.run(ack -> {
+    return retryTemplate.invoke(() -> {
       var result = eventStore.append(reservationStreamId, expectedRevision, reservationConfirmed);
 
-      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure))
-        ack.accept(result);
+      if (result instanceof EventStore.AppendResult.UnexpectedFailure)
+        throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
+
+      return result;
     });
   }
 
@@ -186,15 +190,15 @@ public class KurrentDBResourceReservationHandler implements ResourceReservationH
       OffsetDateTime.now()
     );
 
-    retryPolicy.run(ack -> {
+    retryTemplate.invoke(() -> {
       var result = eventStore.append(
         reservationStreamId,
         AppendToStreamOptions.get().streamState(expectedRevision),
         EventSerializer.serialize(reservationReleased)
       );
 
-      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure))
-        ack.accept(result);
+      if (result instanceof EventStore.AppendResult.UnexpectedFailure)
+        throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
     });
   }
 

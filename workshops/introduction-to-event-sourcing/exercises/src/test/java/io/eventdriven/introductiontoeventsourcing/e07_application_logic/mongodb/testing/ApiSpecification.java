@@ -1,10 +1,15 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.testing;
 
 
+import io.eventdriven.eventstores.testing.tools.TestDatabases;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.client.EntityExchangeResult;
+import org.springframework.test.web.servlet.client.RestTestClient;
 
 import java.util.UUID;
 import java.util.function.BiFunction;
@@ -13,14 +18,24 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@AutoConfigureRestTestClient
 public abstract class ApiSpecification {
   protected String apiPrefix;
+
+  @DynamicPropertySource
+  static void databaseProperties(DynamicPropertyRegistry registry) {
+    registry.add("kurrentdb.connectionstring", () -> TestDatabases.kurrentDBConnectionString());
+    registry.add("mongodb.connectionstring", () -> TestDatabases.mongoDBConnectionString("test"));
+    registry.add("spring.datasource.url", () -> TestDatabases.postgreSQL().connectionString());
+    registry.add("spring.datasource.username", () -> TestDatabases.postgreSQL().userName());
+    registry.add("spring.datasource.password", () -> TestDatabases.postgreSQL().password());
+  }
 
   @LocalServerPort
   protected int port;
 
   @Autowired
-  protected TestRestTemplate restTemplate;
+  protected RestTestClient restTestClient;
 
   public ApiSpecification(String apiPrefix) {
     this.apiPrefix = apiPrefix;
@@ -39,60 +54,72 @@ public abstract class ApiSpecification {
   ///////////////////
 
 
-  public <T> BiFunction<TestRestTemplate, Object, ResponseEntity<T>> GET(Class<T> entityClass) {
+  public <T> BiFunction<RestTestClient, Object, EntityExchangeResult<T>> GET(Class<T> entityClass) {
     return GET("", entityClass);
   }
 
-  public <T> BiFunction<TestRestTemplate, Object, ResponseEntity<T>> GET(String urlSuffix, Class<T> entityClass) {
+  public <T> BiFunction<RestTestClient, Object, EntityExchangeResult<T>> GET(String urlSuffix, Class<T> entityClass) {
     var headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
 
-    return (api, request) -> this.restTemplate
-      .exchange(
-        getApiUrl() + urlSuffix + (request != "" ? "/%s".formatted(request) : request),
-        HttpMethod.GET,
-        new HttpEntity<>(null),
-        entityClass
-      );
+    return (api, request) -> exchange(
+      HttpMethod.GET,
+      getApiUrl() + urlSuffix + (request != "" ? "/%s".formatted(request) : request),
+      HttpEntity.EMPTY,
+      entityClass
+    );
   }
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> POST = POST("");
+  public BiFunction<RestTestClient, Object, EntityExchangeResult> POST = POST("");
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> POST(String urlSuffix) {
-    return (api, request) -> this.restTemplate
-      .postForEntity(getApiUrl() + urlSuffix, request, Void.class);
+  public BiFunction<RestTestClient, Object, EntityExchangeResult> POST(String urlSuffix) {
+    return (api, request) -> exchange(
+      HttpMethod.POST,
+      getApiUrl() + urlSuffix,
+      request instanceof HttpEntity<?> entity ? entity : new HttpEntity<>(request),
+      Void.class
+    );
   }
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT() {
+  public BiFunction<RestTestClient, Object, EntityExchangeResult> PUT() {
     return PUT("");
   }
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT(String urlSuffix) {
+  public BiFunction<RestTestClient, Object, EntityExchangeResult> PUT(String urlSuffix) {
     return PUT(urlSuffix, true);
   }
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> PUT(String urlSuffix, boolean withEmptyBody) {
-    return (api, request) -> this.restTemplate
-      .exchange(
-        getApiUrl() + urlSuffix + (withEmptyBody ? "/%s".formatted(request) : ""),
-        HttpMethod.PUT,
-        new HttpEntity<>(!withEmptyBody ? request : null),
-        Void.class
-      );
+  public BiFunction<RestTestClient, Object, EntityExchangeResult> PUT(String urlSuffix, boolean withEmptyBody) {
+    return (api, request) -> exchange(
+      HttpMethod.PUT,
+      getApiUrl() + urlSuffix + (withEmptyBody ? "/%s".formatted(request) : ""),
+      new HttpEntity<>(!withEmptyBody ? request : null),
+      Void.class
+    );
   }
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> DELETE() {
+  public BiFunction<RestTestClient, Object, EntityExchangeResult> DELETE() {
     return DELETE("");
   }
 
-  public BiFunction<TestRestTemplate, Object, ResponseEntity> DELETE(String urlSuffix) {
-    return (api, request) -> this.restTemplate
-      .exchange(
-        getApiUrl() + urlSuffix + (request != "" ? "/%s".formatted(request) : request),
-        HttpMethod.DELETE,
-        new HttpEntity<>(null),
-        Void.class
-      );
+  public BiFunction<RestTestClient, Object, EntityExchangeResult> DELETE(String urlSuffix) {
+    return (api, request) -> exchange(
+      HttpMethod.DELETE,
+      getApiUrl() + urlSuffix + (request != "" ? "/%s".formatted(request) : request),
+      HttpEntity.EMPTY,
+      Void.class
+    );
+  }
+
+  private <T> EntityExchangeResult<T> exchange(HttpMethod method, String url, HttpEntity<?> request, Class<T> responseType) {
+    var requestSpec = this.restTestClient
+      .method(method)
+      .uri(url)
+      .headers(headers -> headers.addAll(request.getHeaders()));
+
+    return (request.hasBody() ? requestSpec.body(request.getBody()) : requestSpec)
+      .exchange()
+      .returnResult(responseType);
   }
 
   HttpHeaders getHeaders(Consumer<HttpHeaders> consumer) {
@@ -108,13 +135,13 @@ public abstract class ApiSpecification {
   ////   THEN    ////
   ///////////////////
 
-  public Consumer<ResponseEntity> OK = assertResponseStatus(HttpStatus.OK);
+  public Consumer<EntityExchangeResult> OK = assertResponseStatus(HttpStatus.OK);
 
-  public Consumer<ResponseEntity> CREATED =
+  public Consumer<EntityExchangeResult> CREATED =
     response -> {
       assertResponseStatus(HttpStatus.CREATED).accept(response);
 
-      var locationHeader = response.getHeaders().getLocation();
+      var locationHeader = response.getResponseHeaders().getLocation();
 
       assertNotNull(locationHeader);
 
@@ -124,18 +151,18 @@ public abstract class ApiSpecification {
       assertDoesNotThrow(() -> UUID.fromString(location.substring(apiPrefix.length() + 1)));
     };
 
-  public Consumer<ResponseEntity> BAD_REQUEST = assertResponseStatus(HttpStatus.BAD_REQUEST);
+  public Consumer<EntityExchangeResult> BAD_REQUEST = assertResponseStatus(HttpStatus.BAD_REQUEST);
 
-  public Consumer<ResponseEntity> NOT_FOUND = assertResponseStatus(HttpStatus.NOT_FOUND);
+  public Consumer<EntityExchangeResult> NOT_FOUND = assertResponseStatus(HttpStatus.NOT_FOUND);
 
-  public Consumer<ResponseEntity> CONFLICT = assertResponseStatus(HttpStatus.CONFLICT);
+  public Consumer<EntityExchangeResult> CONFLICT = assertResponseStatus(HttpStatus.CONFLICT);
 
-  public Consumer<ResponseEntity> PRECONDITION_FAILED = assertResponseStatus(HttpStatus.PRECONDITION_FAILED);
+  public Consumer<EntityExchangeResult> PRECONDITION_FAILED = assertResponseStatus(HttpStatus.PRECONDITION_FAILED);
 
-  public Consumer<ResponseEntity> METHOD_NOT_ALLOWED = assertResponseStatus(HttpStatus.METHOD_NOT_ALLOWED);
+  public Consumer<EntityExchangeResult> METHOD_NOT_ALLOWED = assertResponseStatus(HttpStatus.METHOD_NOT_ALLOWED);
 
-  private Consumer<ResponseEntity> assertResponseStatus(HttpStatus status) {
-    return (response) -> assertEquals(status, response.getStatusCode());
+  private Consumer<EntityExchangeResult> assertResponseStatus(HttpStatus status) {
+    return (response) -> assertEquals(status, response.getStatus());
   }
 
 
@@ -146,24 +173,24 @@ public abstract class ApiSpecification {
   protected class ApiSpecificationBuilder {
     private final ApiSpecification api;
     private final Supplier<Object> given;
-    private BiFunction<TestRestTemplate, Object, ResponseEntity> when;
-    private ResponseEntity response;
+    private BiFunction<RestTestClient, Object, EntityExchangeResult> when;
+    private EntityExchangeResult response;
 
     private ApiSpecificationBuilder(ApiSpecification api, Supplier<Object> given) {
       this.api = api;
       this.given = given;
     }
 
-    public ApiSpecificationBuilder when(BiFunction<TestRestTemplate, Object, ResponseEntity> when) {
+    public ApiSpecificationBuilder when(BiFunction<RestTestClient, Object, EntityExchangeResult> when) {
       this.when = when;
 
       return this;
     }
 
-    public ApiSpecificationBuilder then(Consumer<ResponseEntity> then) {
+    public ApiSpecificationBuilder then(Consumer<EntityExchangeResult> then) {
       var request = given.get();
 
-      var response = when.apply(api.restTemplate, request);
+      var response = when.apply(api.restTestClient, request);
 
       then.accept(response);
 

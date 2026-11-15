@@ -24,6 +24,7 @@ Tutorial, practical samples and other resources about Event Sourcing in JVM. See
     - [Exercises](#exercises)
   - [Event-Driven Architecture Workshop](#event-driven-architecture-workshop)
     - [Event-Driven Architecture exercises](#event-driven-architecture-exercises)
+  - [Build Your Own Event Store Self-Paced Kit](#build-your-own-event-store-self-paced-kit)
   - [Samples](#samples)
     - [Event Sourcing with Spring Boot and KurrentDB](#event-sourcing-with-spring-boot-and-kurrentdb)
       - [Overview](#overview)
@@ -299,6 +300,16 @@ Follow the instructions in exercises folders. See the [workshop README](./worksh
 5. [Optimistic concurrency](./workshops/event-driven-architecture/exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e05_optimistic_concurrency).
 6. [Consistency](./workshops/event-driven-architecture/exercises/src/test/java/io/eventdriven/eventdrivenarchitecture/e06_consistency).
 
+## [Build Your Own Event Store Self-Paced Kit](./workshops/build-your-own-event-store/)
+
+The workshop teaches the event store basics by showing how to build your own Event Store on a relational database. It starts with the tables setup, goes through appending events and event store methods, and finishes with stream aggregation and time travelling. See the [workshop README](./workshops/build-your-own-event-store/) for setup.
+
+1. [Streams and Events Tables](./workshops/build-your-own-event-store/exercises/src/test/java/io/eventdriven/buildyourowneventstore/e01_storage/postgresql)
+2. [Appending Events](./workshops/build-your-own-event-store/exercises/src/test/java/io/eventdriven/buildyourowneventstore/e03_create_append_event_function)
+3. [Event Store Methods](./workshops/build-your-own-event-store/exercises/src/test/java/io/eventdriven/buildyourowneventstore/e04_event_store_methods)
+4. [Stream Aggregation](./workshops/build-your-own-event-store/exercises/src/test/java/io/eventdriven/buildyourowneventstore/e05_stream_aggregation)
+5. [Time Travelling](./workshops/build-your-own-event-store/exercises/src/test/java/io/eventdriven/buildyourowneventstore/e06_time_travelling)
+
 ## Samples
 
 See also fully working, real-world samples of Event Sourcing and CQRS applications in [Samples folder](./samples/event-sourcing-kurrentdb-simple).
@@ -338,7 +349,7 @@ There are two variations of those samples:
 
 For running the Event Store examples you need to have:
 
-1. Java JDK 22 (or later) installed - https://www.oracle.com/java/technologies/downloads/.
+1. Java JDK 17 or later installed to run Gradle - https://www.oracle.com/java/technologies/downloads/. The build uses JDK 22 through a Gradle toolchain and downloads it if it isn't installed.
 2. Installed IntelliJ, Eclipse, VSCode or other preferred IDE.
 3. [Docker](https://store.docker.com/search?type=edition&offering=community) installed.
 

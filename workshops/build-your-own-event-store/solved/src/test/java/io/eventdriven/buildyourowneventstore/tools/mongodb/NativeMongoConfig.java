@@ -1,5 +1,6 @@
 package io.eventdriven.buildyourowneventstore.tools.mongodb;
 
+import io.eventdriven.buildyourowneventstore.tools.TestDatabases;
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
@@ -15,7 +16,7 @@ import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
 
 public class NativeMongoConfig {
   public static MongoClient createClient() {
-    return createClient("mongodb://localhost:27017/test?replicaSet=rs0&directConnection=true");
+    return createClient(TestDatabases.mongoDBConnectionString("test"));
   }
 
   public static MongoClient createClient(String connectionString) {

@@ -9,7 +9,7 @@ Having the following shopping cart process:
 6. After shopping cart confirmation or cancellation, the product can no longer be added or removed from the cart.
 
 Model the events that occur during this process and the entity representing the current state of the shopping cart. Write those events in code. 
-Create sample events that represent a specific shopping cart. You can do that in [EventsDefinitionTests](./EventsDefinitionTests.java) test file.
+Create sample events that represent a specific shopping cart. You can do that in [EventsDefinitionTests](./solution1/EventsDefinitionTests.java) test file.
 
 ## Solution
 
@@ -19,4 +19,4 @@ Events model:
 
 There are two alternative solutions:
 1. Simple events structure [solution1/EventsDefinitionTests.java](./solution1/EventsDefinitionTests.java).
-2. Events structure with union type to give option to tell that Shopping Cart event is one of the defined types [solution2/EventsDefinitionTests.java](solution2/EventsDefinitionTests.java).
+2. Events structure with union type to give option to tell that Shopping Cart event is one of the defined types [solution2/EventsDefinitionTests.java](./solution2/EventsDefinitionTests.java).

@@ -6,7 +6,10 @@ import io.eventdriven.ecommerce.core.events.EventEnvelope;
 import io.eventdriven.ecommerce.core.events.EventTypeMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.retry.support.RetryTemplate;
+import org.springframework.core.retry.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
+
+import java.time.Duration;
 
 public class KurrentDBSubscriptionToAll {
   private final KurrentDBClient eventStoreClient;
@@ -17,10 +20,14 @@ public class KurrentDBSubscriptionToAll {
   private boolean isRunning;
   private final Logger logger = LoggerFactory.getLogger(KurrentDBSubscriptionToAll.class);
 
-  private final RetryTemplate retryTemplate = RetryTemplate.builder()
-    .infiniteRetry()
-    .exponentialBackoff(100, 2, 5000)
-    .build();
+  private final RetryTemplate retryTemplate = new RetryTemplate(
+    RetryPolicy.builder()
+      .maxRetries(Long.MAX_VALUE)
+      .delay(Duration.ofMillis(100))
+      .multiplier(2)
+      .maxDelay(Duration.ofMillis(5000))
+      .build()
+  );
 
   private final SubscriptionListener listener = new SubscriptionListener() {
     @Override
@@ -64,7 +71,7 @@ public class KurrentDBSubscriptionToAll {
     this.subscriptionOptions = subscriptionOptions;
 
     try {
-      retryTemplate.execute(context -> {
+      retryTemplate.execute(() -> {
         var checkpoint = checkpointRepository.load(subscriptionOptions.subscriptionId());
 
         if (checkpoint.isPresent()) {

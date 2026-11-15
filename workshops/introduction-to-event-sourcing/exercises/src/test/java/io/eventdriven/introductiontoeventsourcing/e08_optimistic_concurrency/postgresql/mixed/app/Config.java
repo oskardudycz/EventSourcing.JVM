@@ -1,6 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.postgresql.mixed.app;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.eventdriven.eventstores.postgresql.PostgreSQLEventStore;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.GlobalExceptionHandler;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.serializer.DefaultSerializer;
@@ -20,7 +20,7 @@ import java.sql.SQLException;
 @Configuration
 class Config {
   @Bean
-  ObjectMapper defaultJSONMapper() {
+  JsonMapper defaultJSONMapper() {
     return DefaultSerializer.mapper;
   }
 

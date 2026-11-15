@@ -1,6 +1,6 @@
 package io.eventdriven.eventsversioning.transformations;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import io.eventdriven.eventsversioning.serialization.Serializer;
 import io.eventdriven.eventsversioning.v1.ShoppingCartEvent;
 import org.junit.jupiter.api.Test;
@@ -51,9 +51,9 @@ public class MultipleTransformationsWithDifferentEventTypesTests {
     JsonNode oldEvent
   ) {
     return new ShoppingCartInitializedWithStatus(
-      UUID.fromString(oldEvent.at("/shoppingCartId").asText()),
+      UUID.fromString(oldEvent.at("/shoppingCartId").asString()),
       new Client(
-        UUID.fromString(oldEvent.at("/clientId").asText()),
+        UUID.fromString(oldEvent.at("/clientId").asString()),
         null
       ),
       ShoppingCartStatus.Opened

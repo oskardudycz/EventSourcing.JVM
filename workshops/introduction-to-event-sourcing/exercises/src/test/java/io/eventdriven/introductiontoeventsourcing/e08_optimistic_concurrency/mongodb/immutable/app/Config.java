@@ -1,6 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.immutable.app;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.mongodb.client.MongoClient;
 import io.eventdriven.eventstores.mongodb.MongoDBEventStore;
 import io.eventdriven.eventstores.mongodb.config.NativeMongoConfig;
@@ -9,7 +9,8 @@ import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.cor
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.immutable.app.shoppingcarts.ShoppingCartStore;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.immutable.app.shoppingcarts.productItems.FakeProductPriceCalculator;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.immutable.app.shoppingcarts.productItems.ProductPriceCalculator;
-import org.springframework.beans.factory.annotation.Value;
+import io.eventdriven.eventstores.mongodb.config.MongoDBProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -19,16 +20,17 @@ import org.springframework.web.context.annotation.ApplicationScope;
 import static io.eventdriven.eventstores.mongodb.MongoDBEventStore.Storage;
 
 @Configuration
+@EnableConfigurationProperties(MongoDBProperties.class)
 class Config {
   @Bean
-  ObjectMapper defaultJSONMapper() {
+  JsonMapper defaultJSONMapper() {
     return DefaultSerializer.mapper;
   }
 
   @Bean
   @Scope("singleton")
-  MongoClient mongoDBClient(@Value("${mongodb.connectionstring}") String connectionString) {
-    return NativeMongoConfig.createClient(connectionString);
+  MongoClient mongoDBClient(MongoDBProperties properties) {
+    return NativeMongoConfig.createClient(properties.connectionString());
   }
 
   @Bean

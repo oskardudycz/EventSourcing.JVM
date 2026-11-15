@@ -3,10 +3,4 @@
 Using a defined structure of events from the [first exercise](../../e01_events_definition), fill a `appendEvents` function to store events in [PostgreSQL](../../../eventstores/postgresql/PostgreSQLEventStore.java).
 
 ## Prerequisites
-Run [docker-compose](../../../../../../../../docker-compose.yml) script from the main workshop repository to start PostgreSQL instance.
-
-```shell
-docker compose up
-```
-
-After that you can use PgAdmin UI to see how streams and events look like. It's available at: http://localhost:5050/.
+Have Docker running. The tests start a PostgreSQL instance with [Testcontainers](https://testcontainers.com/), so you don't need to start it yourself. To see the test data, start `docker compose --profile all up`; the tests then use those containers automatically, as described in [Running](../../../../../../../../../README.md#running).

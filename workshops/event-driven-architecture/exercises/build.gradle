@@ -6,7 +6,7 @@ plugins {
 
 java {
   toolchain {
-    languageVersion = JavaLanguageVersion.of(21)
+    languageVersion = JavaLanguageVersion.of(22)
   }
 }
 
@@ -25,17 +25,17 @@ repositories {
   mavenCentral()
 }
 
+configurations {
+  mockitoAgent
+}
+
 dependencies {
   // Spring Boot Web
-  implementation 'org.springframework.boot:spring-boot-starter-web'
+  implementation 'org.springframework.boot:spring-boot-starter-webmvc'
   // Validation
   implementation 'org.springframework.boot:spring-boot-starter-validation'
   // For PostgreSQL Event Store
   implementation 'org.springframework.boot:spring-boot-starter-jdbc'
-
-  // Serialisation
-  implementation 'tools.jackson.core:jackson-databind'
-  implementation 'tools.jackson.core:jackson-core'
 
   // Postgres client
   implementation 'org.postgresql:postgresql'
@@ -46,10 +46,13 @@ dependencies {
   implementation 'org.apache.logging.log4j:log4j-core'
 
   // Test frameworks
-  testImplementation 'org.springframework.boot:spring-boot-starter-test'
+  testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 
   testImplementation 'org.assertj:assertj-core'
   testImplementation 'net.datafaker:datafaker:2.3.0'
+  mockitoAgent('org.mockito:mockito-core') {
+    transitive = false
+  }
 }
 
 configurations {
@@ -68,6 +71,7 @@ test {
       excludeTags 'Exercise'
     }
   }
+  jvmArgs += "-javaagent:${configurations.mockitoAgent.asPath}"
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
 }

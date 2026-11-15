@@ -27,7 +27,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   @BeforeEach
   public void openShoppingCartWithProduct() {
     var result =
-      ShoppingCartRestBuilder.of(restTemplate, port)
+      ShoppingCartRestBuilder.of(restTestClient, port)
         .build(cart -> cart
           .withClientId(clientId)
           .withProduct(new ProductItemRequest(UUID.randomUUID(), 10))
@@ -36,9 +36,9 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
     shoppingCartId = result.id();
 
     var getResult = GET(ShoppingCart.class)
-      .apply(restTemplate, result.id().toString());
+      .apply(restTestClient, result.id().toString());
 
-    product = getResult.getBody().productItems()[0];
+    product = getResult.getResponseBody().productItems()[0];
   }
 
   @Tag("Exercise")
@@ -79,7 +79,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   @Test
   public void removeProductItem_fails_withConflict_forConfirmedShoppingCart() {
     var result =
-      ShoppingCartRestBuilder.of(restTemplate, port)
+      ShoppingCartRestBuilder.of(restTestClient, port)
         .build(cart -> cart.withClientId(clientId).confirmed());
 
     given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))
@@ -91,7 +91,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
   @Test
   public void removeProductItem_fails_withConflict_forCanceledShoppingCart() {
     var result =
-      ShoppingCartRestBuilder.of(restTemplate, port)
+      ShoppingCartRestBuilder.of(restTestClient, port)
         .build(builder -> builder.withClientId(clientId).canceled());
 
     given(() -> "%s?price=%s&quantity=%s".formatted(product.getProductId(), product.getUnitPrice(), product.getQuantity()))

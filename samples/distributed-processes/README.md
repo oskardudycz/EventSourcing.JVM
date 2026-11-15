@@ -92,34 +92,36 @@ public class KurrentDBCommandBus implements CommandBus {
   private static final String commandStreamId = "_commands-all";
   private final KurrentDBClient kurrentDBClient;
   private final EventStore eventStore;
-  private final RetryPolicy retryPolicy;
+  private final RetryTemplate retryTemplate;
   private final Supplier<String> currentCorrelationId;
   private final Supplier<String> currentCausationId;
 
   public KurrentDBCommandBus(
     KurrentDBClient kurrentDBClient,
     EventStore eventStore,
-    RetryPolicy retryPolicy,
+    RetryTemplate retryTemplate,
     Supplier<String> currentCorrelationId,
     Supplier<String> currentCausationId
   ) {
     this.kurrentDBClient = kurrentDBClient;
     this.eventStore = eventStore;
-    this.retryPolicy = retryPolicy;
+    this.retryTemplate = retryTemplate;
     this.currentCorrelationId = currentCorrelationId;
     this.currentCausationId = currentCausationId;
   }
 
   @Override
   public <Command> EventStore.AppendResult schedule(Command command) {
-    return retryPolicy.run(ack -> {
+    return retryTemplate.invoke(() -> {
       var result = eventStore.append(
         commandStreamId,
         new CommandEnvelope<>(command, new CommandMetadata(currentCorrelationId.get(), currentCausationId.get()))
       );
 
-      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure))
-        ack.accept(result);
+      if (result instanceof EventStore.AppendResult.UnexpectedFailure)
+        throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
+
+      return result;
     });
   }
 
@@ -173,10 +175,7 @@ We should use a retry policy in the command handler/application service to ensur
 
 ```java
 public Optional<ETag> handle(CheckOutGuest command) {
-  return retryPolicy.run(ack -> {
-    var result = handle(command.guestStayAccountId(), command);
-    ack.accept(result);
-  });
+  return retryTemplate.invoke(() -> handle(command.guestStayAccountId(), command));
 }
 ```
 

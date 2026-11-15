@@ -2,10 +2,12 @@ package io.eventdriven.ecommerce.shoppingcarts.gettingbyid;
 
 
 import io.eventdriven.ecommerce.core.http.ETag;
-import org.springframework.lang.Nullable;
-import org.springframework.retry.support.RetryTemplate;
+import org.jspecify.annotations.Nullable;
+import org.springframework.core.retry.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
 
 import jakarta.persistence.EntityNotFoundException;
+import java.time.Duration;
 import java.util.UUID;
 
 public record GetShoppingCartById(
@@ -17,13 +19,18 @@ public record GetShoppingCartById(
     GetShoppingCartById query
   ) {
     // example of long-polling
-    RetryTemplate retryTemplate = RetryTemplate.builder()
-      .retryOn(EntityNotFoundException.class)
-      .exponentialBackoff(100, 2, 1000)
-      .withTimeout(5000)
-      .build();
+    RetryTemplate retryTemplate = new RetryTemplate(
+      RetryPolicy.builder()
+        .includes(EntityNotFoundException.class)
+        .maxRetries(Long.MAX_VALUE)
+        .delay(Duration.ofMillis(100))
+        .multiplier(2)
+        .maxDelay(Duration.ofMillis(1000))
+        .timeout(Duration.ofMillis(5000))
+        .build()
+    );
 
-    return retryTemplate.execute(context -> {
+    return retryTemplate.invoke(() -> {
       var result = query.eTag() == null ?
         repository.findById(query.shoppingCartId())
         : repository.findByIdAndNeverVersion(query.shoppingCartId(), query.eTag().toLong());

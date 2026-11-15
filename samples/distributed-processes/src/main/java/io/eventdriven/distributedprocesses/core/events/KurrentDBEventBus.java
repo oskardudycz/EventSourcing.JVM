@@ -2,7 +2,7 @@ package io.eventdriven.distributedprocesses.core.events;
 
 import io.kurrent.dbclient.KurrentDBClient;
 import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
-import io.eventdriven.distributedprocesses.core.retries.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
 
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -14,34 +14,36 @@ public class KurrentDBEventBus implements EventBus {
   private static final String EventStreamId = "_events-all";
   private final KurrentDBClient kurrentDBClient;
   private final EventStore eventStore;
-  private final RetryPolicy retryPolicy;
+  private final RetryTemplate retryTemplate;
   private final Supplier<String> currentCorrelationId;
   private final Supplier<String> currentCausationId;
 
   public KurrentDBEventBus(
     KurrentDBClient kurrentDBClient,
     EventStore eventStore,
-    RetryPolicy retryPolicy,
+    RetryTemplate retryTemplate,
     Supplier<String> currentCorrelationId,
     Supplier<String> currentCausationId
   ) {
     this.kurrentDBClient = kurrentDBClient;
     this.eventStore = eventStore;
-    this.retryPolicy = retryPolicy;
+    this.retryTemplate = retryTemplate;
     this.currentCorrelationId = currentCorrelationId;
     this.currentCausationId = currentCausationId;
   }
 
   @Override
   public <Event> EventStore.AppendResult publish(Event event) {
-    return retryPolicy.run(ack -> {
+    return retryTemplate.invoke(() -> {
       var result = eventStore.append(
         EventStreamId,
         new EventEnvelope<>(event, new EventMetadata(currentCorrelationId.get(), currentCausationId.get()))
       );
 
-      if (!(result instanceof EventStore.AppendResult.UnexpectedFailure))
-        ack.accept(result);
+      if (result instanceof EventStore.AppendResult.UnexpectedFailure)
+        throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
+
+      return result;
     });
   }
 

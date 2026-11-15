@@ -35,15 +35,14 @@ Each exercise has a full implementation in the [solved](./solved/) folder. Some 
 
 1. Install git - https://git-scm.com/downloads.
 2. Clone this repository.
-3. Install Java JDK 22 (or later) - https://www.oracle.com/java/technologies/downloads/.
+3. Install Java JDK 17 or later to run Gradle - https://www.oracle.com/java/technologies/downloads/. The build uses JDK 22 through a Gradle toolchain and downloads it if it isn't installed.
 4. Install IntelliJ, Eclipse, VSCode or other preferred IDE.
 5. Install docker - https://docs.docker.com/engine/install/.
 6. Open [exercises](./exercises/) folder as project.
 
 ## Running
 
-1. Run: `docker compose up`.
-2. Wait until all containers are downloaded and running. You get PostgreSQL and pgAdmin: http://localhost:5050/.
-3. Open, build and run the project. The Kafka and RabbitMQ tests start their brokers with Testcontainers, so Docker has to be running.
-4. To see solved exercises, open the [solved](./solved/) folder as a project.
-5. To watch traces and metrics from the solved tests in Grafana, see [Seeing it](./solved/src/test/java/io/eventdriven/eventdrivenarchitecture/e03_businessprocesses/README.md#seeing-it).
+1. Open, build and run the project. The Kafka and RabbitMQ tests start their brokers with Testcontainers, so Docker has to be running. If `docker compose` is running, the tests use its brokers instead.
+2. To see solved exercises, open the [solved](./solved/) folder as a project.
+3. Optionally, run `docker compose --profile all up` in this folder. It starts PostgreSQL, pgAdmin at http://localhost:5050/, Kafka, RabbitMQ with its management UI at http://localhost:15672/ and [Grafana LGTM](https://github.com/grafana/docker-otel-lgtm) at http://localhost:3000/. The solved tests always send traces and metrics to it. If it isn't running, they still pass and don't log export errors. To see the traces, follow [Seeing it](./solved/src/test/java/io/eventdriven/eventdrivenarchitecture/e03_businessprocesses/README.md#seeing-it).
+4. If a port is already taken, set its variable: `POSTGRES_PORT`, `PGADMIN_PORT`, `KAFKA_PORT`, `RABBITMQ_PORT`, `RABBITMQ_MANAGEMENT_PORT`, `GRAFANA_PORT`, `OTEL_GRPC_PORT` or `OTEL_HTTP_PORT`, e.g. `GRAFANA_PORT=3001 docker compose --profile all up`. If you change `OTEL_HTTP_PORT`, set the same variable for the test run, e.g. `OTEL_HTTP_PORT=54318 ./gradlew test`. The tests read it in [application.properties](./solved/src/test/resources/application.properties).

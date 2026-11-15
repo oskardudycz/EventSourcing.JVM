@@ -1,6 +1,6 @@
 plugins {
-  id 'org.springframework.boot' version '3.2.5'
-  id 'io.spring.dependency-management' version '1.1.4'
+  id 'org.springframework.boot' version '4.1.2'
+  id 'io.spring.dependency-management' version '1.1.7'
   id 'java'
 }
 
@@ -10,12 +10,6 @@ java {
   }
 }
 
-// workaround for https://github.com/gradle/gradle/issues/28987#issuecomment-2084711213
-// Todo: remove it once Gradle and Spring are aligned, possibly in Gralde 8.8 and Spring Boot 3.3.x
-springBoot {
-  mainClass = 'io.eventdriven.ecommerce.ECommerceApplication'
-}
-
 group = 'io.event-driven'
 version = '0.0.1-SNAPSHOT'
 
@@ -23,47 +17,51 @@ repositories {
   mavenCentral()
 }
 
+configurations {
+  mockitoAgent
+}
+
 dependencies {
   // Spring Boot Web
-  implementation 'org.springframework.boot:spring-boot-starter-web:3.2.5'
+  implementation 'org.springframework.boot:spring-boot-starter-webmvc'
   // Validation
-  implementation 'org.springframework.boot:spring-boot-starter-validation:3.2.5'
-  // Retry policy
-  implementation 'org.springframework.retry:spring-retry:2.0.5'
+  implementation 'org.springframework.boot:spring-boot-starter-validation'
   // Swagger
-  implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
-  // Serialisation
-  implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
-  implementation 'com.fasterxml.jackson.core:jackson-core:2.17.0'
+  implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.2.0'
 
   // Log4J logging
-  implementation 'org.springframework.boot:spring-boot-starter-log4j2:3.2.5'
+  implementation 'org.springframework.boot:spring-boot-starter-log4j2'
 
   // KurrentDB client
   implementation 'io.kurrent:kurrentdb-client:1.2.1'
 
 
   // Postgres and JPA for read models
-  implementation 'org.springframework.boot:spring-boot-starter-data-jpa:3.2.5'
-  implementation 'org.postgresql:postgresql:42.7.3'
+  implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+  implementation 'org.postgresql:postgresql'
 
   // Test frameworks
-  testImplementation 'org.springframework.boot:spring-boot-starter-test:3.2.5'
+  testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+  testImplementation 'org.testcontainers:testcontainers-postgresql'
 
-  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.2'
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
-  testImplementation 'org.junit.platform:junit-platform-launcher:1.10.2'
-  testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
-  testImplementation 'com.fasterxml.jackson.core:jackson-core:2.17.0'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+  mockitoAgent('org.mockito:mockito-core') {
+    transitive = false
+  }
 }
 
 configurations {
-  all*.exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
-  all*.exclude group: 'spring-boot-starter-test', module: 'junit'
+  all {
+    exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+    exclude group: 'ch.qos.logback'
+    exclude group: 'org.apache.logging.log4j', module: 'log4j-to-slf4j'
+    exclude group: 'spring-boot-starter-test', module: 'junit'
+  }
 }
 
 tasks.named('test') {
   useJUnitPlatform()
+  jvmArgs += "-javaagent:${configurations.mockitoAgent.asPath}"
 }
 
 test {

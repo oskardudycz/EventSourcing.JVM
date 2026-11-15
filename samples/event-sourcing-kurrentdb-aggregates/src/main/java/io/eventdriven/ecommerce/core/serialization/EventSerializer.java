@@ -1,29 +1,27 @@
 package io.eventdriven.ecommerce.core.serialization;
 
+import tools.jackson.databind.cfg.DateTimeFeature;
 import io.kurrent.dbclient.EventData;
 import io.kurrent.dbclient.EventDataBuilder;
 import io.kurrent.dbclient.ResolvedEvent;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 import io.eventdriven.ecommerce.core.events.EventTypeMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.Optional;
 import java.util.UUID;
 
 public final class EventSerializer {
   private static final Logger logger = LoggerFactory.getLogger(EventSerializer.class);
-  public static final ObjectMapper mapper =
-    new JsonMapper()
-      .registerModule(new JavaTimeModule())
+  public static final JsonMapper mapper =
+    JsonMapper.builder()
       .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-      .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+      .configure(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES, false)
+      .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+      .build();
 
   public static EventData serialize(Object event) {
     try {
@@ -32,7 +30,7 @@ public final class EventSerializer {
         EventTypeMapper.toName(event.getClass()),
         mapper.writeValueAsBytes(event)
       ).build();
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       throw new RuntimeException(e);
     }
   }
@@ -55,7 +53,7 @@ public final class EventSerializer {
         return Optional.empty();
 
       return Optional.of(result);
-    } catch (IOException e) {
+    } catch (JacksonException e) {
       logger.warn("Error deserializing event %s".formatted(resolvedEvent.getEvent().getEventType()), e);
       return Optional.empty();
     }

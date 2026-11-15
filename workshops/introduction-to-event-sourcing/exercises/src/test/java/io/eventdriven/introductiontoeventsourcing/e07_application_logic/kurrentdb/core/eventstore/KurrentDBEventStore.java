@@ -1,12 +1,11 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.kurrentdb.core.eventstore;
 
 import io.kurrent.dbclient.*;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import io.eventdriven.eventstores.EventStore;
 import io.eventdriven.eventstores.StreamName;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -74,7 +73,7 @@ public class KurrentDBEventStore implements EventStore {
         event.getClass().getTypeName(),
         mapper.writeValueAsBytes(event)
       ).build();
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       throw new RuntimeException(e);
     }
   }
@@ -84,7 +83,7 @@ public class KurrentDBEventStore implements EventStore {
       var eventClass = Class.forName(
         resolvedEvent.getOriginalEvent().getEventType());
       return mapper.readValue(resolvedEvent.getEvent().getEventData(), eventClass);
-    } catch (IOException | ClassNotFoundException e) {
+    } catch (JacksonException | ClassNotFoundException e) {
       throw new RuntimeException(e);
     }
   }

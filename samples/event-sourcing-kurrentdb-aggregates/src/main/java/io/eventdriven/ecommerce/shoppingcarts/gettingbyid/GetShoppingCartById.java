@@ -1,7 +1,7 @@
 package io.eventdriven.ecommerce.shoppingcarts.gettingbyid;
 
 import io.eventdriven.ecommerce.core.http.ETag;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Optional;
 import java.util.UUID;

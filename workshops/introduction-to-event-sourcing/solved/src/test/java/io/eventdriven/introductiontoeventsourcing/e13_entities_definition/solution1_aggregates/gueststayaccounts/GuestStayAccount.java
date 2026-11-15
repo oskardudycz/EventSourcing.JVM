@@ -1,7 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e13_entities_definition.solution1_aggregates.gueststayaccounts;
 
 import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.AbstractAggregate;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
