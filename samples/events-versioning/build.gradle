@@ -38,7 +38,7 @@ dependencies {
   testImplementation 'io.github.classgraph:classgraph:5.0.2'
 
   // Contract testing
-  testImplementation 'io.event-driven:strictland:0.4.1'
+  testImplementation 'io.event-driven:strictland:0.5.0'
   testImplementation 'org.jspecify:jspecify:1.0.1'
 }
 
