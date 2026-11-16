@@ -6,7 +6,6 @@ import io.eventdriven.strictland.MessageSnapshot;
 import io.eventdriven.strictland.SnapshotVariant;
 import io.eventdriven.strictland.SpecificationOptions;
 import org.jspecify.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
@@ -98,7 +97,6 @@ public class ShoppingCartVersioningTests {
   }
 
   @Test
-  @Disabled("Fix after upgrading Strictland to a version newer than 0.4.1")
   public void givenV1Event_whenReadByV3AddingARequiredField_thenNotBackwardCompatible() {
     var error = assertThrows(AssertionError.class, () ->
       MessageContract.specification(options)
