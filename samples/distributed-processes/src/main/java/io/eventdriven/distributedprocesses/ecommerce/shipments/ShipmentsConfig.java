@@ -1,10 +1,14 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
+import io.eventdriven.distributedprocesses.core.identifiers.Urns;
+import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
+import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
 import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.FulfillmentService;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.FulfillmentServiceClient;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEventForwarder;
 
 import java.time.OffsetDateTime;
@@ -15,6 +19,9 @@ import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCo
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent.*;
 
 public final class ShipmentsConfig {
+  public static final String requests = "shipments-requests";
+  public static final String responses = "shipments-responses";
+  public static final String internal = "shipments-internal";
   private ShipmentsConfig() {
   }
 
@@ -34,12 +41,20 @@ public final class ShipmentsConfig {
     var facade = new ShipmentFacade(store, isProductAvailable, now);
 
     messageBus
-      .subscribe(ReserveStock.class, facade::reserveStock)
-      .subscribe(RequestFulfillment.class, facade::requestFulfillment)
-      .subscribe(ConfirmPackageSent.class, facade::confirmPackageSent)
-      .subscribe(RejectFulfillment.class, facade::rejectFulfillment)
-      .subscribe(DeliverPackage.class, facade::deliverPackage)
-      .subscribe(ReleaseStock.class, facade::releaseStock);
+      .routes(new MessageRoutes()
+        .routeTarget(ReserveStock.class, command -> requests)
+        .routeTarget(RequestFulfillment.class, command -> requests)
+        .routeTarget(ReleaseStock.class, command -> requests)
+        .route(ShipmentExternalEvent.class, event -> new RoutingTarget(responses, Urns.routingKeyOf(event.referenceId())))
+        .routeTarget(MessageRoutes.inPackage(ShipmentsConfig.class.getPackageName()), internal))
+      .bind(requests, requests, "#")
+      .bind(internal, internal, "#")
+      .subscribe(requests, ReserveStock.class, facade::reserveStock)
+      .subscribe(requests, RequestFulfillment.class, facade::requestFulfillment)
+      .subscribe(requests, ReleaseStock.class, facade::releaseStock)
+      .subscribe(internal, ConfirmPackageSent.class, facade::confirmPackageSent)
+      .subscribe(internal, RejectFulfillment.class, facade::rejectFulfillment)
+      .subscribe(internal, DeliverPackage.class, facade::deliverPackage);
 
     var forwarder = new ShipmentExternalEventForwarder(messageBus);
 

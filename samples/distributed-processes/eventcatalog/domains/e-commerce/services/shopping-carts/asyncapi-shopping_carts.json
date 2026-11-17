@@ -1,0 +1,154 @@
+{
+  "asyncapi": "3.1.0",
+  "info": {
+    "title": "E-commerce",
+    "version": "1.0.0",
+    "x-generator": "springwolf"
+  },
+  "defaultContentType": "application/json",
+  "channels": {
+    "shopping_carts-external": {
+      "address": "shopping_carts-external",
+      "messages": {
+        "io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut"
+        }
+      },
+      "bindings": {}
+    }
+  },
+  "components": {
+    "schemas": {
+      "HeadersNotDocumented": {
+        "title": "HeadersNotDocumented",
+        "type": "object",
+        "properties": {},
+        "description": "There can be headers, but they are not explicitly documented.",
+        "examples": [
+          {}
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut": {
+        "title": "ShoppingCartCheckedOut",
+        "type": "object",
+        "properties": {
+          "cartId": {
+            "title": "ShoppingCartId",
+            "type": "string"
+          },
+          "checkedOutAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productItems": {
+            "title": "PricedProductItem[]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem"
+            }
+          },
+          "totalPrice": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "examples": [
+          {
+            "cartId": "string",
+            "checkedOutAt": "2015-07-20T15:49:04-07:00",
+            "customerId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "productItems": [
+              {
+                "productItem": {
+                  "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                  "quantity": 0
+                },
+                "unitPrice": 1.1
+              }
+            ],
+            "totalPrice": 1.1
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem": {
+        "title": "PricedProductItem",
+        "type": "object",
+        "properties": {
+          "productItem": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem"
+          },
+          "unitPrice": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "examples": [
+          {
+            "productItem": {
+              "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+              "quantity": 0
+            },
+            "unitPrice": 1.1
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem": {
+        "title": "ProductItem",
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "examples": [
+          {
+            "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "quantity": 0
+          }
+        ]
+      }
+    },
+    "messages": {
+      "io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut",
+        "title": "ShoppingCartCheckedOut",
+        "bindings": {},
+        "x-eventcatalog-message-type": "event"
+      }
+    }
+  },
+  "operations": {
+    "shopping_carts-external_send_onCheckedOut": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/shopping_carts-external"
+      },
+      "title": "shopping_carts-external_send",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/shopping_carts-external/messages/io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut"
+        }
+      ]
+    }
+  }
+}

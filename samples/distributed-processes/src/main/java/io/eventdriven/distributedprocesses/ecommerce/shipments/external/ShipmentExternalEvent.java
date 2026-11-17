@@ -5,6 +5,8 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import java.time.OffsetDateTime;
 
 public sealed interface ShipmentExternalEvent {
+  String referenceId();
+
   record StockReserved(
     ShipmentId shipmentId,
     String referenceId,

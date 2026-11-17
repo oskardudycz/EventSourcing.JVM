@@ -3,11 +3,11 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.external;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentValidity;
 
 import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.CaptureFailureReason;
-import io.eventdriven.distributedprocesses.ecommerce.payments.DeclineReason;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGateway;
 import io.eventdriven.testing.MessageCatcher;
@@ -35,7 +35,7 @@ public class PaymentExternalEventForwarderTests {
   private final PaymentId paymentId = PaymentId.derivedFrom(referenceId);
   private final double amount = 62.5;
   private final OffsetDateTime now = OffsetDateTime.now();
-  private final OffsetDateTime expiresAt = now.plus(authorizationValidity);
+  private final OffsetDateTime captureBefore = now.plus(authorizationValidity);
   private final OffsetDateTime timedOutAt = now.plusMinutes(5);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
@@ -51,8 +51,7 @@ public class PaymentExternalEventForwarderTests {
       eventStore,
       messageBus,
       new SilentPaymentGateway(),
-      paymentTimeout,
-      authorizationValidity,
+      PaymentValidity.of(paymentTimeout),
       () -> now
     );
   }
@@ -62,7 +61,7 @@ public class PaymentExternalEventForwarderTests {
     messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
     externalEvents.reset();
 
-    messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId)));
+    messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId, captureBefore)));
 
     externalEvents.shouldReceiveMessages(
       new PaymentAuthorized(referenceId, paymentId, now)
@@ -102,17 +101,6 @@ public class PaymentExternalEventForwarderTests {
     );
   }
 
-  @Test
-  public void decliningForwardsPaymentFailed() {
-    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
-    externalEvents.reset();
-
-    messageBus.publish(List.of(new DeclinePayment(paymentId, DeclineReason.UnexpectedError)));
-
-    externalEvents.shouldReceiveMessages(
-      new PaymentFailed(referenceId, paymentId, now)
-    );
-  }
 
   @Test
   public void timingOutForwardsPaymentFailed() {
@@ -130,9 +118,9 @@ public class PaymentExternalEventForwarderTests {
   public void expiringForwardsPaymentFailed() {
     authorize();
 
-    messageBus.publish(List.of(new ExpirePaymentAuthorization(paymentId, expiresAt)));
+    messageBus.publish(List.of(new ExpirePaymentAuthorization(paymentId, captureBefore)));
 
-    externalEvents.shouldReceiveMessages(new PaymentFailed(referenceId, paymentId, expiresAt));
+    externalEvents.shouldReceiveMessages(new PaymentFailed(referenceId, paymentId, captureBefore));
   }
 
   @Test
@@ -146,7 +134,7 @@ public class PaymentExternalEventForwarderTests {
   public void voidingForwardsNothingBecauseNobodyWaitsOnIt() {
     authorize();
 
-    messageBus.publish(List.of(new VoidPayment(paymentId)));
+    messageBus.publish(List.of(new CancelPayment(paymentId)));
 
     externalEvents.shouldNotReceiveAnyEvent();
   }
@@ -154,7 +142,7 @@ public class PaymentExternalEventForwarderTests {
   private void authorize() {
     messageBus.publish(List.of(
       new AuthorizePayment(paymentId, referenceId, amount),
-      new ConfirmPaymentAuthorization(paymentId)
+      new ConfirmPaymentAuthorization(paymentId, captureBefore)
     ));
     externalEvents.reset();
   }
@@ -167,19 +155,19 @@ public class PaymentExternalEventForwarderTests {
     bus.use(published::catchMessage);
     var forwarder = new PaymentExternalEventForwarder(summaries, bus);
     var streamId = PaymentFacade.mapToStreamId(paymentId);
-    var declined = new EventEnvelope<>(
-      new PaymentEvent.PaymentDeclined(paymentId, DeclineReason.UnexpectedError, now),
+    var timedOut = new EventEnvelope<>(
+      new PaymentEvent.PaymentTimedOut(paymentId, now),
       new EventMetadata(streamId, 1, 1)
     );
 
-    assertThatThrownBy(() -> forwarder.onDeclined(declined)).isInstanceOf(IllegalStateException.class);
+    assertThatThrownBy(() -> forwarder.onTimedOut(timedOut)).isInstanceOf(IllegalStateException.class);
     published.shouldNotReceiveAnyEvent();
 
     summaries.handle(new EventEnvelope<>(
-      new PaymentEvent.PaymentAuthorizationRequested(paymentId, referenceId, amount, now),
+      new PaymentEvent.PaymentAuthorizationRequested(paymentId, referenceId, amount, now, now.plus(paymentTimeout)),
       new EventMetadata(streamId, 0, 0)
     ));
-    forwarder.onDeclined(declined);
+    forwarder.onTimedOut(timedOut);
 
     published.shouldReceiveMessages(new PaymentFailed(referenceId, paymentId, now));
   }

@@ -1,16 +1,22 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments;
 
+import io.github.springwolf.core.asyncapi.annotations.AsyncListener;
+import io.github.springwolf.core.asyncapi.annotations.AsyncOperation;
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.NoSuchElementException;
 import java.util.function.Supplier;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
 
 public class PaymentFacade {
+  private static final Duration checkoutSessionLifetime = Duration.ofMinutes(30);
+
   private final AggregateStore<Payment, PaymentEvent, PaymentId> store;
-  private final Duration authorizationValidity;
+  private final PaymentGateway paymentGateway;
+  private final PaymentValidity paymentValidity;
   private final Supplier<OffsetDateTime> now;
 
   public static String mapToStreamId(PaymentId paymentId) {
@@ -19,38 +25,80 @@ public class PaymentFacade {
 
   public PaymentFacade(
     AggregateStore<Payment, PaymentEvent, PaymentId> store,
-    Duration authorizationValidity,
+    PaymentGateway paymentGateway,
+    PaymentValidity paymentValidity,
     Supplier<OffsetDateTime> now
   ) {
     this.store = store;
-    this.authorizationValidity = authorizationValidity;
+    this.paymentGateway = paymentGateway;
+    this.paymentValidity = paymentValidity;
     this.now = now;
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.requests))
   public void authorizePayment(AuthorizePayment command) {
+    var requestedAt = now.get();
+
     store.getAndUpdate(
       command.paymentId(),
       current -> current.requestAuthorization(
         command.paymentId(),
         command.referenceId(),
         command.amount(),
-        now.get()
+        requestedAt,
+        paymentValidity.timesOutAt(requestedAt)
       )
     );
   }
 
-  public void confirmPaymentAuthorization(ConfirmPaymentAuthorization command) {
-    var authorizedAt = now.get();
+  public CheckoutSession createCheckoutSession(CreateCheckoutSession command) {
+    var createdAt = now.get();
+    var payment = store.get(command.paymentId())
+      .filter(found -> found.referenceId().equals(command.referenceId()))
+      .orElseThrow(() -> new NoSuchElementException(
+        "Payment '%s' for '%s' was not found".formatted(command.paymentId().value(), command.referenceId())
+      ));
+
+    if (!payment.isPending())
+      throw new IllegalStateException("Payment '%s' is not pending".formatted(command.paymentId().value()));
+
+    var openSession = payment.openCheckoutSession(createdAt);
+    if (openSession.isPresent())
+      return openSession.get();
+
+    CheckoutSession session;
+    try {
+      session = paymentGateway.createCheckoutSession(
+        command.paymentId(),
+        payment.amount(),
+        command.successUrl(),
+        command.cancelUrl(),
+        createdAt.plus(checkoutSessionLifetime)
+      );
+    } catch (RuntimeException failedCall) {
+      throw new PaymentGatewayException(
+        "Opening a checkout session for payment '%s' failed".formatted(command.paymentId().value()),
+        failedCall
+      );
+    }
 
     store.getAndUpdate(
       command.paymentId(),
-      current -> current.confirmAuthorization(
-        authorizedAt,
-        authorizedAt.plus(authorizationValidity)
-      )
+      current -> current.recordCheckoutSession(session, createdAt)
+    );
+
+    return session;
+  }
+
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal))
+  public void confirmPaymentAuthorization(ConfirmPaymentAuthorization command) {
+    store.getAndUpdate(
+      command.paymentId(),
+      current -> current.confirmAuthorization(now.get(), command.captureBefore())
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.requests))
   public void capturePayment(CapturePayment command) {
     store.getAndUpdate(
       command.paymentId(),
@@ -58,6 +106,7 @@ public class PaymentFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal))
   public void confirmPaymentCapture(ConfirmPaymentCapture command) {
     store.getAndUpdate(
       command.paymentId(),
@@ -65,6 +114,7 @@ public class PaymentFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal))
   public void failPaymentCapture(FailPaymentCapture command) {
     store.getAndUpdate(
       command.paymentId(),
@@ -72,20 +122,16 @@ public class PaymentFacade {
     );
   }
 
-  public void voidPayment(VoidPayment command) {
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.requests))
+  public void cancelPayment(CancelPayment command) {
     store.getAndUpdate(
       command.paymentId(),
-      current -> current.voidAuthorization(now.get())
+      current -> current.cancel(now.get())
     );
   }
 
-  public void declinePayment(DeclinePayment command) {
-    store.getAndUpdate(
-      command.paymentId(),
-      current -> current.decline(command.reason(), now.get())
-    );
-  }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal))
   public void timeOutPayment(TimeOutPayment command) {
     store.getAndUpdate(
       command.paymentId(),
@@ -93,6 +139,7 @@ public class PaymentFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal))
   public void expirePaymentAuthorization(ExpirePaymentAuthorization command) {
     store.getAndUpdate(
       command.paymentId(),

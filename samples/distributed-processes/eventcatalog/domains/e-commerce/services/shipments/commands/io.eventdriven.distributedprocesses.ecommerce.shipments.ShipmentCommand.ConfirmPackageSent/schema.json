@@ -1,0 +1,27 @@
+{
+  "title": "ConfirmPackageSent",
+  "type": "object",
+  "properties": {
+    "carrier": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-1>"
+    },
+    "shipmentId": {
+      "title": "ShipmentId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-2>"
+    },
+    "trackingNumber": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-3>"
+    }
+  },
+  "examples": [
+    {
+      "carrier": "string",
+      "shipmentId": "string",
+      "trackingNumber": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent"
+}

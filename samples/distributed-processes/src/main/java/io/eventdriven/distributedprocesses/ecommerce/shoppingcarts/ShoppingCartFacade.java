@@ -11,7 +11,7 @@ import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.Shoppi
 
 public class ShoppingCartFacade {
   private final AggregateStore<ShoppingCart, ShoppingCartEvent, ShoppingCartId> store;
-  private final ClientShoppingCarts clientShoppingCarts;
+  private final CustomerShoppingCarts customerShoppingCarts;
   private final ProductPriceCalculator productPriceCalculator;
   private final Supplier<OffsetDateTime> now;
 
@@ -21,24 +21,24 @@ public class ShoppingCartFacade {
 
   public ShoppingCartFacade(
     AggregateStore<ShoppingCart, ShoppingCartEvent, ShoppingCartId> store,
-    ClientShoppingCarts clientShoppingCarts,
+    CustomerShoppingCarts customerShoppingCarts,
     ProductPriceCalculator productPriceCalculator,
     Supplier<OffsetDateTime> now
   ) {
     this.store = store;
-    this.clientShoppingCarts = clientShoppingCarts;
+    this.customerShoppingCarts = customerShoppingCarts;
     this.productPriceCalculator = productPriceCalculator;
     this.now = now;
   }
 
   public ETag addProductItem(AddProductItemToShoppingCart command) {
-    var clientId = command.clientId();
-    var shoppingCartId = clientShoppingCarts.currentOf(clientId)
-      .orElseGet(() -> ShoppingCartId.of(clientId, clientShoppingCarts.countOf(clientId) + 1));
+    var customerId = command.customerId();
+    var shoppingCartId = customerShoppingCarts.currentOf(customerId)
+      .orElseGet(() -> ShoppingCartId.of(customerId, customerShoppingCarts.countOf(customerId) + 1));
 
     return store.getAndUpdate(
       shoppingCartId,
-      current -> current.addProductItem(shoppingCartId, clientId, productPriceCalculator, command.productItem(), now.get())
+      current -> current.addProductItem(shoppingCartId, customerId, productPriceCalculator, command.productItem(), now.get())
     );
   }
 

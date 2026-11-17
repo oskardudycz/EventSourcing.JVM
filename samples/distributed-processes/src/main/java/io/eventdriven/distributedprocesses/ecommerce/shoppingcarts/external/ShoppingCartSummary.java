@@ -6,7 +6,7 @@ import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.
 import java.util.UUID;
 
 public class ShoppingCartSummary implements Versioned {
-  private UUID clientId;
+  private UUID customerId;
   private PricedProductItem[] productItems;
   private double totalPrice;
   private long version;
@@ -14,14 +14,14 @@ public class ShoppingCartSummary implements Versioned {
   public ShoppingCartSummary() {
   }
 
-  public ShoppingCartSummary(UUID clientId, PricedProductItem[] productItems, double totalPrice) {
-    this.clientId = clientId;
+  public ShoppingCartSummary(UUID customerId, PricedProductItem[] productItems, double totalPrice) {
+    this.customerId = customerId;
     this.productItems = productItems;
     this.totalPrice = totalPrice;
   }
 
-  public UUID getClientId() {
-    return clientId;
+  public UUID getCustomerId() {
+    return customerId;
   }
 
   public PricedProductItem[] getProductItems() {

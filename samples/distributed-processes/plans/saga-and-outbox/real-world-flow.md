@@ -70,7 +70,7 @@ Researched in Shopify, WooCommerce, Amazon and Allegro. These shops document lit
 
 - Starting a cart: the client does not open a cart. The action is "Add to cart", and the first product starts the cart. Amazon's help on placing an order starts with adding items to the cart. ([Amazon: how to place an order](https://digprjsurvey.amazon.com/csad/help/node/TM0z2tvxdI4nu36ypt))
 - When the client is known:
-  - Allegro: a client can fill a cart without logging in. At login, the items move "z koszyków anonimowych … do koszyków użytkowników" (from anonymous carts to the user's cart). The cart belongs to the account, not to the device. Buying requires an account. ([Allegro forum: anonymous carts](https://spolecznosc.allegro.pl/t5/dyskusje-kupuj%C4%85cych/przedmioty-same-pojawiaj%C4%85-si%C4%99-w-koszyku/m-p/351423), [android.com.pl: purchases only for registered users](https://android.com.pl/news/400605-od-dzis-zakupy-na-allegro-tylko-dla-zarejestrowanych-uzytkownikow/))
+  - Allegro: a client can fill a cart without logging in. At login, the items move from the anonymous carts to the user's cart. The cart belongs to the account, not to the device. Buying requires an account. ([Allegro forum: anonymous carts](https://spolecznosc.allegro.pl/t5/dyskusje-kupuj%C4%85cych/przedmioty-same-pojawiaj%C4%85-si%C4%99-w-koszyku/m-p/351423), [android.com.pl: purchases only for registered users](https://android.com.pl/news/400605-od-dzis-zakupy-na-allegro-tylko-dla-zarejestrowanych-uzytkownikow/))
   - WooCommerce: a guest's cart is kept in the session. At login, it is merged with the cart saved for the account. ([Business Bloomer: cart merge](https://www.businessbloomer.com/woocommerce-cart-merge-sessions-changes/?mtke=488))
   - Shopify: guest checkout is allowed when the merchant makes customer accounts optional. `cartBuyerIdentityUpdate` can "associate a logged-in customer" with an existing cart. ([cartBuyerIdentityUpdate](https://shopify.dev/docs/api/storefront/latest/mutations/cartBuyerIdentityUpdate))
   - The sample follows Allegro: the client is logged in from the first product.
@@ -90,20 +90,60 @@ Researched in Shopify, WooCommerce, Amazon and Allegro. These shops document lit
   | Amazon | "Proceed to checkout" | "Place your order" |
   | Shopify | "Check out" | "Pay now"; the order is created after the payment is authorised |
   | WooCommerce | "Proceed to checkout" | "Place order"; the order is created before the payment |
-  | Allegro | "Do kasy" | "Kupuję i płacę" |
+  | Allegro | "Go to checkout" | "Buy and pay" |
 
   ([Amazon: how to place an order](https://digprjsurvey.amazon.com/csad/help/node/TM0z2tvxdI4nu36ypt), [Shopify: order processing](https://help.shopify.com/en/manual/checkout-settings/order-processing), [PayTabs: Shopify order workflow](https://support.paytabs.com/en/support/solutions/articles/60000908136-3-1-shopify-plugin-order-workflow), [Allegro forum: finishing a purchase](https://spolecznosc.allegro.pl/t5/dyskusje-kupuj%C4%85cych/jak-zako%C5%84czy%C4%87-procedur%C4%99-zakupu/td-p/1051415))
 - No cancellation: none of the four shops has a "cancel cart" action. The client leaves the cart.
   - Shopify: "A cart expires within 30 days of its last update", and "Shopify automatically deletes the cart when the customer completes their checkout." ([Shopify: cart](https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart))
   - Shopify sends a recovery email only for an abandoned checkout, not for a cart with no checkout. ([Shopify: abandoned checkouts](https://help.shopify.com/en/manual/orders/abandoned-checkouts))
 - A price change during checkout is an accepted race. No shop locks the price list while the client checks out. The price at the click is the price of the order, and a wrong price is handled after the order, by the terms of sale.
-  - Allegro: after "Kup teraz", "cena powinna pozostać taka sama, jak była w momencie, gdy kliknąłeś" (the price should stay as it was when you clicked). This is a forum answer. Allegro also limits how much a seller can raise the price of an active offer; above the limit, the seller must end the offer first. ([Allegro forum](https://spolecznosc.allegro.pl/t5/dyskusje-kupuj%C4%85cych/pytanie/m-p/705830), [Allegro developer news](https://developer.allegro.pl/news/wprowadzamy-ograniczenia-dla-zmiany-ceny-w-aktywnej-ofercie-q018my0v6Hr))
+  - Allegro: after "Buy now", the price should stay as it was when the client clicked. This is a forum answer. Allegro also limits how much a seller can raise the price of an active offer; above the limit, the seller must end the offer first. ([Allegro forum](https://spolecznosc.allegro.pl/t5/dyskusje-kupuj%C4%85cych/pytanie/m-p/705830), [Allegro developer news](https://developer.allegro.pl/news/wprowadzamy-ograniczenia-dla-zmiany-ceny-w-aktywnej-ofercie-q018my0v6Hr))
   - Amazon "only accepts your offer, and concludes the contract of sale … when it dispatches the product(s) to you and sends an e-mail confirming the dispatch". If the correct price is higher than the stated price, Amazon may contact the buyer or cancel. In 2003, Amazon UK cancelled orders for iPaqs priced at £7.32 this way. ([Amazon Haul terms](https://digprjsurvey.amazon.co.uk/csad/help/node/T1WlPQCOAi1eBINGPs), [Pinsent Masons](https://www.pinsentmasons.com/out-law/guides/amazons-pricing-error), [The Register](https://www.theregister.com/2003/03/19/no_legal_recourse_for_buyers/))
   - Shopify: I found no official source.
 
-## 8. Compared with the sample's code
+## 8. Payment page and the client's pages
 
-As of 2026-11-13, after step 6.
+Researched in Stripe, Adyen and PayPal for the gateways, and in Allegro, Amazon, Shopify and WooCommerce for what the client sees.
+
+- Only the client can authorise the payment, on the gateway's page: 3-D Secure, BLIK or a bank login.
+- Allegro, from the official help:
+  - After "Buy and pay", Allegro redirects the client to a page where the payment is completed.
+  - After a bank transfer, the bank logs the client out, or the client clicks the button that goes back to Allegro.
+  - "My purchases" can show "Your payment is being processed" for up to 5 minutes. The confirmation comes by e-mail.
+  - A client who closes the payment page without paying can cancel the payment. The purchase is then marked unpaid in "My purchases".
+  - "Pay" pays an unpaid purchase later. "Retry payment" retries an unpaid one.
+
+  ([Allegro help: how to pay](https://allegro.pl/pomoc/dla-kupujacych/przelew-bankowy/jak-zaplacic-za-przedmiot-kupiony-na-allegro-YLKol7RVxI0))
+- Allegro: for "Buy now", the client has 7 days to pay, and the seller can set 7 to 30 days. After that, the purchase is cancelled. This comes from the forum and from guides, not from the official help. ([Allegro forum](https://spolecznosc.allegro.pl/t5/dyskusje-kupuj%C4%85cych/ile-dni-mam-na-op%C5%82acenie-zam%C3%B3wienia/td-p/319841))
+- The gateways:
+
+  | Step | Stripe Checkout | Adyen | PayPal Orders v2 |
+  |---|---|---|---|
+  | The client clicks; the shop creates a session | create a Checkout Session | create a payment session | create an order with intent `AUTHORIZE` |
+  | The shop sends the client there | `redirect(303, session.url)` | the Drop-in handles the redirect | the `payer-action` link |
+  | The client comes back to | `success_url` | `returnUrl` | `return_url` |
+  | The outcome comes in | the webhook `checkout.session.completed`; with manual capture, `payment_intent.amount_capturable_updated` | the `AUTHORISATION` webhook | `CHECKOUT.ORDER.APPROVED`, then the shop authorises |
+  | The session expires after | 30 minutes to 24 hours, 24 hours by default | not found | 6 hours to approve |
+
+  ([Stripe quickstart](https://docs.stripe.com/checkout/quickstart), [Stripe: fulfil orders](https://docs.stripe.com/checkout/fulfillment?ui=full-page), [Stripe: limited inventory](https://docs.stripe.com/payments/checkout/managing-limited-inventory), [Stripe: place a hold](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method), [Adyen: hosted checkout](https://docs.adyen.com/standard/integration/hosted-checkout), [PayPal: Orders v2 webhooks](https://docs.paypal.ai/reference/webhook-events/orders-v2), [PayPal: authorize and capture](https://developer.paypal.com/docs/multiparty/checkout/standard/customize/auth-capture/))
+- The return does not decide. Stripe: "You can't rely on triggering fulfillment only from your checkout landing page, because it's not guaranteed customers visit that page." The return page only shows the state.
+- After the client is sent to Stripe's page, "the order is final and they can't modify it without creating a new Checkout Session". ([Stripe quickstart](https://docs.stripe.com/checkout/quickstart))
+- Adyen and Shopify's Payments Apps API call it a payment session. Stripe calls it a Checkout Session. PayPal calls it an order.
+- The client's pages:
+
+  | Page | Amazon | Allegro | Shopify | WooCommerce |
+  |---|---|---|---|---|
+  | Cart | Shopping Cart | Cart | Cart | Cart |
+  | Order list | Your Orders | My purchases | Orders | My Account, Orders |
+  | One order | Order Details | Purchase details | Order status page | View order |
+
+  ([Shopify: order status page](https://help.shopify.com/en/manual/orders/status-tracking/order-status-overview), [WooCommerce endpoints](https://developer.woocommerce.com/docs/best-practices/urls-and-routing/woocommerce-endpoints/), [Allegro: cancelling from "My purchases"](https://spidersweb.pl/2023/10/jak-anulowac-zakup-na-allegro.html))
+- Cancelling: Allegro has cancel in "Purchase details". It disappears once the seller starts preparing the order. ([Allegro forum](https://spolecznosc.allegro.pl/t5/dyskusje-kupuj%C4%85cych/anulowanie-zakupu/td-p/959208))
+- Paying again: Amazon goes from Your Orders to Order Details and changes the payment. If that payment is declined too, Amazon cancels the order. ([Amazon: declined payment](https://digprjsurvey.amazon.com/csad/help/node/G6P826S3WMEV8SPN))
+
+## 9. Compared with the sample's code
+
+As of 2026-11-13, after step 6. The rows for step 7 describe the agreed design.
 
 | Sample code | Real-world counterpart | Difference |
 |---|---|---|
@@ -111,7 +151,7 @@ As of 2026-11-13, after step 6.
 | The client is logged in from the first product | Allegro; Shopify and WooCommerce also allow a guest cart | Guest carts are not modelled. |
 | A line keeps the first price of its product; `CheckOutShoppingCart` checks the current prices and records `ProductItemPriceChanged` | The cart shows the current price, and the client sees a change before the order | Matches. A price change between the check and the append is accepted, as in the shops. |
 | `RemoveProductItemFromShoppingCart` with a product and a quantity | The client chooses a product and a quantity | Matches. |
-| `CheckOutShoppingCart` → `ShoppingCartCheckedOut` | "Proceed to checkout", "Check out", "Do kasy" | Matches the name. In the sample, the checkout places the order at once; the shops ask for delivery and payment first. |
+| `CheckOutShoppingCart` → `ShoppingCartCheckedOut` | "Proceed to checkout", "Check out", "Go to checkout" | Matches the name. In the sample, the checkout places the order at once; the shops ask for delivery and payment first. |
 | No cancellation | The client leaves the cart | Matches. Cart expiry is not modelled. |
 | No stock held by the cart | Same | Matches. |
 | `ReserveStock` → `StockReserved` after `OrderPlaced` | Stock committed to a placed order | Matches: no timer. |
@@ -121,6 +161,9 @@ As of 2026-11-13, after step 6.
 | `DeliverPackage` → `PackageWasDelivered` | Tracking status `delivered` | Only the shipment records it. |
 | `OrderCompleted` on sent and captured | Shopify auto-archive and commercetools `Complete` on fulfilled and paid | Matches. |
 | `AuthorizePayment`, capture after `PackageWasSent`, `VoidPayment` on cancel | Same | Matches. |
+| `CreatePaymentSession` → `PaymentSessionCreated`, 303 to the gateway; the webhook answers with `ConfirmPaymentAuthorization` or `DeclinePayment` | Stripe Checkout Session, Adyen payment session, PayPal order; the webhook decides | Matches. The webhook is a test double. |
+| A failed payment before shipping cancels the order | Allegro marks the purchase unpaid, and the client can retry for 7 days | The sample has no unpaid state before shipping. |
+| `ShoppingCartDetails`, `ClientOrders`, `OrderDetails` | Cart, Your Orders, Order Details | Matches. |
 | `AuthorizationExpiryWorker` before shipping → order cancelled | Authorisation window, "Expired" | Matches the deadline. A real shop may ask for payment again first. |
 | `RetryOrderPayment` after shipping, `CloseUnpaidOrder` after the retry period | Amazon asks the customer to revise the payment method | The retry period is a setting; the research found no standard length. |
 | `CancelOrder` only before `OrderConfirmed` | Cancel only before fulfilment starts | Matches. No cancellation request to the warehouse. |

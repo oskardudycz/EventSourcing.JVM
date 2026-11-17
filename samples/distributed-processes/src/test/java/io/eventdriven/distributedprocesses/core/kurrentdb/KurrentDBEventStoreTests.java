@@ -36,6 +36,7 @@ public class KurrentDBEventStoreTests {
       new ProductItemAdded(cartId, "t-shirt")
     );
 
+    assertThat(result).isInstanceOf(EventStore.AppendResult.Success.class);
     var logPosition = ((EventStore.AppendResult.Success) result).logPosition().getCommitUnsigned();
 
     await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->

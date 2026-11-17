@@ -5,6 +5,7 @@ import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentValidity;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGateway;
 import io.eventdriven.testing.MessageCatcher;
@@ -29,6 +30,7 @@ public class PaymentTimeoutWorkerTests {
   private final PaymentId paymentId = PaymentId.derivedFrom(referenceId);
   private final double amount = 62.5;
   private final OffsetDateTime requestedAt = OffsetDateTime.now();
+  private final OffsetDateTime captureBefore = requestedAt.plus(authorizationValidity);
   private final OffsetDateTime beforeThreshold = requestedAt.plusMinutes(1);
   private final OffsetDateTime afterThreshold = requestedAt.plusMinutes(10);
 
@@ -45,8 +47,7 @@ public class PaymentTimeoutWorkerTests {
       eventStore,
       messageBus,
       new SilentPaymentGateway(),
-      timeout,
-      authorizationValidity,
+      PaymentValidity.of(timeout),
       clock::get
     ).timeoutWorker();
   }
@@ -75,7 +76,7 @@ public class PaymentTimeoutWorkerTests {
   public void authorizationGrantedBeforeTheThresholdIsNeverTimedOut() {
     messageBus.publish(List.of(
       new AuthorizePayment(paymentId, referenceId, amount),
-      new ConfirmPaymentAuthorization(paymentId)
+      new ConfirmPaymentAuthorization(paymentId, captureBefore)
     ));
     published.reset();
 

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:fragment="head(title)">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:text="${title} + ' · Demo Shop'">Demo Shop</title>
+  <link rel="stylesheet" th:href="@{/css/shop.css}">
+</head>
+<body>
+<header th:fragment="header(customerId, current)" class="topbar">
+  <a class="brand" th:href="@{/shop/customers/{c}/products(c=${customerId})}">Demo Shop</a>
+  <nav>
+    <a th:href="@{/shop/customers/{c}/products(c=${customerId})}" th:classappend="${current == 'products'} ? 'active'">Products</a>
+    <a th:href="@{/shop/customers/{c}/cart(c=${customerId})}" th:classappend="${current == 'cart'} ? 'active'">Cart</a>
+    <a th:href="@{/shop/customers/{c}/orders(c=${customerId})}" th:classappend="${current == 'orders'} ? 'active'">Orders</a>
+  </nav>
+</header>
+</body>
+</html>

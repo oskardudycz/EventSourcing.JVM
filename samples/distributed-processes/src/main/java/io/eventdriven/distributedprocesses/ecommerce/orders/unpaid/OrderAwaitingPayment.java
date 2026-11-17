@@ -2,29 +2,27 @@ package io.eventdriven.distributedprocesses.ecommerce.orders.unpaid;
 
 import io.eventdriven.distributedprocesses.core.projections.Versioned;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
-import org.jspecify.annotations.Nullable;
-
 import java.time.OffsetDateTime;
 
 public class OrderAwaitingPayment implements Versioned {
   private OrderId orderId;
-  private @Nullable OffsetDateTime unpaidSince;
+  private OffsetDateTime dueAt;
   private long version;
 
   public OrderAwaitingPayment() {
   }
 
-  public OrderAwaitingPayment(OrderId orderId, @Nullable OffsetDateTime unpaidSince) {
+  public OrderAwaitingPayment(OrderId orderId, OffsetDateTime dueAt) {
     this.orderId = orderId;
-    this.unpaidSince = unpaidSince;
+    this.dueAt = dueAt;
   }
 
   public OrderId getOrderId() {
     return orderId;
   }
 
-  public @Nullable OffsetDateTime getUnpaidSince() {
-    return unpaidSince;
+  public OffsetDateTime getDueAt() {
+    return dueAt;
   }
 
   @Override

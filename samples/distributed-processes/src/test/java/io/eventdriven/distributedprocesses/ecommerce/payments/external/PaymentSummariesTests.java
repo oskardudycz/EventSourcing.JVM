@@ -45,7 +45,7 @@ public class PaymentSummariesTests {
   }
 
   private void request() {
-    summaries.handle(at(0, new PaymentAuthorizationRequested(paymentId, referenceId, amount, now)));
+    summaries.handle(at(0, new PaymentAuthorizationRequested(paymentId, referenceId, amount, now, now.plusMinutes(15))));
   }
 
   private PaymentSummary summary() {

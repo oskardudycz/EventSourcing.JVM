@@ -4,7 +4,6 @@ import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.projections.Database;
-import io.eventdriven.distributedprocesses.ecommerce.payments.DeclineReason;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentFacade;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import org.junit.jupiter.api.Test;
@@ -22,36 +21,29 @@ public class PendingPaymentsTests {
   private final String streamId = PaymentFacade.mapToStreamId(paymentId);
   private final double amount = 62.5;
   private final OffsetDateTime requestedAt = OffsetDateTime.now();
-  private final OffsetDateTime expiresAt = requestedAt.plus(Duration.ofDays(7));
+  private final OffsetDateTime timesOutAt = requestedAt.plusMinutes(15);
+  private final OffsetDateTime captureBefore = requestedAt.plus(Duration.ofDays(7));
 
   private final Database database = new Database();
   private final PendingPayments pendingPayments = new PendingPayments(database);
 
   @Test
-  public void requestedAuthorizationWaitsFromTheMomentItWasRequested() {
+  public void requestedAuthorizationTimesOutAtTheDeadlineThePaymentGave() {
     request();
 
-    assertThat(pendingPayments.olderThan(requestedAt.plusMinutes(1))).containsExactly(paymentId);
-    assertThat(pendingPayments.olderThan(requestedAt)).isEmpty();
+    assertThat(pendingPayments.timedOutAt(timesOutAt)).containsExactly(paymentId);
+    assertThat(pendingPayments.timedOutAt(timesOutAt.minusMinutes(1))).isEmpty();
   }
 
   @Test
   public void grantedAuthorizationStopsWaiting() {
     request();
 
-    pendingPayments.handle(at(new PaymentAuthorized(paymentId, requestedAt, expiresAt), 1));
+    pendingPayments.handle(at(new PaymentAuthorized(paymentId, requestedAt, captureBefore), 1));
 
-    assertThat(pendingPayments.olderThan(requestedAt.plusMinutes(1))).isEmpty();
+    assertThat(pendingPayments.timedOutAt(timesOutAt)).isEmpty();
   }
 
-  @Test
-  public void declinedAuthorizationStopsWaiting() {
-    request();
-
-    pendingPayments.handle(at(new PaymentDeclined(paymentId, DeclineReason.UnexpectedError, requestedAt), 1));
-
-    assertThat(pendingPayments.olderThan(requestedAt.plusMinutes(1))).isEmpty();
-  }
 
   @Test
   public void timedOutAuthorizationStopsWaiting() {
@@ -59,7 +51,7 @@ public class PendingPaymentsTests {
 
     pendingPayments.handle(at(new PaymentTimedOut(paymentId, requestedAt.plusMinutes(10)), 1));
 
-    assertThat(pendingPayments.olderThan(requestedAt.plusMinutes(20))).isEmpty();
+    assertThat(pendingPayments.timedOutAt(timesOutAt.plusMinutes(20))).isEmpty();
   }
 
   @Test
@@ -67,17 +59,17 @@ public class PendingPaymentsTests {
     request();
     request();
 
-    assertThat(pendingPayments.olderThan(requestedAt.plusMinutes(1))).containsExactly(paymentId);
+    assertThat(pendingPayments.timedOutAt(timesOutAt)).containsExactly(paymentId);
 
-    var authorized = at(new PaymentAuthorized(paymentId, requestedAt, expiresAt), 1);
+    var authorized = at(new PaymentAuthorized(paymentId, requestedAt, captureBefore), 1);
     pendingPayments.handle(authorized);
     pendingPayments.handle(authorized);
 
-    assertThat(pendingPayments.olderThan(requestedAt.plusMinutes(1))).isEmpty();
+    assertThat(pendingPayments.timedOutAt(timesOutAt)).isEmpty();
   }
 
   private void request() {
-    pendingPayments.handle(at(new PaymentAuthorizationRequested(paymentId, referenceId, amount, requestedAt), 0));
+    pendingPayments.handle(at(new PaymentAuthorizationRequested(paymentId, referenceId, amount, requestedAt, timesOutAt), 0));
   }
 
   private <Event> EventEnvelope<Event> at(Event event, long streamPosition) {

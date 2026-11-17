@@ -9,7 +9,7 @@ public sealed interface ShoppingCartEvent {
 
   record ProductItemAddedToShoppingCart(
     ShoppingCartId shoppingCartId,
-    UUID clientId,
+    UUID customerId,
     PricedProductItem productItem,
     OffsetDateTime addedAt
   ) implements ShoppingCartEvent {

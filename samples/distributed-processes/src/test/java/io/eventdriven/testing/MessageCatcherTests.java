@@ -1,6 +1,7 @@
 package io.eventdriven.testing;
 
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -8,7 +9,9 @@ import java.util.List;
 import java.util.UUID;
 
 public class MessageCatcherTests {
-  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
+  private final InMemoryMessageBus messageBus = new InMemoryMessageBus()
+    .routes(new MessageRoutes().routeTarget(MessageRoutes.inPackage(MessageCatcherTests.class.getPackageName()), "orders"))
+    .bind("orders", "orders", "#");
   private final MessageCatcher messages = new MessageCatcher();
 
   private final UUID orderId = UUID.randomUUID();
@@ -21,7 +24,7 @@ public class MessageCatcherTests {
   @Test
   public void recordsEventsPublishedOnTheBusInOrder() {
     // Given
-    messageBus.subscribe(OrderPlaced.class, ignored -> {
+    messageBus.subscribe("orders", OrderPlaced.class, ignored -> {
     });
 
     // When
@@ -39,6 +42,7 @@ public class MessageCatcherTests {
   public void recordsCommandsAndEventsOnTheOneTranscript() {
     // Given
     messageBus.subscribe(
+      "orders",
       ConfirmOrder.class,
       command -> messageBus.publish(List.of(new OrderConfirmed(command.orderId())))
     );
@@ -68,7 +72,7 @@ public class MessageCatcherTests {
   @Test
   public void recordsASingleEventWhenOnlyOneWasPublished() {
     // Given
-    messageBus.subscribe(OrderConfirmed.class, ignored -> {
+    messageBus.subscribe("orders", OrderConfirmed.class, ignored -> {
     });
 
     // When

@@ -1,5 +1,7 @@
 package io.eventdriven.distributedprocesses.ecommerce.orders;
 
+import io.github.springwolf.core.asyncapi.annotations.AsyncListener;
+import io.github.springwolf.core.asyncapi.annotations.AsyncOperation;
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
 
 import java.time.OffsetDateTime;
@@ -9,6 +11,7 @@ import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.
 
 public class OrderFacade {
   private final AggregateStore<Order, OrderEvent, OrderId> store;
+  private final PaymentTerms paymentTerms;
   private final Supplier<OffsetDateTime> now;
 
   public static String mapToStreamId(OrderId orderId) {
@@ -17,19 +20,22 @@ public class OrderFacade {
 
   public OrderFacade(
     AggregateStore<Order, OrderEvent, OrderId> store,
+    PaymentTerms paymentTerms,
     Supplier<OffsetDateTime> now
   ) {
     this.store = store;
+    this.paymentTerms = paymentTerms;
     this.now = now;
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.internal))
   public void placeOrder(PlaceOrder command) {
     store.getAndUpdate(
       command.orderId(),
       current -> current.place(
         command.orderId(),
         command.cartId(),
-        command.clientId(),
+        command.customerId(),
         command.productItems(),
         command.totalPrice(),
         now.get()
@@ -37,6 +43,7 @@ public class OrderFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.internal))
   public void recordOrderPaymentAuthorization(RecordOrderPaymentAuthorization command) {
     store.getAndUpdate(
       command.orderId(),
@@ -44,6 +51,7 @@ public class OrderFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.internal))
   public void recordOrderStockReservation(RecordOrderStockReservation command) {
     store.getAndUpdate(
       command.orderId(),
@@ -51,6 +59,7 @@ public class OrderFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.internal))
   public void recordOrderPackageSent(RecordOrderPackageSent command) {
     store.getAndUpdate(
       command.orderId(),
@@ -62,6 +71,7 @@ public class OrderFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.internal))
   public void recordOrderPaymentCapture(RecordOrderPaymentCapture command) {
     store.getAndUpdate(
       command.orderId(),
@@ -69,13 +79,15 @@ public class OrderFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.internal))
   public void recordOrderPaymentFailure(RecordOrderPaymentFailure command) {
     store.getAndUpdate(
       command.orderId(),
-      current -> current.recordPaymentFailure(command.failedAt())
+      current -> current.recordPaymentFailure(command.failedAt(), paymentTerms.dueAt(command.failedAt()))
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.internal))
   public void recordOrderShipmentFailure(RecordOrderShipmentFailure command) {
     store.getAndUpdate(
       command.orderId(),
@@ -90,6 +102,7 @@ public class OrderFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.internal))
   public void closeUnpaidOrder(CloseUnpaidOrder command) {
     store.getAndUpdate(
       command.orderId(),

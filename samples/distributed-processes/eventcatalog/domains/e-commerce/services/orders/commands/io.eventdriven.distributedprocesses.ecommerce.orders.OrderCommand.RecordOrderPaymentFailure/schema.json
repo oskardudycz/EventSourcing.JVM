@@ -1,0 +1,23 @@
+{
+  "title": "RecordOrderPaymentFailure",
+  "type": "object",
+  "properties": {
+    "failedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-19>"
+    },
+    "orderId": {
+      "title": "OrderId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-20>"
+    }
+  },
+  "examples": [
+    {
+      "failedAt": "2015-07-20T15:49:04-07:00",
+      "orderId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentFailure"
+}

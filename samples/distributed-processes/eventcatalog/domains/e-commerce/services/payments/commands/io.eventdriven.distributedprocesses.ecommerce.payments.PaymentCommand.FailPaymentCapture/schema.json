@@ -1,0 +1,24 @@
+{
+  "title": "FailPaymentCapture",
+  "type": "object",
+  "properties": {
+    "paymentId": {
+      "title": "PaymentId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-6>"
+    },
+    "reason": {
+      "title": "CaptureFailureReason",
+      "type": "string",
+      "const": "UnexpectedError",
+      "x-parser-schema-id": "<anonymous-schema-7>"
+    }
+  },
+  "examples": [
+    {
+      "paymentId": "string",
+      "reason": "UnexpectedError"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.FailPaymentCapture"
+}

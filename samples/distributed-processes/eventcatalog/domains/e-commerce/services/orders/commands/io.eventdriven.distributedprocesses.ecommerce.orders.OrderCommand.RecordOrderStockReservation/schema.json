@@ -1,0 +1,29 @@
+{
+  "title": "RecordOrderStockReservation",
+  "type": "object",
+  "properties": {
+    "orderId": {
+      "title": "OrderId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-24>"
+    },
+    "reservedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-25>"
+    },
+    "shipmentId": {
+      "title": "ShipmentId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-26>"
+    }
+  },
+  "examples": [
+    {
+      "orderId": "string",
+      "reservedAt": "2015-07-20T15:49:04-07:00",
+      "shipmentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderStockReservation"
+}

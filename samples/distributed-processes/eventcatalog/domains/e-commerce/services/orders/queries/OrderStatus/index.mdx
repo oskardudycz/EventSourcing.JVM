@@ -1,0 +1,42 @@
+---
+id: OrderStatus
+version: 1.0.0
+name: OrderStatus
+summary: ''
+schemaPath: ''
+badges:
+  - content: GET
+    textColor: blue
+    backgroundColor: blue
+  - content: 'tag:Orders'
+    textColor: blue
+    backgroundColor: blue
+operation:
+  method: GET
+  path: '/customers/{customerId}/orders/{orderId}'
+  statusCodes:
+    - '200'
+owners:
+  - orders
+sidebar:
+  badge: GET
+---
+## GET `(/customers/{customerId}/orders/{orderId})`
+
+### Parameters
+- **customerId** (path) (required)
+- **orderId** (path) (required)
+
+
+
+
+### Responses
+
+#### <span className="text-green-500">200 OK</span>
+<SchemaViewer file="response-200.json" maxHeight="500" id="response-200" />
+
+
+
+## Architecture
+
+<NodeGraph />

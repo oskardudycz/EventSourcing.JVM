@@ -1,0 +1,23 @@
+{
+  "title": "ConfirmPaymentAuthorization",
+  "type": "object",
+  "properties": {
+    "captureBefore": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-1>"
+    },
+    "paymentId": {
+      "title": "PaymentId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-2>"
+    }
+  },
+  "examples": [
+    {
+      "captureBefore": "2015-07-20T15:49:04-07:00",
+      "paymentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentAuthorization"
+}

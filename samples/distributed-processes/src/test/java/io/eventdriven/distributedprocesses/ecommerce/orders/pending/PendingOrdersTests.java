@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class PendingOrdersTests {
   private final OrderId orderId = OrderId.of(UUID.randomUUID());
   private final ShoppingCartId cartId = ShoppingCartId.of(UUID.randomUUID());
-  private final UUID clientId = UUID.randomUUID();
+  private final UUID customerId = UUID.randomUUID();
   private final PricedProductItem[] productItems = new PricedProductItem[]{
     new PricedProductItem(UUID.randomUUID(), 2, 12.5)
   };
@@ -62,10 +62,10 @@ public class PendingOrdersTests {
   }
 
   @Test
-  public void cancelledOrderLeavesTheList() {
+  public void canceledOrderLeavesTheList() {
     place(orderId, now);
 
-    pendingOrders.handle(at(orderId, 1, new OrderCancelled(
+    pendingOrders.handle(at(orderId, 1, new OrderCanceled(
       orderId,
       null,
       OrderPaymentStatus.NotAuthorized,
@@ -82,7 +82,7 @@ public class PendingOrdersTests {
 
   private void place(OrderId orderId, OffsetDateTime placedAt) {
     pendingOrders.handle(at(orderId, 0, new OrderPlaced(
-      orderId, cartId, clientId, productItems, totalPrice, placedAt
+      orderId, cartId, customerId, productItems, totalPrice, placedAt
     )));
   }
 

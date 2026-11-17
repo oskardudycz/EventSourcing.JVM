@@ -19,8 +19,8 @@ public record ShoppingCartId(@JsonValue String value) implements EntityId {
     return new ShoppingCartId(Urns.of("ecommerce", type, id));
   }
 
-  public static ShoppingCartId of(UUID clientId, int cartNumber) {
-    return new ShoppingCartId(Urns.of("ecommerce", type, "%s-%d".formatted(clientId, cartNumber)));
+  public static ShoppingCartId of(UUID customerId, int cartNumber) {
+    return new ShoppingCartId(Urns.of("ecommerce", type, "%s-%d".formatted(customerId, cartNumber)));
   }
 
   public static ShoppingCartId derivedFrom(String sourceUrn) {

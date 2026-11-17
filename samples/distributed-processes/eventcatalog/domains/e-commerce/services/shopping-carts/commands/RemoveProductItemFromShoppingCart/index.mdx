@@ -1,0 +1,39 @@
+---
+id: RemoveProductItemFromShoppingCart
+version: 1.0.0
+name: RemoveProductItemFromShoppingCart
+summary: ''
+schemaPath: ''
+badges:
+  - content: DELETE
+    textColor: blue
+    backgroundColor: blue
+  - content: 'tag:Shopping carts'
+    textColor: blue
+    backgroundColor: blue
+operation:
+  method: DELETE
+  path: '/customers/{customerId}/shopping-carts/current/product-items'
+owners:
+  - shopping-carts
+sidebar:
+  badge: DELETE
+---
+## DELETE `(/customers/{customerId}/shopping-carts/current/product-items)`
+
+### Parameters
+- **customerId** (path) (required)
+- **productId** (query) (required)
+- **quantity** (query) (required)
+- **If-Match** (header) (required)
+
+
+
+
+### Responses
+
+
+
+## Architecture
+
+<NodeGraph />

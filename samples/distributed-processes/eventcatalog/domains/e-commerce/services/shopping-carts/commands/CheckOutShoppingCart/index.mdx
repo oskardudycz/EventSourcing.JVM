@@ -1,0 +1,42 @@
+---
+id: CheckOutShoppingCart
+version: 1.0.0
+name: CheckOutShoppingCart
+summary: ''
+schemaPath: ''
+badges:
+  - content: POST
+    textColor: blue
+    backgroundColor: blue
+  - content: 'tag:Shopping carts'
+    textColor: blue
+    backgroundColor: blue
+operation:
+  method: POST
+  path: '/customers/{customerId}/shopping-carts/current/checkout'
+  statusCodes:
+    - '200'
+owners:
+  - shopping-carts
+sidebar:
+  badge: POST
+---
+## POST `(/customers/{customerId}/shopping-carts/current/checkout)`
+
+### Parameters
+- **customerId** (path) (required)
+- **If-Match** (header) (required)
+
+
+
+
+### Responses
+
+#### <span className="text-green-500">200 OK</span>
+<SchemaViewer file="response-200.json" maxHeight="500" id="response-200" />
+
+
+
+## Architecture
+
+<NodeGraph />

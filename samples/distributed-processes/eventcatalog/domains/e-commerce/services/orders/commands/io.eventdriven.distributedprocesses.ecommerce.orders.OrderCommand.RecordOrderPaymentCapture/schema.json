@@ -1,0 +1,23 @@
+{
+  "title": "RecordOrderPaymentCapture",
+  "type": "object",
+  "properties": {
+    "capturedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-17>"
+    },
+    "orderId": {
+      "title": "OrderId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-18>"
+    }
+  },
+  "examples": [
+    {
+      "capturedAt": "2015-07-20T15:49:04-07:00",
+      "orderId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentCapture"
+}

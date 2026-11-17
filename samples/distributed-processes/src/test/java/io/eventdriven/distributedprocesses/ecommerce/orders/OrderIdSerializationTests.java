@@ -29,13 +29,13 @@ public class OrderIdSerializationTests {
 
   private final ShoppingCartId cartId = ShoppingCartId.of(UUID.randomUUID());
   private final OrderId orderId = OrderId.derivedFrom(cartId.value());
-  private final UUID clientId = UUID.randomUUID();
+  private final UUID customerId = UUID.randomUUID();
   private final OffsetDateTime now = OffsetDateTime.parse("2026-09-16T10:00:00Z");
 
   private final OrderPlaced event = new OrderPlaced(
     orderId,
     cartId,
-    clientId,
+    customerId,
     new PricedProductItem[]{new PricedProductItem(UUID.randomUUID(), 2, 10)},
     20,
     now

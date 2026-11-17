@@ -1,0 +1,28 @@
+{
+  "title": "AuthorizePayment",
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "format": "double",
+      "x-parser-schema-id": "<anonymous-schema-56>"
+    },
+    "paymentId": {
+      "title": "PaymentId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-57>"
+    },
+    "referenceId": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-58>"
+    }
+  },
+  "examples": [
+    {
+      "amount": 1.1,
+      "paymentId": "string",
+      "referenceId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment"
+}

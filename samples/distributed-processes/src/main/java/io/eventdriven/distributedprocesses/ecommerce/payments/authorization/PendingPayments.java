@@ -21,7 +21,6 @@ public class PendingPayments extends Projection<PendingPayment> {
     return List.of(
       PaymentAuthorizationRequested.class,
       PaymentAuthorized.class,
-      PaymentDeclined.class,
       PaymentTimedOut.class
     );
   }
@@ -31,7 +30,6 @@ public class PendingPayments extends Projection<PendingPayment> {
     return switch (event) {
       case PaymentAuthorizationRequested e -> e.paymentId();
       case PaymentAuthorized e -> e.paymentId();
-      case PaymentDeclined e -> e.paymentId();
       case PaymentTimedOut e -> e.paymentId();
       default -> throw new IllegalArgumentException("Unexpected event %s".formatted(event));
     };
@@ -40,14 +38,14 @@ public class PendingPayments extends Projection<PendingPayment> {
   @Override
   protected @Nullable PendingPayment evolve(@Nullable PendingPayment current, Object event) {
     return switch (event) {
-      case PaymentAuthorizationRequested e -> new PendingPayment(e.paymentId(), e.requestedAt());
-      case PaymentAuthorized _, PaymentDeclined _, PaymentTimedOut _ -> null;
+      case PaymentAuthorizationRequested e -> new PendingPayment(e.paymentId(), e.timesOutAt());
+      case PaymentAuthorized _, PaymentTimedOut _ -> null;
       default -> current;
     };
   }
 
-  public List<PaymentId> olderThan(OffsetDateTime threshold) {
-    return find(pending -> pending.getRequestedAt().isBefore(threshold)).stream()
+  public List<PaymentId> timedOutAt(OffsetDateTime now) {
+    return find(pending -> !pending.getTimesOutAt().isAfter(now)).stream()
       .map(PendingPayment::getPaymentId)
       .toList();
   }

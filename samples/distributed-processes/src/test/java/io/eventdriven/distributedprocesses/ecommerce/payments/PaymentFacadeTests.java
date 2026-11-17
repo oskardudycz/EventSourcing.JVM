@@ -8,15 +8,19 @@ import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class PaymentFacadeTests {
   private static final Duration paymentTimeout = Duration.ofMinutes(5);
@@ -26,36 +30,125 @@ public class PaymentFacadeTests {
   private final PaymentId paymentId = PaymentId.derivedFrom(referenceId);
   private final double amount = 62.5;
   private final OffsetDateTime now = OffsetDateTime.now();
-  private final OffsetDateTime expiresAt = now.plus(authorizationValidity);
-  private final OffsetDateTime timedOutAt = now.plusMinutes(5);
+  private final OffsetDateTime captureBefore = now.plus(authorizationValidity);
+  private final OffsetDateTime timedOutAt = now.plus(paymentTimeout);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
   private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher published = new MessageCatcher();
+  private final AtomicReference<OffsetDateTime> clock = new AtomicReference<>(now);
+  private final SilentPaymentGateway gateway = new SilentPaymentGateway();
+  private final URI orderStatusPage = URI.create("http://localhost:8080/customers/1/orders/2");
+  private final PaymentFacade facade;
 
   public PaymentFacadeTests() {
     eventStore.use(published::catchMessage);
-    PaymentsConfig.configure(
+    facade = PaymentsConfig.configure(
       eventStore,
       messageBus,
-      new SilentPaymentGateway(),
-      paymentTimeout,
-      authorizationValidity,
-      () -> now
-    );
+      gateway,
+      PaymentValidity.of(paymentTimeout),
+      clock::get
+    ).facade();
+  }
+
+  @Test
+  public void createCheckoutSessionOpensASessionAtTheGatewayAndRecordsIt() {
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
+    published.reset();
+
+    var session = facade.createCheckoutSession(createCheckoutSession());
+
+    var expected = new CheckoutSession(checkoutPageOf(paymentId), now.plusMinutes(30));
+    assertThat(session).isEqualTo(expected);
+    published.shouldReceiveMessages(new CheckoutSessionCreated(paymentId, expected.url(), expected.expiresAt()));
+  }
+
+  @Test
+  public void createCheckoutSessionWhileOneIsOpenReturnsItWithoutAskingTheGatewayAgain() {
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
+    var first = facade.createCheckoutSession(createCheckoutSession());
+    published.reset();
+    clock.set(now.plusMinutes(29));
+
+    var second = facade.createCheckoutSession(createCheckoutSession());
+
+    assertThat(second).isEqualTo(first);
+    assertThat(gateway.checkoutSessionsCreated).containsExactly(paymentId);
+    published.shouldNotReceiveAnyEvent();
+  }
+
+  @Test
+  public void createCheckoutSessionAfterTheSessionExpiredOpensANewOneForTheSamePayment() {
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
+    facade.createCheckoutSession(createCheckoutSession());
+    published.reset();
+    clock.set(now.plusMinutes(30));
+
+    var session = facade.createCheckoutSession(createCheckoutSession());
+
+    assertThat(session.expiresAt()).isEqualTo(now.plusMinutes(60));
+    published.shouldReceiveMessages(new CheckoutSessionCreated(paymentId, session.url(), session.expiresAt()));
+  }
+
+  @Test
+  public void createCheckoutSessionForAnAuthorizedPaymentIsRefusedWithoutAskingTheGateway() {
+    authorize();
+
+    assertThatThrownBy(() -> facade.createCheckoutSession(createCheckoutSession()))
+      .isInstanceOf(IllegalStateException.class);
+
+    assertThat(gateway.checkoutSessionsCreated).isEmpty();
+    published.shouldNotReceiveAnyEvent();
+  }
+
+  @Test
+  public void createCheckoutSessionForAPaymentOfAnotherOrderIsNotFound() {
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
+    published.reset();
+
+    var anotherOrder = Urns.of("ecommerce", "order", UUID.randomUUID());
+
+    assertThatThrownBy(() -> facade.createCheckoutSession(
+      new CreateCheckoutSession(paymentId, anotherOrder, orderStatusPage, orderStatusPage)
+    )).isInstanceOf(NoSuchElementException.class);
+    published.shouldNotReceiveAnyEvent();
+  }
+
+  @Test
+  public void createCheckoutSessionForAnUnknownPaymentIsNotFound() {
+    assertThatThrownBy(() -> facade.createCheckoutSession(createCheckoutSession()))
+      .isInstanceOf(NoSuchElementException.class);
+  }
+
+  @Test
+  public void createCheckoutSessionThatTheGatewayFailsToOpenRecordsNothing() {
+    var store = new InMemoryEventStore();
+    var bus = new InMemoryMessageBus();
+    var throwingFacade = PaymentsConfig.configure(
+      store, bus, new ThrowingPaymentGateway(), PaymentValidity.of(paymentTimeout), clock::get
+    ).facade();
+    bus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
+
+    assertThatThrownBy(() -> throwingFacade.createCheckoutSession(createCheckoutSession()))
+      .isInstanceOf(PaymentGatewayException.class)
+      .hasRootCauseMessage("Payment provider is unreachable");
+
+    assertThat(store.read(PaymentFacade.mapToStreamId(paymentId)))
+      .isInstanceOfSatisfying(EventStore.ReadResult.Success.class, read -> assertThat(read.events()).hasSize(1));
   }
 
   @Test
   public void authorizePaymentDispatchesOnlyTheRequestAndLeavesItPending() {
     messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
 
-    var requested = new PaymentAuthorizationRequested(paymentId, referenceId, amount, now);
+    var requested = new PaymentAuthorizationRequested(paymentId, referenceId, amount, now, timedOutAt);
 
     published.shouldReceiveMessages(requested);
     assertThat(storedEvents()).usingRecursiveComparison().isEqualTo(List.of(requested));
 
     // Only a pending authorisation can still be confirmed
-    messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId)));
+    messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId, captureBefore)));
 
     assertThat(storedEvents()).hasSize(2);
   }
@@ -65,9 +158,9 @@ public class PaymentFacadeTests {
     messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
     published.reset();
 
-    messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId)));
+    messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId, captureBefore)));
 
-    published.shouldReceiveMessages(new PaymentAuthorized(paymentId, now, expiresAt));
+    published.shouldReceiveMessages(new PaymentAuthorized(paymentId, now, captureBefore));
   }
 
   @Test
@@ -104,38 +197,27 @@ public class PaymentFacadeTests {
   }
 
   @Test
-  public void voidPaymentOnAnAuthorizedPaymentDispatchesPaymentVoided() {
+  public void cancelPaymentOnAnAuthorizedPaymentDispatchesPaymentCanceled() {
     authorize();
 
-    messageBus.publish(List.of(new VoidPayment(paymentId)));
+    messageBus.publish(List.of(new CancelPayment(paymentId)));
 
-    published.shouldReceiveMessages(new PaymentVoided(paymentId, now));
+    published.shouldReceiveMessages(new PaymentCanceled(paymentId, now));
   }
 
   @Test
-  public void voidPaymentOnACapturedPaymentStoresNothingAndDoesNotThrow() {
+  public void cancelPaymentOnACapturedPaymentStoresNothingAndDoesNotThrow() {
     authorize();
     messageBus.publish(List.of(new CapturePayment(paymentId), new ConfirmPaymentCapture(paymentId)));
     published.reset();
 
-    assertThatCode(() -> messageBus.publish(List.of(new VoidPayment(paymentId))))
+    assertThatCode(() -> messageBus.publish(List.of(new CancelPayment(paymentId))))
       .doesNotThrowAnyException();
 
     published.shouldNotReceiveAnyEvent();
     assertThat(storedEvents()).hasSize(4);
   }
 
-  @Test
-  public void declinePaymentDispatchesPaymentDeclinedWithTheReason() {
-    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
-    published.reset();
-
-    messageBus.publish(List.of(new DeclinePayment(paymentId, DeclineReason.UnexpectedError)));
-
-    published.shouldReceiveMessages(
-      new PaymentDeclined(paymentId, DeclineReason.UnexpectedError, now)
-    );
-  }
 
   @Test
   public void timeOutPaymentDispatchesPaymentTimedOut() {
@@ -148,18 +230,41 @@ public class PaymentFacadeTests {
   }
 
   @Test
+  public void timeOutPaymentBeforeItsDeadlineStoresNothingAndDoesNotThrow() {
+    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
+    published.reset();
+
+    assertThatCode(() -> messageBus.publish(List.of(new TimeOutPayment(paymentId, timedOutAt.minusMinutes(1)))))
+      .doesNotThrowAnyException();
+
+    published.shouldNotReceiveAnyEvent();
+    assertThat(storedEvents()).hasSize(1);
+  }
+
+  @Test
   public void expirePaymentAuthorizationDispatchesPaymentAuthorizationExpired() {
     authorize();
 
-    messageBus.publish(List.of(new ExpirePaymentAuthorization(paymentId, expiresAt)));
+    messageBus.publish(List.of(new ExpirePaymentAuthorization(paymentId, captureBefore)));
 
-    published.shouldReceiveMessages(new PaymentAuthorizationExpired(paymentId, expiresAt));
+    published.shouldReceiveMessages(new PaymentAuthorizationExpired(paymentId, captureBefore));
+  }
+
+  @Test
+  public void expirePaymentAuthorizationBeforeItsDeadlineStoresNothingAndDoesNotThrow() {
+    authorize();
+
+    assertThatCode(() -> messageBus.publish(List.of(new ExpirePaymentAuthorization(paymentId, captureBefore.minusMinutes(1)))))
+      .doesNotThrowAnyException();
+
+    published.shouldNotReceiveAnyEvent();
+    assertThat(storedEvents()).hasSize(2);
   }
 
   @Test
   public void capturePaymentAfterTheAuthorizationExpiredStoresNothingAndDoesNotThrow() {
     authorize();
-    messageBus.publish(List.of(new ExpirePaymentAuthorization(paymentId, expiresAt)));
+    messageBus.publish(List.of(new ExpirePaymentAuthorization(paymentId, captureBefore)));
     published.reset();
 
     assertThatCode(() -> messageBus.publish(List.of(new CapturePayment(paymentId))))
@@ -173,7 +278,7 @@ public class PaymentFacadeTests {
   public void confirmingAnAlreadyAuthorizedPaymentStoresNothingAndDoesNotThrow() {
     authorize();
 
-    assertThatCode(() -> messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId))))
+    assertThatCode(() -> messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId, captureBefore))))
       .doesNotThrowAnyException();
 
     published.shouldNotReceiveAnyEvent();
@@ -188,7 +293,7 @@ public class PaymentFacadeTests {
     ));
 
     assertThat(storedEvents()).usingRecursiveComparison()
-      .isEqualTo(List.of(new PaymentAuthorizationRequested(paymentId, referenceId, amount, now)));
+      .isEqualTo(List.of(new PaymentAuthorizationRequested(paymentId, referenceId, amount, now, timedOutAt)));
   }
 
   @Test
@@ -197,10 +302,18 @@ public class PaymentFacadeTests {
       .isEqualTo("Payment-%s".formatted(paymentId.tail()));
   }
 
+  private CreateCheckoutSession createCheckoutSession() {
+    return new CreateCheckoutSession(paymentId, referenceId, orderStatusPage, orderStatusPage);
+  }
+
+  private URI checkoutPageOf(PaymentId paymentId) {
+    return URI.create("https://checkout.example/c/pay/" + paymentId.tail());
+  }
+
   private void authorize() {
     messageBus.publish(List.of(
       new AuthorizePayment(paymentId, referenceId, amount),
-      new ConfirmPaymentAuthorization(paymentId)
+      new ConfirmPaymentAuthorization(paymentId, captureBefore)
     ));
     published.reset();
   }

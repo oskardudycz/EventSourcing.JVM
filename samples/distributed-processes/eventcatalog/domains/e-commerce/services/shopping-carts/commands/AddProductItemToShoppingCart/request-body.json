@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "productId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "quantity": {
+      "type": "integer",
+      "format": "int32"
+    }
+  },
+  "title": "AddProductItemRequest"
+}

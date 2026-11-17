@@ -1,5 +1,10 @@
 package io.eventdriven.distributedprocesses.ecommerce.orders;
 
+import io.github.springwolf.core.asyncapi.annotations.AsyncListener;
+import io.github.springwolf.core.asyncapi.annotations.AsyncOperation;
+import io.github.springwolf.core.asyncapi.annotations.AsyncPublisher;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand;
@@ -24,18 +29,22 @@ public class OrderSaga {
   }
 
   // Hold phase
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.shoppingCartsExternal))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = PlaceOrder.class))
   public void on(ShoppingCartExternalEvent.ShoppingCartCheckedOut event) {
     messageBus.publish(List.of(
       new PlaceOrder(
         OrderId.derivedFrom(event.cartId().value()),
         event.cartId(),
-        event.clientId(),
+        event.customerId(),
         toOrderItems(event),
         event.totalPrice()
       )
     ));
   }
 
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.requests, payloadType = PaymentCommand.AuthorizePayment.class))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.requests, payloadType = ShipmentCommand.ReserveStock.class))
   public void on(OrderEvent.OrderPlaced event) {
     var referenceId = event.orderId().value();
     messageBus.publish(List.of(
@@ -44,6 +53,8 @@ public class OrderSaga {
     ));
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.paymentsResponses))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderPaymentAuthorization.class))
   public void on(PaymentExternalEvent.PaymentAuthorized event) {
     messageBus.publish(List.of(
       new RecordOrderPaymentAuthorization(
@@ -54,6 +65,8 @@ public class OrderSaga {
     ));
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.shipmentsResponses))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderStockReservation.class))
   public void on(ShipmentExternalEvent.StockReserved event) {
     messageBus.publish(List.of(
       new RecordOrderStockReservation(
@@ -65,10 +78,13 @@ public class OrderSaga {
   }
 
   // Commit phase
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.requests, payloadType = ShipmentCommand.RequestFulfillment.class))
   public void on(OrderEvent.OrderConfirmed event) {
     messageBus.publish(List.of(new ShipmentCommand.RequestFulfillment(event.shipmentId())));
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.shipmentsResponses))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderPackageSent.class))
   public void on(ShipmentExternalEvent.PackageWasSent event) {
     messageBus.publish(List.of(
       new RecordOrderPackageSent(
@@ -81,10 +97,13 @@ public class OrderSaga {
   }
 
   // The shipment does not know the payment. The order does, and names it here.
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.requests, payloadType = PaymentCommand.CapturePayment.class))
   public void on(OrderEvent.OrderPaymentDue event) {
     messageBus.publish(List.of(new PaymentCommand.CapturePayment(event.paymentId())));
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.paymentsResponses))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderPaymentCapture.class))
   public void on(PaymentExternalEvent.PaymentCaptured event) {
     messageBus.publish(List.of(
       new RecordOrderPaymentCapture(new OrderId(event.referenceId()), event.capturedAt())
@@ -92,12 +111,16 @@ public class OrderSaga {
   }
 
   // Compensation
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.paymentsResponses))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderPaymentFailure.class))
   public void on(PaymentExternalEvent.PaymentFailed event) {
     messageBus.publish(List.of(
       new RecordOrderPaymentFailure(new OrderId(event.referenceId()), event.failedAt())
     ));
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.shipmentsResponses))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderShipmentFailure.class))
   public void on(ShipmentExternalEvent.ShipmentFailed event) {
     var reason = switch (event.reason()) {
       case ProductsOutOfStock -> OrderCancellationReason.ProductWasOutOfStock;
@@ -110,16 +133,19 @@ public class OrderSaga {
   }
 
   // Paying again
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.requests, payloadType = PaymentCommand.AuthorizePayment.class))
   public void on(OrderEvent.OrderPaymentRetried event) {
     messageBus.publish(List.of(
       new PaymentCommand.AuthorizePayment(event.paymentId(), event.orderId().value(), event.amount())
     ));
   }
 
-  public void on(OrderEvent.OrderCancelled event) {
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.requests, payloadType = PaymentCommand.CancelPayment.class))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.requests, payloadType = ShipmentCommand.ReleaseStock.class))
+  public void on(OrderEvent.OrderCanceled event) {
     var compensations = new ArrayList<>();
     if (event.paymentStatus() == OrderPaymentStatus.Authorized) {
-      compensations.add(new PaymentCommand.VoidPayment(event.paymentId()));
+      compensations.add(new PaymentCommand.CancelPayment(event.paymentId()));
     }
     if (event.shipmentStatus() == OrderShipmentStatus.Reserved) {
       compensations.add(new ShipmentCommand.ReleaseStock(event.shipmentId()));

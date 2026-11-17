@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public sealed interface ShoppingCartCommand {
   record AddProductItemToShoppingCart(
-    UUID clientId,
+    UUID customerId,
     ProductItem productItem
   ) implements ShoppingCartCommand {
   }

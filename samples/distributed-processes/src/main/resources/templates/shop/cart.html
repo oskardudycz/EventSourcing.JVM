@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="~{shop/fragments :: head('Cart')}"></head>
+<body>
+<header th:replace="~{shop/fragments :: header(${customerId}, 'cart')}"></header>
+<main class="page narrow">
+  <h1>Cart</h1>
+  <p class="notice" th:if="${message}" th:text="${message}">Message</p>
+  <section class="card empty" th:if="${cart == null}">
+    <p>Your cart is empty.</p>
+    <a class="button primary" th:href="@{/shop/customers/{c}/products(c=${customerId})}">Browse products</a>
+  </section>
+  <section class="card" th:if="${cart != null}">
+    <table class="lines">
+      <thead>
+      <tr><th>Product</th><th class="number">Quantity</th><th class="number">Price</th><th class="number">Total</th><th></th></tr>
+      </thead>
+      <tbody>
+      <tr th:each="line : ${cart.lines}">
+        <td th:text="${productNames[line.productId()]} ?: ${line.productId()}">Product</td>
+        <td class="number" th:text="${line.quantity()}">1</td>
+        <td class="number" th:text="${'$' + #numbers.formatDecimal(line.unitPrice(), 1, 'COMMA', 2, 'POINT')}">$0.00</td>
+        <td class="number" th:text="${'$' + #numbers.formatDecimal(line.unitPrice() * line.quantity(), 1, 'COMMA', 2, 'POINT')}">$0.00</td>
+        <td class="number">
+          <form method="post" th:action="@{/shop/customers/{c}/cart/items/{p}/remove(c=${customerId}, p=${line.productId()})}">
+            <input type="hidden" name="quantity" th:value="${line.quantity()}">
+            <input type="hidden" name="version" th:value="${cart.version}">
+            <button class="link" type="submit">Remove</button>
+          </form>
+        </td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="summary">
+      <span>Total</span>
+      <strong th:text="${'$' + #numbers.formatDecimal(cart.totalPrice, 1, 'COMMA', 2, 'POINT')}">$0.00</strong>
+    </div>
+    <form method="post" th:action="@{/shop/customers/{c}/cart/checkout(c=${customerId})}">
+      <input type="hidden" name="version" th:value="${cart.version}">
+      <button class="button primary wide" type="submit">Check out</button>
+    </form>
+  </section>
+</main>
+</body>
+</html>

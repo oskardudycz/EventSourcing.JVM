@@ -5,6 +5,7 @@ import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentValidity;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGateway;
 import io.eventdriven.testing.MessageCatcher;
@@ -29,9 +30,9 @@ public class AuthorizationExpiryWorkerTests {
   private final PaymentId paymentId = PaymentId.derivedFrom(referenceId);
   private final double amount = 62.5;
   private final OffsetDateTime authorizedAt = OffsetDateTime.now();
-  private final OffsetDateTime expiresAt = authorizedAt.plus(authorizationValidity);
-  private final OffsetDateTime beforeExpiry = expiresAt.minusDays(1);
-  private final OffsetDateTime afterExpiry = expiresAt.plusDays(1);
+  private final OffsetDateTime captureBefore = authorizedAt.plus(authorizationValidity);
+  private final OffsetDateTime beforeExpiry = captureBefore.minusDays(1);
+  private final OffsetDateTime afterExpiry = captureBefore.plusDays(1);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
   private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
@@ -46,8 +47,7 @@ public class AuthorizationExpiryWorkerTests {
       eventStore,
       messageBus,
       new SilentPaymentGateway(),
-      paymentTimeout,
-      authorizationValidity,
+      PaymentValidity.of(paymentTimeout),
       clock::get
     ).authorizationExpiryWorker();
   }
@@ -84,7 +84,7 @@ public class AuthorizationExpiryWorkerTests {
   @Test
   public void voidedPaymentNeverExpires() {
     authorize();
-    messageBus.publish(List.of(new VoidPayment(paymentId)));
+    messageBus.publish(List.of(new CancelPayment(paymentId)));
     published.reset();
 
     handleAllAt(afterExpiry);
@@ -107,7 +107,7 @@ public class AuthorizationExpiryWorkerTests {
   private void authorize() {
     messageBus.publish(List.of(
       new AuthorizePayment(paymentId, referenceId, amount),
-      new ConfirmPaymentAuthorization(paymentId)
+      new ConfirmPaymentAuthorization(paymentId, captureBefore)
     ));
     published.reset();
   }

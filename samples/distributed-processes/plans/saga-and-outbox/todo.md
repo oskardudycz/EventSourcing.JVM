@@ -2,6 +2,14 @@
 
 - [x] Q1 `ESDBEventStore`: implement `subscribe`, with an integration test
 - [x] Q2 `orders/OrderSaga.java`
+- [x] Q3 Sandbox gateway and warehouse for running the application
+- [x] Q4 AsyncAPI generated with Springwolf (step 7.4)
+- [ ] Q5 KurrentDB or the workshop's `PostgreSQLEventStore` (step 8)
+- [x] Q6 The gateway sends the card hold's `expiresAt` in `ConfirmPaymentAuthorization` (step 7.2)
+- [ ] Q7 Internal channel in step 8: event-store subscription or Kafka topic; commands inside a module
+- [x] Q8 Names: Stripe for payments, Shopify for the shop, American spelling (step 7)
+- [x] Q9 Shop pages for the whole flow with Thymeleaf, styled close to Stripe (step 7.3)
+- [x] Q10 Channels in the in-memory bus, starting from the workshop's MessageRoutes and MessageRouter (step 7.4)
 - [x] 1. Green build, full transcripts
 - [x] 2. One `OrderSaga`
 - [x] 2b. Bump to Spring Boot 4.1 (Gradle 9.2.1, Jackson 3, log4j2 starter, JSpecify)
@@ -9,9 +17,15 @@
 - [x] 4. Payment settlement
 - [x] 5. Timeouts, fulfilment and paying again
 - [x] 6. The shopping cart from real shops
+- [x] 7. The customer's side and the contracts, in memory
+  - [x] 7.1 Deadlines in the aggregates and the policies in the facades
+  - [x] 7.2 Names, the Checkout Session, the unpaid order, the customer's order commands to `OrderFacade`
+  - [x] 7.3 The customer's views, the web API with Swagger, the shop pages, the sandbox
+  - [x] 7.4 Channels in the bus, AsyncAPI with Springwolf, and EventCatalog
+- [ ] 8. Real infrastructure
 
 Notes:
-- Step 1: `ShoppingCartTests` needs EventStoreDB: `docker compose up -d eventstore.db` (allowed by Oskar).
+- Step 1: `ShoppingCartTests` needs EventStoreDB: `docker compose up -d eventstore.db` (allowed by Oskar). Since the rebase in 7.1, the KurrentDB tests use Testcontainers, or the `eventsourcing` compose project's KurrentDB when it runs.
 - Step 1: `log4j2.xml` status changed from DEBUG to WARN (agreed).
 - Step 1: the SLF4J NOP warning (client error logs went nowhere). Fixed in 2b.
 - Step 2: javac "unchecked operations" note existed before (generic varargs in CommandBus/EventBus, EventSerializer, EntityStore, test specs). Most should go with step 3.
@@ -32,3 +46,25 @@ Notes:
 - Step 6: there is no web API yet. Tests call `ShoppingCartFacade` directly, and the end-to-end transcripts no longer start with a cart command.
 - Step 6: `ShoppingCart` no longer exposes `clientId()`, `productItems()` or `totalPrice()`; tests assert the events.
 - Step 6 follow-up: `AggregateStore.getAndUpdate` without an expected version retries a version conflict up to 3 times, for every module, including `hotelmanagement/processmanager`. The cart facade has no retry loop of its own.
+- Step 7.1: the rebase onto `origin/main` brought KurrentDB (`io.kurrent:kurrentdb-client`, `core/kurrentdb`) and Testcontainers; step 8 no longer has to replace the client.
+- Step 7.1: `PaymentTerms.within(Duration)` and `PaymentValidity.of(Duration)` replace `paymentRetryPeriod` and `paymentTimeout` in `ECommerceConfig`, `OrdersConfig` and `PaymentsConfig`. `PendingPayments.timedOutAt(now)` and `OrdersAwaitingPayment.overdueAt(now)` include the exact instant, as `AuthorizedPayments.expiredAt` does.
+- Step 7.1: `OrdersAwaitingPayment` starts at `OrderPaymentFailed` and ends at `OrderCompleted`, `OrderClosedUnpaid` or `OrderCancelled`. Until 7.2, a failure before shipping passes through it on the way to `OrderCancelled`.
+- Step 7.1: `authorizationValidity` stays in `PaymentFacade` until 7.2, when `ConfirmPaymentAuthorization` brings `expiresAt` from the gateway (Q6).
+- Step 7.2: the renames went first (customer, CancelPayment/PaymentCanceled/cancel, OrderCanceled, American spelling in the README), then the behavior. `AutoAuthorizingPaymentGateway` and `AutoRejectingPaymentGateway` are gone; `RefusingAfterAuthorizationPaymentGateway` takes no bus. The ordering test for a decline went with the decline; the authorization ordering test now goes through the webhook.
+- Step 7.2: `PaymentFacade.createCheckoutSession` throws `NoSuchElementException` (no payment, or one for another reference) and `IllegalStateException` (not pending), for the 404 and 409 in 7.3. A gateway failure goes up as it is; 7.3 decides how the API tells it apart for the 502.
+- Step 7.2: out of stock at checkout now waits for the payment: `productsOutOfStockAreRecordedAtCheckoutWhileThePaymentIsStillPending` and `productsOutOfStockWaitForThePaymentThenCancelTheOrderAndTheHoldWithoutCharging` replace the old single scenario.
+- Step 7.2: the README's web API section already uses the 7.3 names (`/customers/...`, `CustomerOrders`, `OrderStatus`, the checkout-session endpoint); 7.3 adds the pages and the sandbox to it.
+- Step 7.3: the views are `Carts`/`Cart`, `CustomerOrders`/`CustomerOrder` and `OrderStatuses`/`OrderStatus`, in the pattern of the other projections (plural projection, singular document). `OrderProgress` and `OrderAction` are their enums. `ShoppingCartsConfig` now returns `ShoppingCartsModule(facade, customerShoppingCarts, carts)`; `OrdersModule` gained the two order views.
+- Step 7.3: the checkout-session endpoint lives in `orders/api` (it calls `PaymentFacade`), because the path is under the order and orders already knows payments. A checkout that finds a changed price answers 409 with the new `ETag`; one that goes through answers 202 with `Location`. `PaymentFacade` wraps a gateway failure in `PaymentGatewayException` (502).
+- Step 7.3: the pages live in `ecommerce/shop` (`ShopPages`, `DemoProducts`) under `/shop/...`, so the JSON API keeps its paths; the checkout-session endpoint builds the `successUrl` from `/shop/customers/{customerId}/orders/{orderId}`. springdoc documents only `/customers/**`.
+- Step 7.3: the JPA and datasource auto-configuration is excluded in `application.properties`, so the application runs in memory. Tests run with Mockito as a `-javaagent` and `-Xshare:off`, and with the banner off (`src/test/resources/config/application.properties`), to keep the output pristine.
+- Step 7.3: the in-memory store, bus and database are not thread-safe; the README says the application is for one person trying the flow. Step 8 replaces them.
+- Step 7.3: checked by hand with `bootRun` and headless Chromium screenshots of Products, Cart, Order status, Orders and the sandbox checkout page.
+- Step 7.4: a message without a route reaches only the middleware. Each module routes its package to `<module>-internal`; the store subscribers stay off the bus (Q7, step 8).
+- Step 7.4: AsyncAPI 3.1.0 from Springwolf 2.9.0, one document per module through `ModuleOperations` and `ModuleGroupingService`; `MessageBusClassScanner` shows Springwolf the classes on our bus.
+- Step 7.4: `./gradlew generateOpenApiDocs` exports the six documents to `eventcatalog/specs`. The catalog uses the official template's npm scripts and `.gitignore`; `domains/` is kept in the repository.
+- Step 7.4: the catalog is checked with Playwright (`npm test`, 26 tests). The web API tests use `ApiSpecification` from the introduction workshop over `RestTestClient`.
+- Step 7.4: `KurrentDBEventStoreTests` failed twice in full builds with an unexpected result and passed in 3 reruns. The test now checks the result type before the cast, so the next failure shows the cause. 10 runs against the docker compose KurrentDB passed.
+- Step 7.4 follow-up: removed two wrong workarounds. `eventcatalog build` and `preview` run with closed standard input (checked), so `playwright.config.js` runs `npm run preview` as it is. A plain `eventcatalog generate` followed by a build works, also after a message rename, so `generate` no longer deletes `domains/` and the Astro caches.
+- Step 7.4 follow-up: teams and users (Back to the Future names) own the four services; `@Tag` names each controller's module.
+- Step 7.4 follow-up: `repositoryUrl` holds the GitHub link and `homepageLink` is event-driven.io. With `homepageLink` on github.com, EventCatalog's link check read its own GitHub links as catalog pages (2 broken links). The Vite chunk size and `/api/settings` warnings come from EventCatalog itself.

@@ -1,5 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments;
 
+import java.net.URI;
 import java.time.OffsetDateTime;
 
 public sealed interface PaymentCommand {
@@ -9,8 +10,17 @@ public sealed interface PaymentCommand {
     double amount) implements PaymentCommand {
   }
 
+  record CreateCheckoutSession(
+    PaymentId paymentId,
+    String referenceId,
+    URI successUrl,
+    URI cancelUrl
+  ) implements PaymentCommand {
+  }
+
   record ConfirmPaymentAuthorization(
-    PaymentId paymentId
+    PaymentId paymentId,
+    OffsetDateTime captureBefore
   ) implements PaymentCommand {
   }
 
@@ -30,16 +40,11 @@ public sealed interface PaymentCommand {
   ) implements PaymentCommand {
   }
 
-  record VoidPayment(
+  record CancelPayment(
     PaymentId paymentId
   ) implements PaymentCommand {
   }
 
-  record DeclinePayment(
-    PaymentId paymentId,
-    DeclineReason reason
-  ) implements PaymentCommand {
-  }
 
   record TimeOutPayment(
     PaymentId paymentId,

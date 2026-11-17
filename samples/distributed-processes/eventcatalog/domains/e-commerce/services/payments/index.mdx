@@ -1,0 +1,49 @@
+---
+id: payments
+name: Payments
+version: 1.0.0
+summary: ''
+badges: []
+sends:
+  - id: >-
+      io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed
+    version: 1.0.0
+  - id: >-
+      io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized
+    version: 1.0.0
+  - id: >-
+      io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured
+    version: 1.0.0
+receives:
+  - id: >-
+      io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentAuthorization
+    version: 1.0.0
+  - id: >-
+      io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentCapture
+    version: 1.0.0
+  - id: >-
+      io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ExpirePaymentAuthorization
+    version: 1.0.0
+  - id: >-
+      io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.FailPaymentCapture
+    version: 1.0.0
+  - id: >-
+      io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.TimeOutPayment
+    version: 1.0.0
+  - id: >-
+      io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment
+    version: 1.0.0
+  - id: >-
+      io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment
+    version: 1.0.0
+  - id: >-
+      io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment
+    version: 1.0.0
+schemaPath: asyncapi-payments.json
+specifications:
+  asyncapiPath: asyncapi-payments.json
+owners:
+  - payments
+---
+## Architecture diagram
+<NodeGraph />

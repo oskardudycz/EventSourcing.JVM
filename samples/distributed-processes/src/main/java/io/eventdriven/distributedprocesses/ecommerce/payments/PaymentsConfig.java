@@ -1,6 +1,9 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
+import io.eventdriven.distributedprocesses.core.identifiers.Urns;
+import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
+import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
 import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.core.projections.Database;
@@ -12,10 +15,10 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.Sche
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.ScheduledPaymentTimeoutWorker;
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.PendingPayments;
 import io.eventdriven.distributedprocesses.ecommerce.payments.capture.CaptureGatewayClient;
+import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEventForwarder;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentSummaries;
 
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.function.Supplier;
 
@@ -23,6 +26,9 @@ import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentComm
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
 
 public final class PaymentsConfig {
+  public static final String requests = "payments-requests";
+  public static final String responses = "payments-responses";
+  public static final String internal = "payments-internal";
   private PaymentsConfig() {
   }
 
@@ -30,8 +36,7 @@ public final class PaymentsConfig {
     EventStore eventStore,
     MessageBus messageBus,
     PaymentGateway paymentGateway,
-    Duration paymentTimeout,
-    Duration authorizationValidity,
+    PaymentValidity paymentValidity,
     Supplier<OffsetDateTime> now
   ) {
     var store = new AggregateStore<Payment, PaymentEvent, PaymentId>(
@@ -40,18 +45,25 @@ public final class PaymentsConfig {
       Payment::empty
     );
 
-    var facade = new PaymentFacade(store, authorizationValidity, now);
+    var facade = new PaymentFacade(store, paymentGateway, paymentValidity, now);
 
     messageBus
-      .subscribe(AuthorizePayment.class, facade::authorizePayment)
-      .subscribe(ConfirmPaymentAuthorization.class, facade::confirmPaymentAuthorization)
-      .subscribe(CapturePayment.class, facade::capturePayment)
-      .subscribe(ConfirmPaymentCapture.class, facade::confirmPaymentCapture)
-      .subscribe(FailPaymentCapture.class, facade::failPaymentCapture)
-      .subscribe(VoidPayment.class, facade::voidPayment)
-      .subscribe(DeclinePayment.class, facade::declinePayment)
-      .subscribe(TimeOutPayment.class, facade::timeOutPayment)
-      .subscribe(ExpirePaymentAuthorization.class, facade::expirePaymentAuthorization);
+      .routes(new MessageRoutes()
+        .routeTarget(AuthorizePayment.class, command -> requests)
+        .routeTarget(CapturePayment.class, command -> requests)
+        .routeTarget(CancelPayment.class, command -> requests)
+        .route(PaymentExternalEvent.class, event -> new RoutingTarget(responses, Urns.routingKeyOf(event.referenceId())))
+        .routeTarget(MessageRoutes.inPackage(PaymentsConfig.class.getPackageName()), internal))
+      .bind(requests, requests, "#")
+      .bind(internal, internal, "#")
+      .subscribe(requests, AuthorizePayment.class, facade::authorizePayment)
+      .subscribe(requests, CapturePayment.class, facade::capturePayment)
+      .subscribe(requests, CancelPayment.class, facade::cancelPayment)
+      .subscribe(internal, ConfirmPaymentAuthorization.class, facade::confirmPaymentAuthorization)
+      .subscribe(internal, ConfirmPaymentCapture.class, facade::confirmPaymentCapture)
+      .subscribe(internal, FailPaymentCapture.class, facade::failPaymentCapture)
+      .subscribe(internal, TimeOutPayment.class, facade::timeOutPayment)
+      .subscribe(internal, ExpirePaymentAuthorization.class, facade::expirePaymentAuthorization);
 
     var database = new Database();
     var paymentSummaries = new PaymentSummaries(database);
@@ -76,22 +88,20 @@ public final class PaymentsConfig {
       .subscribe(PaymentAuthorized.class, forwarder::onAuthorized)
       .subscribe(PaymentCaptured.class, forwarder::onCaptured)
       .subscribe(PaymentCaptureFailed.class, forwarder::onCaptureFailed)
-      .subscribe(PaymentDeclined.class, forwarder::onDeclined)
       .subscribe(PaymentTimedOut.class, forwarder::onTimedOut)
       .subscribe(PaymentAuthorizationExpired.class, forwarder::onAuthorizationExpired);
 
-    var authorizationGatewayClient = new AuthorizationGatewayClient(paymentGateway, messageBus);
+    var authorizationGatewayClient = new AuthorizationGatewayClient(paymentGateway);
     var captureGatewayClient = new CaptureGatewayClient(paymentGateway, messageBus);
 
     eventStore
-      .subscribe(PaymentAuthorizationRequested.class, envelope -> authorizationGatewayClient.on(envelope.data()))
       .subscribe(PaymentCaptureRequested.class, envelope -> captureGatewayClient.on(envelope.data()))
-      .subscribe(PaymentVoided.class, envelope -> authorizationGatewayClient.on(envelope.data()))
+      .subscribe(PaymentCanceled.class, envelope -> authorizationGatewayClient.on(envelope.data()))
       .subscribe(PaymentTimedOut.class, envelope -> authorizationGatewayClient.on(envelope.data()));
 
     return new PaymentsModule(
       facade,
-      new ScheduledPaymentTimeoutWorker(new PaymentTimeoutWorker(pendingPayments, messageBus, paymentTimeout), now),
+      new ScheduledPaymentTimeoutWorker(new PaymentTimeoutWorker(pendingPayments, messageBus), now),
       new ScheduledAuthorizationExpiryWorker(new AuthorizationExpiryWorker(authorizedPayments, messageBus), now)
     );
   }

@@ -26,8 +26,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class ShoppingCartExternalEventForwarderTests {
   private static final double unitPrice = 12.5;
 
-  private final UUID clientId = UUID.randomUUID();
-  private final ShoppingCartId shoppingCartId = ShoppingCartId.of(clientId, 1);
+  private final UUID customerId = UUID.randomUUID();
+  private final ShoppingCartId shoppingCartId = ShoppingCartId.of(customerId, 1);
   private final ProductItem shoes = new ProductItem(UUID.randomUUID(), 2);
   private final ProductItem shirt = new ProductItem(UUID.randomUUID(), 3);
   private final PricedProductItem pricedShoes = new PricedProductItem(shoes, unitPrice);
@@ -48,7 +48,7 @@ public class ShoppingCartExternalEventForwarderTests {
     });
     shoppingCarts = ShoppingCartsConfig.configure(
       eventStore, messageBus, prices, () -> now
-    );
+    ).facade();
   }
 
   @Test
@@ -60,7 +60,7 @@ public class ShoppingCartExternalEventForwarderTests {
     externalEvents.shouldReceiveMessages(
       new ShoppingCartExternalEvent.ShoppingCartCheckedOut(
         shoppingCartId,
-        clientId,
+        customerId,
         new PricedProductItem[]{pricedShoes, pricedShirt},
         62.5,
         now
@@ -81,7 +81,7 @@ public class ShoppingCartExternalEventForwarderTests {
     externalEvents.shouldReceiveMessages(
       new ShoppingCartExternalEvent.ShoppingCartCheckedOut(
         shoppingCartId,
-        clientId,
+        customerId,
         new PricedProductItem[]{new PricedProductItem(shoes, 15), pricedShirt},
         67.5,
         now
@@ -106,8 +106,8 @@ public class ShoppingCartExternalEventForwarderTests {
   }
 
   private void addShoesAndShirt() {
-    shoppingCarts.addProductItem(new AddProductItemToShoppingCart(clientId, shoes));
-    shoppingCarts.addProductItem(new AddProductItemToShoppingCart(clientId, shirt));
+    shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shoes));
+    shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shirt));
   }
 
   @Test
@@ -120,7 +120,7 @@ public class ShoppingCartExternalEventForwarderTests {
     var streamId = ShoppingCartFacade.mapToStreamId(shoppingCartId);
 
     summaries.handle(new EventEnvelope<>(
-      new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, clientId, pricedShoes, now),
+      new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, customerId, pricedShoes, now),
       new EventMetadata(streamId, 0, 0)
     ));
     var checkedOut = new EventEnvelope<>(
@@ -136,7 +136,7 @@ public class ShoppingCartExternalEventForwarderTests {
 
     published.shouldReceiveMessages(
       new ShoppingCartExternalEvent.ShoppingCartCheckedOut(
-        shoppingCartId, clientId, new PricedProductItem[]{pricedShoes}, 25, now
+        shoppingCartId, customerId, new PricedProductItem[]{pricedShoes}, 25, now
       )
     );
   }

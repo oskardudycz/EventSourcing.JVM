@@ -7,6 +7,8 @@ public record ProductItem(
   int quantity
 ) {
   public ProductItem {
+    if (productId == null)
+      throw new IllegalArgumentException("Product id is required");
     if (quantity <= 0)
       throw new IllegalArgumentException("Quantity has to be a positive number");
   }

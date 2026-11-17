@@ -3,6 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce.payments;
 import io.eventdriven.distributedprocesses.core.aggregates.AbstractAggregate;
 
 import java.time.OffsetDateTime;
+import java.util.Optional;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
 
@@ -20,13 +21,16 @@ public class Payment extends AbstractAggregate<PaymentEvent, PaymentId> {
     Authorized,
     CaptureRequested,
     Captured,
-    Voided,
+    Canceled,
     Failed
   }
 
   private String referenceId;
   private double amount;
   private Status status;
+  private OffsetDateTime timesOutAt;
+  private OffsetDateTime captureBefore;
+  private CheckoutSession checkoutSession;
 
   private Payment() {
   }
@@ -35,23 +39,41 @@ public class Payment extends AbstractAggregate<PaymentEvent, PaymentId> {
     return new Payment();
   }
 
+  public boolean isPending() {
+    return status == Status.Pending;
+  }
+
+  public Optional<CheckoutSession> openCheckoutSession(OffsetDateTime now) {
+    return checkoutSession != null && now.isBefore(checkoutSession.expiresAt())
+      ? Optional.of(checkoutSession)
+      : Optional.empty();
+  }
+
   public void requestAuthorization(
     PaymentId paymentId,
     String referenceId,
     double amount,
-    OffsetDateTime now
+    OffsetDateTime now,
+    OffsetDateTime timesOutAt
   ) {
     if (status != null)
       return;
 
-    enqueue(new PaymentAuthorizationRequested(paymentId, referenceId, amount, now));
+    enqueue(new PaymentAuthorizationRequested(paymentId, referenceId, amount, now, timesOutAt));
   }
 
-  public void confirmAuthorization(OffsetDateTime now, OffsetDateTime expiresAt) {
+  public void recordCheckoutSession(CheckoutSession session, OffsetDateTime now) {
+    if (status != Status.Pending || openCheckoutSession(now).isPresent())
+      return;
+
+    enqueue(new CheckoutSessionCreated(id(), session.url(), session.expiresAt()));
+  }
+
+  public void confirmAuthorization(OffsetDateTime now, OffsetDateTime captureBefore) {
     if (status != Status.Pending)
       return;
 
-    enqueue(new PaymentAuthorized(id(), now, expiresAt));
+    enqueue(new PaymentAuthorized(id(), now, captureBefore));
   }
 
   public void requestCapture(OffsetDateTime now) {
@@ -75,29 +97,23 @@ public class Payment extends AbstractAggregate<PaymentEvent, PaymentId> {
     enqueue(new PaymentCaptureFailed(id(), reason, now));
   }
 
-  public void voidAuthorization(OffsetDateTime now) {
+  public void cancel(OffsetDateTime now) {
     if (status != Status.Authorized)
       return;
 
-    enqueue(new PaymentVoided(id(), now));
+    enqueue(new PaymentCanceled(id(), now));
   }
 
-  public void decline(DeclineReason reason, OffsetDateTime now) {
-    if (status != Status.Pending)
-      return;
-
-    enqueue(new PaymentDeclined(id(), reason, now));
-  }
 
   public void timeOut(OffsetDateTime now) {
-    if (status != Status.Pending)
+    if (status != Status.Pending || now.isBefore(timesOutAt))
       return;
 
     enqueue(new PaymentTimedOut(id(), now));
   }
 
   public void expireAuthorization(OffsetDateTime now) {
-    if (status != Status.Authorized)
+    if (status != Status.Authorized || now.isBefore(captureBefore))
       return;
 
     enqueue(new PaymentAuthorizationExpired(id(), now));
@@ -110,14 +126,19 @@ public class Payment extends AbstractAggregate<PaymentEvent, PaymentId> {
         id = authorizationRequested.paymentId();
         referenceId = authorizationRequested.referenceId();
         amount = authorizationRequested.amount();
+        timesOutAt = authorizationRequested.timesOutAt();
         status = Status.Pending;
       }
-      case PaymentAuthorized authorized -> status = Status.Authorized;
+      case CheckoutSessionCreated sessionCreated ->
+        checkoutSession = new CheckoutSession(sessionCreated.url(), sessionCreated.expiresAt());
+      case PaymentAuthorized authorized -> {
+        captureBefore = authorized.captureBefore();
+        status = Status.Authorized;
+      }
       case PaymentCaptureRequested captureRequested -> status = Status.CaptureRequested;
       case PaymentCaptured captured -> status = Status.Captured;
       case PaymentCaptureFailed captureFailed -> status = Status.Failed;
-      case PaymentVoided voided -> status = Status.Voided;
-      case PaymentDeclined declined -> status = Status.Failed;
+      case PaymentCanceled canceled -> status = Status.Canceled;
       case PaymentTimedOut timedOut -> status = Status.Failed;
       case PaymentAuthorizationExpired expired -> status = Status.Failed;
     }

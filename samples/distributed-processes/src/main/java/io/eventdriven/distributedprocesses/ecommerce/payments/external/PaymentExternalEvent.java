@@ -5,6 +5,8 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import java.time.OffsetDateTime;
 
 public sealed interface PaymentExternalEvent {
+  String referenceId();
+
   record PaymentAuthorized(
     String referenceId,
     PaymentId paymentId,

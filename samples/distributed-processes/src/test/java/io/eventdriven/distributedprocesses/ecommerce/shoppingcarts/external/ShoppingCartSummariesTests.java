@@ -19,8 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class ShoppingCartSummariesTests {
   private static final double unitPrice = 12.5;
 
-  private final UUID clientId = UUID.randomUUID();
-  private final ShoppingCartId shoppingCartId = ShoppingCartId.of(clientId, 1);
+  private final UUID customerId = UUID.randomUUID();
+  private final ShoppingCartId shoppingCartId = ShoppingCartId.of(customerId, 1);
   private final String streamId = ShoppingCartFacade.mapToStreamId(shoppingCartId);
   private final ProductItem shoes = new ProductItem(UUID.randomUUID(), 2);
   private final ProductItem shirt = new ProductItem(UUID.randomUUID(), 3);
@@ -32,12 +32,12 @@ public class ShoppingCartSummariesTests {
   private long nextPosition = 0;
 
   @Test
-  public void theFirstProductStoresTheSummaryOfTheClient() {
+  public void theFirstProductStoresTheSummaryOfTheCustomer() {
     publish(added(pricedShoes));
 
     var summary = summary();
 
-    assertThat(summary.getClientId()).isEqualTo(clientId);
+    assertThat(summary.getCustomerId()).isEqualTo(customerId);
     assertThat(summary.getProductItems())
       .usingRecursiveComparison()
       .isEqualTo(new PricedProductItem[]{pricedShoes});
@@ -115,7 +115,7 @@ public class ShoppingCartSummariesTests {
 
     var summary = summary();
 
-    assertThat(summary.getClientId()).isEqualTo(clientId);
+    assertThat(summary.getCustomerId()).isEqualTo(customerId);
     assertThat(summary.getProductItems())
       .usingRecursiveComparison()
       .isEqualTo(new PricedProductItem[]{pricedShoes});
@@ -138,7 +138,7 @@ public class ShoppingCartSummariesTests {
   }
 
   private ProductItemAddedToShoppingCart added(PricedProductItem productItem) {
-    return new ProductItemAddedToShoppingCart(shoppingCartId, clientId, productItem, now);
+    return new ProductItemAddedToShoppingCart(shoppingCartId, customerId, productItem, now);
   }
 
   private void publish(ShoppingCartEvent... events) {

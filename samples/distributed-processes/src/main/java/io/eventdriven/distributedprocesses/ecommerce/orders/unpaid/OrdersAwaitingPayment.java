@@ -11,8 +11,8 @@ import java.util.List;
 
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.*;
 
-// Orders whose parcel left, kept until they are paid or closed. The first payment failure after
-// the dispatch starts the time the client has to pay again.
+// Orders whose payment failed, kept until they are paid, closed or canceled. The order decides
+// whether a wake-up at the due date ends it.
 public class OrdersAwaitingPayment extends Projection<OrderAwaitingPayment> {
   public OrdersAwaitingPayment(Database database) {
     super(OrderAwaitingPayment.class, database);
@@ -21,20 +21,20 @@ public class OrdersAwaitingPayment extends Projection<OrderAwaitingPayment> {
   @Override
   public List<Class<?>> canHandle() {
     return List.of(
-      OrderPackageSent.class,
       OrderPaymentFailed.class,
       OrderCompleted.class,
-      OrderClosedUnpaid.class
+      OrderClosedUnpaid.class,
+      OrderCanceled.class
     );
   }
 
   @Override
   protected EntityId getDocumentId(Object event) {
     return switch (event) {
-      case OrderPackageSent e -> e.orderId();
       case OrderPaymentFailed e -> e.orderId();
       case OrderCompleted e -> e.orderId();
       case OrderClosedUnpaid e -> e.orderId();
+      case OrderCanceled e -> e.orderId();
       default -> throw new IllegalArgumentException("Unexpected event %s".formatted(event));
     };
   }
@@ -42,16 +42,14 @@ public class OrdersAwaitingPayment extends Projection<OrderAwaitingPayment> {
   @Override
   protected @Nullable OrderAwaitingPayment evolve(@Nullable OrderAwaitingPayment current, Object event) {
     return switch (event) {
-      case OrderPackageSent e -> new OrderAwaitingPayment(e.orderId(), null);
-      case OrderPaymentFailed e when current != null && current.getUnpaidSince() == null ->
-        new OrderAwaitingPayment(e.orderId(), e.failedAt());
-      case OrderCompleted _, OrderClosedUnpaid _ -> null;
+      case OrderPaymentFailed e -> new OrderAwaitingPayment(e.orderId(), e.dueAt());
+      case OrderCompleted _, OrderClosedUnpaid _, OrderCanceled _ -> null;
       default -> current;
     };
   }
 
-  public List<OrderId> unpaidSinceBefore(OffsetDateTime threshold) {
-    return find(order -> order.getUnpaidSince() != null && !order.getUnpaidSince().isAfter(threshold)).stream()
+  public List<OrderId> overdueAt(OffsetDateTime now) {
+    return find(order -> !order.getDueAt().isAfter(now)).stream()
       .map(OrderAwaitingPayment::getOrderId)
       .toList();
   }

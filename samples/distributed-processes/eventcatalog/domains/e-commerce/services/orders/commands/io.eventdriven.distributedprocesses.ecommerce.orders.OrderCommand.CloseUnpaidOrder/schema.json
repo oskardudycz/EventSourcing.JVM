@@ -1,0 +1,17 @@
+{
+  "title": "CloseUnpaidOrder",
+  "type": "object",
+  "properties": {
+    "orderId": {
+      "title": "OrderId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-1>"
+    }
+  },
+  "examples": [
+    {
+      "orderId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.CloseUnpaidOrder"
+}

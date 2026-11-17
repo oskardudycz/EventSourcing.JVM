@@ -1,0 +1,20 @@
+{
+  "name": "distributed-processes-eventcatalog",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "eventcatalog generate",
+    "dev": "eventcatalog dev",
+    "build": "eventcatalog build",
+    "preview": "eventcatalog preview",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "@eventcatalog/core": "5.12.0",
+    "@eventcatalog/generator-asyncapi": "7.1.2",
+    "@eventcatalog/generator-openapi": "9.1.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1"
+  }
+}
