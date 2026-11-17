@@ -66,14 +66,14 @@ public class GroupCheckoutFacade {
     record RecordGuestCheckoutCompletion(
       UUID groupCheckoutId,
       UUID guestStayId,
-      OffsetDateTime completedAt
+      OffsetDateTime now
     ) implements GroupCheckoutCommand {
     }
 
     record RecordGuestCheckoutFailure(
       UUID groupCheckoutId,
       UUID guestStayId,
-      OffsetDateTime failedAt
+      OffsetDateTime now
     ) implements GroupCheckoutCommand {
     }
   }
