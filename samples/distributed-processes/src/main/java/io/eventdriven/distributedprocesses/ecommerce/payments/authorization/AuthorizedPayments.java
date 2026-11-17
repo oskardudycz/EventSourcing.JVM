@@ -21,7 +21,7 @@ public class AuthorizedPayments extends Projection<AuthorizedPayment> {
     return List.of(
       PaymentAuthorized.class,
       PaymentCaptureRequested.class,
-      PaymentVoided.class,
+      PaymentCanceled.class,
       PaymentAuthorizationExpired.class
     );
   }
@@ -31,7 +31,7 @@ public class AuthorizedPayments extends Projection<AuthorizedPayment> {
     return switch (event) {
       case PaymentAuthorized e -> e.paymentId();
       case PaymentCaptureRequested e -> e.paymentId();
-      case PaymentVoided e -> e.paymentId();
+      case PaymentCanceled e -> e.paymentId();
       case PaymentAuthorizationExpired e -> e.paymentId();
       default -> throw new IllegalArgumentException("Unexpected event %s".formatted(event));
     };
@@ -40,14 +40,14 @@ public class AuthorizedPayments extends Projection<AuthorizedPayment> {
   @Override
   protected @Nullable AuthorizedPayment evolve(@Nullable AuthorizedPayment current, Object event) {
     return switch (event) {
-      case PaymentAuthorized e -> new AuthorizedPayment(e.paymentId(), e.expiresAt());
-      case PaymentCaptureRequested _, PaymentVoided _, PaymentAuthorizationExpired _ -> null;
+      case PaymentAuthorized e -> new AuthorizedPayment(e.paymentId(), e.captureBefore());
+      case PaymentCaptureRequested _, PaymentCanceled _, PaymentAuthorizationExpired _ -> null;
       default -> current;
     };
   }
 
   public List<PaymentId> expiredAt(OffsetDateTime now) {
-    return find(authorized -> !authorized.getExpiresAt().isAfter(now)).stream()
+    return find(authorized -> !authorized.getCaptureBefore().isAfter(now)).stream()
       .map(AuthorizedPayment::getPaymentId)
       .toList();
   }

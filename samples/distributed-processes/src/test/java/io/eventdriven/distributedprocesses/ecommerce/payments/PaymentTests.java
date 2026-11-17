@@ -5,6 +5,7 @@ import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.testing.AggregateSpecification;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -16,34 +17,37 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
   private final String referenceId = Urns.of("ecommerce", "order", UUID.randomUUID());
   private final double amount = 62.5;
   private final OffsetDateTime now = OffsetDateTime.now();
-  private final OffsetDateTime expiresAt = now.plusDays(7);
+  private final OffsetDateTime timesOutAt = now.plusMinutes(15);
+  private final OffsetDateTime captureBefore = now.plusDays(7);
+  private final CheckoutSession checkoutSession =
+    new CheckoutSession(URI.create("https://checkout.example/c/pay/1"), now.plusMinutes(30));
+  private final CheckoutSession nextCheckoutSession =
+    new CheckoutSession(URI.create("https://checkout.example/c/pay/2"), now.plusMinutes(70));
 
   private final PaymentAuthorizationRequested authorizationRequested =
-    new PaymentAuthorizationRequested(paymentId, referenceId, amount, now);
-  private final PaymentAuthorized authorized = new PaymentAuthorized(paymentId, now, expiresAt);
+    new PaymentAuthorizationRequested(paymentId, referenceId, amount, now, timesOutAt);
+  private final PaymentAuthorized authorized = new PaymentAuthorized(paymentId, now, captureBefore);
   private final PaymentCaptureRequested captureRequested =
     new PaymentCaptureRequested(paymentId, amount, now);
   private final PaymentCaptured captured = new PaymentCaptured(paymentId, amount, now);
   private final PaymentCaptureFailed captureFailed =
     new PaymentCaptureFailed(paymentId, CaptureFailureReason.UnexpectedError, now);
-  private final PaymentVoided voided = new PaymentVoided(paymentId, now);
-  private final PaymentDeclined declined =
-    new PaymentDeclined(paymentId, DeclineReason.UnexpectedError, now);
-  private final PaymentTimedOut timedOut = new PaymentTimedOut(paymentId, now);
+  private final PaymentCanceled canceled = new PaymentCanceled(paymentId, now);
+  private final CheckoutSessionCreated checkoutSessionCreated =
+    new CheckoutSessionCreated(paymentId, checkoutSession.url(), checkoutSession.expiresAt());
+  private final PaymentTimedOut timedOut = new PaymentTimedOut(paymentId, timesOutAt);
   private final PaymentAuthorizationExpired authorizationExpired =
-    new PaymentAuthorizationExpired(paymentId, now);
+    new PaymentAuthorizationExpired(paymentId, captureBefore);
 
   private final Consumer<Payment> confirmAuthorization =
-    current -> current.confirmAuthorization(now, expiresAt);
+    current -> current.confirmAuthorization(now, captureBefore);
   private final Consumer<Payment> requestCapture = current -> current.requestCapture(now);
   private final Consumer<Payment> confirmCapture = current -> current.confirmCapture(now);
   private final Consumer<Payment> failCapture =
     current -> current.failCapture(CaptureFailureReason.UnexpectedError, now);
-  private final Consumer<Payment> voidAuthorization = current -> current.voidAuthorization(now);
-  private final Consumer<Payment> decline =
-    current -> current.decline(DeclineReason.UnexpectedError, now);
-  private final Consumer<Payment> timeOut = current -> current.timeOut(now);
-  private final Consumer<Payment> expireAuthorization = current -> current.expireAuthorization(now);
+  private final Consumer<Payment> cancel = current -> current.cancel(now);
+  private final Consumer<Payment> timeOut = current -> current.timeOut(timesOutAt);
+  private final Consumer<Payment> expireAuthorization = current -> current.expireAuthorization(captureBefore);
 
   protected PaymentTests() {
     super(Payment::empty);
@@ -54,7 +58,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
     // Given
     given()
       // When
-      .when(current -> current.requestAuthorization(paymentId, referenceId, amount, now))
+      .when(current -> current.requestAuthorization(paymentId, referenceId, amount, now, timesOutAt))
       // Then
       .then(authorizationRequested);
   }
@@ -64,7 +68,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
     // Given
     given(authorizationRequested)
       // When
-      .when(current -> current.requestAuthorization(paymentId, referenceId, amount, now))
+      .when(current -> current.requestAuthorization(paymentId, referenceId, amount, now, timesOutAt))
       // Then
       .thenNothing();
   }
@@ -180,13 +184,13 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
   }
 
   @Test
-  public void voidingAnAuthorizedPaymentEmitsPaymentVoided() {
+  public void cancelingAnAuthorizedPaymentEmitsPaymentCanceled() {
     // Given
     given(authorizationRequested, authorized)
       // When
-      .when(voidAuthorization)
+      .when(cancel)
       // Then
-      .then(voided);
+      .then(canceled);
   }
 
   @Test
@@ -194,7 +198,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
     // Given
     given(authorizationRequested, authorized, captureRequested)
       // When
-      .when(voidAuthorization)
+      .when(cancel)
       // Then
       .thenNothing();
   }
@@ -204,19 +208,60 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
     // Given
     given(authorizationRequested, authorized, captureRequested, captured)
       // When
-      .when(voidAuthorization)
+      .when(cancel)
+      // Then
+      .thenNothing();
+  }
+
+
+  @Test
+  public void recordingACheckoutSessionForAPendingPaymentEmitsCheckoutSessionCreated() {
+    // Given
+    given(authorizationRequested)
+      // When
+      .when(current -> current.recordCheckoutSession(checkoutSession, now))
+      // Then
+      .then(checkoutSessionCreated);
+  }
+
+  @Test
+  public void recordingAnotherSessionWhileOneIsOpenEmitsNothing() {
+    // Given
+    given(authorizationRequested, checkoutSessionCreated)
+      // When
+      .when(current -> current.recordCheckoutSession(nextCheckoutSession, now.plusMinutes(29)))
       // Then
       .thenNothing();
   }
 
   @Test
-  public void decliningAPendingAuthorizationEmitsPaymentDeclinedWithTheReason() {
+  public void recordingASessionAfterTheOpenOneExpiredEmitsCheckoutSessionCreatedForTheSamePayment() {
     // Given
-    given(authorizationRequested)
+    given(authorizationRequested, checkoutSessionCreated)
       // When
-      .when(decline)
+      .when(current -> current.recordCheckoutSession(nextCheckoutSession, checkoutSession.expiresAt()))
       // Then
-      .then(declined);
+      .then(new CheckoutSessionCreated(paymentId, nextCheckoutSession.url(), nextCheckoutSession.expiresAt()));
+  }
+
+  @Test
+  public void recordingASessionForAnAuthorizedPaymentEmitsNothing() {
+    // Given
+    given(authorizationRequested, authorized)
+      // When
+      .when(current -> current.recordCheckoutSession(checkoutSession, now))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
+  public void recordingASessionForATimedOutPaymentEmitsNothing() {
+    // Given
+    given(authorizationRequested, timedOut)
+      // When
+      .when(current -> current.recordCheckoutSession(checkoutSession, now))
+      // Then
+      .thenNothing();
   }
 
   @Test
@@ -230,6 +275,16 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
   }
 
   @Test
+  public void timingOutBeforeItsDeadlineEmitsNothing() {
+    // Given
+    given(authorizationRequested)
+      // When
+      .when(current -> current.timeOut(timesOutAt.minusMinutes(1)))
+      // Then
+      .thenNothing();
+  }
+
+  @Test
   public void expiringAnAuthorizedPaymentEmitsPaymentAuthorizationExpired() {
     // Given
     given(authorizationRequested, authorized)
@@ -237,6 +292,16 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
       .when(expireAuthorization)
       // Then
       .then(authorizationExpired);
+  }
+
+  @Test
+  public void expiringBeforeItsDeadlineEmitsNothing() {
+    // Given
+    given(authorizationRequested, authorized)
+      // When
+      .when(current -> current.expireAuthorization(captureBefore.minusMinutes(1)))
+      // Then
+      .thenNothing();
   }
 
   @Test
@@ -264,40 +329,20 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
     settlingAgainEmitsNothing(authorized, confirmAuthorization);
   }
 
-  @Test
-  public void confirmingADeclinedPaymentEmitsNothing() {
-    settlingAgainEmitsNothing(declined, confirmAuthorization);
-  }
 
   @Test
   public void confirmingATimedOutPaymentEmitsNothing() {
     settlingAgainEmitsNothing(timedOut, confirmAuthorization);
   }
 
-  @Test
-  public void decliningAnAuthorizedPaymentEmitsNothing() {
-    settlingAgainEmitsNothing(authorized, decline);
-  }
 
-  @Test
-  public void decliningADeclinedPaymentEmitsNothing() {
-    settlingAgainEmitsNothing(declined, decline);
-  }
 
-  @Test
-  public void decliningATimedOutPaymentEmitsNothing() {
-    settlingAgainEmitsNothing(timedOut, decline);
-  }
 
   @Test
   public void timingOutAnAuthorizedPaymentEmitsNothing() {
     settlingAgainEmitsNothing(authorized, timeOut);
   }
 
-  @Test
-  public void timingOutADeclinedPaymentEmitsNothing() {
-    settlingAgainEmitsNothing(declined, timeOut);
-  }
 
   @Test
   public void timingOutATimedOutPaymentEmitsNothing() {
@@ -305,9 +350,9 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
   }
 
   @Test
-  public void requestingCaptureOfAVoidedPaymentEmitsNothing() {
+  public void requestingCaptureOfACanceledPaymentEmitsNothing() {
     // Given
-    given(authorizationRequested, authorized, voided)
+    given(authorizationRequested, authorized, canceled)
       // When
       .when(requestCapture)
       // Then

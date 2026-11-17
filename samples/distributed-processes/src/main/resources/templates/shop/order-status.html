@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="~{shop/fragments :: head('Order status')}"></head>
+<body>
+<header th:replace="~{shop/fragments :: header(${customerId}, 'orders')}"></header>
+<main class="page narrow">
+  <div class="page-title">
+    <div>
+      <h1>Order status</h1>
+      <p class="muted" th:text="'Order ' + ${orderTail}">Order</p>
+    </div>
+    <span class="badge large" th:classappend="${order.progress.name()}" th:text="${order.progress.label()}">Status</span>
+  </div>
+  <section class="card">
+    <table class="lines">
+      <thead>
+      <tr><th>Product</th><th class="number">Quantity</th><th class="number">Price</th></tr>
+      </thead>
+      <tbody>
+      <tr th:each="item : ${order.productItems}">
+        <td th:text="${productNames[item.productId()]} ?: ${item.productId()}">Product</td>
+        <td class="number" th:text="${item.quantity()}">1</td>
+        <td class="number" th:text="${'$' + #numbers.formatDecimal(item.unitPrice(), 1, 'COMMA', 2, 'POINT')}">$0.00</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="summary">
+      <span>Total</span>
+      <strong th:text="${'$' + #numbers.formatDecimal(order.totalPrice, 1, 'COMMA', 2, 'POINT')}">$0.00</strong>
+    </div>
+  </section>
+  <section class="card" th:if="${order.carrier != null}">
+    <h2>Shipping</h2>
+    <p><span th:text="${order.carrier}">Carrier</span> · tracking number <code th:text="${order.trackingNumber}">0000</code></p>
+  </section>
+  <section class="actions">
+    <form th:if="${canPayNow}" method="post"
+          th:action="@{/customers/{c}/orders/{o}/payments/{p}/checkout-session(c=${customerId}, o=${orderTail}, p=${paymentTail})}">
+      <button class="button primary" type="submit">Pay now</button>
+    </form>
+    <form th:if="${canRetryPayment}" method="post"
+          th:action="@{/shop/customers/{c}/orders/{o}/retry-payment(c=${customerId}, o=${orderTail})}">
+      <button class="button primary" type="submit">Retry payment</button>
+    </form>
+    <form th:if="${canCancel}" method="post"
+          th:action="@{/shop/customers/{c}/orders/{o}/cancel(c=${customerId}, o=${orderTail})}">
+      <button class="button" type="submit">Cancel order</button>
+    </form>
+  </section>
+</main>
+</body>
+</html>

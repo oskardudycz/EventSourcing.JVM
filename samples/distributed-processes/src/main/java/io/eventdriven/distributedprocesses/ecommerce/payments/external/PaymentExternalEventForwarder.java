@@ -1,5 +1,8 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments.external;
 
+import io.github.springwolf.core.asyncapi.annotations.AsyncOperation;
+import io.github.springwolf.core.asyncapi.annotations.AsyncPublisher;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent;
@@ -24,6 +27,7 @@ public class PaymentExternalEventForwarder {
     this.messageBus = messageBus;
   }
 
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentExternalEvent.PaymentAuthorized.class))
   public void onAuthorized(EventEnvelope<PaymentEvent.PaymentAuthorized> envelope) {
     var event = envelope.data();
 
@@ -34,6 +38,7 @@ public class PaymentExternalEventForwarder {
     )));
   }
 
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentExternalEvent.PaymentCaptured.class))
   public void onCaptured(EventEnvelope<PaymentEvent.PaymentCaptured> envelope) {
     var event = envelope.data();
 
@@ -44,18 +49,18 @@ public class PaymentExternalEventForwarder {
     )));
   }
 
-  public void onDeclined(EventEnvelope<PaymentDeclined> envelope) {
-    publishFailure(envelope.data().paymentId(), envelope.data().declinedAt());
-  }
 
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentFailed.class))
   public void onTimedOut(EventEnvelope<PaymentTimedOut> envelope) {
     publishFailure(envelope.data().paymentId(), envelope.data().timedOutAt());
   }
 
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentFailed.class))
   public void onAuthorizationExpired(EventEnvelope<PaymentAuthorizationExpired> envelope) {
     publishFailure(envelope.data().paymentId(), envelope.data().expiredAt());
   }
 
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentFailed.class))
   public void onCaptureFailed(EventEnvelope<PaymentCaptureFailed> envelope) {
     publishFailure(envelope.data().paymentId(), envelope.data().failedAt());
   }

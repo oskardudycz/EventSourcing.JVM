@@ -1,0 +1,23 @@
+{
+  "title": "ExpirePaymentAuthorization",
+  "type": "object",
+  "properties": {
+    "expiredAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-4>"
+    },
+    "paymentId": {
+      "title": "PaymentId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-5>"
+    }
+  },
+  "examples": [
+    {
+      "expiredAt": "2015-07-20T15:49:04-07:00",
+      "paymentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ExpirePaymentAuthorization"
+}

@@ -1,0 +1,17 @@
+{
+  "title": "CapturePayment",
+  "type": "object",
+  "properties": {
+    "paymentId": {
+      "title": "PaymentId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-60>"
+    }
+  },
+  "examples": [
+    {
+      "paymentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment"
+}

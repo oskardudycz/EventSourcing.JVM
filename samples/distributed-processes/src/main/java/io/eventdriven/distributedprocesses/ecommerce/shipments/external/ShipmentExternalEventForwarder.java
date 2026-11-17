@@ -1,5 +1,8 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments.external;
 
+import io.github.springwolf.core.asyncapi.annotations.AsyncOperation;
+import io.github.springwolf.core.asyncapi.annotations.AsyncPublisher;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent;
@@ -17,6 +20,7 @@ public class ShipmentExternalEventForwarder {
     this.messageBus = messageBus;
   }
 
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.responses, payloadType = ShipmentExternalEvent.StockReserved.class))
   public void onStockReserved(EventEnvelope<ShipmentEvent.StockReserved> envelope) {
     var event = envelope.data();
     messageBus.publish(List.of(new ShipmentExternalEvent.StockReserved(
@@ -26,6 +30,7 @@ public class ShipmentExternalEventForwarder {
     )));
   }
 
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.responses, payloadType = ShipmentExternalEvent.PackageWasSent.class))
   public void onPackageWasSent(EventEnvelope<ShipmentEvent.PackageWasSent> envelope) {
     var event = envelope.data();
     messageBus.publish(List.of(new ShipmentExternalEvent.PackageWasSent(
@@ -37,6 +42,7 @@ public class ShipmentExternalEventForwarder {
     )));
   }
 
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.responses, payloadType = ShipmentExternalEvent.ShipmentFailed.class))
   public void onProductWasOutOfStock(EventEnvelope<ProductWasOutOfStock> envelope) {
     var event = envelope.data();
     messageBus.publish(List.of(new ShipmentFailed(
@@ -47,6 +53,7 @@ public class ShipmentExternalEventForwarder {
     )));
   }
 
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.responses, payloadType = ShipmentExternalEvent.ShipmentFailed.class))
   public void onFulfillmentRejected(EventEnvelope<ShipmentEvent.FulfillmentRejected> envelope) {
     var event = envelope.data();
     messageBus.publish(List.of(new ShipmentFailed(

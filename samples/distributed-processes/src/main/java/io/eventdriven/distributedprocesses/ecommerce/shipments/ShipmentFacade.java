@@ -1,5 +1,7 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments;
 
+import io.github.springwolf.core.asyncapi.annotations.AsyncListener;
+import io.github.springwolf.core.asyncapi.annotations.AsyncOperation;
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
 
 import java.time.OffsetDateTime;
@@ -27,6 +29,7 @@ public class ShipmentFacade {
     this.now = now;
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.requests))
   public void reserveStock(ReserveStock command) {
     var shipmentId = ShipmentId.derivedFrom(command.referenceId());
     store.getAndUpdate(
@@ -41,6 +44,7 @@ public class ShipmentFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.requests))
   public void requestFulfillment(RequestFulfillment command) {
     store.getAndUpdate(
       command.shipmentId(),
@@ -48,6 +52,7 @@ public class ShipmentFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.internal))
   public void confirmPackageSent(ConfirmPackageSent command) {
     store.getAndUpdate(
       command.shipmentId(),
@@ -55,6 +60,7 @@ public class ShipmentFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.internal))
   public void rejectFulfillment(RejectFulfillment command) {
     store.getAndUpdate(
       command.shipmentId(),
@@ -62,6 +68,7 @@ public class ShipmentFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.internal))
   public void deliverPackage(DeliverPackage command) {
     store.getAndUpdate(
       command.shipmentId(),
@@ -69,6 +76,7 @@ public class ShipmentFacade {
     );
   }
 
+  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.requests))
   public void releaseStock(ReleaseStock command) {
     store.getAndUpdate(
       command.shipmentId(),

@@ -7,23 +7,23 @@ import java.time.OffsetDateTime;
 
 public class PendingPayment implements Versioned {
   private PaymentId paymentId;
-  private OffsetDateTime requestedAt;
+  private OffsetDateTime timesOutAt;
   private long version;
 
   public PendingPayment() {
   }
 
-  public PendingPayment(PaymentId paymentId, OffsetDateTime requestedAt) {
+  public PendingPayment(PaymentId paymentId, OffsetDateTime timesOutAt) {
     this.paymentId = paymentId;
-    this.requestedAt = requestedAt;
+    this.timesOutAt = timesOutAt;
   }
 
   public PaymentId getPaymentId() {
     return paymentId;
   }
 
-  public OffsetDateTime getRequestedAt() {
-    return requestedAt;
+  public OffsetDateTime getTimesOutAt() {
+    return timesOutAt;
   }
 
   @Override

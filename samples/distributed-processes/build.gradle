@@ -2,6 +2,7 @@ plugins {
   id 'java'
   id 'org.springframework.boot' version '4.1.2'
   id 'io.spring.dependency-management' version '1.1.7'
+  id 'org.springdoc.openapi-gradle-plugin' version '2.1.0'
 }
 
 java {
@@ -18,6 +19,10 @@ repositories {
   mavenCentral()
 }
 
+configurations {
+  mockitoAgent
+}
+
 dependencies {
   // Serialisation
   implementation 'tools.jackson.core:jackson-databind'
@@ -28,14 +33,25 @@ dependencies {
   // Logging
   implementation 'org.springframework.boot:spring-boot-starter-log4j2'
 
+  // Web API, shop pages and Swagger UI
+  implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+  implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+  implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.2.0'
+
+  // AsyncAPI documentation of the channels
+  implementation 'io.github.springwolf:springwolf-core:2.9.0'
+  runtimeOnly 'io.github.springwolf:springwolf-ui:2.9.0'
+
   // Postgres and JPA for read models
   implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
   implementation 'org.postgresql:postgresql'
 
   // Test frameworks
   testImplementation 'org.springframework.boot:spring-boot-starter-test'
+  testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
   testImplementation 'org.testcontainers:testcontainers'
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+  mockitoAgent('org.mockito:mockito-core') { transitive = false }
 }
 
 configurations {
@@ -48,9 +64,26 @@ configurations {
 
 tasks.named('test') {
   useJUnitPlatform()
+  jvmArgs += ["-javaagent:${configurations.mockitoAgent.asPath}", "-Xshare:off"]
 }
 
 test {
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
+}
+
+def contractsPort = 18086
+openApi {
+  outputDir.set(file('eventcatalog/specs'))
+  groupedApiMappings.set([
+    ("http://localhost:${contractsPort}/v3/api-docs/shopping_carts".toString())  : 'openapi-shopping_carts.json',
+    ("http://localhost:${contractsPort}/v3/api-docs/orders".toString())          : 'openapi-orders.json',
+    ("http://localhost:${contractsPort}/springwolf/docs/shopping_carts".toString()): 'asyncapi-shopping_carts.json',
+    ("http://localhost:${contractsPort}/springwolf/docs/orders".toString())       : 'asyncapi-orders.json',
+    ("http://localhost:${contractsPort}/springwolf/docs/payments".toString())     : 'asyncapi-payments.json',
+    ("http://localhost:${contractsPort}/springwolf/docs/shipments".toString())    : 'asyncapi-shipments.json'
+  ])
+  customBootRun {
+    args.set(["--server.port=${contractsPort}".toString()])
+  }
 }

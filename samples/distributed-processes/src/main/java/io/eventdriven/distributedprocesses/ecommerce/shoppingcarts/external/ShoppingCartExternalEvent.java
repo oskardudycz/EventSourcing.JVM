@@ -10,7 +10,7 @@ import java.util.UUID;
 public sealed interface ShoppingCartExternalEvent {
   record ShoppingCartCheckedOut(
     ShoppingCartId cartId,
-    UUID clientId,
+    UUID customerId,
     PricedProductItem[] productItems,
     double totalPrice,
     OffsetDateTime checkedOutAt

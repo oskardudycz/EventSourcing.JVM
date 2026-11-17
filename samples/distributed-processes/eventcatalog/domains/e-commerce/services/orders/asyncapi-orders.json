@@ -1,0 +1,1293 @@
+{
+  "asyncapi": "3.1.0",
+  "info": {
+    "title": "E-commerce",
+    "version": "1.0.0",
+    "x-generator": "springwolf"
+  },
+  "defaultContentType": "application/json",
+  "channels": {
+    "orders-internal": {
+      "address": "orders-internal",
+      "messages": {
+        "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.CloseUnpaidOrder": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.CloseUnpaidOrder"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.PlaceOrder": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.PlaceOrder"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPackageSent": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPackageSent"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentAuthorization": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentAuthorization"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentCapture": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentCapture"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentFailure": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentFailure"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderShipmentFailure": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderShipmentFailure"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderStockReservation": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderStockReservation"
+        }
+      },
+      "bindings": {}
+    },
+    "orders-payments-responses": {
+      "address": "orders-payments-responses",
+      "messages": {
+        "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed"
+        }
+      },
+      "bindings": {}
+    },
+    "orders-shipments-responses": {
+      "address": "orders-shipments-responses",
+      "messages": {
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved"
+        }
+      },
+      "bindings": {}
+    },
+    "orders-shopping_carts-external": {
+      "address": "orders-shopping_carts-external",
+      "messages": {
+        "io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut"
+        }
+      },
+      "bindings": {}
+    },
+    "payments-requests": {
+      "address": "payments-requests",
+      "messages": {
+        "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment"
+        }
+      },
+      "bindings": {}
+    },
+    "shipments-requests": {
+      "address": "shipments-requests",
+      "messages": {
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock"
+        }
+      },
+      "bindings": {}
+    }
+  },
+  "components": {
+    "schemas": {
+      "HeadersNotDocumented": {
+        "title": "HeadersNotDocumented",
+        "type": "object",
+        "properties": {},
+        "description": "There can be headers, but they are not explicitly documented.",
+        "examples": [
+          {}
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.CloseUnpaidOrder": {
+        "title": "CloseUnpaidOrder",
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "title": "OrderId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "orderId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.PlaceOrder": {
+        "title": "PlaceOrder",
+        "type": "object",
+        "properties": {
+          "cartId": {
+            "title": "ShoppingCartId",
+            "type": "string"
+          },
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orderId": {
+            "title": "OrderId",
+            "type": "string"
+          },
+          "productItems": {
+            "title": "PricedProductItem[]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem"
+            }
+          },
+          "totalPrice": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "examples": [
+          {
+            "cartId": "string",
+            "customerId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "orderId": "string",
+            "productItems": [
+              {
+                "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "quantity": 0,
+                "unitPrice": 1.1
+              }
+            ],
+            "totalPrice": 1.1
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPackageSent": {
+        "title": "RecordOrderPackageSent",
+        "type": "object",
+        "properties": {
+          "carrier": {
+            "type": "string"
+          },
+          "orderId": {
+            "title": "OrderId",
+            "type": "string"
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "trackingNumber": {
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "carrier": "string",
+            "orderId": "string",
+            "sentAt": "2015-07-20T15:49:04-07:00",
+            "trackingNumber": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentAuthorization": {
+        "title": "RecordOrderPaymentAuthorization",
+        "type": "object",
+        "properties": {
+          "authorizedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "orderId": {
+            "title": "OrderId",
+            "type": "string"
+          },
+          "paymentId": {
+            "title": "PaymentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "authorizedAt": "2015-07-20T15:49:04-07:00",
+            "orderId": "string",
+            "paymentId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentCapture": {
+        "title": "RecordOrderPaymentCapture",
+        "type": "object",
+        "properties": {
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "orderId": {
+            "title": "OrderId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "capturedAt": "2015-07-20T15:49:04-07:00",
+            "orderId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentFailure": {
+        "title": "RecordOrderPaymentFailure",
+        "type": "object",
+        "properties": {
+          "failedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "orderId": {
+            "title": "OrderId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "failedAt": "2015-07-20T15:49:04-07:00",
+            "orderId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderShipmentFailure": {
+        "title": "RecordOrderShipmentFailure",
+        "type": "object",
+        "properties": {
+          "failedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "orderId": {
+            "title": "OrderId",
+            "type": "string"
+          },
+          "reason": {
+            "title": "OrderCancellationReason",
+            "type": "string",
+            "enum": [
+              "ProductWasOutOfStock",
+              "CouldNotShip",
+              "PaymentFailed",
+              "Requested"
+            ]
+          }
+        },
+        "examples": [
+          {
+            "failedAt": "2015-07-20T15:49:04-07:00",
+            "orderId": "string",
+            "reason": "ProductWasOutOfStock"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderStockReservation": {
+        "title": "RecordOrderStockReservation",
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "title": "OrderId",
+            "type": "string"
+          },
+          "reservedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "orderId": "string",
+            "reservedAt": "2015-07-20T15:49:04-07:00",
+            "shipmentId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem": {
+        "title": "PricedProductItem",
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unitPrice": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "examples": [
+          {
+            "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "quantity": 0,
+            "unitPrice": 1.1
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment": {
+        "title": "AuthorizePayment",
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "paymentId": {
+            "title": "PaymentId",
+            "type": "string"
+          },
+          "referenceId": {
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "amount": 1.1,
+            "paymentId": "string",
+            "referenceId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment": {
+        "title": "CancelPayment",
+        "type": "object",
+        "properties": {
+          "paymentId": {
+            "title": "PaymentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "paymentId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment": {
+        "title": "CapturePayment",
+        "type": "object",
+        "properties": {
+          "paymentId": {
+            "title": "PaymentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "paymentId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized": {
+        "title": "PaymentAuthorized",
+        "type": "object",
+        "properties": {
+          "authorizedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "paymentId": {
+            "title": "PaymentId",
+            "type": "string"
+          },
+          "referenceId": {
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "authorizedAt": "2015-07-20T15:49:04-07:00",
+            "paymentId": "string",
+            "referenceId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured": {
+        "title": "PaymentCaptured",
+        "type": "object",
+        "properties": {
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "paymentId": {
+            "title": "PaymentId",
+            "type": "string"
+          },
+          "referenceId": {
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "capturedAt": "2015-07-20T15:49:04-07:00",
+            "paymentId": "string",
+            "referenceId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed": {
+        "title": "PaymentFailed",
+        "type": "object",
+        "properties": {
+          "failedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "paymentId": {
+            "title": "PaymentId",
+            "type": "string"
+          },
+          "referenceId": {
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "failedAt": "2015-07-20T15:49:04-07:00",
+            "paymentId": "string",
+            "referenceId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem": {
+        "title": "ProductItem",
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "examples": [
+          {
+            "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "quantity": 0
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock": {
+        "title": "ReleaseStock",
+        "type": "object",
+        "properties": {
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "shipmentId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment": {
+        "title": "RequestFulfillment",
+        "type": "object",
+        "properties": {
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "shipmentId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock": {
+        "title": "ReserveStock",
+        "type": "object",
+        "properties": {
+          "productItems": {
+            "title": "ProductItem[]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem"
+            }
+          },
+          "referenceId": {
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "productItems": [
+              {
+                "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "quantity": 0
+              }
+            ],
+            "referenceId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent": {
+        "title": "PackageWasSent",
+        "type": "object",
+        "properties": {
+          "carrier": {
+            "type": "string"
+          },
+          "referenceId": {
+            "type": "string"
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          },
+          "trackingNumber": {
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "carrier": "string",
+            "referenceId": "string",
+            "sentAt": "2015-07-20T15:49:04-07:00",
+            "shipmentId": "string",
+            "trackingNumber": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed": {
+        "title": "ShipmentFailed",
+        "type": "object",
+        "properties": {
+          "failedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string",
+            "enum": [
+              "ProductsOutOfStock",
+              "FulfillmentRejected"
+            ]
+          },
+          "referenceId": {
+            "type": "string"
+          },
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "failedAt": "2015-07-20T15:49:04-07:00",
+            "reason": "ProductsOutOfStock",
+            "referenceId": "string",
+            "shipmentId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved": {
+        "title": "StockReserved",
+        "type": "object",
+        "properties": {
+          "referenceId": {
+            "type": "string"
+          },
+          "reservedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "referenceId": "string",
+            "reservedAt": "2015-07-20T15:49:04-07:00",
+            "shipmentId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut": {
+        "title": "ShoppingCartCheckedOut",
+        "type": "object",
+        "properties": {
+          "cartId": {
+            "title": "ShoppingCartId",
+            "type": "string"
+          },
+          "checkedOutAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productItems": {
+            "title": "PricedProductItem[]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem"
+            }
+          },
+          "totalPrice": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "examples": [
+          {
+            "cartId": "string",
+            "checkedOutAt": "2015-07-20T15:49:04-07:00",
+            "customerId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "productItems": [
+              {
+                "productItem": {
+                  "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                  "quantity": 0
+                },
+                "unitPrice": 1.1
+              }
+            ],
+            "totalPrice": 1.1
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem": {
+        "title": "PricedProductItem",
+        "type": "object",
+        "properties": {
+          "productItem": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem"
+          },
+          "unitPrice": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "examples": [
+          {
+            "productItem": {
+              "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+              "quantity": 0
+            },
+            "unitPrice": 1.1
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem": {
+        "title": "ProductItem",
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "examples": [
+          {
+            "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "quantity": 0
+          }
+        ]
+      }
+    },
+    "messages": {
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.CloseUnpaidOrder": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.CloseUnpaidOrder"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.CloseUnpaidOrder",
+        "title": "CloseUnpaidOrder",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.PlaceOrder": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.PlaceOrder"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.PlaceOrder",
+        "title": "PlaceOrder",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPackageSent": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPackageSent"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPackageSent",
+        "title": "RecordOrderPackageSent",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentAuthorization": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentAuthorization"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentAuthorization",
+        "title": "RecordOrderPaymentAuthorization",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentCapture": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentCapture"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentCapture",
+        "title": "RecordOrderPaymentCapture",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentFailure": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentFailure"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentFailure",
+        "title": "RecordOrderPaymentFailure",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderShipmentFailure": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderShipmentFailure"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderShipmentFailure",
+        "title": "RecordOrderShipmentFailure",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderStockReservation": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderStockReservation"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderStockReservation",
+        "title": "RecordOrderStockReservation",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment",
+        "title": "AuthorizePayment",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment",
+        "title": "CancelPayment",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment",
+        "title": "CapturePayment",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized",
+        "title": "PaymentAuthorized",
+        "bindings": {},
+        "x-eventcatalog-message-type": "event"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured",
+        "title": "PaymentCaptured",
+        "bindings": {},
+        "x-eventcatalog-message-type": "event"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed",
+        "title": "PaymentFailed",
+        "bindings": {},
+        "x-eventcatalog-message-type": "event"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock",
+        "title": "ReleaseStock",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment",
+        "title": "RequestFulfillment",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock",
+        "title": "ReserveStock",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent",
+        "title": "PackageWasSent",
+        "bindings": {},
+        "x-eventcatalog-message-type": "event"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed",
+        "title": "ShipmentFailed",
+        "bindings": {},
+        "x-eventcatalog-message-type": "event"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved",
+        "title": "StockReserved",
+        "bindings": {},
+        "x-eventcatalog-message-type": "event"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version=3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut",
+        "title": "ShoppingCartCheckedOut",
+        "bindings": {},
+        "x-eventcatalog-message-type": "event"
+      }
+    }
+  },
+  "operations": {
+    "orders-internal_receive_closeUnpaidOrder": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/orders-internal"
+      },
+      "title": "orders-internal_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.CloseUnpaidOrder"
+        }
+      ]
+    },
+    "orders-internal_receive_placeOrder": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/orders-internal"
+      },
+      "title": "orders-internal_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.PlaceOrder"
+        }
+      ]
+    },
+    "orders-internal_receive_recordOrderPackageSent": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/orders-internal"
+      },
+      "title": "orders-internal_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPackageSent"
+        }
+      ]
+    },
+    "orders-internal_receive_recordOrderPaymentAuthorization": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/orders-internal"
+      },
+      "title": "orders-internal_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentAuthorization"
+        }
+      ]
+    },
+    "orders-internal_receive_recordOrderPaymentCapture": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/orders-internal"
+      },
+      "title": "orders-internal_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentCapture"
+        }
+      ]
+    },
+    "orders-internal_receive_recordOrderPaymentFailure": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/orders-internal"
+      },
+      "title": "orders-internal_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentFailure"
+        }
+      ]
+    },
+    "orders-internal_receive_recordOrderShipmentFailure": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/orders-internal"
+      },
+      "title": "orders-internal_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderShipmentFailure"
+        }
+      ]
+    },
+    "orders-internal_receive_recordOrderStockReservation": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/orders-internal"
+      },
+      "title": "orders-internal_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderStockReservation"
+        }
+      ]
+    },
+    "orders-internal_send_on": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/orders-internal"
+      },
+      "title": "orders-internal_send",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.PlaceOrder"
+        },
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPackageSent"
+        },
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentAuthorization"
+        },
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentCapture"
+        },
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentFailure"
+        },
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderShipmentFailure"
+        },
+        {
+          "$ref": "#/channels/orders-internal/messages/io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderStockReservation"
+        }
+      ]
+    },
+    "orders-payments-responses_receive_on": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/orders-payments-responses"
+      },
+      "title": "orders-payments-responses_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/orders-payments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized"
+        },
+        {
+          "$ref": "#/channels/orders-payments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured"
+        },
+        {
+          "$ref": "#/channels/orders-payments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed"
+        }
+      ]
+    },
+    "orders-shipments-responses_receive_on": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/orders-shipments-responses"
+      },
+      "title": "orders-shipments-responses_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/orders-shipments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent"
+        },
+        {
+          "$ref": "#/channels/orders-shipments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed"
+        },
+        {
+          "$ref": "#/channels/orders-shipments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved"
+        }
+      ]
+    },
+    "orders-shopping_carts-external_receive_on": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/orders-shopping_carts-external"
+      },
+      "title": "orders-shopping_carts-external_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/orders-shopping_carts-external/messages/io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut"
+        }
+      ]
+    },
+    "payments-requests_send_on": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/payments-requests"
+      },
+      "title": "payments-requests_send",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/payments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment"
+        },
+        {
+          "$ref": "#/channels/payments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment"
+        },
+        {
+          "$ref": "#/channels/payments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment"
+        }
+      ]
+    },
+    "shipments-requests_send_on": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/shipments-requests"
+      },
+      "title": "shipments-requests_send",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/shipments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock"
+        },
+        {
+          "$ref": "#/channels/shipments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment"
+        },
+        {
+          "$ref": "#/channels/shipments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock"
+        }
+      ]
+    }
+  }
+}

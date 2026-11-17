@@ -1,0 +1,567 @@
+{
+  "asyncapi": "3.1.0",
+  "info": {
+    "title": "E-commerce",
+    "version": "1.0.0",
+    "x-generator": "springwolf"
+  },
+  "defaultContentType": "application/json",
+  "channels": {
+    "shipments-internal": {
+      "address": "shipments-internal",
+      "messages": {
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.DeliverPackage": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.DeliverPackage"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RejectFulfillment": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RejectFulfillment"
+        }
+      },
+      "bindings": {}
+    },
+    "shipments-requests": {
+      "address": "shipments-requests",
+      "messages": {
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock"
+        }
+      },
+      "bindings": {}
+    },
+    "shipments-responses": {
+      "address": "shipments-responses",
+      "messages": {
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed"
+        },
+        "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved": {
+          "$ref": "#/components/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved"
+        }
+      },
+      "bindings": {}
+    }
+  },
+  "components": {
+    "schemas": {
+      "HeadersNotDocumented": {
+        "title": "HeadersNotDocumented",
+        "type": "object",
+        "properties": {},
+        "description": "There can be headers, but they are not explicitly documented.",
+        "examples": [
+          {}
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem": {
+        "title": "ProductItem",
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "examples": [
+          {
+            "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "quantity": 0
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent": {
+        "title": "ConfirmPackageSent",
+        "type": "object",
+        "properties": {
+          "carrier": {
+            "type": "string"
+          },
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          },
+          "trackingNumber": {
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "carrier": "string",
+            "shipmentId": "string",
+            "trackingNumber": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.DeliverPackage": {
+        "title": "DeliverPackage",
+        "type": "object",
+        "properties": {
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "shipmentId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RejectFulfillment": {
+        "title": "RejectFulfillment",
+        "type": "object",
+        "properties": {
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "shipmentId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock": {
+        "title": "ReleaseStock",
+        "type": "object",
+        "properties": {
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "shipmentId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment": {
+        "title": "RequestFulfillment",
+        "type": "object",
+        "properties": {
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "shipmentId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock": {
+        "title": "ReserveStock",
+        "type": "object",
+        "properties": {
+          "productItems": {
+            "title": "ProductItem[]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem"
+            }
+          },
+          "referenceId": {
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "productItems": [
+              {
+                "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "quantity": 0
+              }
+            ],
+            "referenceId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent": {
+        "title": "PackageWasSent",
+        "type": "object",
+        "properties": {
+          "carrier": {
+            "type": "string"
+          },
+          "referenceId": {
+            "type": "string"
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          },
+          "trackingNumber": {
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "carrier": "string",
+            "referenceId": "string",
+            "sentAt": "2015-07-20T15:49:04-07:00",
+            "shipmentId": "string",
+            "trackingNumber": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed": {
+        "title": "ShipmentFailed",
+        "type": "object",
+        "properties": {
+          "failedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string",
+            "enum": [
+              "ProductsOutOfStock",
+              "FulfillmentRejected"
+            ]
+          },
+          "referenceId": {
+            "type": "string"
+          },
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "failedAt": "2015-07-20T15:49:04-07:00",
+            "reason": "ProductsOutOfStock",
+            "referenceId": "string",
+            "shipmentId": "string"
+          }
+        ]
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved": {
+        "title": "StockReserved",
+        "type": "object",
+        "properties": {
+          "referenceId": {
+            "type": "string"
+          },
+          "reservedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "shipmentId": {
+            "title": "ShipmentId",
+            "type": "string"
+          }
+        },
+        "examples": [
+          {
+            "referenceId": "string",
+            "reservedAt": "2015-07-20T15:49:04-07:00",
+            "shipmentId": "string"
+          }
+        ]
+      }
+    },
+    "messages": {
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version\u003d3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent",
+        "title": "ConfirmPackageSent",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.DeliverPackage": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version\u003d3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.DeliverPackage"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.DeliverPackage",
+        "title": "DeliverPackage",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RejectFulfillment": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version\u003d3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RejectFulfillment"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RejectFulfillment",
+        "title": "RejectFulfillment",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version\u003d3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock",
+        "title": "ReleaseStock",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version\u003d3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment",
+        "title": "RequestFulfillment",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version\u003d3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock",
+        "title": "ReserveStock",
+        "bindings": {},
+        "x-eventcatalog-message-type": "command"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version\u003d3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent",
+        "title": "PackageWasSent",
+        "bindings": {},
+        "x-eventcatalog-message-type": "event"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version\u003d3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed",
+        "title": "ShipmentFailed",
+        "bindings": {},
+        "x-eventcatalog-message-type": "event"
+      },
+      "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved": {
+        "headers": {
+          "$ref": "#/components/schemas/HeadersNotDocumented"
+        },
+        "payload": {
+          "schemaFormat": "application/vnd.aai.asyncapi+json;version\u003d3.1.0",
+          "schema": {
+            "$ref": "#/components/schemas/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved"
+          }
+        },
+        "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved",
+        "title": "StockReserved",
+        "bindings": {},
+        "x-eventcatalog-message-type": "event"
+      }
+    }
+  },
+  "operations": {
+    "shipments-internal_receive_confirmPackageSent": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/shipments-internal"
+      },
+      "title": "shipments-internal_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/shipments-internal/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent"
+        }
+      ]
+    },
+    "shipments-internal_receive_deliverPackage": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/shipments-internal"
+      },
+      "title": "shipments-internal_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/shipments-internal/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.DeliverPackage"
+        }
+      ]
+    },
+    "shipments-internal_receive_rejectFulfillment": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/shipments-internal"
+      },
+      "title": "shipments-internal_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/shipments-internal/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RejectFulfillment"
+        }
+      ]
+    },
+    "shipments-requests_receive_releaseStock": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/shipments-requests"
+      },
+      "title": "shipments-requests_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/shipments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock"
+        }
+      ]
+    },
+    "shipments-requests_receive_requestFulfillment": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/shipments-requests"
+      },
+      "title": "shipments-requests_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/shipments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment"
+        }
+      ]
+    },
+    "shipments-requests_receive_reserveStock": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/shipments-requests"
+      },
+      "title": "shipments-requests_receive",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/shipments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock"
+        }
+      ]
+    },
+    "shipments-responses_send_onFulfillmentRejected": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/shipments-responses"
+      },
+      "title": "shipments-responses_send",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/shipments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed"
+        }
+      ]
+    },
+    "shipments-responses_send_onPackageWasSent": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/shipments-responses"
+      },
+      "title": "shipments-responses_send",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/shipments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent"
+        }
+      ]
+    },
+    "shipments-responses_send_onProductWasOutOfStock": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/shipments-responses"
+      },
+      "title": "shipments-responses_send",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/shipments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed"
+        }
+      ]
+    },
+    "shipments-responses_send_onStockReserved": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/shipments-responses"
+      },
+      "title": "shipments-responses_send",
+      "description": "Auto-generated description",
+      "bindings": {},
+      "messages": [
+        {
+          "$ref": "#/channels/shipments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved"
+        }
+      ]
+    }
+  }
+}

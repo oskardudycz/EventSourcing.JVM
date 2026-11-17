@@ -2,7 +2,6 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.authorization;
 
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -12,20 +11,17 @@ import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentComm
 public class PaymentTimeoutWorker {
   private final PendingPayments pendingPayments;
   private final MessageBus messageBus;
-  private final Duration timeout;
 
   public PaymentTimeoutWorker(
     PendingPayments pendingPayments,
-    MessageBus messageBus,
-    Duration timeout
+    MessageBus messageBus
   ) {
     this.pendingPayments = pendingPayments;
     this.messageBus = messageBus;
-    this.timeout = timeout;
   }
 
   public void handle(OffsetDateTime now) {
-    for (var paymentId : pendingPayments.olderThan(now.minus(timeout))) {
+    for (var paymentId : pendingPayments.timedOutAt(now)) {
       messageBus.publish(List.of(new TimeOutPayment(paymentId, now)));
     }
   }

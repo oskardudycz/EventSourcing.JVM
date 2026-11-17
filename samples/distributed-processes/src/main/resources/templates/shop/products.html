@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="~{shop/fragments :: head('Products')}"></head>
+<body>
+<header th:replace="~{shop/fragments :: header(${customerId}, 'products')}"></header>
+<main class="page">
+  <div class="page-title">
+    <h1>Products</h1>
+    <a class="button" th:href="@{/shop/customers/{c}/cart(c=${customerId})}" th:text="'Cart (' + ${cartSize} + ')'">Cart</a>
+  </div>
+  <div class="grid">
+    <article class="card product" th:each="offer : ${offers}">
+      <h2 th:text="${offer.product().name()}">Name</h2>
+      <p class="muted" th:text="${offer.product().description()}">Description</p>
+      <p class="price" th:text="${'$' + #numbers.formatDecimal(offer.unitPrice(), 1, 'COMMA', 2, 'POINT')}">$0.00</p>
+      <form method="post" th:action="@{/shop/customers/{c}/cart/items(c=${customerId})}">
+        <input type="hidden" name="productId" th:value="${offer.product().id()}">
+        <input type="hidden" name="quantity" value="1">
+        <button class="button primary" type="submit">Add to cart</button>
+      </form>
+    </article>
+  </div>
+</main>
+</body>
+</html>

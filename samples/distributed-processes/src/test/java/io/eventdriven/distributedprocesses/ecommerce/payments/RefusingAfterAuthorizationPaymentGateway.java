@@ -1,22 +1,24 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments;
 
-import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
+import java.net.URI;
+import java.time.OffsetDateTime;
 
-import java.util.List;
-
-import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentAuthorization;
-
-// Grants the hold, then refuses every call that follows it.
+// Opens checkout sessions, then refuses every call that follows the hold.
 public class RefusingAfterAuthorizationPaymentGateway implements PaymentGateway {
-  private final MessageBus messageBus;
-
-  public RefusingAfterAuthorizationPaymentGateway(MessageBus messageBus) {
-    this.messageBus = messageBus;
+  @Override
+  public CheckoutSession createCheckoutSession(
+    PaymentId paymentId,
+    double amount,
+    URI successUrl,
+    URI cancelUrl,
+    OffsetDateTime expiresAt
+  ) {
+    return new CheckoutSession(URI.create("https://checkout.example/c/pay/" + paymentId.tail()), expiresAt);
   }
 
   @Override
-  public void authorize(PaymentId paymentId, double amount) {
-    messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId)));
+  public void expireCheckoutSession(PaymentId paymentId) {
+    throw new RuntimeException("Payment provider is unreachable");
   }
 
   @Override
@@ -25,7 +27,7 @@ public class RefusingAfterAuthorizationPaymentGateway implements PaymentGateway 
   }
 
   @Override
-  public void voidAuthorization(PaymentId paymentId) {
+  public void cancel(PaymentId paymentId) {
     throw new RuntimeException("Payment provider is unreachable");
   }
 }

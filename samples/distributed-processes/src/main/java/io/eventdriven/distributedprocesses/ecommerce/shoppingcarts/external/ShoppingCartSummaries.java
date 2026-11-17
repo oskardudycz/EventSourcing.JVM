@@ -44,19 +44,19 @@ public class ShoppingCartSummaries extends Projection<ShoppingCartSummary> {
   protected @Nullable ShoppingCartSummary evolve(@Nullable ShoppingCartSummary current, Object event) {
     return switch (event) {
       case ProductItemAddedToShoppingCart e -> current == null
-        ? withProductItems(e.clientId(), ProductItems.empty().add(e.productItem()))
-        : withProductItems(current.getClientId(), productItemsOf(current).add(e.productItem()));
+        ? withProductItems(e.customerId(), ProductItems.empty().add(e.productItem()))
+        : withProductItems(current.getCustomerId(), productItemsOf(current).add(e.productItem()));
       case ProductItemRemovedFromShoppingCart e ->
-        withProductItems(current.getClientId(), productItemsOf(current).remove(e.productItem()));
+        withProductItems(current.getCustomerId(), productItemsOf(current).remove(e.productItem()));
       case ProductItemPriceChanged e ->
-        withProductItems(current.getClientId(), productItemsOf(current).changeUnitPrice(e.productId(), e.newUnitPrice()));
+        withProductItems(current.getCustomerId(), productItemsOf(current).changeUnitPrice(e.productId(), e.newUnitPrice()));
       default -> current;
     };
   }
 
-  private static ShoppingCartSummary withProductItems(UUID clientId, ProductItems productItems) {
+  private static ShoppingCartSummary withProductItems(UUID customerId, ProductItems productItems) {
     return new ShoppingCartSummary(
-      clientId,
+      customerId,
       productItems.items().toArray(new PricedProductItem[0]),
       productItems.items().stream()
         .mapToDouble(PricedProductItem::totalPrice)

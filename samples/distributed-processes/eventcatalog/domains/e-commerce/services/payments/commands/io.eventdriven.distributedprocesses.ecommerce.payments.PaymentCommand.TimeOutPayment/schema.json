@@ -1,0 +1,23 @@
+{
+  "title": "TimeOutPayment",
+  "type": "object",
+  "properties": {
+    "paymentId": {
+      "title": "PaymentId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-8>"
+    },
+    "timedOutAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-9>"
+    }
+  },
+  "examples": [
+    {
+      "paymentId": "string",
+      "timedOutAt": "2015-07-20T15:49:04-07:00"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.TimeOutPayment"
+}

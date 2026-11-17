@@ -18,6 +18,12 @@ public class UrnsTests {
   }
 
   @Test
+  public void routingKeyDropsThePrefixAndJoinsTheSegmentsWithDots() {
+    assertThat(Urns.routingKeyOf("urn:ecommerce:order:9f2a3b7c-1"))
+      .isEqualTo("ecommerce.order.9f2a3b7c-1");
+  }
+
+  @Test
   public void ofBuildsTheUrnFromAStringTail() {
     assertThat(Urns.of("ecommerce", "cart", "the-tail")).isEqualTo("urn:ecommerce:cart:the-tail");
   }

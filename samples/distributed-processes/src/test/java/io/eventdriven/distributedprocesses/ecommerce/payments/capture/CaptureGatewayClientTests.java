@@ -7,6 +7,7 @@ import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.CaptureFailureReason;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentValidity;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.RecordingPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.RefusingAfterAuthorizationPaymentGateway;
@@ -32,6 +33,7 @@ public class CaptureGatewayClientTests {
   private final PaymentId paymentId = PaymentId.derivedFrom(referenceId);
   private final double amount = 62.5;
   private final OffsetDateTime now = OffsetDateTime.now();
+  private final OffsetDateTime captureBefore = now.plus(authorizationValidity);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
   private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
@@ -42,15 +44,11 @@ public class CaptureGatewayClientTests {
     var gateway = new RecordingPaymentGateway(messageBus);
     configure(gateway);
 
-    messageBus.publish(List.of(
-      new AuthorizePayment(paymentId, referenceId, amount),
-      new CapturePayment(paymentId)
-    ));
+    authorize();
 
-    assertThat(gateway.calls).containsExactly(
-      "authorize:%s:%s".formatted(paymentId, amount),
-      "capture:%s:%s".formatted(paymentId, amount)
-    );
+    messageBus.publish(List.of(new CapturePayment(paymentId)));
+
+    assertThat(gateway.calls).containsExactly("capture:%s:%s".formatted(paymentId, amount));
   }
 
   @Test
@@ -68,7 +66,7 @@ public class CaptureGatewayClientTests {
 
   @Test
   public void unreachableGatewayFailsTheCaptureInsteadOfThrowing() {
-    configure(new RefusingAfterAuthorizationPaymentGateway(messageBus));
+    configure(new RefusingAfterAuthorizationPaymentGateway());
     authorize();
 
     assertThatCode(() -> messageBus.publish(List.of(new CapturePayment(paymentId))))
@@ -85,7 +83,7 @@ public class CaptureGatewayClientTests {
     configure(new SilentPaymentGateway());
     messageBus.publish(List.of(
       new AuthorizePayment(paymentId, referenceId, amount),
-      new ConfirmPaymentAuthorization(paymentId)
+      new ConfirmPaymentAuthorization(paymentId, captureBefore)
     ));
     published.reset();
 
@@ -95,7 +93,10 @@ public class CaptureGatewayClientTests {
   }
 
   private void authorize() {
-    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
+    messageBus.publish(List.of(
+      new AuthorizePayment(paymentId, referenceId, amount),
+      new ConfirmPaymentAuthorization(paymentId, captureBefore)
+    ));
     published.reset();
   }
 
@@ -106,8 +107,7 @@ public class CaptureGatewayClientTests {
       eventStore,
       messageBus,
       paymentGateway,
-      paymentTimeout,
-      authorizationValidity,
+      PaymentValidity.of(paymentTimeout),
       () -> now
     );
   }

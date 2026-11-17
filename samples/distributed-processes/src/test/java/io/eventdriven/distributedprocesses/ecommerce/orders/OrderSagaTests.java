@@ -24,7 +24,7 @@ public class OrderSagaTests {
   private final OrderId orderId = OrderId.derivedFrom(cartId.value());
   private final PaymentId paymentId = PaymentId.derivedFrom(orderId.value());
   private final ShipmentId shipmentId = ShipmentId.derivedFrom(orderId.value());
-  private final UUID clientId = UUID.randomUUID();
+  private final UUID customerId = UUID.randomUUID();
   private final UUID productId = UUID.randomUUID();
   private final double totalPrice = 25;
   private final String carrier = "DHL";
@@ -47,10 +47,10 @@ public class OrderSagaTests {
 
   @Test
   public void aCheckedOutCartStartsAnOrderWhoseIdIsDerivedFromTheCart() {
-    saga.on(new ShoppingCartExternalEvent.ShoppingCartCheckedOut(cartId, clientId, cartItems(), totalPrice, now));
+    saga.on(new ShoppingCartExternalEvent.ShoppingCartCheckedOut(cartId, customerId, cartItems(), totalPrice, now));
 
     sent.shouldReceiveMessages(
-      new PlaceOrder(orderId, cartId, clientId, orderItems, totalPrice)
+      new PlaceOrder(orderId, cartId, customerId, orderItems, totalPrice)
     );
   }
 
@@ -176,40 +176,40 @@ public class OrderSagaTests {
 
 
   @Test
-  public void aCancelledOrderWithAnAuthorizedHoldVoidsItAndReleasesTheStock() {
-    saga.on(orderCancelled(OrderPaymentStatus.Authorized, OrderShipmentStatus.Reserved));
+  public void aCanceledOrderWithAnAuthorizedHoldCancelsItAndReleasesTheStock() {
+    saga.on(orderCanceled(OrderPaymentStatus.Authorized, OrderShipmentStatus.Reserved));
 
     sent.shouldReceiveMessages(
-      new PaymentCommand.VoidPayment(paymentId),
+      new PaymentCommand.CancelPayment(paymentId),
       new ShipmentCommand.ReleaseStock(shipmentId)
     );
   }
 
   @Test
-  public void aCancelledOrderWithOnlyTheCardHeldVoidsThatHold() {
-    saga.on(orderCancelled(OrderPaymentStatus.Authorized, OrderShipmentStatus.NotReserved));
+  public void aCanceledOrderWithOnlyTheCardHeldCancelsThatHold() {
+    saga.on(orderCanceled(OrderPaymentStatus.Authorized, OrderShipmentStatus.NotReserved));
 
-    sent.shouldReceiveMessages(new PaymentCommand.VoidPayment(paymentId));
+    sent.shouldReceiveMessages(new PaymentCommand.CancelPayment(paymentId));
   }
 
   @Test
-  public void aCancelledOrderThatTookNoHoldsUndoesNothing() {
-    saga.on(orderCancelled(OrderPaymentStatus.NotAuthorized, OrderShipmentStatus.NotReserved));
+  public void aCanceledOrderThatTookNoHoldsUndoesNothing() {
+    saga.on(orderCanceled(OrderPaymentStatus.NotAuthorized, OrderShipmentStatus.NotReserved));
 
     sent.shouldNotReceiveAnyEvent();
   }
 
   private OrderEvent.OrderPlaced orderPlaced() {
     return new OrderEvent.OrderPlaced(
-      orderId, cartId, clientId, orderItems, totalPrice, now
+      orderId, cartId, customerId, orderItems, totalPrice, now
     );
   }
 
-  private OrderEvent.OrderCancelled orderCancelled(
+  private OrderEvent.OrderCanceled orderCanceled(
     OrderPaymentStatus paymentStatus,
     OrderShipmentStatus shipmentStatus
   ) {
-    return new OrderEvent.OrderCancelled(
+    return new OrderEvent.OrderCanceled(
       orderId,
       paymentId,
       paymentStatus,

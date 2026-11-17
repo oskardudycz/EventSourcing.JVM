@@ -36,6 +36,10 @@ public final class Urns {
     return urn;
   }
 
+  public static String routingKeyOf(String urn) {
+    return String.join(".", namespaceOf(urn), typeOf(urn), tailOf(urn));
+  }
+
   public static String namespaceOf(String urn) {
     return segmentsOf(urn)[1];
   }

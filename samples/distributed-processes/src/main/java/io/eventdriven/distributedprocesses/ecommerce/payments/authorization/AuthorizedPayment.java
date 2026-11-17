@@ -7,23 +7,23 @@ import java.time.OffsetDateTime;
 
 public class AuthorizedPayment implements Versioned {
   private PaymentId paymentId;
-  private OffsetDateTime expiresAt;
+  private OffsetDateTime captureBefore;
   private long version;
 
   public AuthorizedPayment() {
   }
 
-  public AuthorizedPayment(PaymentId paymentId, OffsetDateTime expiresAt) {
+  public AuthorizedPayment(PaymentId paymentId, OffsetDateTime captureBefore) {
     this.paymentId = paymentId;
-    this.expiresAt = expiresAt;
+    this.captureBefore = captureBefore;
   }
 
   public PaymentId getPaymentId() {
     return paymentId;
   }
 
-  public OffsetDateTime getExpiresAt() {
-    return expiresAt;
+  public OffsetDateTime getCaptureBefore() {
+    return captureBefore;
   }
 
   @Override

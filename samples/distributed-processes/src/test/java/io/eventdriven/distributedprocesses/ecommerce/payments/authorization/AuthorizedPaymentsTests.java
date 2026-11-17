@@ -21,7 +21,7 @@ public class AuthorizedPaymentsTests {
   private final String streamId = PaymentFacade.mapToStreamId(paymentId);
   private final double amount = 62.5;
   private final OffsetDateTime authorizedAt = OffsetDateTime.now();
-  private final OffsetDateTime expiresAt = authorizedAt.plus(Duration.ofDays(7));
+  private final OffsetDateTime captureBefore = authorizedAt.plus(Duration.ofDays(7));
 
   private final Database database = new Database();
   private final AuthorizedPayments authorizedPayments = new AuthorizedPayments(database);
@@ -30,9 +30,9 @@ public class AuthorizedPaymentsTests {
   public void holdIsExpiredOnceItsDeadlineIsReached() {
     authorize();
 
-    assertThat(authorizedPayments.expiredAt(expiresAt.minusDays(1))).isEmpty();
-    assertThat(authorizedPayments.expiredAt(expiresAt)).containsExactly(paymentId);
-    assertThat(authorizedPayments.expiredAt(expiresAt.plusDays(1))).containsExactly(paymentId);
+    assertThat(authorizedPayments.expiredAt(captureBefore.minusDays(1))).isEmpty();
+    assertThat(authorizedPayments.expiredAt(captureBefore)).containsExactly(paymentId);
+    assertThat(authorizedPayments.expiredAt(captureBefore.plusDays(1))).containsExactly(paymentId);
   }
 
   @Test
@@ -41,25 +41,25 @@ public class AuthorizedPaymentsTests {
 
     authorizedPayments.handle(at(new PaymentCaptureRequested(paymentId, amount, authorizedAt), 2));
 
-    assertThat(authorizedPayments.expiredAt(expiresAt.plusDays(1))).isEmpty();
+    assertThat(authorizedPayments.expiredAt(captureBefore.plusDays(1))).isEmpty();
   }
 
   @Test
   public void voidedHoldIsNoLongerWatched() {
     authorize();
 
-    authorizedPayments.handle(at(new PaymentVoided(paymentId, authorizedAt), 2));
+    authorizedPayments.handle(at(new PaymentCanceled(paymentId, authorizedAt), 2));
 
-    assertThat(authorizedPayments.expiredAt(expiresAt.plusDays(1))).isEmpty();
+    assertThat(authorizedPayments.expiredAt(captureBefore.plusDays(1))).isEmpty();
   }
 
   @Test
   public void expiredHoldIsNoLongerWatched() {
     authorize();
 
-    authorizedPayments.handle(at(new PaymentAuthorizationExpired(paymentId, expiresAt), 2));
+    authorizedPayments.handle(at(new PaymentAuthorizationExpired(paymentId, captureBefore), 2));
 
-    assertThat(authorizedPayments.expiredAt(expiresAt.plusDays(1))).isEmpty();
+    assertThat(authorizedPayments.expiredAt(captureBefore.plusDays(1))).isEmpty();
   }
 
   @Test
@@ -67,17 +67,17 @@ public class AuthorizedPaymentsTests {
     authorize();
     authorize();
 
-    assertThat(authorizedPayments.expiredAt(expiresAt)).containsExactly(paymentId);
+    assertThat(authorizedPayments.expiredAt(captureBefore)).containsExactly(paymentId);
 
     var captureRequested = at(new PaymentCaptureRequested(paymentId, amount, authorizedAt), 2);
     authorizedPayments.handle(captureRequested);
     authorizedPayments.handle(captureRequested);
 
-    assertThat(authorizedPayments.expiredAt(expiresAt)).isEmpty();
+    assertThat(authorizedPayments.expiredAt(captureBefore)).isEmpty();
   }
 
   private void authorize() {
-    authorizedPayments.handle(at(new PaymentAuthorized(paymentId, authorizedAt, expiresAt), 1));
+    authorizedPayments.handle(at(new PaymentAuthorized(paymentId, authorizedAt, captureBefore), 1));
   }
 
   private <Event> EventEnvelope<Event> at(Event event, long streamPosition) {

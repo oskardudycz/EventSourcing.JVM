@@ -1,0 +1,76 @@
+{
+  "title": "PlaceOrder",
+  "type": "object",
+  "properties": {
+    "cartId": {
+      "title": "ShoppingCartId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-2>"
+    },
+    "customerId": {
+      "type": "string",
+      "format": "uuid",
+      "x-parser-schema-id": "<anonymous-schema-3>"
+    },
+    "orderId": {
+      "title": "OrderId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-4>"
+    },
+    "productItems": {
+      "title": "PricedProductItem[]",
+      "type": "array",
+      "items": {
+        "title": "PricedProductItem",
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid",
+            "x-parser-schema-id": "<anonymous-schema-6>"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "x-parser-schema-id": "<anonymous-schema-7>"
+          },
+          "unitPrice": {
+            "type": "number",
+            "format": "double",
+            "x-parser-schema-id": "<anonymous-schema-8>"
+          }
+        },
+        "examples": [
+          {
+            "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "quantity": 0,
+            "unitPrice": 1.1
+          }
+        ],
+        "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem"
+      },
+      "x-parser-schema-id": "<anonymous-schema-5>"
+    },
+    "totalPrice": {
+      "type": "number",
+      "format": "double",
+      "x-parser-schema-id": "<anonymous-schema-9>"
+    }
+  },
+  "examples": [
+    {
+      "cartId": "string",
+      "customerId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "orderId": "string",
+      "productItems": [
+        {
+          "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+          "quantity": 0,
+          "unitPrice": 1.1
+        }
+      ],
+      "totalPrice": 1.1
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.PlaceOrder"
+}

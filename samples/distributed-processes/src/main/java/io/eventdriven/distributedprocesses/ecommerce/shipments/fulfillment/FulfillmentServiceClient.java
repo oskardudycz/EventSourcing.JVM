@@ -18,7 +18,7 @@ public class FulfillmentServiceClient {
     try {
       fulfillmentService.request(event.shipmentId(), event.productItems());
     } catch (Exception failedRequest) {
-      // Nothing is recorded here: the order is cancelled when its payment authorization expires.
+      // Nothing is recorded here: the order is canceled when its payment authorization expires.
       logger.error(
         "Requesting fulfillment for shipment %s failed".formatted(event.shipmentId()),
         failedRequest

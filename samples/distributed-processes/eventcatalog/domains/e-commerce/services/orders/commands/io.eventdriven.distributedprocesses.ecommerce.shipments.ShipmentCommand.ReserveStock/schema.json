@@ -1,0 +1,50 @@
+{
+  "title": "ReserveStock",
+  "type": "object",
+  "properties": {
+    "productItems": {
+      "title": "ProductItem[]",
+      "type": "array",
+      "items": {
+        "title": "ProductItem",
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid",
+            "x-parser-schema-id": "<anonymous-schema-64>"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "x-parser-schema-id": "<anonymous-schema-65>"
+          }
+        },
+        "examples": [
+          {
+            "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "quantity": 0
+          }
+        ],
+        "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem"
+      },
+      "x-parser-schema-id": "<anonymous-schema-63>"
+    },
+    "referenceId": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-66>"
+    }
+  },
+  "examples": [
+    {
+      "productItems": [
+        {
+          "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+          "quantity": 0
+        }
+      ],
+      "referenceId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock"
+}

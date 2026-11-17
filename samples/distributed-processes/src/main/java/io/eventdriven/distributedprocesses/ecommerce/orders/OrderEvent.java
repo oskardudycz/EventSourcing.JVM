@@ -12,7 +12,7 @@ public sealed interface OrderEvent {
   record OrderPlaced(
     OrderId orderId,
     ShoppingCartId cartId,
-    UUID clientId,
+    UUID customerId,
     PricedProductItem[] productItems,
     double totalPrice,
     OffsetDateTime placedAt
@@ -66,7 +66,8 @@ public sealed interface OrderEvent {
 
   record OrderPaymentFailed(
     OrderId orderId,
-    OffsetDateTime failedAt
+    OffsetDateTime failedAt,
+    OffsetDateTime dueAt
   ) implements OrderEvent {
   }
 
@@ -97,14 +98,14 @@ public sealed interface OrderEvent {
   ) implements OrderEvent {
   }
 
-  record OrderCancelled(
+  record OrderCanceled(
     OrderId orderId,
-    PaymentId paymentId, // nullable — an order cancelled before the authorisation has none
+    PaymentId paymentId, // nullable — an order canceled before the authorisation has none
     OrderPaymentStatus paymentStatus,
-    ShipmentId shipmentId, // nullable — an order cancelled before the reservation has none
+    ShipmentId shipmentId, // nullable — an order canceled before the reservation has none
     OrderShipmentStatus shipmentStatus,
     OrderCancellationReason reason,
-    OffsetDateTime cancelledAt
+    OffsetDateTime canceledAt
   ) implements OrderEvent {
   }
 }

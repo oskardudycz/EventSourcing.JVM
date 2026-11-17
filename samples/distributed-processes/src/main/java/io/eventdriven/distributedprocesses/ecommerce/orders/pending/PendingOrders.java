@@ -17,7 +17,7 @@ public class PendingOrders extends Projection<PendingOrder> {
 
   @Override
   public List<Class<?>> canHandle() {
-    return List.of(OrderPlaced.class, OrderCompleted.class, OrderClosedUnpaid.class, OrderCancelled.class);
+    return List.of(OrderPlaced.class, OrderCompleted.class, OrderClosedUnpaid.class, OrderCanceled.class);
   }
 
   @Override
@@ -26,7 +26,7 @@ public class PendingOrders extends Projection<PendingOrder> {
       case OrderPlaced e -> e.orderId();
       case OrderCompleted e -> e.orderId();
       case OrderClosedUnpaid e -> e.orderId();
-      case OrderCancelled e -> e.orderId();
+      case OrderCanceled e -> e.orderId();
       default -> throw new IllegalArgumentException("Unexpected event %s".formatted(event));
     };
   }
@@ -35,7 +35,7 @@ public class PendingOrders extends Projection<PendingOrder> {
   protected @Nullable PendingOrder evolve(@Nullable PendingOrder current, Object event) {
     return switch (event) {
       case OrderPlaced e -> new PendingOrder(e.orderId());
-      case OrderCompleted _, OrderClosedUnpaid _, OrderCancelled _ -> null;
+      case OrderCompleted _, OrderClosedUnpaid _, OrderCanceled _ -> null;
       default -> current;
     };
   }

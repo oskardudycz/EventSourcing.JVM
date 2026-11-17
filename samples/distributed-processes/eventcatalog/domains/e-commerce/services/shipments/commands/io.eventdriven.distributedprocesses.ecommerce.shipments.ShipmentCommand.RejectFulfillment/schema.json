@@ -1,0 +1,17 @@
+{
+  "title": "RejectFulfillment",
+  "type": "object",
+  "properties": {
+    "shipmentId": {
+      "title": "ShipmentId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-5>"
+    }
+  },
+  "examples": [
+    {
+      "shipmentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RejectFulfillment"
+}

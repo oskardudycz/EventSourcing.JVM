@@ -14,8 +14,8 @@ import java.util.UUID;
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
 public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, ShoppingCartEvent, ShoppingCartId> {
-  private final UUID clientId = UUID.randomUUID();
-  private final ShoppingCartId shoppingCartId = ShoppingCartId.of(clientId, 1);
+  private final UUID customerId = UUID.randomUUID();
+  private final ShoppingCartId shoppingCartId = ShoppingCartId.of(customerId, 1);
   private final ProductItem shoes = new ProductItem(UUID.randomUUID(), 2);
   private final ProductItem shirt = new ProductItem(UUID.randomUUID(), 1);
   private final Map<UUID, Double> unitPrices = new HashMap<>(Map.of(shoes.productId(), 10.0, shirt.productId(), 5.0));
@@ -29,8 +29,8 @@ public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, Shop
   @Test
   public void theFirstProductStartsTheCart() {
     given()
-      .when(current -> current.addProductItem(shoppingCartId, clientId, prices, shoes, now))
-      .then(new ProductItemAddedToShoppingCart(shoppingCartId, clientId, new PricedProductItem(shoes, 10), now));
+      .when(current -> current.addProductItem(shoppingCartId, customerId, prices, shoes, now))
+      .then(new ProductItemAddedToShoppingCart(shoppingCartId, customerId, new PricedProductItem(shoes, 10), now));
   }
 
   @Test
@@ -38,8 +38,8 @@ public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, Shop
     unitPrices.put(shoes.productId(), 12.0);
 
     given(added(shoes, 10))
-      .when(current -> current.addProductItem(shoppingCartId, clientId, prices, shoes, now))
-      .then(new ProductItemAddedToShoppingCart(shoppingCartId, clientId, new PricedProductItem(shoes, 10), now));
+      .when(current -> current.addProductItem(shoppingCartId, customerId, prices, shoes, now))
+      .then(new ProductItemAddedToShoppingCart(shoppingCartId, customerId, new PricedProductItem(shoes, 10), now));
   }
 
   @Test
@@ -117,11 +117,11 @@ public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, Shop
   @Test
   public void addingToACheckedOutCartThrows() {
     given(added(shoes, 10), new ShoppingCartCheckedOut(shoppingCartId, now))
-      .when(current -> current.addProductItem(shoppingCartId, clientId, prices, shirt, now))
+      .when(current -> current.addProductItem(shoppingCartId, customerId, prices, shirt, now))
       .thenThrows(IllegalStateException.class);
   }
 
   private ProductItemAddedToShoppingCart added(ProductItem productItem, double unitPrice) {
-    return new ProductItemAddedToShoppingCart(shoppingCartId, clientId, new PricedProductItem(productItem, unitPrice), now);
+    return new ProductItemAddedToShoppingCart(shoppingCartId, customerId, new PricedProductItem(productItem, unitPrice), now);
   }
 }

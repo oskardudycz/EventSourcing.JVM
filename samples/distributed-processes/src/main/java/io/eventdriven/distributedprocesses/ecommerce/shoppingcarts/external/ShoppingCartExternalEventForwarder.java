@@ -1,5 +1,8 @@
 package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external;
 
+import io.github.springwolf.core.asyncapi.annotations.AsyncOperation;
+import io.github.springwolf.core.asyncapi.annotations.AsyncPublisher;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 
@@ -21,13 +24,14 @@ public class ShoppingCartExternalEventForwarder {
     this.messageBus = messageBus;
   }
 
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShoppingCartsConfig.external, payloadType = ShoppingCartExternalEvent.ShoppingCartCheckedOut.class))
   public void onCheckedOut(EventEnvelope<ShoppingCartEvent.ShoppingCartCheckedOut> envelope) {
     var event = envelope.data();
     var cart = get(event.shoppingCartId(), envelope.metadata().streamPosition());
 
     var externalEvent = new ShoppingCartExternalEvent.ShoppingCartCheckedOut(
       event.shoppingCartId(),
-      cart.getClientId(),
+      cart.getCustomerId(),
       cart.getProductItems(),
       cart.getTotalPrice(),
       event.checkedOutAt()

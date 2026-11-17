@@ -12,7 +12,7 @@ public sealed interface OrderCommand {
   record PlaceOrder(
     OrderId orderId,
     ShoppingCartId cartId,
-    UUID clientId,
+    UUID customerId,
     PricedProductItem[] productItems,
     double totalPrice) implements OrderCommand {
   }

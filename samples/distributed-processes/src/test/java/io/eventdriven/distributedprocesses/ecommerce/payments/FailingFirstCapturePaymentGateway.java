@@ -2,12 +2,13 @@ package io.eventdriven.distributedprocesses.ecommerce.payments;
 
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 
+import java.net.URI;
+import java.time.OffsetDateTime;
 import java.util.List;
 
-import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentAuthorization;
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentCapture;
 
-// Grants every hold, refuses the first capture, then grants the captures that follow.
+// Refuses the first capture, then grants the captures that follow.
 public class FailingFirstCapturePaymentGateway implements PaymentGateway {
   private final MessageBus messageBus;
   private boolean refusedOnce;
@@ -17,8 +18,18 @@ public class FailingFirstCapturePaymentGateway implements PaymentGateway {
   }
 
   @Override
-  public void authorize(PaymentId paymentId, double amount) {
-    messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId)));
+  public CheckoutSession createCheckoutSession(
+    PaymentId paymentId,
+    double amount,
+    URI successUrl,
+    URI cancelUrl,
+    OffsetDateTime expiresAt
+  ) {
+    return new CheckoutSession(URI.create("https://checkout.example/c/pay/" + paymentId.tail()), expiresAt);
+  }
+
+  @Override
+  public void expireCheckoutSession(PaymentId paymentId) {
   }
 
   @Override
@@ -32,6 +43,6 @@ public class FailingFirstCapturePaymentGateway implements PaymentGateway {
   }
 
   @Override
-  public void voidAuthorization(PaymentId paymentId) {
+  public void cancel(PaymentId paymentId) {
   }
 }

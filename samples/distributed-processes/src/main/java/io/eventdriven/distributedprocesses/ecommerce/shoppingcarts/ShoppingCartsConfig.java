@@ -3,7 +3,12 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts;
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
 import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
+import io.eventdriven.distributedprocesses.core.identifiers.Urns;
+import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
+import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
 import io.eventdriven.distributedprocesses.core.projections.Database;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.api.Carts;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEventForwarder;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartSummaries;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
@@ -14,10 +19,11 @@ import java.util.function.Supplier;
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
 public final class ShoppingCartsConfig {
+  public static final String external = "shopping_carts-external";
   private ShoppingCartsConfig() {
   }
 
-  public static ShoppingCartFacade configure(
+  public static ShoppingCartsModule configure(
     EventStore eventStore,
     MessageBus messageBus,
     ProductPriceCalculator prices,
@@ -29,13 +35,13 @@ public final class ShoppingCartsConfig {
       ShoppingCart::empty
     );
 
-    var clientShoppingCarts = new ClientShoppingCarts(new Database());
+    var customerShoppingCarts = new CustomerShoppingCarts(new Database());
 
-    for (var eventType : clientShoppingCarts.canHandle()) {
-      eventStore.subscribe(eventType, clientShoppingCarts::handle);
+    for (var eventType : customerShoppingCarts.canHandle()) {
+      eventStore.subscribe(eventType, customerShoppingCarts::handle);
     }
 
-    var facade = new ShoppingCartFacade(store, clientShoppingCarts, prices, now);
+    var facade = new ShoppingCartFacade(store, customerShoppingCarts, prices, now);
 
     var summaries = new ShoppingCartSummaries(new Database());
 
@@ -43,11 +49,21 @@ public final class ShoppingCartsConfig {
       eventStore.subscribe(eventType, summaries::handle);
     }
 
+    messageBus.routes(new MessageRoutes()
+      .route(ShoppingCartExternalEvent.ShoppingCartCheckedOut.class,
+        event -> new RoutingTarget(external, Urns.routingKeyOf(event.cartId().value()))));
+
     var forwarder = new ShoppingCartExternalEventForwarder(summaries, messageBus);
 
     eventStore
       .subscribe(ShoppingCartCheckedOut.class, forwarder::onCheckedOut);
 
-    return facade;
+    var carts = new Carts(new Database());
+
+    for (var eventType : carts.canHandle()) {
+      eventStore.subscribe(eventType, carts::handle);
+    }
+
+    return new ShoppingCartsModule(facade, customerShoppingCarts, carts);
   }
 }

@@ -1,0 +1,39 @@
+---
+id: AddProductItemToShoppingCart
+version: 1.0.0
+name: AddProductItemToShoppingCart
+summary: ''
+schemaPath: request-body.json
+badges:
+  - content: POST
+    textColor: blue
+    backgroundColor: blue
+  - content: 'tag:Shopping carts'
+    textColor: blue
+    backgroundColor: blue
+operation:
+  method: POST
+  path: '/customers/{customerId}/shopping-carts/current/product-items'
+owners:
+  - shopping-carts
+sidebar:
+  badge: POST
+---
+## POST `(/customers/{customerId}/shopping-carts/current/product-items)`
+
+### Parameters
+- **customerId** (path) (required)
+
+
+
+### Request Body
+<SchemaViewer file="request-body.json" maxHeight="500" id="request-body" />
+
+
+### Responses
+
+
+
+## Architecture
+
+<NodeGraph />

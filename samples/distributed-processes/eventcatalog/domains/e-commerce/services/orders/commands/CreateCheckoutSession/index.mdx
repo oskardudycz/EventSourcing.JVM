@@ -1,0 +1,39 @@
+---
+id: CreateCheckoutSession
+version: 1.0.0
+name: CreateCheckoutSession
+summary: ''
+schemaPath: ''
+badges:
+  - content: POST
+    textColor: blue
+    backgroundColor: blue
+  - content: 'tag:Orders'
+    textColor: blue
+    backgroundColor: blue
+operation:
+  method: POST
+  path: >-
+    /customers/{customerId}/orders/{orderId}/payments/{paymentId}/checkout-session
+owners:
+  - orders
+sidebar:
+  badge: POST
+---
+## POST `(/customers/{customerId}/orders/{orderId}/payments/{paymentId}/checkout-session)`
+
+### Parameters
+- **customerId** (path) (required)
+- **orderId** (path) (required)
+- **paymentId** (path) (required)
+
+
+
+
+### Responses
+
+
+
+## Architecture
+
+<NodeGraph />

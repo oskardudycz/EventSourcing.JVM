@@ -4,22 +4,17 @@ import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 
 import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
-import io.eventdriven.distributedprocesses.ecommerce.payments.AutoAuthorizingPaymentGateway;
-import io.eventdriven.distributedprocesses.ecommerce.payments.AutoRejectingPaymentGateway;
-import io.eventdriven.distributedprocesses.ecommerce.payments.DeclineReason;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentValidity;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.RecordingPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.RefusingAfterAuthorizationPaymentGateway;
-import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGateway;
-import io.eventdriven.distributedprocesses.ecommerce.payments.ThrowingPaymentGateway;
 import io.eventdriven.testing.MessageCatcher;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,113 +31,79 @@ public class AuthorizationGatewayClientTests {
   private final PaymentId paymentId = PaymentId.derivedFrom(referenceId);
   private final double amount = 62.5;
   private final OffsetDateTime now = OffsetDateTime.now();
-  private final OffsetDateTime expiresAt = now.plus(authorizationValidity);
-  private final PaymentAuthorizationRequested requested =
-    new PaymentAuthorizationRequested(paymentId, referenceId, amount, now);
+  private final OffsetDateTime captureBefore = now.plus(authorizationValidity);
+  private final OffsetDateTime timedOutAt = now.plus(paymentTimeout);
 
   private final InMemoryEventStore eventStore = new InMemoryEventStore();
   private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
   private final MessageCatcher published = new MessageCatcher();
 
   @Test
-  public void autoAuthorizingGatewayGrantsTheHold() {
-    configure(new AutoAuthorizingPaymentGateway(messageBus));
-
-    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
-
-    published.shouldReceiveMessages(requested, new PaymentAuthorized(paymentId, now, expiresAt));
-  }
-
-  @Test
-  public void autoRejectingGatewayDeclinesTheRequestedAuthorization() {
-    configure(new AutoRejectingPaymentGateway(messageBus));
-
-    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
-
-    published.shouldReceiveMessages(
-      requested,
-      new PaymentDeclined(paymentId, DeclineReason.UnexpectedError, now)
-    );
-  }
-
-  @Test
-  public void unreachableGatewayDeclinesThePaymentInsteadOfThrowing() {
-    configure(new ThrowingPaymentGateway());
-
-    assertThatCode(() -> messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount))))
-      .doesNotThrowAnyException();
-
-    published.shouldReceiveMessages(
-      requested,
-      new PaymentDeclined(paymentId, DeclineReason.UnexpectedError, now)
-    );
-  }
-
-  @Test
-  public void silentGatewayLeavesTheAuthorizationPending() {
-    configure(new SilentPaymentGateway());
-
-    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
-
-    published.shouldReceiveMessages(requested);
-  }
-
-  @Test
-  public void gatewayIsAuthorizedWithThePaymentIdAndAmount() {
+  public void requestingAnAuthorizationAsksTheGatewayForNothingUntilTheCustomerPays() {
     var gateway = new RecordingPaymentGateway(messageBus);
     configure(gateway);
 
     messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
 
-    assertThat(gateway.calls).containsExactly("authorize:%s:%s".formatted(paymentId, amount));
+    published.shouldReceiveMessages(
+      new PaymentAuthorizationRequested(paymentId, referenceId, amount, now, timedOutAt)
+    );
+    assertThat(gateway.calls).isEmpty();
   }
 
   @Test
-  public void gatewayThatRefusesTheVoidLeavesTheRecordedOutcomeAloneInsteadOfThrowing() {
-    configure(new RefusingAfterAuthorizationPaymentGateway(messageBus));
+  public void canceledPaymentIsCanceledAtTheGateway() {
+    var gateway = new RecordingPaymentGateway(messageBus);
+    configure(gateway);
+    authorize();
 
-    messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
-    published.reset();
+    messageBus.publish(List.of(new CancelPayment(paymentId)));
 
-    assertThatCode(() -> messageBus.publish(List.of(new VoidPayment(paymentId))))
+    assertThat(gateway.calls).containsExactly("cancel:%s".formatted(paymentId));
+  }
+
+  @Test
+  public void gatewayThatRefusesToCancelLeavesTheRecordedOutcomeAloneInsteadOfThrowing() {
+    configure(new RefusingAfterAuthorizationPaymentGateway());
+    authorize();
+
+    assertThatCode(() -> messageBus.publish(List.of(new CancelPayment(paymentId))))
       .doesNotThrowAnyException();
 
-    published.shouldReceiveMessages(new PaymentVoided(paymentId, now));
+    published.shouldReceiveMessages(new PaymentCanceled(paymentId, now));
   }
 
   @Test
-  public void timedOutPaymentCancelsTheRequestAtTheGateway() {
-    var cancelled = new ArrayList<PaymentId>();
-    configure(new SilentPaymentGateway() {
-      @Override
-      public void voidAuthorization(PaymentId paymentId) {
-        cancelled.add(paymentId);
-      }
-    });
+  public void timedOutPaymentExpiresItsCheckoutSessionAtTheGateway() {
+    var gateway = new RecordingPaymentGateway(messageBus);
+    configure(gateway);
 
     messageBus.publish(List.of(
       new AuthorizePayment(paymentId, referenceId, amount),
-      new TimeOutPayment(paymentId, now)
+      new TimeOutPayment(paymentId, timedOutAt)
     ));
 
-    assertThat(cancelled).containsExactly(paymentId);
+    assertThat(gateway.calls).containsExactly("expire-checkout-session:%s".formatted(paymentId));
   }
 
   @Test
-  public void gatewayThatRefusesToCancelTheTimedOutRequestLeavesTheRecordedOutcomeAloneInsteadOfThrowing() {
-    configure(new SilentPaymentGateway() {
-      @Override
-      public void voidAuthorization(PaymentId paymentId) {
-        throw new RuntimeException("Payment provider is unreachable");
-      }
-    });
+  public void gatewayThatRefusesToExpireTheSessionLeavesTheTimedOutPaymentAloneInsteadOfThrowing() {
+    configure(new RefusingAfterAuthorizationPaymentGateway());
     messageBus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
     published.reset();
 
-    assertThatCode(() -> messageBus.publish(List.of(new TimeOutPayment(paymentId, now))))
+    assertThatCode(() -> messageBus.publish(List.of(new TimeOutPayment(paymentId, timedOutAt))))
       .doesNotThrowAnyException();
 
-    published.shouldReceiveMessages(new PaymentTimedOut(paymentId, now));
+    published.shouldReceiveMessages(new PaymentTimedOut(paymentId, timedOutAt));
+  }
+
+  private void authorize() {
+    messageBus.publish(List.of(
+      new AuthorizePayment(paymentId, referenceId, amount),
+      new ConfirmPaymentAuthorization(paymentId, captureBefore)
+    ));
+    published.reset();
   }
 
   private void configure(PaymentGateway paymentGateway) {
@@ -152,8 +113,7 @@ public class AuthorizationGatewayClientTests {
       eventStore,
       messageBus,
       paymentGateway,
-      paymentTimeout,
-      authorizationValidity,
+      PaymentValidity.of(paymentTimeout),
       () -> now
     );
   }

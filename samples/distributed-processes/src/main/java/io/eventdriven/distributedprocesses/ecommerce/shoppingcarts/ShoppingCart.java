@@ -24,7 +24,7 @@ public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, ShoppingC
 
   void addProductItem(
     ShoppingCartId shoppingCartId,
-    UUID clientId,
+    UUID customerId,
     ProductPriceCalculator productPriceCalculator,
     ProductItem productItem,
     OffsetDateTime now
@@ -38,7 +38,7 @@ public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, ShoppingC
 
     enqueue(new ProductItemAddedToShoppingCart(
       shoppingCartId,
-      clientId,
+      customerId,
       new PricedProductItem(productItem, unitPrice),
       now
     ));
