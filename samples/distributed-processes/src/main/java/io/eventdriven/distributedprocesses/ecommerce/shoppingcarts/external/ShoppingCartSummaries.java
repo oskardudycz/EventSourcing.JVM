@@ -58,9 +58,7 @@ public class ShoppingCartSummaries extends Projection<ShoppingCartSummary> {
     return new ShoppingCartSummary(
       customerId,
       productItems.items().toArray(new PricedProductItem[0]),
-      productItems.items().stream()
-        .mapToDouble(PricedProductItem::totalPrice)
-        .sum()
+      productItems.totalPrice()
     );
   }
 

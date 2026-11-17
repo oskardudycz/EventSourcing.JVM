@@ -612,6 +612,67 @@ API tests:
 - ProductItem rejects a missing productId ("Product id is required"), found by those tests.
 ```
 
+#### 7.5 A clean Springwolf UI, a login, the catalog from Gradle, and a how-to (done on 2026-11-17)
+
+Asked by Oskar on 2026-11-17, after he went through the README and the running application.
+
+```text
+Springwolf (AsyncAPI):
+- Every operation has a description in @AsyncOperation, and every message one in @Schema on its
+  record. Springwolf copies a payload's description to its message only for inline payloads, so
+  MessageDescriptions (an AsyncApiCustomizer) copies it for our records, which are referenced.
+- Each module's document describes the module (springwolf.docket.group-configs[i].info.description).
+- The documents name a server with the protocol in-memory. Springwolf's UI also needs a protocol on
+  each operation and message, or it shows "unsupported-protocol" and a "No binding defined" warning.
+  AsyncAPI allows only its known protocols as binding names, and others only with the x- prefix
+  (with "in-memory", EventCatalog's parser rejected all four documents and still exited with 0), so
+  InMemoryBindings adds an x-in-memory binding.
+- Publishing from the UI: InMemoryPublishingController extends Springwolf's PublishingBaseController
+  at /springwolf/plugin/x-in-memory/publish and publishes on our MessageBus. Without it, the UI's
+  check of that endpoint was a 404 in the browser. Springwolf loads the payload class with
+  Class.forName, which fails for records nested in their sealed interface, so
+  NestedRecordPayloadCreator (Springwolf allows replacing the bean) loads them with ClassUtils.
+- Springwolf names an operation channel_action_method and merges operations with the same name; it
+  has no attribute for the name. The saga's on(...) overloads merged into one operation per channel
+  (orders-internal_send_on had 7 messages). The saga's handlers are now named after their events:
+  onShoppingCartCheckedOut, onOrderPlaced, onPaymentAuthorized, and so on. Still one class.
+- The descriptions say "authorized" (the provider keeps the amount for the shop) and "charged" (the
+  capture), with no banks.
+- Tests: AsyncApiTests check the server and the binding on every operation and message, one message
+  per operation, the saga's operation names, a description on every operation, message and module.
+  SpringwolfPublishingTests check the publish endpoint and that a published message reaches the bus.
+
+The shop:
+- A dummy login: /shop asks for a name when no customer cookie is set. The customer id is derived
+  from the name (UUID.nameUUIDFromBytes), so the same name opens the same orders. The header shows
+  the name and "Log out", which clears the cookie. Before, /shop made a new random customer on every
+  visit. Tests in ShopPagesTests.
+- Prices are in whole cents: RandomProductPriceCalculator gives cents, and PricedProductItem and
+  ProductItems.totalPrice round to cents. Money stays a double (Oskar's choice); the README says so.
+
+EventCatalog from Gradle:
+- The node-gradle plugin 7.1.0 downloads Node.js 26.13.1 and runs the catalog's npm scripts:
+  eventCatalogGenerate (after generateOpenApiDocs), eventCatalog, eventCatalogPreview,
+  eventCatalogTest and eventCatalogScreenshots. They are separate tasks; ./gradlew build stays
+  without Node.js.
+- domains/ was generated again from an empty folder, because the operations and descriptions
+  changed.
+
+Screenshots and the how-to:
+- ShopInBrowserTests (Playwright for Java 1.65.0) runs in ./gradlew build: it logs in, buys two
+  products, pays on the sandbox page, and opens Swagger UI and Springwolf UI, with no browser
+  errors. It saves screenshots to build/screenshots; ./gradlew howToScreenshots saves them to
+  assets/howto instead. The catalog's Playwright tests save three more with
+  ./gradlew eventCatalogScreenshots.
+- HOWTO.md: step by step through the shop, a failed payment published from Springwolf UI, Swagger
+  UI, Springwolf UI, EventCatalog and the tests, with the screenshots.
+- README.md rewritten in the order what, why, how: the purchase from the customer's side, reserve
+  first and charge last, where the steps come from, the order and the saga, failures, messages
+  between modules, reliable delivery, the outside systems and the sandboxes, the web API and the
+  shop, and documenting the messages (what OpenAPI, AsyncAPI and EventCatalog are, why a
+  message-based system needs them, how the sample builds them).
+```
+
 ### 8. Real infrastructure
 
 ```text

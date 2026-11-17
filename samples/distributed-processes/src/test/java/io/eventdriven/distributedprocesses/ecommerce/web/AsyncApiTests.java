@@ -8,6 +8,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -20,6 +21,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 public class AsyncApiTests {
+  private static final List<String> groups = List.of("shopping_carts", "orders", "payments", "shipments");
+
   @Autowired
   private MockMvc mvc;
 
@@ -104,9 +107,73 @@ public class AsyncApiTests {
   }
 
   @Test
+  public void eachDocumentNamesTheInMemoryBusAsItsServerAndProtocol() throws Exception {
+    for (var group : groups) {
+      var document = documentOf(group);
+
+      assertThat(document.get("servers").values())
+        .extracting(server -> server.get("protocol").asString())
+        .containsExactly("in-memory");
+      for (var operation : document.get("operations").values())
+        assertThat(operation.get("bindings").propertyNames()).as(group + " operation").containsExactly("x-in-memory");
+      for (var message : document.get("components").get("messages").values())
+        assertThat(message.get("bindings").propertyNames()).as(group + " message").containsExactly("x-in-memory");
+    }
+  }
+
+  @Test
+  public void eachOperationHasOneMessageAndIsNamedAfterItsHandler() throws Exception {
+    assertThat(operationIdsOf("orders")).contains(
+      "orders-shopping_carts-external_receive_onShoppingCartCheckedOut",
+      "orders-internal_send_onShoppingCartCheckedOut",
+      "payments-requests_send_onOrderPlaced",
+      "shipments-requests_send_onOrderPlaced",
+      "orders-payments-responses_receive_onPaymentAuthorized",
+      "payments-requests_send_onOrderCanceled"
+    );
+    for (var group : groups)
+      for (var operation : documentOf(group).get("operations").properties())
+        assertThat(operation.getValue().get("messages").size()).as(group + " " + operation.getKey()).isEqualTo(1);
+  }
+
+  @Test
+  public void eachOperationAndMessageIsDescribed() throws Exception {
+    for (var group : groups) {
+      var document = documentOf(group);
+
+      for (var operation : document.get("operations").properties())
+        assertThat(operation.getValue().get("description").asString())
+          .as(group + " " + operation.getKey())
+          .isNotBlank()
+          .isNotEqualTo("Auto-generated description");
+      for (var message : document.get("components").get("messages").properties())
+        assertThat(message.getValue().path("description").asString(""))
+          .as(group + " " + message.getKey())
+          .isNotBlank();
+    }
+  }
+
+  @Test
+  public void eachDocumentDescribesItsModule() throws Exception {
+    var descriptions = new TreeSet<String>();
+
+    for (var group : groups) {
+      var description = documentOf(group).get("info").path("description").asString("");
+      assertThat(description).as(group).isNotBlank();
+      descriptions.add(description);
+    }
+
+    assertThat(descriptions).hasSize(groups.size());
+  }
+
+  @Test
   public void theDocumentsAreAsyncApi31AndTheUiIsServed() throws Exception {
     assertThat(documentOf("payments").get("asyncapi").asString()).isEqualTo("3.1.0");
     mvc.perform(get("/springwolf/asyncapi-ui.html")).andExpect(status().isOk());
+  }
+
+  private Set<String> operationIdsOf(String group) throws Exception {
+    return new TreeSet<>(documentOf(group).get("operations").propertyNames());
   }
 
   private Map<String, Set<String>> channelsOf(String group) throws Exception {

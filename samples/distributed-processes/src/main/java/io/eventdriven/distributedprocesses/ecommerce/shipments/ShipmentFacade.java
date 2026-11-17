@@ -29,7 +29,7 @@ public class ShipmentFacade {
     this.now = now;
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.requests))
+  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.requests, description = "Sets aside the requested products, or answers that they are out of stock."))
   public void reserveStock(ReserveStock command) {
     var shipmentId = ShipmentId.derivedFrom(command.referenceId());
     store.getAndUpdate(
@@ -44,7 +44,7 @@ public class ShipmentFacade {
     );
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.requests))
+  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.requests, description = "Asks the fulfillment service to send the products that are set aside."))
   public void requestFulfillment(RequestFulfillment command) {
     store.getAndUpdate(
       command.shipmentId(),
@@ -52,7 +52,7 @@ public class ShipmentFacade {
     );
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.internal))
+  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.internal, description = "Records that the package was sent."))
   public void confirmPackageSent(ConfirmPackageSent command) {
     store.getAndUpdate(
       command.shipmentId(),
@@ -60,7 +60,7 @@ public class ShipmentFacade {
     );
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.internal))
+  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.internal, description = "Records that the fulfillment service will not send the package."))
   public void rejectFulfillment(RejectFulfillment command) {
     store.getAndUpdate(
       command.shipmentId(),
@@ -68,7 +68,7 @@ public class ShipmentFacade {
     );
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.internal))
+  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.internal, description = "Records that the package was delivered."))
   public void deliverPackage(DeliverPackage command) {
     store.getAndUpdate(
       command.shipmentId(),
@@ -76,7 +76,7 @@ public class ShipmentFacade {
     );
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.requests))
+  @AsyncListener(operation = @AsyncOperation(channelName = ShipmentsConfig.requests, description = "Puts the products that are set aside back on sale."))
   public void releaseStock(ReleaseStock command) {
     store.getAndUpdate(
       command.shipmentId(),

@@ -3,6 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,5 +19,14 @@ public class RandomProductPriceCalculatorTests {
     var second = prices.calculate(new ProductItem(productId, 3));
 
     assertThat(second.unitPrice()).isEqualTo(first.unitPrice());
+  }
+
+  @Test
+  public void unitPricesAreInWholeCents() {
+    for (var i = 0; i < 1000; i++) {
+      var unitPrice = prices.calculate(new ProductItem(UUID.randomUUID(), 1)).unitPrice();
+
+      assertThat(BigDecimal.valueOf(unitPrice).scale()).isLessThanOrEqualTo(2);
+    }
   }
 }

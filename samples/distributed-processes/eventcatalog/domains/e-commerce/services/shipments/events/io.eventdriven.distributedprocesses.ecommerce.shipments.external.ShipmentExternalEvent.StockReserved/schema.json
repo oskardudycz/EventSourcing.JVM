@@ -17,6 +17,7 @@
       "x-parser-schema-id": "<anonymous-schema-23>"
     }
   },
+  "description": "The warehouse set aside the products for the requester.",
   "examples": [
     {
       "referenceId": "string",

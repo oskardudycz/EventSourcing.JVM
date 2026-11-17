@@ -26,6 +26,7 @@
       "x-parser-schema-id": "<anonymous-schema-20>"
     }
   },
+  "description": "The products cannot ship. The reason tells if they are out of stock or the fulfillment service rejected the request.",
   "examples": [
     {
       "failedAt": "2015-07-20T15:49:04-07:00",

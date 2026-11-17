@@ -8,6 +8,7 @@
       "x-parser-schema-id": "<anonymous-schema-3>"
     }
   },
+  "description": "The payment provider's answer: the customer was charged.",
   "examples": [
     {
       "paymentId": "string"

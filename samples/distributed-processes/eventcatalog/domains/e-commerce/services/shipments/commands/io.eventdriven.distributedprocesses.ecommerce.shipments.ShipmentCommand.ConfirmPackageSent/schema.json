@@ -16,6 +16,7 @@
       "x-parser-schema-id": "<anonymous-schema-3>"
     }
   },
+  "description": "The fulfillment service's answer: the package was sent, with this carrier and tracking number.",
   "examples": [
     {
       "carrier": "string",

@@ -3,9 +3,17 @@
   "info": {
     "title": "E-commerce",
     "version": "1.0.0",
+    "description": "The warehouse. It sets aside products, sends packages through a fulfillment service, puts products back on sale, and answers on shipments-responses.",
     "x-generator": "springwolf"
   },
   "defaultContentType": "application/json",
+  "servers": {
+    "in-memory": {
+      "host": "localhost",
+      "protocol": "in-memory",
+      "description": "The message bus inside the application. Each channel delivers a message to the queues bound to it with a matching routing key, as a RabbitMQ topic exchange does."
+    }
+  },
   "channels": {
     "shipments-internal": {
       "address": "shipments-internal",
@@ -99,6 +107,7 @@
             "type": "string"
           }
         },
+        "description": "The fulfillment service\u0027s answer: the package was sent, with this carrier and tracking number.",
         "examples": [
           {
             "carrier": "string",
@@ -116,6 +125,7 @@
             "type": "string"
           }
         },
+        "description": "Records that the carrier delivered the package.",
         "examples": [
           {
             "shipmentId": "string"
@@ -131,6 +141,7 @@
             "type": "string"
           }
         },
+        "description": "The fulfillment service\u0027s answer: it will not send the package.",
         "examples": [
           {
             "shipmentId": "string"
@@ -146,6 +157,7 @@
             "type": "string"
           }
         },
+        "description": "Puts the products that are set aside back on sale.",
         "examples": [
           {
             "shipmentId": "string"
@@ -161,6 +173,7 @@
             "type": "string"
           }
         },
+        "description": "Asks the fulfillment service to pick, pack and send the products that are set aside.",
         "examples": [
           {
             "shipmentId": "string"
@@ -182,6 +195,7 @@
             "type": "string"
           }
         },
+        "description": "Asks the warehouse to set aside the products, so that nobody else can buy them.",
         "examples": [
           {
             "productItems": [
@@ -216,6 +230,7 @@
             "type": "string"
           }
         },
+        "description": "The package left the warehouse. It carries the carrier and the tracking number.",
         "examples": [
           {
             "carrier": "string",
@@ -250,6 +265,7 @@
             "type": "string"
           }
         },
+        "description": "The products cannot ship. The reason tells if they are out of stock or the fulfillment service rejected the request.",
         "examples": [
           {
             "failedAt": "2015-07-20T15:49:04-07:00",
@@ -275,6 +291,7 @@
             "type": "string"
           }
         },
+        "description": "The warehouse set aside the products for the requester.",
         "examples": [
           {
             "referenceId": "string",
@@ -297,7 +314,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent",
         "title": "ConfirmPackageSent",
-        "bindings": {},
+        "description": "The fulfillment service\u0027s answer: the package was sent, with this carrier and tracking number.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.DeliverPackage": {
@@ -312,7 +332,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.DeliverPackage",
         "title": "DeliverPackage",
-        "bindings": {},
+        "description": "Records that the carrier delivered the package.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RejectFulfillment": {
@@ -327,7 +350,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RejectFulfillment",
         "title": "RejectFulfillment",
-        "bindings": {},
+        "description": "The fulfillment service\u0027s answer: it will not send the package.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock": {
@@ -342,7 +368,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock",
         "title": "ReleaseStock",
-        "bindings": {},
+        "description": "Puts the products that are set aside back on sale.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment": {
@@ -357,7 +386,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment",
         "title": "RequestFulfillment",
-        "bindings": {},
+        "description": "Asks the fulfillment service to pick, pack and send the products that are set aside.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock": {
@@ -372,7 +404,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock",
         "title": "ReserveStock",
-        "bindings": {},
+        "description": "Asks the warehouse to set aside the products, so that nobody else can buy them.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent": {
@@ -387,7 +422,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent",
         "title": "PackageWasSent",
-        "bindings": {},
+        "description": "The package left the warehouse. It carries the carrier and the tracking number.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "event"
       },
       "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed": {
@@ -402,7 +440,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed",
         "title": "ShipmentFailed",
-        "bindings": {},
+        "description": "The products cannot ship. The reason tells if they are out of stock or the fulfillment service rejected the request.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "event"
       },
       "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved": {
@@ -417,7 +458,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved",
         "title": "StockReserved",
-        "bindings": {},
+        "description": "The warehouse set aside the products for the requester.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "event"
       }
     }
@@ -429,8 +473,10 @@
         "$ref": "#/channels/shipments-internal"
       },
       "title": "shipments-internal_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Records that the package was sent.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/shipments-internal/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent"
@@ -443,8 +489,10 @@
         "$ref": "#/channels/shipments-internal"
       },
       "title": "shipments-internal_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Records that the package was delivered.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/shipments-internal/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.DeliverPackage"
@@ -457,8 +505,10 @@
         "$ref": "#/channels/shipments-internal"
       },
       "title": "shipments-internal_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Records that the fulfillment service will not send the package.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/shipments-internal/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RejectFulfillment"
@@ -471,8 +521,10 @@
         "$ref": "#/channels/shipments-requests"
       },
       "title": "shipments-requests_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Puts the products that are set aside back on sale.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/shipments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock"
@@ -485,8 +537,10 @@
         "$ref": "#/channels/shipments-requests"
       },
       "title": "shipments-requests_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Asks the fulfillment service to send the products that are set aside.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/shipments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.RequestFulfillment"
@@ -499,8 +553,10 @@
         "$ref": "#/channels/shipments-requests"
       },
       "title": "shipments-requests_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Sets aside the requested products, or answers that they are out of stock.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/shipments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock"
@@ -513,8 +569,10 @@
         "$ref": "#/channels/shipments-responses"
       },
       "title": "shipments-responses_send",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Tells the requester that its products cannot ship.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/shipments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed"
@@ -527,8 +585,10 @@
         "$ref": "#/channels/shipments-responses"
       },
       "title": "shipments-responses_send",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Tells the requester that its package was sent.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/shipments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent"
@@ -541,8 +601,10 @@
         "$ref": "#/channels/shipments-responses"
       },
       "title": "shipments-responses_send",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Tells the requester that its products cannot ship.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/shipments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed"
@@ -555,8 +617,10 @@
         "$ref": "#/channels/shipments-responses"
       },
       "title": "shipments-responses_send",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Tells the requester that its products are set aside.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/shipments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved"

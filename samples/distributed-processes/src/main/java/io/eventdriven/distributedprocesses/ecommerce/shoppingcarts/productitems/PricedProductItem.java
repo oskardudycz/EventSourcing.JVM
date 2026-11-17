@@ -20,7 +20,7 @@ public record PricedProductItem(
   }
 
   public double totalPrice() {
-    return quantity() * unitPrice();
+    return Math.round(quantity() * unitPrice() * 100) / 100.0;
   }
 
   boolean matchesProductAndUnitPrice(PricedProductItem pricedProductItem) {

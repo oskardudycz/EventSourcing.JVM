@@ -13,6 +13,11 @@
     <a th:href="@{/shop/customers/{c}/products(c=${customerId})}" th:classappend="${current == 'products'} ? 'active'">Products</a>
     <a th:href="@{/shop/customers/{c}/cart(c=${customerId})}" th:classappend="${current == 'cart'} ? 'active'">Cart</a>
     <a th:href="@{/shop/customers/{c}/orders(c=${customerId})}" th:classappend="${current == 'orders'} ? 'active'">Orders</a>
+    <span class="customer" th:if="${customerName}" th:text="${customerName}">Name</span>
+    <form class="logout" th:if="${customerName}" method="post" th:action="@{/shop/logout}">
+      <button class="link" type="submit">Log out</button>
+    </form>
+    <a th:unless="${customerName}" th:href="@{/shop/login}">Log in</a>
   </nav>
 </header>
 </body>

@@ -25,6 +25,7 @@
       "x-parser-schema-id": "<anonymous-schema-16>"
     }
   },
+  "description": "The package left the warehouse. It carries the carrier and the tracking number.",
   "examples": [
     {
       "carrier": "string",

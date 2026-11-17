@@ -41,8 +41,19 @@ jobs:
         with:
           cache-provider: basic
 
+      - name: Install the system packages for Chromium
+        run: ./gradlew playwrightInstallDeps
+
       - name: Build with Gradle
         run: ./gradlew build -Pci=true
+
+      - name: Build and test the EventCatalog
+        run: ./gradlew eventCatalogTest
+
+      - name: Check that the API documents and the catalog match the code
+        run: |
+          git status --porcelain -- eventcatalog/specs eventcatalog/domains
+          test -z "$(git status --porcelain -- eventcatalog/specs eventcatalog/domains)"
 
       - name: Archive test report
         uses: actions/upload-artifact@v7
@@ -50,3 +61,10 @@ jobs:
         with:
           name: Test report
           path: ./samples/distributed-processes/build/test-results/test
+
+      - name: Archive EventCatalog test results
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: EventCatalog test results
+          path: ./samples/distributed-processes/eventcatalog/test-results

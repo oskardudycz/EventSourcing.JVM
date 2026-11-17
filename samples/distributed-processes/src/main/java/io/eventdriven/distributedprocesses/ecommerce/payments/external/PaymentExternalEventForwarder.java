@@ -27,7 +27,7 @@ public class PaymentExternalEventForwarder {
     this.messageBus = messageBus;
   }
 
-  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentExternalEvent.PaymentAuthorized.class))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentExternalEvent.PaymentAuthorized.class, description = "Tells the requester that the payment is authorized."))
   public void onAuthorized(EventEnvelope<PaymentEvent.PaymentAuthorized> envelope) {
     var event = envelope.data();
 
@@ -38,7 +38,7 @@ public class PaymentExternalEventForwarder {
     )));
   }
 
-  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentExternalEvent.PaymentCaptured.class))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentExternalEvent.PaymentCaptured.class, description = "Tells the requester that the customer was charged."))
   public void onCaptured(EventEnvelope<PaymentEvent.PaymentCaptured> envelope) {
     var event = envelope.data();
 
@@ -50,17 +50,17 @@ public class PaymentExternalEventForwarder {
   }
 
 
-  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentFailed.class))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentFailed.class, description = "Tells the requester that the payment failed."))
   public void onTimedOut(EventEnvelope<PaymentTimedOut> envelope) {
     publishFailure(envelope.data().paymentId(), envelope.data().timedOutAt());
   }
 
-  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentFailed.class))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentFailed.class, description = "Tells the requester that the payment failed."))
   public void onAuthorizationExpired(EventEnvelope<PaymentAuthorizationExpired> envelope) {
     publishFailure(envelope.data().paymentId(), envelope.data().expiredAt());
   }
 
-  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentFailed.class))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.responses, payloadType = PaymentFailed.class, description = "Tells the requester that the payment failed."))
   public void onCaptureFailed(EventEnvelope<PaymentCaptureFailed> envelope) {
     publishFailure(envelope.data().paymentId(), envelope.data().failedAt());
   }

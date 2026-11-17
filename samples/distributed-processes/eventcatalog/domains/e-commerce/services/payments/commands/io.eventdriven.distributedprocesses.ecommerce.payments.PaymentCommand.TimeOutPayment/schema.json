@@ -13,6 +13,7 @@
       "x-parser-schema-id": "<anonymous-schema-9>"
     }
   },
+  "description": "Fails a payment that the customer did not pay in time.",
   "examples": [
     {
       "paymentId": "string",

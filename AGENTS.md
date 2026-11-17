@@ -1,4 +1,4 @@
-# Kruk
+# JVM
 
 ## Working rules
 

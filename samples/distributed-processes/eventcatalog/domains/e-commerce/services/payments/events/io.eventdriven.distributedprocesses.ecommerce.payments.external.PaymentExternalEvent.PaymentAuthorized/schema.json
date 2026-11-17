@@ -17,6 +17,7 @@
       "x-parser-schema-id": "<anonymous-schema-17>"
     }
   },
+  "description": "The payment is authorized: the payment provider keeps the amount for the requester. The customer is not charged yet.",
   "examples": [
     {
       "authorizedAt": "2015-07-20T15:49:04-07:00",

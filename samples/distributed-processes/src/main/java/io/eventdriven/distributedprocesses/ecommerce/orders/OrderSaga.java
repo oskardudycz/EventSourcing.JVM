@@ -29,9 +29,9 @@ public class OrderSaga {
   }
 
   // Hold phase
-  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.shoppingCartsExternal))
-  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = PlaceOrder.class))
-  public void on(ShoppingCartExternalEvent.ShoppingCartCheckedOut event) {
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.shoppingCartsExternal, description = "Starts an order for the checked-out shopping cart."))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = PlaceOrder.class, description = "Places an order for the checked-out shopping cart."))
+  public void onShoppingCartCheckedOut(ShoppingCartExternalEvent.ShoppingCartCheckedOut event) {
     messageBus.publish(List.of(
       new PlaceOrder(
         OrderId.derivedFrom(event.cartId().value()),
@@ -43,9 +43,9 @@ public class OrderSaga {
     ));
   }
 
-  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.requests, payloadType = PaymentCommand.AuthorizePayment.class))
-  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.requests, payloadType = ShipmentCommand.ReserveStock.class))
-  public void on(OrderEvent.OrderPlaced event) {
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.requests, payloadType = PaymentCommand.AuthorizePayment.class, description = "Asks for the order's payment when the order is placed, and again when the customer retries a failed payment."))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.requests, payloadType = ShipmentCommand.ReserveStock.class, description = "Asks the warehouse to set aside the order's products when the order is placed."))
+  public void onOrderPlaced(OrderEvent.OrderPlaced event) {
     var referenceId = event.orderId().value();
     messageBus.publish(List.of(
       new PaymentCommand.AuthorizePayment(PaymentId.derivedFrom(referenceId), referenceId, event.totalPrice()),
@@ -53,9 +53,9 @@ public class OrderSaga {
     ));
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.paymentsResponses))
-  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderPaymentAuthorization.class))
-  public void on(PaymentExternalEvent.PaymentAuthorized event) {
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.paymentsResponses, description = "Passes the authorized payment on to the order."))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderPaymentAuthorization.class, description = "Records on the order that the payment is authorized."))
+  public void onPaymentAuthorized(PaymentExternalEvent.PaymentAuthorized event) {
     messageBus.publish(List.of(
       new RecordOrderPaymentAuthorization(
         new OrderId(event.referenceId()),
@@ -65,9 +65,9 @@ public class OrderSaga {
     ));
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.shipmentsResponses))
-  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderStockReservation.class))
-  public void on(ShipmentExternalEvent.StockReserved event) {
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.shipmentsResponses, description = "Passes the products that are set aside on to the order."))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderStockReservation.class, description = "Records on the order that the products are set aside."))
+  public void onStockReserved(ShipmentExternalEvent.StockReserved event) {
     messageBus.publish(List.of(
       new RecordOrderStockReservation(
         new OrderId(event.referenceId()),
@@ -78,14 +78,14 @@ public class OrderSaga {
   }
 
   // Commit phase
-  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.requests, payloadType = ShipmentCommand.RequestFulfillment.class))
-  public void on(OrderEvent.OrderConfirmed event) {
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.requests, payloadType = ShipmentCommand.RequestFulfillment.class, description = "Asks the warehouse to send the products when the order is confirmed."))
+  public void onOrderConfirmed(OrderEvent.OrderConfirmed event) {
     messageBus.publish(List.of(new ShipmentCommand.RequestFulfillment(event.shipmentId())));
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.shipmentsResponses))
-  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderPackageSent.class))
-  public void on(ShipmentExternalEvent.PackageWasSent event) {
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.shipmentsResponses, description = "Passes the sent package on to the order."))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderPackageSent.class, description = "Records on the order that the package was sent."))
+  public void onPackageWasSent(ShipmentExternalEvent.PackageWasSent event) {
     messageBus.publish(List.of(
       new RecordOrderPackageSent(
         new OrderId(event.referenceId()),
@@ -97,31 +97,31 @@ public class OrderSaga {
   }
 
   // The shipment does not know the payment. The order does, and names it here.
-  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.requests, payloadType = PaymentCommand.CapturePayment.class))
-  public void on(OrderEvent.OrderPaymentDue event) {
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.requests, payloadType = PaymentCommand.CapturePayment.class, description = "Asks to charge the customer when the package was sent."))
+  public void onOrderPaymentDue(OrderEvent.OrderPaymentDue event) {
     messageBus.publish(List.of(new PaymentCommand.CapturePayment(event.paymentId())));
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.paymentsResponses))
-  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderPaymentCapture.class))
-  public void on(PaymentExternalEvent.PaymentCaptured event) {
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.paymentsResponses, description = "Passes the charge on to the order."))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderPaymentCapture.class, description = "Records on the order that the customer was charged."))
+  public void onPaymentCaptured(PaymentExternalEvent.PaymentCaptured event) {
     messageBus.publish(List.of(
       new RecordOrderPaymentCapture(new OrderId(event.referenceId()), event.capturedAt())
     ));
   }
 
   // Compensation
-  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.paymentsResponses))
-  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderPaymentFailure.class))
-  public void on(PaymentExternalEvent.PaymentFailed event) {
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.paymentsResponses, description = "Passes the failed payment on to the order."))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderPaymentFailure.class, description = "Records on the order that the payment failed."))
+  public void onPaymentFailed(PaymentExternalEvent.PaymentFailed event) {
     messageBus.publish(List.of(
       new RecordOrderPaymentFailure(new OrderId(event.referenceId()), event.failedAt())
     ));
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.shipmentsResponses))
-  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderShipmentFailure.class))
-  public void on(ShipmentExternalEvent.ShipmentFailed event) {
+  @AsyncListener(operation = @AsyncOperation(channelName = OrdersConfig.shipmentsResponses, description = "Passes the failed shipment on to the order."))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = OrdersConfig.internal, payloadType = RecordOrderShipmentFailure.class, description = "Records on the order that the products cannot ship."))
+  public void onShipmentFailed(ShipmentExternalEvent.ShipmentFailed event) {
     var reason = switch (event.reason()) {
       case ProductsOutOfStock -> OrderCancellationReason.ProductWasOutOfStock;
       case FulfillmentRejected -> OrderCancellationReason.CouldNotShip;
@@ -133,16 +133,16 @@ public class OrderSaga {
   }
 
   // Paying again
-  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.requests, payloadType = PaymentCommand.AuthorizePayment.class))
-  public void on(OrderEvent.OrderPaymentRetried event) {
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.requests, payloadType = PaymentCommand.AuthorizePayment.class, description = "Asks for the order's payment when the order is placed, and again when the customer retries a failed payment."))
+  public void onOrderPaymentRetried(OrderEvent.OrderPaymentRetried event) {
     messageBus.publish(List.of(
       new PaymentCommand.AuthorizePayment(event.paymentId(), event.orderId().value(), event.amount())
     ));
   }
 
-  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.requests, payloadType = PaymentCommand.CancelPayment.class))
-  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.requests, payloadType = ShipmentCommand.ReleaseStock.class))
-  public void on(OrderEvent.OrderCanceled event) {
+  @AsyncPublisher(operation = @AsyncOperation(channelName = PaymentsConfig.requests, payloadType = PaymentCommand.CancelPayment.class, description = "Cancels the authorized payment when the order is canceled."))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.requests, payloadType = ShipmentCommand.ReleaseStock.class, description = "Puts the products back on sale when the order is canceled."))
+  public void onOrderCanceled(OrderEvent.OrderCanceled event) {
     var compensations = new ArrayList<>();
     if (event.paymentStatus() == OrderPaymentStatus.Authorized) {
       compensations.add(new PaymentCommand.CancelPayment(event.paymentId()));

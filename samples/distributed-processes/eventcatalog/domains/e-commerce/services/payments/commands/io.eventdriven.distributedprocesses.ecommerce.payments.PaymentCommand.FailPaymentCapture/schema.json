@@ -14,6 +14,7 @@
       "x-parser-schema-id": "<anonymous-schema-7>"
     }
   },
+  "description": "Records that charging the customer failed, and why.",
   "examples": [
     {
       "paymentId": "string",

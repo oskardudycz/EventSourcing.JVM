@@ -18,6 +18,7 @@
       "x-parser-schema-id": "<anonymous-schema-26>"
     }
   },
+  "description": "Records that the warehouse set aside the order's products.",
   "examples": [
     {
       "orderId": "string",

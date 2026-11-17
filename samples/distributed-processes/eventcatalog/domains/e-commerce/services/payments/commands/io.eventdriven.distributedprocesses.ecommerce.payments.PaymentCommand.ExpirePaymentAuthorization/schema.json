@@ -13,6 +13,7 @@
       "x-parser-schema-id": "<anonymous-schema-5>"
     }
   },
+  "description": "Fails a payment whose authorization ran out before the shop charged the customer.",
   "examples": [
     {
       "expiredAt": "2015-07-20T15:49:04-07:00",

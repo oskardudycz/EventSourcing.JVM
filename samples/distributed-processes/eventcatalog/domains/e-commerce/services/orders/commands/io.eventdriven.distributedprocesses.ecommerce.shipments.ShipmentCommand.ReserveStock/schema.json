@@ -35,6 +35,7 @@
       "x-parser-schema-id": "<anonymous-schema-66>"
     }
   },
+  "description": "Asks the warehouse to set aside the products, so that nobody else can buy them.",
   "examples": [
     {
       "productItems": [

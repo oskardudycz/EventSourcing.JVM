@@ -33,6 +33,14 @@ a:hover { text-decoration: underline; }
 .brand { font-weight: 700; font-size: 18px; color: var(--text); }
 .topbar nav a { margin-left: 24px; color: var(--muted); font-weight: 500; }
 .topbar nav a.active { color: var(--text); }
+.topbar nav { display: flex; align-items: center; }
+.topbar .customer { margin-left: 32px; padding-left: 24px; border-left: 1px solid var(--border); font-weight: 600; }
+.topbar .logout { margin-left: 16px; }
+
+.page.login { max-width: 440px; }
+.login label { display: block; font-weight: 600; margin-bottom: 8px; }
+.login input { width: 100%; padding: 10px 12px; font: inherit; border: 1px solid var(--border); border-radius: 6px; }
+.login .muted { margin-top: 8px; font-size: 14px; }
 
 .page { max-width: 1040px; margin: 32px auto; padding: 0 24px; }
 .page.narrow { max-width: 760px; }
