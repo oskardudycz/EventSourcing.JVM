@@ -3,9 +3,17 @@
   "info": {
     "title": "E-commerce",
     "version": "1.0.0",
+    "description": "The customer\u0027s shopping cart. When the customer checks out, it publishes ShoppingCartCheckedOut for other modules.",
     "x-generator": "springwolf"
   },
   "defaultContentType": "application/json",
+  "servers": {
+    "in-memory": {
+      "host": "localhost",
+      "protocol": "in-memory",
+      "description": "The message bus inside the application. Each channel delivers a message to the queues bound to it with a matching routing key, as a RabbitMQ topic exchange does."
+    }
+  },
   "channels": {
     "shopping_carts-external": {
       "address": "shopping_carts-external",
@@ -56,6 +64,7 @@
             "format": "double"
           }
         },
+        "description": "The customer checked out the shopping cart. It carries the customer, the products, their prices and the total.",
         "examples": [
           {
             "cartId": "string",
@@ -130,7 +139,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut",
         "title": "ShoppingCartCheckedOut",
-        "bindings": {},
+        "description": "The customer checked out the shopping cart. It carries the customer, the products, their prices and the total.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "event"
       }
     }
@@ -142,8 +154,10 @@
         "$ref": "#/channels/shopping_carts-external"
       },
       "title": "shopping_carts-external_send",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Tells other modules that the customer checked out a shopping cart.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/shopping_carts-external/messages/io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut"

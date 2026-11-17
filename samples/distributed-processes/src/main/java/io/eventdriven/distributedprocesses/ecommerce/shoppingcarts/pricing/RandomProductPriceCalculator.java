@@ -16,7 +16,7 @@ public class RandomProductPriceCalculator implements ProductPriceCalculator {
 
     var price = productPrices.computeIfAbsent(
       productItem.productId(),
-      ignored -> random.nextDouble() * 100
+      ignored -> (1 + random.nextInt(9999)) / 100.0
     );
 
     return new PricedProductItem(productItem, price);

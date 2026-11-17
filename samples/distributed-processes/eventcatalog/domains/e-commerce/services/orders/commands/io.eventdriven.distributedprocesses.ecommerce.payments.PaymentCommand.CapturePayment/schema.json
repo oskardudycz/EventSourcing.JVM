@@ -8,6 +8,7 @@
       "x-parser-schema-id": "<anonymous-schema-60>"
     }
   },
+  "description": "Asks to charge the customer the authorized amount.",
   "examples": [
     {
       "paymentId": "string"

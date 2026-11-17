@@ -17,6 +17,7 @@
       "x-parser-schema-id": "<anonymous-schema-23>"
     }
   },
+  "description": "The payment failed: the customer did not authorize it in time, the authorization ran out, or charging the customer failed.",
   "examples": [
     {
       "failedAt": "2015-07-20T15:49:04-07:00",

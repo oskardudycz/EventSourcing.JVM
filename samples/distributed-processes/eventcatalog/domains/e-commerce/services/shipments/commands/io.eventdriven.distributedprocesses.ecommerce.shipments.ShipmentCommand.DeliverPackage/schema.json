@@ -8,6 +8,7 @@
       "x-parser-schema-id": "<anonymous-schema-4>"
     }
   },
+  "description": "Records that the carrier delivered the package.",
   "examples": [
     {
       "shipmentId": "string"

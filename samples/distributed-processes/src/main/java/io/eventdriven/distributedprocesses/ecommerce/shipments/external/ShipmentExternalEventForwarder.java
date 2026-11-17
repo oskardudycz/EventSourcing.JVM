@@ -20,7 +20,7 @@ public class ShipmentExternalEventForwarder {
     this.messageBus = messageBus;
   }
 
-  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.responses, payloadType = ShipmentExternalEvent.StockReserved.class))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.responses, payloadType = ShipmentExternalEvent.StockReserved.class, description = "Tells the requester that its products are set aside."))
   public void onStockReserved(EventEnvelope<ShipmentEvent.StockReserved> envelope) {
     var event = envelope.data();
     messageBus.publish(List.of(new ShipmentExternalEvent.StockReserved(
@@ -30,7 +30,7 @@ public class ShipmentExternalEventForwarder {
     )));
   }
 
-  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.responses, payloadType = ShipmentExternalEvent.PackageWasSent.class))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.responses, payloadType = ShipmentExternalEvent.PackageWasSent.class, description = "Tells the requester that its package was sent."))
   public void onPackageWasSent(EventEnvelope<ShipmentEvent.PackageWasSent> envelope) {
     var event = envelope.data();
     messageBus.publish(List.of(new ShipmentExternalEvent.PackageWasSent(
@@ -42,7 +42,7 @@ public class ShipmentExternalEventForwarder {
     )));
   }
 
-  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.responses, payloadType = ShipmentExternalEvent.ShipmentFailed.class))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.responses, payloadType = ShipmentExternalEvent.ShipmentFailed.class, description = "Tells the requester that its products cannot ship."))
   public void onProductWasOutOfStock(EventEnvelope<ProductWasOutOfStock> envelope) {
     var event = envelope.data();
     messageBus.publish(List.of(new ShipmentFailed(
@@ -53,7 +53,7 @@ public class ShipmentExternalEventForwarder {
     )));
   }
 
-  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.responses, payloadType = ShipmentExternalEvent.ShipmentFailed.class))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShipmentsConfig.responses, payloadType = ShipmentExternalEvent.ShipmentFailed.class, description = "Tells the requester that its products cannot ship."))
   public void onFulfillmentRejected(EventEnvelope<ShipmentEvent.FulfillmentRejected> envelope) {
     var event = envelope.data();
     messageBus.publish(List.of(new ShipmentFailed(

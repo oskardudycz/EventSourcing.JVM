@@ -14,6 +14,9 @@ import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.api.Cart;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.api.Carts;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -21,19 +24,25 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.ConcurrentModificationException;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.CancelOrder;
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RetryOrderPayment;
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartCommand.*;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 @Controller
 @RequestMapping("/shop")
 public class ShopPages {
   public record ProductOffer(DemoProducts.Product product, double unitPrice) {
   }
+
+  private static final String customerCookie = "customer";
 
   private final ShoppingCartFacade shoppingCarts;
   private final CustomerShoppingCarts customerShoppingCarts;
@@ -61,9 +70,49 @@ public class ShopPages {
     this.orderStatuses = orderStatuses;
   }
 
+  @ModelAttribute("customerName")
+  public @Nullable String customerName(@CookieValue(name = customerCookie, required = false) @Nullable String customer) {
+    return customer != null ? URLDecoder.decode(customer, UTF_8) : null;
+  }
+
   @GetMapping
-  public String start() {
-    return "redirect:/shop/customers/%s/products".formatted(UUID.randomUUID());
+  public String start(@ModelAttribute("customerName") @Nullable String customerName) {
+    if (customerName == null)
+      return "redirect:/shop/login";
+
+    return "redirect:/shop/customers/%s/products".formatted(customerIdOf(customerName));
+  }
+
+  @GetMapping("/login")
+  public String login() {
+    return "shop/login";
+  }
+
+  @PostMapping("/login")
+  public String logIn(@RequestParam String name, HttpServletResponse response) {
+    if (name.isBlank())
+      return "redirect:/shop/login";
+
+    var cookie = new Cookie(customerCookie, URLEncoder.encode(name.strip(), UTF_8));
+    cookie.setPath("/");
+    cookie.setHttpOnly(true);
+    response.addCookie(cookie);
+
+    return "redirect:/shop/customers/%s/products".formatted(customerIdOf(name));
+  }
+
+  @PostMapping("/logout")
+  public String logOut(HttpServletResponse response) {
+    var cookie = new Cookie(customerCookie, "");
+    cookie.setPath("/");
+    cookie.setMaxAge(0);
+    response.addCookie(cookie);
+
+    return "redirect:/shop/login";
+  }
+
+  private static UUID customerIdOf(String name) {
+    return UUID.nameUUIDFromBytes(name.strip().toLowerCase(Locale.ROOT).getBytes(UTF_8));
   }
 
   @GetMapping("/customers/{customerId}/products")

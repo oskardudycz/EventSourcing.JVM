@@ -24,7 +24,7 @@ public class ShoppingCartExternalEventForwarder {
     this.messageBus = messageBus;
   }
 
-  @AsyncPublisher(operation = @AsyncOperation(channelName = ShoppingCartsConfig.external, payloadType = ShoppingCartExternalEvent.ShoppingCartCheckedOut.class))
+  @AsyncPublisher(operation = @AsyncOperation(channelName = ShoppingCartsConfig.external, payloadType = ShoppingCartExternalEvent.ShoppingCartCheckedOut.class, description = "Tells other modules that the customer checked out a shopping cart."))
   public void onCheckedOut(EventEnvelope<ShoppingCartEvent.ShoppingCartCheckedOut> envelope) {
     var event = envelope.data();
     var cart = get(event.shoppingCartId(), envelope.metadata().streamPosition());

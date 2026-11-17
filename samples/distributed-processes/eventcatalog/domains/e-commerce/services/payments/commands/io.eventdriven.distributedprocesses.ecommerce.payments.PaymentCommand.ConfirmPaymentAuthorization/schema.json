@@ -13,6 +13,7 @@
       "x-parser-schema-id": "<anonymous-schema-2>"
     }
   },
+  "description": "The payment provider's answer: the payment is authorized. The provider keeps the amount for the shop until the date by which the shop must charge the customer.",
   "examples": [
     {
       "captureBefore": "2015-07-20T15:49:04-07:00",

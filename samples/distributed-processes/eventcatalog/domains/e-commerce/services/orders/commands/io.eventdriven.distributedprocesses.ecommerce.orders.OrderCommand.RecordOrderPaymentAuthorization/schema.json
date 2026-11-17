@@ -18,6 +18,7 @@
       "x-parser-schema-id": "<anonymous-schema-16>"
     }
   },
+  "description": "Records that the order's payment is authorized. The customer is not charged yet.",
   "examples": [
     {
       "authorizedAt": "2015-07-20T15:49:04-07:00",

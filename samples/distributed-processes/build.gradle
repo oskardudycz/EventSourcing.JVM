@@ -1,8 +1,12 @@
+import com.github.gradle.node.npm.task.NpmTask
+import com.github.gradle.node.npm.task.NpxTask
+
 plugins {
   id 'java'
   id 'org.springframework.boot' version '4.1.2'
   id 'io.spring.dependency-management' version '1.1.7'
   id 'org.springdoc.openapi-gradle-plugin' version '2.1.0'
+  id 'com.github.node-gradle.node' version '7.1.0'
 }
 
 java {
@@ -50,6 +54,7 @@ dependencies {
   testImplementation 'org.springframework.boot:spring-boot-starter-test'
   testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
   testImplementation 'org.testcontainers:testcontainers'
+  testImplementation 'com.microsoft.playwright:playwright:1.65.0'
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
   mockitoAgent('org.mockito:mockito-core') { transitive = false }
 }
@@ -72,6 +77,25 @@ test {
   testLogging.exceptionFormat = 'full'
 }
 
+tasks.register('playwrightInstallDeps', JavaExec) {
+  group = 'verification'
+  description = 'Installs the system packages that Chromium needs for the browser tests (uses sudo).'
+  classpath = sourceSets.test.runtimeClasspath
+  mainClass = 'com.microsoft.playwright.CLI'
+  args = ['install-deps', 'chromium']
+}
+
+tasks.register('howToScreenshots', Test) {
+  group = 'documentation'
+  description = 'Goes through the shop in Chromium and saves the screenshots of HOWTO.md to assets/howto.'
+  testClassesDirs = sourceSets.test.output.classesDirs
+  classpath = sourceSets.test.runtimeClasspath
+  useJUnitPlatform()
+  filter { includeTestsMatching '*ShopInBrowserTests' }
+  systemProperty 'screenshots.dir', file('assets/howto').absolutePath
+  outputs.upToDateWhen { false }
+}
+
 def contractsPort = 18086
 openApi {
   outputDir.set(file('eventcatalog/specs'))
@@ -86,4 +110,54 @@ openApi {
   customBootRun {
     args.set(["--server.port=${contractsPort}".toString()])
   }
+}
+
+node {
+  download = true
+  version = '26.13.1'
+  nodeProjectDir = file('eventcatalog')
+}
+
+tasks.register('eventCatalogGenerate', NpmTask) {
+  group = 'documentation'
+  description = 'Writes the EventCatalog pages from the OpenAPI and AsyncAPI documents.'
+  dependsOn 'npmInstall', 'generateOpenApiDocs'
+  args = ['run', 'generate']
+}
+
+tasks.register('eventCatalog', NpmTask) {
+  group = 'documentation'
+  description = 'Builds the EventCatalog site into eventcatalog/dist.'
+  dependsOn 'eventCatalogGenerate'
+  args = ['run', 'build']
+}
+
+tasks.register('eventCatalogPreview', NpmTask) {
+  group = 'documentation'
+  description = 'Serves the built EventCatalog on http://localhost:3000.'
+  dependsOn 'eventCatalog'
+  args = ['run', 'preview']
+}
+
+tasks.register('eventCatalogBrowsers', NpxTask) {
+  group = 'verification'
+  description = 'Installs the Chromium that the EventCatalog tests use.'
+  dependsOn 'npmInstall'
+  command = 'playwright'
+  args = ['install', 'chromium']
+}
+
+tasks.register('eventCatalogScreenshots', NpmTask) {
+  group = 'documentation'
+  description = 'Checks the built EventCatalog and saves the screenshots of HOWTO.md to assets/howto.'
+  dependsOn 'eventCatalog', 'eventCatalogBrowsers'
+  args = ['test']
+  environment = ['SCREENSHOTS_DIR': file('assets/howto').absolutePath]
+}
+
+tasks.register('eventCatalogTest', NpmTask) {
+  group = 'verification'
+  description = 'Checks the built EventCatalog in Chromium.'
+  dependsOn 'eventCatalog', 'eventCatalogBrowsers'
+  args = ['test']
 }

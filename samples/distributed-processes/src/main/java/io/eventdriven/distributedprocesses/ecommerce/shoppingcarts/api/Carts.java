@@ -74,7 +74,7 @@ public class Carts extends Projection<Cart> {
       shoppingCartId,
       customerId,
       lines,
-      productItems.items().stream().mapToDouble(PricedProductItem::totalPrice).sum(),
+      productItems.totalPrice(),
       checkedOut
     );
   }

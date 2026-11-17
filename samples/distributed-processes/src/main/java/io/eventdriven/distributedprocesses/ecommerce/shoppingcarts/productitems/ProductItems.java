@@ -65,6 +65,10 @@ public record ProductItems(
     return currentProductItem.get();
   }
 
+  public double totalPrice() {
+    return Math.round(items.stream().mapToDouble(PricedProductItem::totalPrice).sum() * 100) / 100.0;
+  }
+
   public static ProductItems empty() {
     return new ProductItems(new ArrayList<>());
   }

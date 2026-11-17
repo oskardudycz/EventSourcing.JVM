@@ -8,6 +8,7 @@
       "x-parser-schema-id": "<anonymous-schema-5>"
     }
   },
+  "description": "The fulfillment service's answer: it will not send the package.",
   "examples": [
     {
       "shipmentId": "string"

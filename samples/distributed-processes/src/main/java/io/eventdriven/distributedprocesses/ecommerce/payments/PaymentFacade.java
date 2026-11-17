@@ -35,7 +35,7 @@ public class PaymentFacade {
     this.now = now;
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.requests))
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.requests, description = "Records a payment that waits for the customer to authorize it on the payment provider's page."))
   public void authorizePayment(AuthorizePayment command) {
     var requestedAt = now.get();
 
@@ -90,7 +90,7 @@ public class PaymentFacade {
     return session;
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal))
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal, description = "Records that the payment is authorized, and the date by which the shop must charge the customer."))
   public void confirmPaymentAuthorization(ConfirmPaymentAuthorization command) {
     store.getAndUpdate(
       command.paymentId(),
@@ -98,7 +98,7 @@ public class PaymentFacade {
     );
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.requests))
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.requests, description = "Asks the payment provider to charge the customer."))
   public void capturePayment(CapturePayment command) {
     store.getAndUpdate(
       command.paymentId(),
@@ -106,7 +106,7 @@ public class PaymentFacade {
     );
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal))
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal, description = "Records that the customer was charged."))
   public void confirmPaymentCapture(ConfirmPaymentCapture command) {
     store.getAndUpdate(
       command.paymentId(),
@@ -114,7 +114,7 @@ public class PaymentFacade {
     );
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal))
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal, description = "Records that charging the customer failed."))
   public void failPaymentCapture(FailPaymentCapture command) {
     store.getAndUpdate(
       command.paymentId(),
@@ -122,7 +122,7 @@ public class PaymentFacade {
     );
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.requests))
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.requests, description = "Cancels the authorized payment, so the customer is never charged."))
   public void cancelPayment(CancelPayment command) {
     store.getAndUpdate(
       command.paymentId(),
@@ -131,7 +131,7 @@ public class PaymentFacade {
   }
 
 
-  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal))
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal, description = "Fails the payment, because the customer did not pay in time."))
   public void timeOutPayment(TimeOutPayment command) {
     store.getAndUpdate(
       command.paymentId(),
@@ -139,7 +139,7 @@ public class PaymentFacade {
     );
   }
 
-  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal))
+  @AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.internal, description = "Fails the payment, because its authorization ran out before the shop charged the customer."))
   public void expirePaymentAuthorization(ExpirePaymentAuthorization command) {
     store.getAndUpdate(
       command.paymentId(),

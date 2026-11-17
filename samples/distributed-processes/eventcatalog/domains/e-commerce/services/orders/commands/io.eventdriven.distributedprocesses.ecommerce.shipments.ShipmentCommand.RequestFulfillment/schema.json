@@ -8,6 +8,7 @@
       "x-parser-schema-id": "<anonymous-schema-62>"
     }
   },
+  "description": "Asks the fulfillment service to pick, pack and send the products that are set aside.",
   "examples": [
     {
       "shipmentId": "string"

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="~{shop/fragments :: head('Log in')}"></head>
+<body>
+<header class="topbar">
+  <span class="brand">Demo Shop</span>
+</header>
+<main class="page login">
+  <h1>Log in</h1>
+  <form class="card" method="post" th:action="@{/shop/login}">
+    <label for="name">Your name</label>
+    <input id="name" name="name" required autofocus autocomplete="name" placeholder="Marty McFly">
+    <p class="muted">There is no password. The same name always opens the same orders.</p>
+    <button class="button primary wide" type="submit">Log in</button>
+  </form>
+</main>
+</body>
+</html>

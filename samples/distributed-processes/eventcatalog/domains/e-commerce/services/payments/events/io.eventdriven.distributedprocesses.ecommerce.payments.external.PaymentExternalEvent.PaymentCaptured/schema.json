@@ -17,6 +17,7 @@
       "x-parser-schema-id": "<anonymous-schema-20>"
     }
   },
+  "description": "The customer was charged.",
   "examples": [
     {
       "capturedAt": "2015-07-20T15:49:04-07:00",

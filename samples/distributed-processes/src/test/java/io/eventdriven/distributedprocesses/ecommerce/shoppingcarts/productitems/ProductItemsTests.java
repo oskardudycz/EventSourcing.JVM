@@ -16,6 +16,20 @@ public class ProductItemsTests {
   }
 
   @Test
+  public void theTotalPriceIsInWholeCents() {
+    var productItems = ProductItems.empty()
+      .add(pricedProductItem(shoes, 1, 92.78))
+      .add(pricedProductItem(shirt, 3, 0.1));
+
+    assertThat(productItems.totalPrice()).isEqualTo(93.08);
+  }
+
+  @Test
+  public void aLineTotalIsInWholeCents() {
+    assertThat(pricedProductItem(shirt, 3, 0.1).totalPrice()).isEqualTo(0.3);
+  }
+
+  @Test
   public void addingTheSameProductTwiceSumsTheQuantities() {
     var productItems = ProductItems.empty()
       .add(pricedProductItem(shoes, 2, 10))

@@ -3,7 +3,9 @@ id: >-
   io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock
 version: 1.0.0
 name: ReserveStock
-summary: ''
+summary: >-
+  Asks the warehouse to set aside the products, so that nobody else can buy
+  them.
 badges: []
 schemaPath: schema.json
 owners:
@@ -15,3 +17,9 @@ owners:
 
 ## Schema
 <SchemaViewer file="schema.json" title="Message Schema" maxHeight="500" />
+
+
+
+## Bindings
+
+### x-in-memory

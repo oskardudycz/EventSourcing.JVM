@@ -8,6 +8,7 @@
       "x-parser-schema-id": "<anonymous-schema-59>"
     }
   },
+  "description": "Cancels an authorized payment before the customer is charged.",
   "examples": [
     {
       "paymentId": "string"

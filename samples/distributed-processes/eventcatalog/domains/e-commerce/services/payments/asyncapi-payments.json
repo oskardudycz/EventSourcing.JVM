@@ -3,9 +3,17 @@
   "info": {
     "title": "E-commerce",
     "version": "1.0.0",
+    "description": "Payments through a payment provider. The customer authorizes a payment on the provider's page. The shop charges the customer later, or cancels the payment. It answers on payments-responses.",
     "x-generator": "springwolf"
   },
   "defaultContentType": "application/json",
+  "servers": {
+    "in-memory": {
+      "host": "localhost",
+      "protocol": "in-memory",
+      "description": "The message bus inside the application. Each channel delivers a message to the queues bound to it with a matching routing key, as a RabbitMQ topic exchange does."
+    }
+  },
   "channels": {
     "payments-internal": {
       "address": "payments-internal",
@@ -86,6 +94,7 @@
             "type": "string"
           }
         },
+        "description": "Asks for a payment of the amount. The payment waits until the customer authorizes it on the payment provider's page.",
         "examples": [
           {
             "amount": 1.1,
@@ -103,6 +112,7 @@
             "type": "string"
           }
         },
+        "description": "Cancels an authorized payment before the customer is charged.",
         "examples": [
           {
             "paymentId": "string"
@@ -118,6 +128,7 @@
             "type": "string"
           }
         },
+        "description": "Asks to charge the customer the authorized amount.",
         "examples": [
           {
             "paymentId": "string"
@@ -137,6 +148,7 @@
             "type": "string"
           }
         },
+        "description": "The payment provider's answer: the payment is authorized. The provider keeps the amount for the shop until the date by which the shop must charge the customer.",
         "examples": [
           {
             "captureBefore": "2015-07-20T15:49:04-07:00",
@@ -153,6 +165,7 @@
             "type": "string"
           }
         },
+        "description": "The payment provider's answer: the customer was charged.",
         "examples": [
           {
             "paymentId": "string"
@@ -172,6 +185,7 @@
             "type": "string"
           }
         },
+        "description": "Fails a payment whose authorization ran out before the shop charged the customer.",
         "examples": [
           {
             "expiredAt": "2015-07-20T15:49:04-07:00",
@@ -193,6 +207,7 @@
             "const": "UnexpectedError"
           }
         },
+        "description": "Records that charging the customer failed, and why.",
         "examples": [
           {
             "paymentId": "string",
@@ -213,6 +228,7 @@
             "format": "date-time"
           }
         },
+        "description": "Fails a payment that the customer did not pay in time.",
         "examples": [
           {
             "paymentId": "string",
@@ -236,6 +252,7 @@
             "type": "string"
           }
         },
+        "description": "The payment is authorized: the payment provider keeps the amount for the requester. The customer is not charged yet.",
         "examples": [
           {
             "authorizedAt": "2015-07-20T15:49:04-07:00",
@@ -260,6 +277,7 @@
             "type": "string"
           }
         },
+        "description": "The customer was charged.",
         "examples": [
           {
             "capturedAt": "2015-07-20T15:49:04-07:00",
@@ -284,6 +302,7 @@
             "type": "string"
           }
         },
+        "description": "The payment failed: the customer did not authorize it in time, the authorization ran out, or charging the customer failed.",
         "examples": [
           {
             "failedAt": "2015-07-20T15:49:04-07:00",
@@ -306,7 +325,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment",
         "title": "AuthorizePayment",
-        "bindings": {},
+        "description": "Asks for a payment of the amount. The payment waits until the customer authorizes it on the payment provider's page.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment": {
@@ -321,7 +343,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment",
         "title": "CancelPayment",
-        "bindings": {},
+        "description": "Cancels an authorized payment before the customer is charged.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment": {
@@ -336,7 +361,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment",
         "title": "CapturePayment",
-        "bindings": {},
+        "description": "Asks to charge the customer the authorized amount.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentAuthorization": {
@@ -351,7 +379,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentAuthorization",
         "title": "ConfirmPaymentAuthorization",
-        "bindings": {},
+        "description": "The payment provider's answer: the payment is authorized. The provider keeps the amount for the shop until the date by which the shop must charge the customer.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentCapture": {
@@ -366,7 +397,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentCapture",
         "title": "ConfirmPaymentCapture",
-        "bindings": {},
+        "description": "The payment provider's answer: the customer was charged.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ExpirePaymentAuthorization": {
@@ -381,7 +415,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ExpirePaymentAuthorization",
         "title": "ExpirePaymentAuthorization",
-        "bindings": {},
+        "description": "Fails a payment whose authorization ran out before the shop charged the customer.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.FailPaymentCapture": {
@@ -396,7 +433,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.FailPaymentCapture",
         "title": "FailPaymentCapture",
-        "bindings": {},
+        "description": "Records that charging the customer failed, and why.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.TimeOutPayment": {
@@ -411,7 +451,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.TimeOutPayment",
         "title": "TimeOutPayment",
-        "bindings": {},
+        "description": "Fails a payment that the customer did not pay in time.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "command"
       },
       "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized": {
@@ -426,7 +469,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized",
         "title": "PaymentAuthorized",
-        "bindings": {},
+        "description": "The payment is authorized: the payment provider keeps the amount for the requester. The customer is not charged yet.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "event"
       },
       "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured": {
@@ -441,7 +487,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured",
         "title": "PaymentCaptured",
-        "bindings": {},
+        "description": "The customer was charged.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "event"
       },
       "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed": {
@@ -456,7 +505,10 @@
         },
         "name": "io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed",
         "title": "PaymentFailed",
-        "bindings": {},
+        "description": "The payment failed: the customer did not authorize it in time, the authorization ran out, or charging the customer failed.",
+        "bindings": {
+          "x-in-memory": {}
+        },
         "x-eventcatalog-message-type": "event"
       }
     }
@@ -468,8 +520,10 @@
         "$ref": "#/channels/payments-internal"
       },
       "title": "payments-internal_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Records that the payment is authorized, and the date by which the shop must charge the customer.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/payments-internal/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentAuthorization"
@@ -482,8 +536,10 @@
         "$ref": "#/channels/payments-internal"
       },
       "title": "payments-internal_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Records that the customer was charged.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/payments-internal/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ConfirmPaymentCapture"
@@ -496,8 +552,10 @@
         "$ref": "#/channels/payments-internal"
       },
       "title": "payments-internal_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Fails the payment, because its authorization ran out before the shop charged the customer.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/payments-internal/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.ExpirePaymentAuthorization"
@@ -510,8 +568,10 @@
         "$ref": "#/channels/payments-internal"
       },
       "title": "payments-internal_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Records that charging the customer failed.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/payments-internal/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.FailPaymentCapture"
@@ -524,8 +584,10 @@
         "$ref": "#/channels/payments-internal"
       },
       "title": "payments-internal_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Fails the payment, because the customer did not pay in time.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/payments-internal/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.TimeOutPayment"
@@ -538,8 +600,10 @@
         "$ref": "#/channels/payments-requests"
       },
       "title": "payments-requests_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Records a payment that waits for the customer to authorize it on the payment provider's page.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/payments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment"
@@ -552,8 +616,10 @@
         "$ref": "#/channels/payments-requests"
       },
       "title": "payments-requests_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Cancels the authorized payment, so the customer is never charged.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/payments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment"
@@ -566,8 +632,10 @@
         "$ref": "#/channels/payments-requests"
       },
       "title": "payments-requests_receive",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Asks the payment provider to charge the customer.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/payments-requests/messages/io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment"
@@ -580,8 +648,10 @@
         "$ref": "#/channels/payments-responses"
       },
       "title": "payments-responses_send",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Tells the requester that the payment failed.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/payments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed"
@@ -594,8 +664,10 @@
         "$ref": "#/channels/payments-responses"
       },
       "title": "payments-responses_send",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Tells the requester that the payment is authorized.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/payments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized"
@@ -608,8 +680,10 @@
         "$ref": "#/channels/payments-responses"
       },
       "title": "payments-responses_send",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Tells the requester that the payment failed.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/payments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed"
@@ -622,8 +696,10 @@
         "$ref": "#/channels/payments-responses"
       },
       "title": "payments-responses_send",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Tells the requester that the customer was charged.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/payments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured"
@@ -636,8 +712,10 @@
         "$ref": "#/channels/payments-responses"
       },
       "title": "payments-responses_send",
-      "description": "Auto-generated description",
-      "bindings": {},
+      "description": "Tells the requester that the payment failed.",
+      "bindings": {
+        "x-in-memory": {}
+      },
       "messages": [
         {
           "$ref": "#/channels/payments-responses/messages/io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed"

@@ -103,22 +103,22 @@ public final class OrdersConfig {
     var saga = new OrderSaga(messageBus);
 
     eventStore
-      .subscribe(OrderPlaced.class, envelope -> saga.on(envelope.data()))
-      .subscribe(OrderConfirmed.class, envelope -> saga.on(envelope.data()))
-      .subscribe(OrderPaymentDue.class, envelope -> saga.on(envelope.data()))
-      .subscribe(OrderPaymentRetried.class, envelope -> saga.on(envelope.data()))
-      .subscribe(OrderCanceled.class, envelope -> saga.on(envelope.data()));
+      .subscribe(OrderPlaced.class, envelope -> saga.onOrderPlaced(envelope.data()))
+      .subscribe(OrderConfirmed.class, envelope -> saga.onOrderConfirmed(envelope.data()))
+      .subscribe(OrderPaymentDue.class, envelope -> saga.onOrderPaymentDue(envelope.data()))
+      .subscribe(OrderPaymentRetried.class, envelope -> saga.onOrderPaymentRetried(envelope.data()))
+      .subscribe(OrderCanceled.class, envelope -> saga.onOrderCanceled(envelope.data()));
 
     messageBus
       .bind(shoppingCartsExternal, ShoppingCartsConfig.external, "#")
       .bind(paymentsResponses, PaymentsConfig.responses, responsesForOrders)
       .bind(shipmentsResponses, ShipmentsConfig.responses, responsesForOrders)
-      .subscribe(shoppingCartsExternal, ShoppingCartCheckedOut.class, saga::on)
-      .subscribe(paymentsResponses, PaymentAuthorized.class, saga::on)
-      .subscribe(paymentsResponses, PaymentCaptured.class, saga::on)
-      .subscribe(paymentsResponses, PaymentFailed.class, saga::on)
-      .subscribe(shipmentsResponses, StockReserved.class, saga::on)
-      .subscribe(shipmentsResponses, PackageWasSent.class, saga::on)
-      .subscribe(shipmentsResponses, ShipmentFailed.class, saga::on);
+      .subscribe(shoppingCartsExternal, ShoppingCartCheckedOut.class, saga::onShoppingCartCheckedOut)
+      .subscribe(paymentsResponses, PaymentAuthorized.class, saga::onPaymentAuthorized)
+      .subscribe(paymentsResponses, PaymentCaptured.class, saga::onPaymentCaptured)
+      .subscribe(paymentsResponses, PaymentFailed.class, saga::onPaymentFailed)
+      .subscribe(shipmentsResponses, StockReserved.class, saga::onStockReserved)
+      .subscribe(shipmentsResponses, PackageWasSent.class, saga::onPackageWasSent)
+      .subscribe(shipmentsResponses, ShipmentFailed.class, saga::onShipmentFailed);
   }
 }

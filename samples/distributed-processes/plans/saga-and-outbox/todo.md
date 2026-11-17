@@ -22,6 +22,7 @@
   - [x] 7.2 Names, the Checkout Session, the unpaid order, the customer's order commands to `OrderFacade`
   - [x] 7.3 The customer's views, the web API with Swagger, the shop pages, the sandbox
   - [x] 7.4 Channels in the bus, AsyncAPI with Springwolf, and EventCatalog
+  - [x] 7.5 A clean Springwolf UI, a login, the catalog from Gradle, and a how-to
 - [ ] 8. Real infrastructure
 
 Notes:
@@ -68,3 +69,9 @@ Notes:
 - Step 7.4 follow-up: removed two wrong workarounds. `eventcatalog build` and `preview` run with closed standard input (checked), so `playwright.config.js` runs `npm run preview` as it is. A plain `eventcatalog generate` followed by a build works, also after a message rename, so `generate` no longer deletes `domains/` and the Astro caches.
 - Step 7.4 follow-up: teams and users (Back to the Future names) own the four services; `@Tag` names each controller's module.
 - Step 7.4 follow-up: `repositoryUrl` holds the GitHub link and `homepageLink` is event-driven.io. With `homepageLink` on github.com, EventCatalog's link check read its own GitHub links as catalog pages (2 broken links). The Vite chunk size and `/api/settings` warnings come from EventCatalog itself.
+- Step 7.5: Springwolf UI has no warnings and no 404: x-in-memory bindings, an in-memory server, and publishing on our bus through `InMemoryPublishingController` and `NestedRecordPayloadCreator`. Descriptions for every operation (`@AsyncOperation`), message (`@Schema`, copied by `MessageDescriptions`) and module.
+- Step 7.5: the saga's handlers are named after their events (`onPaymentAuthorized`, ...), because Springwolf merges operations with the same method name and has no attribute for the operation name.
+- Step 7.5: a dummy login in the shop: the customer id comes from the name, so the same name opens the same orders. Prices and totals are in whole cents.
+- Step 7.5: the node-gradle plugin runs EventCatalog from Gradle (`eventCatalog`, `eventCatalogPreview`, `eventCatalogTest`, `eventCatalogScreenshots`) with its own Node.js 26.13.1.
+- Step 7.5: `ShopInBrowserTests` (Playwright for Java) is in `./gradlew build`; `./gradlew howToScreenshots eventCatalogScreenshots` writes the screenshots of HOWTO.md to `assets/howto`. README.md was rewritten (what, why, how) and links to HOWTO.md.
+- Step 7.5: on this machine, Playwright warns that `libavif16` is missing (needs `sudo apt-get install libavif16`); the tests pass. "Orders openapi-orders specification renders" failed once in a busy run and then passed 108 times.

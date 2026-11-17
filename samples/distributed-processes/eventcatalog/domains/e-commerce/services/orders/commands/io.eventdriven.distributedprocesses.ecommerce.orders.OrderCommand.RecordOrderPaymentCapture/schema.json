@@ -13,6 +13,7 @@
       "x-parser-schema-id": "<anonymous-schema-18>"
     }
   },
+  "description": "Records that the customer was charged for the order.",
   "examples": [
     {
       "capturedAt": "2015-07-20T15:49:04-07:00",

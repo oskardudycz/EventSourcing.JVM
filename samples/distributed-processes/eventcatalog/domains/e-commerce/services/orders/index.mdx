@@ -9,9 +9,6 @@ badges:
     backgroundColor: blue
 sends:
   - id: >-
-      io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.PlaceOrder
-    version: 1.0.0
-  - id: >-
       io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPackageSent
     version: 1.0.0
   - id: >-
@@ -27,16 +24,19 @@ sends:
       io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderShipmentFailure
     version: 1.0.0
   - id: >-
-      io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderStockReservation
+      io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.PlaceOrder
     version: 1.0.0
   - id: >-
-      io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment
+      io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderStockReservation
     version: 1.0.0
   - id: >-
       io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment
     version: 1.0.0
   - id: >-
       io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment
+    version: 1.0.0
+  - id: >-
+      io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment
     version: 1.0.0
   - id: >-
       io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReleaseStock

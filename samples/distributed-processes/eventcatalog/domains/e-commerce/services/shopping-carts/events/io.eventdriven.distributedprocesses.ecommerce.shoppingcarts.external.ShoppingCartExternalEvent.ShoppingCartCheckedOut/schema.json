@@ -72,6 +72,7 @@
       "x-parser-schema-id": "<anonymous-schema-8>"
     }
   },
+  "description": "The customer checked out the shopping cart. It carries the customer, the products, their prices and the total.",
   "examples": [
     {
       "cartId": "string",

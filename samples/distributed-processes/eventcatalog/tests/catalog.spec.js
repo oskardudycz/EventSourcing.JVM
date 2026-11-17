@@ -112,6 +112,9 @@ const events = [
 
 const sorted = (names) => [...names].sort();
 
+const screenshots = process.env.SCREENSHOTS_DIR ?? 'test-results/screenshots';
+const screenshot = (page, name) => page.screenshot({ path: `${screenshots}/${name}.png`, fullPage: true });
+
 async function sidebarSection(page, title) {
   const header = page.getByRole('button', { name: title, exact: true });
   const section = header.locator('xpath=..');
@@ -131,6 +134,7 @@ test('home page shows the e-commerce domain with its services and messages', asy
   await expect(counts).toContainText(/Domains\s*1/);
   await expect(counts).toContainText(/Services\s*4/);
   await expect(counts).toContainText(/Messages\s*38/);
+  await screenshot(page, '10-eventcatalog-home');
 });
 
 test('header links to the repository', async ({ page }) => {
@@ -171,6 +175,7 @@ for (const [id, service] of Object.entries(services)) {
     const diagram = page.locator('.react-flow');
     await expect(diagram).toBeVisible();
     await expect(diagram.locator('.react-flow__node').filter({ hasText: service.name }).first()).toBeVisible();
+    if (id === 'payments') await screenshot(page, '11-eventcatalog-service');
   });
 
   for (const specification of service.specifications) {
@@ -223,6 +228,7 @@ test('events listing shows who produces and who consumes each event', async ({ p
     await expect(row).toContainText(event.producer);
     await expect(row).toContainText(event.consumer);
   }
+  await screenshot(page, '12-eventcatalog-events');
 });
 
 test('domain visualiser draws all services', async ({ page }) => {
