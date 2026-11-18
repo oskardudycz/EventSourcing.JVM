@@ -51,7 +51,7 @@ public class GroupCheckout extends AbstractProcessManager<GroupCheckoutEvent, UU
     var guestStayId = event.guestStayAccountId();
     var now = event.completedAt();
 
-    if (status != CheckoutStatus.INITIATED || this.guestStayCheckouts.get(guestStayId) == CheckoutStatus.COMPLETED)
+    if (status != CheckoutStatus.INITIATED)
       return;
 
     var guestCheckoutCompleted = new GuestCheckoutCompletionRecorded(id(), guestStayId, now);
@@ -66,7 +66,7 @@ public class GroupCheckout extends AbstractProcessManager<GroupCheckoutEvent, UU
     var guestStayId = event.guestStayAccountId();
     var now = event.failedAt();
 
-    if (status != CheckoutStatus.INITIATED || this.guestStayCheckouts.get(guestStayId) == CheckoutStatus.FAILED)
+    if (status != CheckoutStatus.INITIATED)
       return;
 
     var guestCheckoutFailed = new GuestCheckoutFailureRecorded(id(), guestStayId, now);

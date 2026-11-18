@@ -1,13 +1,10 @@
-package io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities;
+package io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts;
 
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.InMemoryMessageBus;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.MessageCatcher;
-import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccount;
-import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountFacade;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand;
-import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
 import net.datafaker.Faker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,25 +13,6 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public class EntityDefinitionTests {
-
-  private Database database;
-  private MessageBus messageBus;
-  private MessageCatcher publishedMessages;
-  private GuestStayAccountFacade guestStayFacade;
-  private Faker faker;
-  private OffsetDateTime now;
-
-  @BeforeEach
-  public void setUp() {
-    database = new Database();
-    messageBus = new InMemoryMessageBus();
-    publishedMessages = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), messageBus);
-    faker = new Faker();
-    now = OffsetDateTime.now();
-    messageBus.use(publishedMessages::catchMessage);
-  }
-
   @Test
   public void checkingInGuest_Succeeds() {
     // Given
@@ -153,5 +131,23 @@ public class EntityDefinitionTests {
         null
       )
     );
+  }
+
+  private Database database;
+  private MessageBus messageBus;
+  private MessageCatcher publishedMessages;
+  private GuestStayAccountFacade guestStayFacade;
+  private Faker faker;
+  private OffsetDateTime now;
+
+  @BeforeEach
+  public void setUp() {
+    database = new Database();
+    messageBus = new InMemoryMessageBus();
+    publishedMessages = new MessageCatcher();
+    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), messageBus);
+    faker = new Faker();
+    now = OffsetDateTime.now();
+    messageBus.use(publishedMessages::catchMessage);
   }
 }

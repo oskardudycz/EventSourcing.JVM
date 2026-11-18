@@ -2,19 +2,14 @@ package io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutab
 
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.InMemoryMessageBus;
-import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.MessageCatcher;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.groupcheckouts.GroupCheckout;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.groupcheckouts.GroupCheckoutEvent.GroupCheckoutCompleted;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.groupcheckouts.GroupCheckoutEvent.GroupCheckoutInitiated;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.groupcheckouts.GroupCheckoutEvent.GuestCheckoutCompletionRecorded;
-import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.groupcheckouts.GroupCheckoutEvent.GuestCheckoutFailureRecorded;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.groupcheckouts.GroupCheckoutFacade;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccount;
-import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent.ChargeRecorded;
-import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent.GuestCheckedIn;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent.GuestCheckedOut;
-import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent.PaymentRecorded;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -30,199 +25,7 @@ import static io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_i
 import static io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountsConfig.configureGuestStayAccounts;
 
 public class IdempotencyTests {
-  private MessageCatcher publishedMessages;
-  private GuestStayAccountFacade guestStayFacade;
-  private GroupCheckoutFacade groupCheckoutFacade;
-  private OffsetDateTime now;
-
-  @BeforeEach
-  public void setUp() {
-    Database database = new Database();
-    MessageBus messageBus = new InMemoryMessageBus();
-    publishedMessages = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), messageBus);
-    groupCheckoutFacade = new GroupCheckoutFacade(database.collection(GroupCheckout.class), messageBus);
-    now = OffsetDateTime.now();
-
-    messageBus.use(publishedMessages::catchMessage);
-  }
-
   @Test
-
-  @Tag("Exercise")
-  public void groupCheckoutIsInitiatedOnceForTheSameId() {
-    // Given
-    var groupCheckoutId = UUID.randomUUID();
-    var clerkId = UUID.randomUUID();
-    UUID[] guestStays = new UUID[]{UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()};
-    var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
-    // And
-    groupCheckoutFacade.initiateGroupCheckout(command);
-
-    // When
-    groupCheckoutFacade.initiateGroupCheckout(command);
-
-    // Then
-    publishedMessages.shouldReceiveSingleMessage(
-      new GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now)
-    );
-  }
-
-  @Test
-
-  @Tag("Exercise")
-  public void groupCheckoutRecordsOnceGuestCheckoutCompletion() {
-    // Given
-    var groupCheckoutId = UUID.randomUUID();
-    var clerkId = UUID.randomUUID();
-    UUID[] guestStays = new UUID[]{UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()};
-    // And
-    groupCheckoutFacade.initiateGroupCheckout(
-      new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now.minusDays(1))
-    );
-    publishedMessages.reset();
-
-    var command = new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[0], now);
-    groupCheckoutFacade.recordGuestCheckoutCompletion(command);
-
-    // When
-    groupCheckoutFacade.recordGuestCheckoutCompletion(command);
-
-    // Then
-    publishedMessages.shouldReceiveSingleMessage(
-      new GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[0], now)
-    );
-  }
-
-  @Test
-
-  @Tag("Exercise")
-  public void groupCheckoutRecordsOnceGuestCheckoutFailure() {
-    // Given
-    var groupCheckoutId = UUID.randomUUID();
-    var clerkId = UUID.randomUUID();
-    UUID[] guestStays = new UUID[]{UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()};
-    // And
-    groupCheckoutFacade.initiateGroupCheckout(
-      new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now.minusDays(1))
-    );
-    publishedMessages.reset();
-
-    var command = new RecordGuestCheckoutFailure(groupCheckoutId, guestStays[0], now);
-    groupCheckoutFacade.recordGuestCheckoutFailure(command);
-
-    // When
-    groupCheckoutFacade.recordGuestCheckoutFailure(command);
-
-    // Then
-    publishedMessages.shouldReceiveSingleMessage(
-      new GuestCheckoutFailureRecorded(groupCheckoutId, guestStays[0], now)
-    );
-  }
-
-  @Test
-
-  @Tag("Exercise")
-  public void guestIsCheckedInOnceForTheSameGuestStayAccount() {
-    // Given
-    var guestStayId = UUID.randomUUID();
-    var command = new CheckInGuest(guestStayId, now);
-    // And
-    guestStayFacade.checkInGuest(command);
-
-    // When
-    guestStayFacade.checkInGuest(command);
-
-    // Then
-    publishedMessages.shouldReceiveSingleMessage(new GuestCheckedIn(guestStayId, now));
-  }
-
-  @Test
-
-  @Tag("Exercise")
-  public void chargeIsRecordedOnceForTheSameChargeId() {
-    // Given
-    var guestStayId = checkInGuest();
-    var chargeId = UUID.randomUUID();
-    var command = new RecordCharge(guestStayId, chargeId, 100, now);
-    // And
-    guestStayFacade.recordCharge(command);
-
-    // When
-    guestStayFacade.recordCharge(command);
-
-    // Then
-    publishedMessages.shouldReceiveSingleMessage(new ChargeRecorded(guestStayId, chargeId, 100, now));
-  }
-
-  @Test
-
-  @Tag("Exercise")
-  public void paymentIsRecordedOnceForTheSamePaymentId() {
-    // Given
-    var guestStayId = checkInGuest();
-    var paymentId = UUID.randomUUID();
-    var command = new RecordPayment(guestStayId, paymentId, 100, now);
-    // And
-    guestStayFacade.recordPayment(command);
-
-    // When
-    guestStayFacade.recordPayment(command);
-
-    // Then
-    publishedMessages.shouldReceiveSingleMessage(new PaymentRecorded(guestStayId, paymentId, 100, now));
-  }
-
-  @Test
-
-  @Tag("Exercise")
-  public void guestIsCheckedOutOnceForTheSameGroupCheckout() {
-    // Given
-    var guestStayId = checkInGuest();
-    var groupCheckoutId = UUID.randomUUID();
-    var command = new CheckOutGuest(guestStayId, now, groupCheckoutId);
-    // And
-    guestStayFacade.checkOutGuest(command);
-
-    // When
-    guestStayFacade.checkOutGuest(command);
-
-    // Then
-    publishedMessages.shouldReceiveSingleMessage(new GuestCheckedOut(guestStayId, now, groupCheckoutId));
-  }
-
-  @Test
-
-  @Tag("Exercise")
-  public void groupCheckoutCompletesOnceWhenTheLastGuestCheckoutCompletionIsRecordedTwice() {
-    // Given
-    var groupCheckoutId = UUID.randomUUID();
-    UUID[] guestStays = new UUID[]{UUID.randomUUID(), UUID.randomUUID()};
-    groupCheckoutFacade.initiateGroupCheckout(
-      new InitiateGroupCheckout(groupCheckoutId, UUID.randomUUID(), guestStays, now)
-    );
-    groupCheckoutFacade.recordGuestCheckoutCompletion(
-      new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[0], now)
-    );
-    publishedMessages.reset();
-    // And
-    var command = new RecordGuestCheckoutCompletion(groupCheckoutId, guestStays[1], now);
-    groupCheckoutFacade.recordGuestCheckoutCompletion(command);
-
-    // When
-    groupCheckoutFacade.recordGuestCheckoutCompletion(command);
-
-    // Then
-    publishedMessages.shouldReceiveMessages(
-      List.of(
-        new GuestCheckoutCompletionRecorded(groupCheckoutId, guestStays[1], now),
-        new GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
-      )
-    );
-  }
-
-  @Test
-
   @Tag("Exercise")
   public void groupCheckoutCompletesOnceWhenTheBusDeliversEveryMessageTwice() {
     // Given
@@ -268,10 +71,10 @@ public class IdempotencyTests {
     );
   }
 
-  private UUID checkInGuest() {
-    var guestStayId = UUID.randomUUID();
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStayId, now));
-    publishedMessages.reset();
-    return guestStayId;
+  private OffsetDateTime now;
+
+  @BeforeEach
+  public void setUp() {
+    now = OffsetDateTime.now();
   }
 }

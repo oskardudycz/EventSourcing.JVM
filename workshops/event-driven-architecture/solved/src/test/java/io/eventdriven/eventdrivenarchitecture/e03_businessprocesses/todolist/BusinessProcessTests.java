@@ -25,7 +25,6 @@ import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todol
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountsConfig.configureGuestStayAccounts;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class BusinessProcessTests {
 
@@ -247,11 +246,11 @@ public class BusinessProcessTests {
   }
 
   @Test
-  public void guestCheckoutForGroupCheckoutNotOnTheToDoList_Fails() {
+  public void guestCheckoutForGroupCheckoutNotOnTheToDoList_IsIgnored() {
     var guestCheckedOut = new GuestStayAccountEvent.GuestCheckedOut(UUID.randomUUID(), now, UUID.randomUUID());
 
-    assertThatThrownBy(() -> messageBus.publish(List.of(guestCheckedOut)))
-      .isInstanceOf(IllegalStateException.class)
-      .hasMessage("Entity not found");
+    messageBus.publish(List.of(guestCheckedOut));
+
+    publishedMessages.shouldReceiveMessages(List.of(guestCheckedOut));
   }
 }

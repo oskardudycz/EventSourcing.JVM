@@ -1,11 +1,7 @@
 package io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.groupcheckouts;
 
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.MessageBus;
-import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.SagaResult;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
-
-import java.util.Arrays;
-import java.util.List;
 
 import static io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.groupcheckouts.GroupCheckoutDecider.GroupCheckoutCommand.*;
 
@@ -14,24 +10,12 @@ public final class GroupCheckoutsConfig {
     MessageBus messageBus,
     GroupCheckoutFacade groupCheckoutFacade
   ) {
+    var saga = new GroupCheckoutSaga(messageBus);
+
     messageBus
-      .subscribe(GroupCheckoutEvent.GroupCheckoutInitiated.class, (event) ->
-        messageBus.publish(GroupCheckoutSaga.handle(event).stream().map(SagaResult.Command::message).toList())
-      )
-      .subscribe(GuestStayAccountEvent.GuestCheckedOut.class, (event) -> {
-        var result = GroupCheckoutSaga.handle(event);
-
-        if(result instanceof SagaResult.Command(RecordGuestCheckoutCompletion message)) {
-          messageBus.publish(List.of(message));
-        }
-      })
-      .subscribe(GuestStayAccountEvent.GuestCheckoutFailed.class, (event) -> {
-        var result = GroupCheckoutSaga.handle(event);
-
-        if(result instanceof SagaResult.Command(RecordGuestCheckoutFailure message)) {
-          messageBus.publish(List.of(message));
-        }
-      });
+      .subscribe(GroupCheckoutEvent.GroupCheckoutInitiated.class, saga::handle)
+      .subscribe(GuestStayAccountEvent.GuestCheckedOut.class, saga::handle)
+      .subscribe(GuestStayAccountEvent.GuestCheckoutFailed.class, saga::handle);
 
     messageBus
       .subscribe(RecordGuestCheckoutCompletion.class, groupCheckoutFacade::recordGuestCheckoutCompletion)

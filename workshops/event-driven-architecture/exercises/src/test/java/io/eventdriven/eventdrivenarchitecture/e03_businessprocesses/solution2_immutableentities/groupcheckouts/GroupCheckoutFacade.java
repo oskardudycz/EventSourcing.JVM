@@ -26,8 +26,9 @@ public class GroupCheckoutFacade {
 
   public void recordGuestCheckoutCompletion(RecordGuestCheckoutCompletion command)
   {
-    var account = collection.get(command.groupCheckoutId())
-      .orElseThrow(() -> new IllegalStateException("Entity not found"));
+    var account = collection.get(command.groupCheckoutId()).orElse(null);
+    if (account == null)
+      return;
 
     // TODO: Fill the implementation calling your entity/aggregate
     // account.doSomething;
@@ -41,8 +42,9 @@ public class GroupCheckoutFacade {
 
   public void recordGuestCheckoutFailure(RecordGuestCheckoutFailure command)
   {
-    var account = collection.get(command.groupCheckoutId())
-      .orElseThrow(() -> new IllegalStateException("Entity not found"));
+    var account = collection.get(command.groupCheckoutId()).orElse(null);
+    if (account == null)
+      return;
 
     // TODO: Fill the implementation calling your entity/aggregate
     // account.doSomething;
