@@ -1,7 +1,7 @@
 package io.eventdriven.distributedprocesses.core.processes;
 
 public interface ProcessManager<Id> {
-  Id id();
+    Id id();
 
-  Object[] pollScheduledCommands();
+    Object[] pollScheduledCommands();
 }

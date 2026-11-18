@@ -2,11 +2,4 @@ package io.eventdriven.buildyourowneventstore.e04_event_store_methods.mongodb.ev
 
 import org.bson.types.ObjectId;
 
-public record EventStream(
-  ObjectId id,
-  String streamName,
-  StreamMetadata metadata
-) {
-}
-
-
+public record EventStream(ObjectId id, String streamName, StreamMetadata metadata) {}

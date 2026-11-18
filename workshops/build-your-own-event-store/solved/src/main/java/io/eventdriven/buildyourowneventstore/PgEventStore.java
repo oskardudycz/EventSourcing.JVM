@@ -1,101 +1,82 @@
 package io.eventdriven.buildyourowneventstore;
 
+import static io.eventdriven.buildyourowneventstore.JsonEventSerializer.deserialize;
+import static io.eventdriven.buildyourowneventstore.JsonEventSerializer.serialize;
+import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.*;
+
 import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import static io.eventdriven.buildyourowneventstore.JsonEventSerializer.deserialize;
-import static io.eventdriven.buildyourowneventstore.JsonEventSerializer.serialize;
-import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.*;
-
 public class PgEventStore implements EventStore {
 
-  public PgEventStore(Connection dbConnection) {
-    this.dbConnection = dbConnection;
-  }
+    public PgEventStore(Connection dbConnection) {
+        this.dbConnection = dbConnection;
+    }
 
-  @Override
-  public void init() {
-    executeSql(dbConnection, createStreamsTableSql);
-    executeSql(dbConnection, createEventsTableSql);
-    executeSql(dbConnection, createAppendFunctionSql);
-  }
+    @Override
+    public void init() {
+        executeSql(dbConnection, createStreamsTableSql);
+        executeSql(dbConnection, createEventsTableSql);
+        executeSql(dbConnection, createAppendFunctionSql);
+    }
 
-  @Override
-  public <Stream> void appendEvents(
-    Class<Stream> streamClass,
-    String streamId,
-    Long expectedVersion,
-    Object... events
-  ) {
+    @Override
+    public <Stream> void appendEvents(
+            Class<Stream> streamClass, String streamId, Long expectedVersion, Object... events) {
 
-    runInTransaction(dbConnection, connection ->
-    {
-      for (var event : events) {
-        boolean succeeded = querySingleSql(
-          connection,
-          "SELECT append_event(?::text, ?::jsonb, ?, ?::text, ?, ?) AS succeeded",
-          ps -> {
-            setStringParam(ps, 1, UUID.randomUUID().toString());
-            setStringParam(ps, 2, serialize(event));
-            setStringParam(ps, 3, EventTypeMapper.toName(event.getClass()));
-            setStringParam(ps, 4, streamId.toString());
-            setStringParam(ps, 5, streamClass.getTypeName());
-            setLong(ps, 6, expectedVersion);
-          },
-          rs -> getBoolean(rs, "succeeded")
-        );
+        runInTransaction(dbConnection, connection -> {
+            for (var event : events) {
+                boolean succeeded = querySingleSql(
+                        connection,
+                        "SELECT append_event(?::text, ?::jsonb, ?, ?::text, ?, ?) AS succeeded",
+                        ps -> {
+                            setStringParam(ps, 1, UUID.randomUUID().toString());
+                            setStringParam(ps, 2, serialize(event));
+                            setStringParam(ps, 3, EventTypeMapper.toName(event.getClass()));
+                            setStringParam(ps, 4, streamId.toString());
+                            setStringParam(ps, 5, streamClass.getTypeName());
+                            setLong(ps, 6, expectedVersion);
+                        },
+                        rs -> getBoolean(rs, "succeeded"));
 
-        if (!succeeded)
-          throw new IllegalStateException("Expected version did not match the stream version!");
-      }
-    });
-  }
+                if (!succeeded) throw new IllegalStateException("Expected version did not match the stream version!");
+            }
+        });
+    }
 
-  @Override
-  public List<Object> getEvents(
-    String streamId,
-    Long atStreamVersion,
-    LocalDateTime atTimestamp
-  ) {
-    var atStreamCondition = atStreamVersion != null ? "AND version <= ?" : "";
-    var atTimestampCondition = atTimestamp != null ? "AND created <= ?" : "";
+    @Override
+    public List<Object> getEvents(String streamId, Long atStreamVersion, LocalDateTime atTimestamp) {
+        var atStreamCondition = atStreamVersion != null ? "AND version <= ?" : "";
+        var atTimestampCondition = atTimestamp != null ? "AND created <= ?" : "";
 
-    var getStreamSql = """
+        var getStreamSql = """
       SELECT id, data, stream_id, type, version, created
       FROM events
       WHERE stream_id = ?::text
-      """
-      + atStreamCondition
-      + atTimestampCondition
-      + " ORDER BY version";
+      """ + atStreamCondition + atTimestampCondition + " ORDER BY version";
 
-    return querySql(
-      dbConnection,
-      getStreamSql,
-      ps -> {
-        var index = 1;
-        setStringParam(ps, index++, streamId.toString());
-        if (atStreamVersion != null)
-          setLong(ps, index++, atStreamVersion);
-        if (atTimestamp != null)
-          setLocalDateTime(ps, index, atTimestamp);
-      },
-      rs -> {
-        var eventTypeName = getString(rs, "type");
-        return deserialize(
-          EventTypeMapper.toClass(eventTypeName).get(),
-          eventTypeName,
-          getString(rs, "data")
-        ).get();
-      }
-    );
-  }
+        return querySql(
+                dbConnection,
+                getStreamSql,
+                ps -> {
+                    var index = 1;
+                    setStringParam(ps, index++, streamId.toString());
+                    if (atStreamVersion != null) setLong(ps, index++, atStreamVersion);
+                    if (atTimestamp != null) setLocalDateTime(ps, index, atTimestamp);
+                },
+                rs -> {
+                    var eventTypeName = getString(rs, "type");
+                    return deserialize(
+                                    EventTypeMapper.toClass(eventTypeName).get(), eventTypeName, getString(rs, "data"))
+                            .get();
+                });
+    }
 
-  private final Connection dbConnection;
+    private final Connection dbConnection;
 
-  private final String createStreamsTableSql = """
+    private final String createStreamsTableSql = """
     CREATE TABLE IF NOT EXISTS streams(
         id             text                      NOT NULL    PRIMARY KEY,
         type           TEXT                      NOT NULL,
@@ -103,7 +84,7 @@ public class PgEventStore implements EventStore {
     );
     """;
 
-  private final String createEventsTableSql = """
+    private final String createEventsTableSql = """
     CREATE TABLE IF NOT EXISTS events(
           id             text                      NOT NULL    PRIMARY KEY,
           data           JSONB                     NOT NULL,
@@ -116,7 +97,7 @@ public class PgEventStore implements EventStore {
     );
     """;
 
-  private final String createAppendFunctionSql = """
+    private final String createAppendFunctionSql = """
     CREATE OR REPLACE FUNCTION append_event(
         id text,
         data jsonb,

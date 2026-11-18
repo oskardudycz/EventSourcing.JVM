@@ -1,86 +1,85 @@
 package io.eventdriven.distributedprocesses.ecommerce.api;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
 import io.eventdriven.testing.ApiSpecification;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
-  private final UUID customerId = UUID.randomUUID();
-  private final UUID shoes = UUID.randomUUID();
-  private ETag eTag;
+    private final UUID customerId = UUID.randomUUID();
+    private final UUID shoes = UUID.randomUUID();
+    private ETag eTag;
 
-  public RemoveProductItemFromShoppingCartTests() {
-    super("customers");
-  }
+    public RemoveProductItemFromShoppingCartTests() {
+        super("customers");
+    }
 
-  @BeforeEach
-  public void addShoesToCart() {
-    eTag = PurchaseRestBuilder.of(restTestClient, port)
-      .build(purchase -> purchase.withCustomerId(customerId).withProduct(shoes, 2))
-      .cartETag();
-  }
+    @BeforeEach
+    public void addShoesToCart() {
+        eTag = PurchaseRestBuilder.of(restTestClient, port)
+                .build(purchase -> purchase.withCustomerId(customerId).withProduct(shoes, 2))
+                .cartETag();
+    }
 
-  @Test
-  public void removeProductItem_succeeds_withNextVersion_forSomeOfTheQuantity() {
-    given(() -> "productId=%s&quantity=1".formatted(shoes))
-      .when(DELETE(cartItems(customerId), eTag))
-      .then(response -> {
-        OK.accept(response);
-        assertEquals("W/\"1\"", response.getResponseHeaders().getETag());
-      });
-  }
+    @Test
+    public void removeProductItem_succeeds_withNextVersion_forSomeOfTheQuantity() {
+        given(() -> "productId=%s&quantity=1".formatted(shoes))
+                .when(DELETE(cartItems(customerId), eTag))
+                .then(response -> {
+                    OK.accept(response);
+                    assertEquals("W/\"1\"", response.getResponseHeaders().getETag());
+                });
+    }
 
-  @Test
-  public void removeProductItem_succeeds_forAllOfTheQuantity() {
-    given(() -> "productId=%s&quantity=2".formatted(shoes))
-      .when(DELETE(cartItems(customerId), eTag))
-      .then(OK);
-  }
+    @Test
+    public void removeProductItem_succeeds_forAllOfTheQuantity() {
+        given(() -> "productId=%s&quantity=2".formatted(shoes))
+                .when(DELETE(cartItems(customerId), eTag))
+                .then(OK);
+    }
 
-  @Test
-  public void removeProductItem_fails_withNotFound_forCustomerWithoutOpenCart() {
-    given(() -> "productId=%s&quantity=1".formatted(shoes))
-      .when(DELETE(cartItems(UUID.randomUUID()), eTag))
-      .then(NOT_FOUND);
-  }
+    @Test
+    public void removeProductItem_fails_withNotFound_forCustomerWithoutOpenCart() {
+        given(() -> "productId=%s&quantity=1".formatted(shoes))
+                .when(DELETE(cartItems(UUID.randomUUID()), eTag))
+                .then(NOT_FOUND);
+    }
 
-  @Test
-  public void removeProductItem_fails_withConflict_forProductNotInCart() {
-    given(() -> "productId=%s&quantity=1".formatted(UUID.randomUUID()))
-      .when(DELETE(cartItems(customerId), eTag))
-      .then(CONFLICT);
-  }
+    @Test
+    public void removeProductItem_fails_withConflict_forProductNotInCart() {
+        given(() -> "productId=%s&quantity=1".formatted(UUID.randomUUID()))
+                .when(DELETE(cartItems(customerId), eTag))
+                .then(CONFLICT);
+    }
 
-  @Test
-  public void removeProductItem_fails_withConflict_forMoreThanInCart() {
-    given(() -> "productId=%s&quantity=3".formatted(shoes))
-      .when(DELETE(cartItems(customerId), eTag))
-      .then(CONFLICT);
-  }
+    @Test
+    public void removeProductItem_fails_withConflict_forMoreThanInCart() {
+        given(() -> "productId=%s&quantity=3".formatted(shoes))
+                .when(DELETE(cartItems(customerId), eTag))
+                .then(CONFLICT);
+    }
 
-  @Test
-  public void removeProductItem_fails_withPreconditionFailed_forWrongETag() {
-    given(() -> "productId=%s&quantity=1".formatted(shoes))
-      .when(DELETE(cartItems(customerId), ETag.weak(999)))
-      .then(PRECONDITION_FAILED);
-  }
+    @Test
+    public void removeProductItem_fails_withPreconditionFailed_forWrongETag() {
+        given(() -> "productId=%s&quantity=1".formatted(shoes))
+                .when(DELETE(cartItems(customerId), ETag.weak(999)))
+                .then(PRECONDITION_FAILED);
+    }
 
-  @Test
-  public void removeProductItem_fails_withBadRequest_forMissingIfMatch() {
-    given(() -> "productId=%s&quantity=1".formatted(shoes))
-      .when(DELETE(cartItems(customerId), null))
-      .then(BAD_REQUEST);
-  }
+    @Test
+    public void removeProductItem_fails_withBadRequest_forMissingIfMatch() {
+        given(() -> "productId=%s&quantity=1".formatted(shoes))
+                .when(DELETE(cartItems(customerId), null))
+                .then(BAD_REQUEST);
+    }
 
-  private String cartItems(UUID customerId) {
-    return "/%s/shopping-carts/current/product-items".formatted(customerId);
-  }
+    private String cartItems(UUID customerId) {
+        return "/%s/shopping-carts/current/product-items".formatted(customerId);
+    }
 }

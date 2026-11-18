@@ -1,85 +1,74 @@
 package io.eventdriven.introductiontoeventsourcing.e05_business_logic.immutable;
 
-import io.eventdriven.introductiontoeventsourcing.e05_business_logic.immutable.ProductItems.ProductItems;
+import static io.eventdriven.introductiontoeventsourcing.e05_business_logic.immutable.ShoppingCartEvent.*;
 
+import io.eventdriven.introductiontoeventsourcing.e05_business_logic.immutable.ProductItems.ProductItems;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import static io.eventdriven.introductiontoeventsourcing.e05_business_logic.immutable.ShoppingCartEvent.*;
-
 public record ShoppingCart(
-  UUID id,
-  UUID clientId,
-  Status status,
-  ProductItems productItems,
-  OffsetDateTime confirmedAt,
-  OffsetDateTime canceledAt
-) {
-  public enum Status {
-    Pending,
-    Confirmed,
-    Canceled
-  }
+        UUID id,
+        UUID clientId,
+        Status status,
+        ProductItems productItems,
+        OffsetDateTime confirmedAt,
+        OffsetDateTime canceledAt) {
+    public enum Status {
+        Pending,
+        Confirmed,
+        Canceled
+    }
 
-  public boolean isClosed() {
-    return status == Status.Confirmed || status == Status.Canceled;
-  }
+    public boolean isClosed() {
+        return status == Status.Confirmed || status == Status.Canceled;
+    }
 
-  public static ShoppingCart initial() {
-    return new ShoppingCart(null, null, null, null, null, null);
-  }
+    public static ShoppingCart initial() {
+        return new ShoppingCart(null, null, null, null, null, null);
+    }
 
-  public static ShoppingCart evolve(ShoppingCart state, ShoppingCartEvent event) {
-    return switch (event) {
-      case ShoppingCartOpened opened -> new ShoppingCart(
-        opened.shoppingCartId(),
-        opened.clientId(),
-        Status.Pending,
-        ProductItems.empty(),
-        null,
-        null
-      );
-      case ProductItemAddedToShoppingCart(_, var productItem) ->
-        new ShoppingCart(
-          state.id,
-          state.clientId,
-          state.status,
-          state.productItems.add(productItem),
-          state.confirmedAt,
-          state.canceledAt
-        );
-      case ProductItemRemovedFromShoppingCart(_, var productItem) ->
-        new ShoppingCart(
-          state.id,
-          state.clientId,
-          state.status,
-          state.productItems.remove(productItem),
-          state.confirmedAt,
-          state.canceledAt
-        );
-      case ShoppingCartConfirmed _ ->
-        new ShoppingCart(
-          state.id,
-          state.clientId,
-          Status.Confirmed,
-          state.productItems,
-          state.confirmedAt,
-          state.canceledAt
-        );
-      case ShoppingCartCanceled _ ->
-        new ShoppingCart(
-          state.id,
-          state.clientId,
-          Status.Canceled,
-          state.productItems,
-          state.confirmedAt,
-          state.canceledAt
-        );
-    };
-  }
+    public static ShoppingCart evolve(ShoppingCart state, ShoppingCartEvent event) {
+        return switch (event) {
+            case ShoppingCartOpened opened ->
+                new ShoppingCart(
+                        opened.shoppingCartId(), opened.clientId(), Status.Pending, ProductItems.empty(), null, null);
+            case ProductItemAddedToShoppingCart(var shoppingCartId, var productItem) ->
+                new ShoppingCart(
+                        state.id,
+                        state.clientId,
+                        state.status,
+                        state.productItems.add(productItem),
+                        state.confirmedAt,
+                        state.canceledAt);
+            case ProductItemRemovedFromShoppingCart(var shoppingCartId, var productItem) ->
+                new ShoppingCart(
+                        state.id,
+                        state.clientId,
+                        state.status,
+                        state.productItems.remove(productItem),
+                        state.confirmedAt,
+                        state.canceledAt);
+            case ShoppingCartConfirmed _ ->
+                new ShoppingCart(
+                        state.id,
+                        state.clientId,
+                        Status.Confirmed,
+                        state.productItems,
+                        state.confirmedAt,
+                        state.canceledAt);
+            case ShoppingCartCanceled _ ->
+                new ShoppingCart(
+                        state.id,
+                        state.clientId,
+                        Status.Canceled,
+                        state.productItems,
+                        state.confirmedAt,
+                        state.canceledAt);
+        };
+    }
 }
 //
-//static ShoppingCart evolve(KurrentDBClient eventStore, String streamName) {
+// static ShoppingCart evolve(KurrentDBClient eventStore, String streamName) {
 //  // 1. Add logic here
 //  ShoppingCart shoppingCart = null;
 //
@@ -133,7 +122,7 @@ public record ShoppingCart(
 //          shoppingCart.confirmedAt(),
 //          shoppingCart.canceledAt()
 //        );
-//      case ShoppingCartConfirmed confirmed -> shoppingCart = new ShoppingCart(
+//      case ShoppingCartConfirmed _ -> shoppingCart = new ShoppingCart(
 //        shoppingCart.id(),
 //        shoppingCart.clientId(),
 //        ShoppingCartStatus.Confirmed,
@@ -141,7 +130,7 @@ public record ShoppingCart(
 //        confirmed.confirmedAt(),
 //        shoppingCart.canceledAt()
 //      );
-//      case ShoppingCartCanceled canceled -> shoppingCart = new ShoppingCart(
+//      case ShoppingCartCanceled _ -> shoppingCart = new ShoppingCart(
 //        shoppingCart.id(),
 //        shoppingCart.clientId(),
 //        ShoppingCartStatus.Canceled,
@@ -153,4 +142,4 @@ public record ShoppingCart(
 //  }
 //
 //  return shoppingCart;
-//}
+// }

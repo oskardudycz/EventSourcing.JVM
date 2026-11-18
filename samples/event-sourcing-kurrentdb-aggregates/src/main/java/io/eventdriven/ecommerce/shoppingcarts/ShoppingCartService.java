@@ -11,92 +11,76 @@ import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.ShoppingCartShortInfo
 import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.ShoppingCartShortInfoRepository;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
-import org.springframework.data.domain.Page;
-import org.springframework.core.retry.RetryPolicy;
-import org.springframework.core.retry.RetryTemplate;
-
 import jakarta.persistence.EntityNotFoundException;
 import java.time.Duration;
 import java.util.UUID;
+import org.springframework.core.retry.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
+import org.springframework.data.domain.Page;
 
 public class ShoppingCartService {
-  private final AggregateStore<ShoppingCart, ShoppingCartEvent, UUID> store;
-  private final ShoppingCartDetailsRepository detailsRepository;
-  private final ShoppingCartShortInfoRepository shortInfoRepository;
-  private final ProductPriceCalculator productPriceCalculator;
+    private final AggregateStore<ShoppingCart, ShoppingCartEvent, UUID> store;
+    private final ShoppingCartDetailsRepository detailsRepository;
+    private final ShoppingCartShortInfoRepository shortInfoRepository;
+    private final ProductPriceCalculator productPriceCalculator;
 
-  public ShoppingCartService(
-    AggregateStore<ShoppingCart, ShoppingCartEvent, UUID> entityStore,
-    ShoppingCartDetailsRepository detailsRepository,
-    ShoppingCartShortInfoRepository shortInfoRepository,
-    ProductPriceCalculator productPriceCalculator) {
-    this.store = entityStore;
-    this.detailsRepository = detailsRepository;
-    this.shortInfoRepository = shortInfoRepository;
-    this.productPriceCalculator = productPriceCalculator;
-  }
+    public ShoppingCartService(
+            AggregateStore<ShoppingCart, ShoppingCartEvent, UUID> entityStore,
+            ShoppingCartDetailsRepository detailsRepository,
+            ShoppingCartShortInfoRepository shortInfoRepository,
+            ProductPriceCalculator productPriceCalculator) {
+        this.store = entityStore;
+        this.detailsRepository = detailsRepository;
+        this.shortInfoRepository = shortInfoRepository;
+        this.productPriceCalculator = productPriceCalculator;
+    }
 
-  public ETag open(UUID shoppingCartId, UUID clientId) {
-    return store.add(ShoppingCart.open(shoppingCartId, clientId));
-  }
+    public ETag open(UUID shoppingCartId, UUID clientId) {
+        return store.add(ShoppingCart.open(shoppingCartId, clientId));
+    }
 
-  public ETag addProductItem(UUID shoppingCartId, ProductItem productItem, Long expectedVersion) {
-    return store.getAndUpdate(
-      current -> current.addProductItem(productPriceCalculator, productItem),
-      shoppingCartId,
-      expectedVersion
-    );
-  }
+    public ETag addProductItem(UUID shoppingCartId, ProductItem productItem, Long expectedVersion) {
+        return store.getAndUpdate(
+                current -> current.addProductItem(productPriceCalculator, productItem),
+                shoppingCartId,
+                expectedVersion);
+    }
 
-  public ETag removeProductItem(UUID shoppingCartId, PricedProductItem productItem, Long expectedVersion) {
-    return store.getAndUpdate(
-      current -> current.removeProductItem(productItem),
-      shoppingCartId,
-      expectedVersion
-    );
-  }
+    public ETag removeProductItem(UUID shoppingCartId, PricedProductItem productItem, Long expectedVersion) {
+        return store.getAndUpdate(current -> current.removeProductItem(productItem), shoppingCartId, expectedVersion);
+    }
 
-  public ETag confirm(UUID shoppingCartId, Long expectedVersion) {
-    return store.getAndUpdate(
-      ShoppingCart::confirm,
-      shoppingCartId,
-      expectedVersion
-    );
-  }
+    public ETag confirm(UUID shoppingCartId, Long expectedVersion) {
+        return store.getAndUpdate(ShoppingCart::confirm, shoppingCartId, expectedVersion);
+    }
 
-  public ETag cancel(UUID shoppingCartId, Long expectedVersion) {
-    return store.getAndUpdate(
-      ShoppingCart::cancel,
-      shoppingCartId,
-      expectedVersion
-    );
-  }
+    public ETag cancel(UUID shoppingCartId, Long expectedVersion) {
+        return store.getAndUpdate(ShoppingCart::cancel, shoppingCartId, expectedVersion);
+    }
 
-  public ShoppingCartDetails getById(GetShoppingCartById query) {
-    // example of long-polling
-    RetryTemplate retryTemplate = new RetryTemplate(
-      RetryPolicy.builder()
-        .includes(EntityNotFoundException.class)
-        .maxRetries(Long.MAX_VALUE)
-        .delay(Duration.ofMillis(100))
-        .multiplier(2)
-        .maxDelay(Duration.ofMillis(1000))
-        .timeout(Duration.ofMillis(5000))
-        .build()
-    );
+    public ShoppingCartDetails getById(GetShoppingCartById query) {
+        // example of long-polling
+        RetryTemplate retryTemplate = new RetryTemplate(RetryPolicy.builder()
+                .includes(EntityNotFoundException.class)
+                .maxRetries(Long.MAX_VALUE)
+                .delay(Duration.ofMillis(100))
+                .multiplier(2)
+                .maxDelay(Duration.ofMillis(1000))
+                .timeout(Duration.ofMillis(5000))
+                .build());
 
-    return retryTemplate.invoke(() -> {
-      var result = GetShoppingCartById.handle(detailsRepository, query);
+        return retryTemplate.invoke(() -> {
+            var result = GetShoppingCartById.handle(detailsRepository, query);
 
-      if(result.isEmpty()){
-        throw new EntityNotFoundException("Shopping cart not found");
-      }
+            if (result.isEmpty()) {
+                throw new EntityNotFoundException("Shopping cart not found");
+            }
 
-      return result.get();
-    });
-  }
+            return result.get();
+        });
+    }
 
-  public Page<ShoppingCartShortInfo> getShoppingCarts(GetShoppingCarts query) {
-    return GetShoppingCarts.handle(shortInfoRepository, query);
-  }
+    public Page<ShoppingCartShortInfo> getShoppingCarts(GetShoppingCarts query) {
+        return GetShoppingCarts.handle(shortInfoRepository, query);
+    }
 }

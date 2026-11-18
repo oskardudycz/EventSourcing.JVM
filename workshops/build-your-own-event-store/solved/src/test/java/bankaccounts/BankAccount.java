@@ -1,103 +1,59 @@
 package bankaccounts;
 
-import java.time.LocalDateTime;
-
 import static bankaccounts.BankAccount.Event.*;
 
-public record BankAccount(
-  String id,
-  BankAccountStatus status,
-  double balance,
-  long version
-) {
-  public static BankAccount evolve(BankAccount bankAccount, Event event) {
-    return switch (event) {
-      case BankAccountOpened bankAccountOpened -> create(bankAccountOpened);
-      case DepositRecorded depositRecorded ->
-        bankAccount.apply(depositRecorded);
-      case CashWithdrawnFromATM cashWithdrawnFromATM ->
-        bankAccount.apply(cashWithdrawnFromATM);
-      case BankAccountClosed bankAccountClosed ->
-        bankAccount.apply(bankAccountClosed);
-    };
-  }
+import java.time.LocalDateTime;
 
-  private static BankAccount create(BankAccountOpened event) {
-    return new BankAccount(
-      event.bankAccountId,
-      BankAccountStatus.Opened,
-      0,
-      event.version
-    );
-  }
-
-  private BankAccount apply(DepositRecorded event) {
-    return new BankAccount(
-      this.id,
-      this.status(),
-      this.balance() + event.amount(),
-      event.version
-    );
-  }
-
-  private BankAccount apply(CashWithdrawnFromATM event) {
-    return new BankAccount(
-      this.id,
-      this.status(),
-      this.balance() - event.amount(),
-      event.version
-    );
-  }
-
-  private BankAccount apply(BankAccountClosed event) {
-    return new BankAccount(
-      this.id,
-      BankAccountStatus.Closed,
-      this.balance(),
-      event.version
-    );
-  }
-
-  public enum BankAccountStatus {
-    Opened,
-    Closed
-  }
-
-  public sealed interface Event {
-    record BankAccountOpened(
-      String bankAccountId,
-      String accountNumber,
-      String clientId,
-      String currencyISOCode,
-      LocalDateTime createdAt,
-      long version
-    ) implements Event {
+public record BankAccount(String id, BankAccountStatus status, double balance, long version) {
+    public static BankAccount evolve(BankAccount bankAccount, Event event) {
+        return switch (event) {
+            case BankAccountOpened bankAccountOpened -> create(bankAccountOpened);
+            case DepositRecorded depositRecorded -> bankAccount.apply(depositRecorded);
+            case CashWithdrawnFromATM cashWithdrawnFromATM -> bankAccount.apply(cashWithdrawnFromATM);
+            case BankAccountClosed bankAccountClosed -> bankAccount.apply(bankAccountClosed);
+        };
     }
 
-    record DepositRecorded(
-      String bankAccountId,
-      double amount,
-      String cashierId,
-      LocalDateTime recordedAt,
-      long version
-    ) implements Event {
+    private static BankAccount create(BankAccountOpened event) {
+        return new BankAccount(event.bankAccountId, BankAccountStatus.Opened, 0, event.version);
     }
 
-    record CashWithdrawnFromATM(
-      String bankAccountId,
-      double amount,
-      String atmId,
-      LocalDateTime recordedAt,
-      long version
-    ) implements Event {
+    private BankAccount apply(DepositRecorded event) {
+        return new BankAccount(this.id, this.status(), this.balance() + event.amount(), event.version);
     }
 
-    record BankAccountClosed(
-      String bankAccountId,
-      String Reason,
-      LocalDateTime closedAt,
-      long version
-    ) implements Event {
+    private BankAccount apply(CashWithdrawnFromATM event) {
+        return new BankAccount(this.id, this.status(), this.balance() - event.amount(), event.version);
     }
-  }
+
+    private BankAccount apply(BankAccountClosed event) {
+        return new BankAccount(this.id, BankAccountStatus.Closed, this.balance(), event.version);
+    }
+
+    public enum BankAccountStatus {
+        Opened,
+        Closed
+    }
+
+    public sealed interface Event {
+        record BankAccountOpened(
+                String bankAccountId,
+                String accountNumber,
+                String clientId,
+                String currencyISOCode,
+                LocalDateTime createdAt,
+                long version)
+                implements Event {}
+
+        record DepositRecorded(
+                String bankAccountId, double amount, String cashierId, LocalDateTime recordedAt, long version)
+                implements Event {}
+
+        record CashWithdrawnFromATM(
+                String bankAccountId, double amount, String atmId, LocalDateTime recordedAt, long version)
+                implements Event {}
+
+        record BankAccountClosed(String bankAccountId, String Reason, LocalDateTime closedAt, long version)
+                implements Event {}
+    }
 }

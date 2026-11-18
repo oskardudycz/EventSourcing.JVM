@@ -45,52 +45,40 @@ The first style is a *saga*: a class that reacts to each event of the process an
 
 ```java
 public class GroupCheckoutSaga {
-  private final CommandBus commandBus;
+    private final CommandBus commandBus;
 
-  public GroupCheckoutSaga(CommandBus commandBus) {
-    this.commandBus = commandBus;
-  }
-
-  public void on(GroupCheckoutInitiated groupCheckoutInitiated) {
-    for (var guestAccountId : groupCheckoutInitiated.guestStayAccountIds()) {
-      commandBus.schedule(
-        new GuestStayAccountCommand.CheckOutGuest(guestAccountId, groupCheckoutInitiated.groupCheckoutId(), groupCheckoutInitiated.initiatedAt())
-      );
+    public GroupCheckoutSaga(CommandBus commandBus) {
+        this.commandBus = commandBus;
     }
-    commandBus.schedule(
-      new RecordGuestCheckoutsInitiation(
-        groupCheckoutInitiated.groupCheckoutId(),
-        groupCheckoutInitiated.guestStayAccountIds(),
-        groupCheckoutInitiated.initiatedAt()
-      )
-    );
-  }
 
-  public void on(GuestStayAccountEvent.GuestCheckedOut guestCheckoutCompleted) {
-    if (guestCheckoutCompleted.groupCheckoutId() == null)
-      return;
+    public void on(GroupCheckoutInitiated groupCheckoutInitiated) {
+        for (var guestAccountId : groupCheckoutInitiated.guestStayAccountIds()) {
+            commandBus.schedule(new GuestStayAccountCommand.CheckOutGuest(
+                    guestAccountId, groupCheckoutInitiated.groupCheckoutId(), groupCheckoutInitiated.initiatedAt()));
+        }
+        commandBus.schedule(new RecordGuestCheckoutsInitiation(
+                groupCheckoutInitiated.groupCheckoutId(),
+                groupCheckoutInitiated.guestStayAccountIds(),
+                groupCheckoutInitiated.initiatedAt()));
+    }
 
-    commandBus.schedule(
-      new RecordGuestCheckoutCompletion(
-        guestCheckoutCompleted.groupCheckoutId(),
-        guestCheckoutCompleted.guestStayAccountId(),
-        guestCheckoutCompleted.completedAt()
-      )
-    );
-  }
+    public void on(GuestStayAccountEvent.GuestCheckedOut guestCheckoutCompleted) {
+        if (guestCheckoutCompleted.groupCheckoutId() == null) return;
 
-  public void on(GuestStayAccountEvent.GuestCheckoutFailed guestCheckoutFailed) {
-    if (guestCheckoutFailed.groupCheckoutId() == null)
-      return;
+        commandBus.schedule(new RecordGuestCheckoutCompletion(
+                guestCheckoutCompleted.groupCheckoutId(),
+                guestCheckoutCompleted.guestStayAccountId(),
+                guestCheckoutCompleted.completedAt()));
+    }
 
-    commandBus.schedule(
-      new RecordGuestCheckoutFailure(
-        guestCheckoutFailed.groupCheckoutId(),
-        guestCheckoutFailed.guestStayAccountId(),
-        guestCheckoutFailed.failedAt()
-      )
-    );
-  }
+    public void on(GuestStayAccountEvent.GuestCheckoutFailed guestCheckoutFailed) {
+        if (guestCheckoutFailed.groupCheckoutId() == null) return;
+
+        commandBus.schedule(new RecordGuestCheckoutFailure(
+                guestCheckoutFailed.groupCheckoutId(),
+                guestCheckoutFailed.guestStayAccountId(),
+                guestCheckoutFailed.failedAt()));
+    }
 }
 ```
 
@@ -100,56 +88,55 @@ The saga sends commands through a *command bus*. The bus first stores each comma
 
 ```java
 public class KurrentDBCommandBus implements CommandBus {
-  private static final String commandStreamId = "_commands-all";
-  private final KurrentDBClient kurrentDBClient;
-  private final EventStore eventStore;
-  private final RetryTemplate retryTemplate;
-  private final Supplier<String> currentCorrelationId;
-  private final Supplier<String> currentCausationId;
+    private static final String commandStreamId = "_commands-all";
+    private final KurrentDBClient kurrentDBClient;
+    private final EventStore eventStore;
+    private final RetryTemplate retryTemplate;
+    private final Supplier<String> currentCorrelationId;
+    private final Supplier<String> currentCausationId;
 
-  public KurrentDBCommandBus(
-    KurrentDBClient kurrentDBClient,
-    EventStore eventStore,
-    RetryTemplate retryTemplate,
-    Supplier<String> currentCorrelationId,
-    Supplier<String> currentCausationId
-  ) {
-    this.kurrentDBClient = kurrentDBClient;
-    this.eventStore = eventStore;
-    this.retryTemplate = retryTemplate;
-    this.currentCorrelationId = currentCorrelationId;
-    this.currentCausationId = currentCausationId;
-  }
+    public KurrentDBCommandBus(
+            KurrentDBClient kurrentDBClient,
+            EventStore eventStore,
+            RetryTemplate retryTemplate,
+            Supplier<String> currentCorrelationId,
+            Supplier<String> currentCausationId) {
+        this.kurrentDBClient = kurrentDBClient;
+        this.eventStore = eventStore;
+        this.retryTemplate = retryTemplate;
+        this.currentCorrelationId = currentCorrelationId;
+        this.currentCausationId = currentCausationId;
+    }
 
-  @Override
-  public <Command> EventStore.AppendResult schedule(Command command) {
-    return retryTemplate.invoke(() -> {
-      var result = eventStore.append(
-        commandStreamId,
-        new CommandEnvelope<>(command, new CommandMetadata(currentCorrelationId.get(), currentCausationId.get()))
-      );
+    @Override
+    public <Command> EventStore.AppendResult schedule(Command command) {
+        return retryTemplate.invoke(() -> {
+            var result = eventStore.append(
+                    commandStreamId,
+                    new CommandEnvelope<>(
+                            command, new CommandMetadata(currentCorrelationId.get(), currentCausationId.get())));
 
-      if (result instanceof EventStore.AppendResult.UnexpectedFailure)
-        throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
+            if (result instanceof EventStore.AppendResult.UnexpectedFailure)
+                throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
 
-      return result;
-    });
-  }
+            return result;
+        });
+    }
 
-  @Override
-  public void subscribe(Consumer<CommandEnvelope<Object>>... handlers) {
-    subscribeToStream(kurrentDBClient, commandStreamId, (subscription, resolvedEvent) -> {
-      var commandEnvelope = deserializeCommand(resolvedEvent);
+    @Override
+    public void subscribe(Consumer<CommandEnvelope<Object>>... handlers) {
+        subscribeToStream(kurrentDBClient, commandStreamId, (subscription, resolvedEvent) -> {
+            var commandEnvelope = deserializeCommand(resolvedEvent);
 
-      if (commandEnvelope.isEmpty()) {
-        return;
-      }
+            if (commandEnvelope.isEmpty()) {
+                return;
+            }
 
-      for (var handler : handlers) {
-        handler.accept(commandEnvelope.get());
-      }
-    });
-  }
+            for (var handler : handlers) {
+                handler.accept(commandEnvelope.get());
+            }
+        });
+    }
 }
 ```
 
@@ -163,20 +150,12 @@ We can check out the guest account if the balance is settled. If it's not, the d
 
 ```java
 private static GuestStayAccountEvent handle(CheckOutGuest command, CheckedIn state) {
-  if (state.balance() != 0) {
-    return new GuestCheckoutFailed(
-      state.id(),
-      GuestCheckoutFailed.Reason.BalanceNotSettled,
-      command.groupCheckoutId(),
-      command.now()
-    );
-  }
+    if (state.balance() != 0) {
+        return new GuestCheckoutFailed(
+                state.id(), GuestCheckoutFailed.Reason.BalanceNotSettled, command.groupCheckoutId(), command.now());
+    }
 
-  return new GuestCheckedOut(
-    command.guestStayAccountId(),
-    command.groupCheckoutId(),
-    command.now()
-  );
+    return new GuestCheckedOut(command.guestStayAccountId(), command.groupCheckoutId(), command.now());
 }
 ```
 
@@ -186,7 +165,7 @@ The command handler (the application service) should use a retry policy, so that
 
 ```java
 public Optional<ETag> handle(CheckOutGuest command) {
-  return retryTemplate.invoke(() -> handle(command.guestStayAccountId(), command));
+    return retryTemplate.invoke(() -> handle(command.guestStayAccountId(), command));
 }
 ```
 
@@ -397,17 +376,16 @@ Every method is idempotent: a command that arrives twice, or too late, appends n
 
 ```java
 public void recordPaymentAuthorization(PaymentId paymentId, OffsetDateTime authorizedAt) {
-  if (status == Status.Opened && payment == PaymentProgress.Pending) {
-    enqueue(new OrderPaymentAuthorized(id, paymentId, authorizedAt));
+    if (status == Status.Opened && payment == PaymentProgress.Pending) {
+        enqueue(new OrderPaymentAuthorized(id, paymentId, authorizedAt));
 
-    progress(authorizedAt);
-    return;
-  }
+        progress(authorizedAt);
+        return;
+    }
 
-  if (payment != PaymentProgress.Retrying || !paymentId.equals(this.paymentId))
-    return;
+    if (payment != PaymentProgress.Retrying || !paymentId.equals(this.paymentId)) return;
 
-  // the authorization of a payment made again, see "Paying again" below
+    // the authorization of a payment made again, see "Paying again" below
 }
 ```
 
@@ -419,19 +397,13 @@ The whole process is one class, [OrderSaga](./src/main/java/io/eventdriven/distr
 
 ```java
 public void onPackageWasSent(ShipmentExternalEvent.PackageWasSent event) {
-  messageBus.publish(List.of(
-    new RecordOrderPackageSent(
-      new OrderId(event.referenceId()),
-      event.carrier(),
-      event.trackingNumber(),
-      event.sentAt()
-    )
-  ));
+    messageBus.publish(List.of(new RecordOrderPackageSent(
+            new OrderId(event.referenceId()), event.carrier(), event.trackingNumber(), event.sentAt())));
 }
 
 // The shipment does not know the payment. The order does, and names it here.
 public void onOrderPaymentDue(OrderEvent.OrderPaymentDue event) {
-  messageBus.publish(List.of(new PaymentCommand.CapturePayment(event.paymentId())));
+    messageBus.publish(List.of(new PaymentCommand.CapturePayment(event.paymentId())));
 }
 ```
 
@@ -539,26 +511,26 @@ The forwarder could load the aggregate, but then the aggregate would have to exp
 
 ```java
 public void onCheckedOut(EventEnvelope<ShoppingCartEvent.ShoppingCartCheckedOut> envelope) {
-  var event = envelope.data();
-  var cart = get(event.shoppingCartId(), envelope.metadata().streamPosition());
+    var event = envelope.data();
+    var cart = get(event.shoppingCartId(), envelope.metadata().streamPosition());
 
-  var externalEvent = new ShoppingCartExternalEvent.ShoppingCartCheckedOut(
-    event.shoppingCartId(),
-    cart.getCustomerId(),
-    cart.getProductItems(),
-    cart.getTotalPrice(),
-    event.checkedOutAt()
-  );
+    var externalEvent = new ShoppingCartExternalEvent.ShoppingCartCheckedOut(
+            event.shoppingCartId(),
+            cart.getCustomerId(),
+            cart.getProductItems(),
+            cart.getTotalPrice(),
+            event.checkedOutAt());
 
-  messageBus.publish(List.of(externalEvent));
+    messageBus.publish(List.of(externalEvent));
 }
 
 private ShoppingCartSummary get(ShoppingCartId shoppingCartId, long streamPosition) {
-  return summaries.get(shoppingCartId)
-    .filter(summary -> summary.getVersion() >= streamPosition)
-    .orElseThrow(() -> new IllegalStateException(
-      "Summary of shopping cart '%s' has not reached position %d yet".formatted(shoppingCartId.value(), streamPosition)
-    ));
+    return summaries
+            .get(shoppingCartId)
+            .filter(summary -> summary.getVersion() >= streamPosition)
+            .orElseThrow(
+                    () -> new IllegalStateException("Summary of shopping cart '%s' has not reached position %d yet"
+                            .formatted(shoppingCartId.value(), streamPosition)));
 }
 ```
 
@@ -566,26 +538,26 @@ Each projection extends [Projection](./src/main/java/io/eventdriven/distributedp
 
 ```java
 public class PaymentSummaries extends Projection<PaymentSummary> {
-  @Override
-  public List<Class<?>> canHandle() {
-    return List.of(PaymentAuthorizationRequested.class);
-  }
+    @Override
+    public List<Class<?>> canHandle() {
+        return List.of(PaymentAuthorizationRequested.class);
+    }
 
-  @Override
-  protected EntityId getDocumentId(Object event) {
-    return switch (event) {
-      case PaymentAuthorizationRequested e -> e.paymentId();
-      default -> throw new IllegalArgumentException("Unexpected event %s".formatted(event));
-    };
-  }
+    @Override
+    protected EntityId getDocumentId(Object event) {
+        return switch (event) {
+            case PaymentAuthorizationRequested e -> e.paymentId();
+            default -> throw new IllegalArgumentException("Unexpected event %s".formatted(event));
+        };
+    }
 
-  @Override
-  protected @Nullable PaymentSummary evolve(@Nullable PaymentSummary current, Object event) {
-    return switch (event) {
-      case PaymentAuthorizationRequested e -> new PaymentSummary(e.referenceId());
-      default -> current;
-    };
-  }
+    @Override
+    protected @Nullable PaymentSummary evolve(@Nullable PaymentSummary current, Object event) {
+        return switch (event) {
+            case PaymentAuthorizationRequested e -> new PaymentSummary(e.referenceId());
+            default -> current;
+        };
+    }
 }
 ```
 
@@ -626,16 +598,18 @@ Each module's `Config` tells the bus three things, with [MessageRoutes](./src/ma
 
 ```java
 messageBus
-  .routes(new MessageRoutes()
-    .routeTarget(AuthorizePayment.class, command -> requests)
-    .routeTarget(CapturePayment.class, command -> requests)
-    .routeTarget(CancelPayment.class, command -> requests)
-    .route(PaymentExternalEvent.class, event -> new RoutingTarget(responses, Urns.routingKeyOf(event.referenceId())))
-    .routeTarget(MessageRoutes.inPackage(PaymentsConfig.class.getPackageName()), internal))
-  .bind(requests, requests, "#")
-  .bind(internal, internal, "#")
-  .subscribe(requests, AuthorizePayment.class, facade::authorizePayment)
-  // ...
+        .routes(new MessageRoutes()
+                .routeTarget(AuthorizePayment.class, command -> requests)
+                .routeTarget(CapturePayment.class, command -> requests)
+                .routeTarget(CancelPayment.class, command -> requests)
+                .route(
+                        PaymentExternalEvent.class,
+                        event -> new RoutingTarget(responses, Urns.routingKeyOf(event.referenceId())))
+                .routeTarget(MessageRoutes.inPackage(PaymentsConfig.class.getPackageName()), internal))
+        .bind(requests, requests, "#")
+        .bind(internal, internal, "#")
+        .subscribe(requests, AuthorizePayment.class, facade::authorizePayment)
+        // ...
 ```
 
 - the routes decide the channel and the routing key of each message that the module publishes;
@@ -664,16 +638,18 @@ The payment provider and the fulfillment service are outside systems. Each sits 
 
 ```java
 public interface PaymentGateway {
-  CheckoutSession createCheckoutSession(
-    PaymentId paymentId, double amount, URI successUrl, URI cancelUrl, OffsetDateTime expiresAt
-  );
-  void expireCheckoutSession(PaymentId paymentId);
-  void capture(PaymentId paymentId, double amount);
-  void cancel(PaymentId paymentId);
+    CheckoutSession createCheckoutSession(
+            PaymentId paymentId, double amount, URI successUrl, URI cancelUrl, OffsetDateTime expiresAt);
+
+    void expireCheckoutSession(PaymentId paymentId);
+
+    void capture(PaymentId paymentId, double amount);
+
+    void cancel(PaymentId paymentId);
 }
 
 public interface FulfillmentService {
-  void request(ShipmentId shipmentId, ProductItem[] productItems);
+    void request(ShipmentId shipmentId, ProductItem[] productItems);
 }
 ```
 
@@ -722,14 +698,16 @@ The customer's pages read views made only for them, named after Shopify's pages:
 ```java
 @Test
 public void cancelOrder_succeeds_withAcceptedAndCancelsTheUnpaidOrder() {
-  var order = PurchaseRestBuilder.of(restTestClient, port)
-    .build(purchase -> purchase.withCustomerId(customerId).withProduct(UUID.randomUUID(), 1).checkedOut());
+    var order = PurchaseRestBuilder.of(restTestClient, port)
+            .build(purchase -> purchase.withCustomerId(customerId)
+                    .withProduct(UUID.randomUUID(), 1)
+                    .checkedOut());
 
-  given(() -> null)
-    .when(POST("/%s/orders/%s/cancel".formatted(customerId, order.orderId())))
-    .then(ACCEPTED);
+    given(() -> null)
+            .when(POST("/%s/orders/%s/cancel".formatted(customerId, order.orderId())))
+            .then(ACCEPTED);
 
-  assertEquals("Canceled", progressOf(order.orderId()));
+    assertEquals("Canceled", progressOf(order.orderId()));
 }
 ```
 
@@ -787,7 +765,12 @@ The sample writes the documents from the code while the application runs, so the
 Each handler on the bus says which channel it receives from with `@AsyncListener`, and each method that publishes says where with `@AsyncPublisher`. Both describe the operation:
 
 ```java
-@AsyncListener(operation = @AsyncOperation(channelName = PaymentsConfig.requests, description = "Records a payment that waits for the customer to authorize it on the payment provider's page."))
+@AsyncListener(
+        operation =
+                @AsyncOperation(
+                        channelName = PaymentsConfig.requests,
+                        description =
+                                "Records a payment that waits for the customer to authorize it on the payment provider's page."))
 public void authorizePayment(AuthorizePayment command) {
 ```
 

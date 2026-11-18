@@ -1,7 +1,11 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments.authorization;
 
-import io.eventdriven.distributedprocesses.core.identifiers.Urns;
+import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
+import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
+import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
@@ -9,111 +13,103 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentValidity;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGateway;
 import io.eventdriven.testing.MessageCatcher;
-import org.junit.jupiter.api.Test;
-
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
-import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
+import org.junit.jupiter.api.Test;
 
 public class AuthorizationExpiryWorkerTests {
-  private static final Duration paymentTimeout = Duration.ofMinutes(5);
-  private static final Duration authorizationValidity = Duration.ofDays(7);
+    private static final Duration paymentTimeout = Duration.ofMinutes(5);
+    private static final Duration authorizationValidity = Duration.ofDays(7);
 
-  private final String referenceId = Urns.of("ecommerce", "order", UUID.randomUUID());
-  private final PaymentId paymentId = PaymentId.derivedFrom(referenceId);
-  private final double amount = 62.5;
-  private final OffsetDateTime authorizedAt = OffsetDateTime.now();
-  private final OffsetDateTime captureBefore = authorizedAt.plus(authorizationValidity);
-  private final OffsetDateTime beforeExpiry = captureBefore.minusDays(1);
-  private final OffsetDateTime afterExpiry = captureBefore.plusDays(1);
+    private final String referenceId = Urns.of("ecommerce", "order", UUID.randomUUID());
+    private final PaymentId paymentId = PaymentId.derivedFrom(referenceId);
+    private final double amount = 62.5;
+    private final OffsetDateTime authorizedAt = OffsetDateTime.now();
+    private final OffsetDateTime captureBefore = authorizedAt.plus(authorizationValidity);
+    private final OffsetDateTime beforeExpiry = captureBefore.minusDays(1);
+    private final OffsetDateTime afterExpiry = captureBefore.plusDays(1);
 
-  private final InMemoryEventStore eventStore = new InMemoryEventStore();
-  private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
-  private final MessageCatcher published = new MessageCatcher();
+    private final InMemoryEventStore eventStore = new InMemoryEventStore();
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
+    private final MessageCatcher published = new MessageCatcher();
 
-  private final AtomicReference<OffsetDateTime> clock = new AtomicReference<>(authorizedAt);
-  private final ScheduledAuthorizationExpiryWorker worker;
+    private final AtomicReference<OffsetDateTime> clock = new AtomicReference<>(authorizedAt);
+    private final ScheduledAuthorizationExpiryWorker worker;
 
-  public AuthorizationExpiryWorkerTests() {
-    eventStore.use(published::catchMessage);
-    worker = PaymentsConfig.configure(
-      eventStore,
-      messageBus,
-      new SilentPaymentGateway(),
-      PaymentValidity.of(paymentTimeout),
-      clock::get
-    ).authorizationExpiryWorker();
-  }
+    public AuthorizationExpiryWorkerTests() {
+        eventStore.use(published::catchMessage);
+        worker = PaymentsConfig.configure(
+                        eventStore,
+                        messageBus,
+                        new SilentPaymentGateway(),
+                        PaymentValidity.of(paymentTimeout),
+                        clock::get)
+                .authorizationExpiryWorker();
+    }
 
-  @Test
-  public void holdThatIsNeverCapturedExpiresOnceItsDeadlinePasses() {
-    authorize();
+    @Test
+    public void holdThatIsNeverCapturedExpiresOnceItsDeadlinePasses() {
+        authorize();
 
-    handleAllAt(afterExpiry);
+        handleAllAt(afterExpiry);
 
-    published.shouldReceiveMessages(new PaymentAuthorizationExpired(paymentId, afterExpiry));
-  }
+        published.shouldReceiveMessages(new PaymentAuthorizationExpired(paymentId, afterExpiry));
+    }
 
-  @Test
-  public void runningBeforeTheDeadlineSendsNothing() {
-    authorize();
+    @Test
+    public void runningBeforeTheDeadlineSendsNothing() {
+        authorize();
 
-    handleAllAt(beforeExpiry);
+        handleAllAt(beforeExpiry);
 
-    published.shouldNotReceiveAnyEvent();
-  }
+        published.shouldNotReceiveAnyEvent();
+    }
 
-  @Test
-  public void paymentWithARequestedCaptureNeverExpires() {
-    authorize();
-    messageBus.publish(List.of(new CapturePayment(paymentId)));
-    published.reset();
+    @Test
+    public void paymentWithARequestedCaptureNeverExpires() {
+        authorize();
+        messageBus.publish(List.of(new CapturePayment(paymentId)));
+        published.reset();
 
-    handleAllAt(afterExpiry);
+        handleAllAt(afterExpiry);
 
-    published.shouldNotReceiveAnyEvent();
-  }
+        published.shouldNotReceiveAnyEvent();
+    }
 
-  @Test
-  public void voidedPaymentNeverExpires() {
-    authorize();
-    messageBus.publish(List.of(new CancelPayment(paymentId)));
-    published.reset();
+    @Test
+    public void voidedPaymentNeverExpires() {
+        authorize();
+        messageBus.publish(List.of(new CancelPayment(paymentId)));
+        published.reset();
 
-    handleAllAt(afterExpiry);
+        handleAllAt(afterExpiry);
 
-    published.shouldNotReceiveAnyEvent();
-  }
+        published.shouldNotReceiveAnyEvent();
+    }
 
-  @Test
-  public void runningTwiceExpiresTheSameHoldOnlyOnce() {
-    authorize();
+    @Test
+    public void runningTwiceExpiresTheSameHoldOnlyOnce() {
+        authorize();
 
-    handleAllAt(afterExpiry);
-    assertThatCode(() -> handleAllAt(afterExpiry.plusDays(1))).doesNotThrowAnyException();
+        handleAllAt(afterExpiry);
+        assertThatCode(() -> handleAllAt(afterExpiry.plusDays(1))).doesNotThrowAnyException();
 
-    assertThat(published.published)
-      .containsOnlyOnce(new PaymentAuthorizationExpired(paymentId, afterExpiry));
-    assertThat(published.published).hasSize(1);
-  }
+        assertThat(published.published).containsOnlyOnce(new PaymentAuthorizationExpired(paymentId, afterExpiry));
+        assertThat(published.published).hasSize(1);
+    }
 
-  private void authorize() {
-    messageBus.publish(List.of(
-      new AuthorizePayment(paymentId, referenceId, amount),
-      new ConfirmPaymentAuthorization(paymentId, captureBefore)
-    ));
-    published.reset();
-  }
+    private void authorize() {
+        messageBus.publish(List.of(
+                new AuthorizePayment(paymentId, referenceId, amount),
+                new ConfirmPaymentAuthorization(paymentId, captureBefore)));
+        published.reset();
+    }
 
-  private void handleAllAt(OffsetDateTime now) {
-    clock.set(now);
-    worker.handleAll();
-  }
+    private void handleAllAt(OffsetDateTime now) {
+        clock.set(now);
+        worker.handleAll();
+    }
 }

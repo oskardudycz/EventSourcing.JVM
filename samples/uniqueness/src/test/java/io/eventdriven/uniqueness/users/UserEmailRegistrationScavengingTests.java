@@ -1,150 +1,150 @@
 package io.eventdriven.uniqueness.users;
 
+import static io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.ResourceReservationEvent.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+import io.eventdriven.uniqueness.core.kurrentdb.EventStore;
+import io.eventdriven.uniqueness.core.resourcereservation.Hash;
+import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservation;
+import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservationRepository;
+import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservationScavenging;
+import io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.KurrentDBResourceReservationHandler;
+import io.eventdriven.uniqueness.testing.TestDatabases;
 import io.kurrent.dbclient.ConnectionStringParsingException;
 import io.kurrent.dbclient.KurrentDBClient;
 import io.kurrent.dbclient.KurrentDBClientSettings;
 import io.kurrent.dbclient.KurrentDBConnectionString;
-import io.eventdriven.uniqueness.core.kurrentdb.EventStore;
-import io.eventdriven.uniqueness.core.resourcereservation.Hash;
-import io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.KurrentDBResourceReservationHandler;
-import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservation;
-import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservationRepository;
-import io.eventdriven.uniqueness.core.resourcereservation.jpa.ResourceReservationScavenging;
-import io.eventdriven.uniqueness.testing.TestDatabases;
-import org.junit.jupiter.api.BeforeEach;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.springframework.core.retry.RetryPolicy;
-import org.springframework.core.retry.RetryTemplate;
-
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.UUID;
-
-
-import static io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.ResourceReservationEvent.*;
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.core.retry.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ExtendWith(SpringExtension.class)
 public class UserEmailRegistrationScavengingTests {
-  @DynamicPropertySource
-  static void databaseProperties(DynamicPropertyRegistry registry) {
-    registry.add("spring.datasource.url", () -> TestDatabases.postgreSQL().connectionString());
-    registry.add("spring.datasource.username", () -> TestDatabases.postgreSQL().userName());
-    registry.add("spring.datasource.password", () -> TestDatabases.postgreSQL().password());
-  }
-
-
-  @Test
-  public void scavenging_cleansReservationAndLookup() {
-    // Given
-    for (var reservation : toScavenge) {
-      var resourceKey = reservation.getResourceKey();
-
-      repository.save(reservation);
-      eventStore.append(getReservationStreamId(resourceKey),
-        new ResourceReservationInitiated(resourceKey, reservation.getInitiatedAt(), Duration.ofMinutes(1))
-      );
+    @DynamicPropertySource
+    static void databaseProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", () -> TestDatabases.postgreSQL().connectionString());
+        registry.add(
+                "spring.datasource.username", () -> TestDatabases.postgreSQL().userName());
+        registry.add(
+                "spring.datasource.password", () -> TestDatabases.postgreSQL().password());
     }
 
-    for (var reservation : toKeep) {
-      var resourceKey = reservation.getResourceKey();
+    @Test
+    public void scavenging_cleansReservationAndLookup() {
+        // Given
+        for (var reservation : toScavenge) {
+            var resourceKey = reservation.getResourceKey();
 
-      repository.save(reservation);
+            repository.save(reservation);
+            eventStore.append(
+                    getReservationStreamId(resourceKey),
+                    new ResourceReservationInitiated(resourceKey, reservation.getInitiatedAt(), Duration.ofMinutes(1)));
+        }
 
-      eventStore.append(getReservationStreamId(resourceKey),
-        new ResourceReservationInitiated(resourceKey, reservation.getInitiatedAt(), Duration.ofMinutes(1)),
-        new ResourceReservationConfirmed(resourceKey, reservation.getReservedAt())
-      );
+        for (var reservation : toKeep) {
+            var resourceKey = reservation.getResourceKey();
+
+            repository.save(reservation);
+
+            eventStore.append(
+                    getReservationStreamId(resourceKey),
+                    new ResourceReservationInitiated(resourceKey, reservation.getInitiatedAt(), Duration.ofMinutes(1)),
+                    new ResourceReservationConfirmed(resourceKey, reservation.getReservedAt()));
+        }
+
+        // When
+        resourceReservationScavenging.scavengeTimedOut(OffsetDateTime.now());
+
+        // Then
+        for (var reservation : toScavenge) {
+            var resourceKey = reservation.getResourceKey();
+
+            assertFalse(repository.existsById(resourceKey));
+            assertInstanceOf(
+                    EventStore.ReadResult.StreamDoesNotExist.class,
+                    eventStore.read(getReservationStreamId(resourceKey)));
+        }
+
+        for (var reservation : toKeep) {
+            var resourceKey = reservation.getResourceKey();
+
+            assertTrue(repository.existsById(resourceKey));
+            var result = eventStore.read(getReservationStreamId(resourceKey));
+            assertInstanceOf(EventStore.ReadResult.Success.class, result);
+            assertEquals(2, ((EventStore.ReadResult.Success) result).events().length);
+        }
     }
 
-    // When
-    resourceReservationScavenging.scavengeTimedOut(OffsetDateTime.now());
+    @Autowired
+    private ResourceReservationRepository repository;
 
-    // Then
-    for (var reservation : toScavenge) {
-      var resourceKey = reservation.getResourceKey();
+    private EventStore eventStore;
 
-      assertFalse(repository.existsById(resourceKey));
-      assertInstanceOf(EventStore.ReadResult.StreamDoesNotExist.class, eventStore.read(getReservationStreamId(resourceKey)));
+    private ResourceReservationScavenging resourceReservationScavenging;
+
+    private String reservationStreamId;
+
+    private final ResourceReservation[] toScavenge = new ResourceReservation[] {
+        new ResourceReservation(
+                getRandomResourceKey(),
+                OffsetDateTime.now().minus(Duration.ofDays(1)),
+                ResourceReservation.Status.Pending,
+                OffsetDateTime.now().minus(Duration.ofDays(1)).minus(Duration.ofMinutes(10)),
+                null),
+        new ResourceReservation(
+                getRandomResourceKey(),
+                OffsetDateTime.now().minus(Duration.ofMinutes(1)),
+                ResourceReservation.Status.Pending,
+                OffsetDateTime.now().minus(Duration.ofMinutes(1)).minus(Duration.ofSeconds(10)),
+                OffsetDateTime.now()),
+    };
+
+    private final ResourceReservation[] toKeep = new ResourceReservation[] {
+        new ResourceReservation(
+                getRandomResourceKey(),
+                OffsetDateTime.now().minus(Duration.ofDays(2)),
+                ResourceReservation.Status.Confirmed,
+                OffsetDateTime.now().minus(Duration.ofDays(22)).minus(Duration.ofMinutes(10)),
+                null),
+        new ResourceReservation(
+                getRandomResourceKey(),
+                OffsetDateTime.now().minus(Duration.ofMinutes(2)),
+                ResourceReservation.Status.Confirmed,
+                OffsetDateTime.now().minus(Duration.ofMinutes(2)).minus(Duration.ofSeconds(10)),
+                OffsetDateTime.now()),
+    };
+
+    @BeforeEach
+    void beforeEach() throws ConnectionStringParsingException {
+        KurrentDBClientSettings settings =
+                KurrentDBConnectionString.parseOrThrow(TestDatabases.kurrentDBConnectionString());
+        KurrentDBClient kurrentDBClient = KurrentDBClient.create(settings);
+        eventStore = new EventStore(kurrentDBClient);
+        var resourceReservationHandler = new KurrentDBResourceReservationHandler(
+                Duration.ofMinutes(10), new RetryTemplate(RetryPolicy.withMaxRetries(0)), eventStore);
+
+        resourceReservationScavenging = new ResourceReservationScavenging(repository, resourceReservationHandler);
     }
 
-    for (var reservation : toKeep) {
-      var resourceKey = reservation.getResourceKey();
-
-      assertTrue(repository.existsById(resourceKey));
-      var result = eventStore.read(getReservationStreamId(resourceKey));
-      assertInstanceOf(EventStore.ReadResult.Success.class, result);
-      assertEquals(2, ((EventStore.ReadResult.Success) result).events().length);
+    private String getRandomResourceKey() {
+        var email = "%s@email.com".formatted(UUID.randomUUID().toString().replace("-", ""));
+        return Hash.hash(email).toString();
     }
-  }
 
-  @Autowired
-  private ResourceReservationRepository repository;
-  private EventStore eventStore;
-
-  private ResourceReservationScavenging resourceReservationScavenging;
-
-  private String reservationStreamId;
-
-  private final ResourceReservation[] toScavenge = new ResourceReservation[]{
-    new ResourceReservation(
-      getRandomResourceKey(),
-      OffsetDateTime.now().minus(Duration.ofDays(1)),
-      ResourceReservation.Status.Pending,
-      OffsetDateTime.now().minus(Duration.ofDays(1)).minus(Duration.ofMinutes(10)),
-      null
-    ),
-    new ResourceReservation(
-      getRandomResourceKey(),
-      OffsetDateTime.now().minus(Duration.ofMinutes(1)),
-      ResourceReservation.Status.Pending,
-      OffsetDateTime.now().minus(Duration.ofMinutes(1)).minus(Duration.ofSeconds(10)),
-      OffsetDateTime.now()
-    ),
-  };
-
-  private final ResourceReservation[] toKeep = new ResourceReservation[]{
-    new ResourceReservation(
-      getRandomResourceKey(),
-      OffsetDateTime.now().minus(Duration.ofDays(2)),
-      ResourceReservation.Status.Confirmed,
-      OffsetDateTime.now().minus(Duration.ofDays(22)).minus(Duration.ofMinutes(10)),
-      null
-    ),
-    new ResourceReservation(
-      getRandomResourceKey(),
-      OffsetDateTime.now().minus(Duration.ofMinutes(2)),
-      ResourceReservation.Status.Confirmed,
-      OffsetDateTime.now().minus(Duration.ofMinutes(2)).minus(Duration.ofSeconds(10)),
-      OffsetDateTime.now()
-    ),
-  };
-
-  @BeforeEach
-  void beforeEach() throws ConnectionStringParsingException {
-    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow(TestDatabases.kurrentDBConnectionString());
-    KurrentDBClient kurrentDBClient = KurrentDBClient.create(settings);
-    eventStore = new EventStore(kurrentDBClient);
-    var resourceReservationHandler = new KurrentDBResourceReservationHandler(Duration.ofMinutes(10), new RetryTemplate(RetryPolicy.withMaxRetries(0)), eventStore);
-
-    resourceReservationScavenging = new ResourceReservationScavenging(repository, resourceReservationHandler);
-  }
-
-  private String getRandomResourceKey() {
-    var email = "%s@email.com".formatted(UUID.randomUUID().toString().replace("-", ""));
-    return Hash.hash(email).toString();
-  }
-
-  private String getReservationStreamId(String resourceKey) {
-    return "reservation-%s".formatted(resourceKey);
-  }
+    private String getReservationStreamId(String resourceKey) {
+        return "reservation-%s".formatted(resourceKey);
+    }
 }

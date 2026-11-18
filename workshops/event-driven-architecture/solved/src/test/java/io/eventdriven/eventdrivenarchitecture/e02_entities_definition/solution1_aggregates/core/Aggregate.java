@@ -3,7 +3,7 @@ package io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution1
 import java.util.List;
 
 public interface Aggregate<Id> {
-  Id id();
+    Id id();
 
-  List<Object> dequeueUncommittedEvents();
+    List<Object> dequeueUncommittedEvents();
 }

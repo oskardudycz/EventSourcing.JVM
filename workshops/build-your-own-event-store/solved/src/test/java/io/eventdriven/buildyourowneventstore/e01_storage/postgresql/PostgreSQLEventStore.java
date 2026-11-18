@@ -1,25 +1,24 @@
 package io.eventdriven.buildyourowneventstore.e01_storage.postgresql;
 
-import io.eventdriven.buildyourowneventstore.e01_storage.EventStore;
-
-import java.sql.Connection;
-
 import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.executeSql;
 
+import io.eventdriven.buildyourowneventstore.e01_storage.EventStore;
+import java.sql.Connection;
+
 public class PostgreSQLEventStore implements EventStore {
-  private final Connection dbConnection;
+    private final Connection dbConnection;
 
-  public PostgreSQLEventStore(Connection dbConnection) {
-    this.dbConnection = dbConnection;
-  }
+    public PostgreSQLEventStore(Connection dbConnection) {
+        this.dbConnection = dbConnection;
+    }
 
-  @Override
-  public void init() {
-    executeSql(dbConnection, createStreamsTableSql);
-    executeSql(dbConnection, createEventsTableSql);
-  }
+    @Override
+    public void init() {
+        executeSql(dbConnection, createStreamsTableSql);
+        executeSql(dbConnection, createEventsTableSql);
+    }
 
-  private final String createStreamsTableSql = """
+    private final String createStreamsTableSql = """
     CREATE TABLE IF NOT EXISTS streams(
         id               TEXT                      NOT NULL    PRIMARY KEY,
         type             TEXT                      NOT NULL,
@@ -27,7 +26,7 @@ public class PostgreSQLEventStore implements EventStore {
     );
     """;
 
-  private final String createEventsTableSql = """
+    private final String createEventsTableSql = """
     CREATE SEQUENCE IF NOT EXISTS global_event_position;
 
     CREATE TABLE IF NOT EXISTS events(

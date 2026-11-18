@@ -6,10 +6,8 @@ import io.eventdriven.distributedprocesses.ecommerce.orders.pending.PendingOrder
 import io.eventdriven.distributedprocesses.ecommerce.orders.unpaid.ScheduledUnpaidOrdersWorker;
 
 public record OrdersModule(
-  OrderFacade facade,
-  PendingOrders pendingOrders,
-  ScheduledUnpaidOrdersWorker unpaidOrdersWorker,
-  CustomerOrders customerOrders,
-  OrderStatuses orderStatuses
-) {
-}
+        OrderFacade facade,
+        PendingOrders pendingOrders,
+        ScheduledUnpaidOrdersWorker unpaidOrdersWorker,
+        CustomerOrders customerOrders,
+        OrderStatuses orderStatuses) {}

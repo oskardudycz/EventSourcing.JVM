@@ -2,37 +2,35 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.authorization;
 
 import io.eventdriven.distributedprocesses.core.projections.Versioned;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
-
 import java.time.OffsetDateTime;
 
 public class AuthorizedPayment implements Versioned {
-  private PaymentId paymentId;
-  private OffsetDateTime captureBefore;
-  private long version;
+    private PaymentId paymentId;
+    private OffsetDateTime captureBefore;
+    private long version;
 
-  public AuthorizedPayment() {
-  }
+    public AuthorizedPayment() {}
 
-  public AuthorizedPayment(PaymentId paymentId, OffsetDateTime captureBefore) {
-    this.paymentId = paymentId;
-    this.captureBefore = captureBefore;
-  }
+    public AuthorizedPayment(PaymentId paymentId, OffsetDateTime captureBefore) {
+        this.paymentId = paymentId;
+        this.captureBefore = captureBefore;
+    }
 
-  public PaymentId getPaymentId() {
-    return paymentId;
-  }
+    public PaymentId getPaymentId() {
+        return paymentId;
+    }
 
-  public OffsetDateTime getCaptureBefore() {
-    return captureBefore;
-  }
+    public OffsetDateTime getCaptureBefore() {
+        return captureBefore;
+    }
 
-  @Override
-  public long getVersion() {
-    return version;
-  }
+    @Override
+    public long getVersion() {
+        return version;
+    }
 
-  @Override
-  public void setVersion(long version) {
-    this.version = version;
-  }
+    @Override
+    public void setVersion(long version) {
+        this.version = version;
+    }
 }

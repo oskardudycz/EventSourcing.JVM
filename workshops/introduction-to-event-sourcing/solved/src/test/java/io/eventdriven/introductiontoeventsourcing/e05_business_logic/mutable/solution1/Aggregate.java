@@ -5,26 +5,26 @@ import java.util.Queue;
 import java.util.UUID;
 
 public abstract class Aggregate<Event> {
-  protected UUID id;
+    protected UUID id;
 
-  private final Queue<Object> uncommittedEvents = new LinkedList<>();
+    private final Queue<Object> uncommittedEvents = new LinkedList<>();
 
-  public UUID id() {
-    return id;
-  }
+    public UUID id() {
+        return id;
+    }
 
-  public Object[] dequeueUncommittedEvents() {
-    var dequeuedEvents = uncommittedEvents.toArray();
+    public Object[] dequeueUncommittedEvents() {
+        var dequeuedEvents = uncommittedEvents.toArray();
 
-    uncommittedEvents.clear();
+        uncommittedEvents.clear();
 
-    return dequeuedEvents;
-  }
+        return dequeuedEvents;
+    }
 
-  public abstract void evolve(Event event);
+    public abstract void evolve(Event event);
 
-  protected void enqueue(Event event) {
-    uncommittedEvents.add(event);
-    evolve(event);
-  }
+    protected void enqueue(Event event) {
+        uncommittedEvents.add(event);
+        evolve(event);
+    }
 }

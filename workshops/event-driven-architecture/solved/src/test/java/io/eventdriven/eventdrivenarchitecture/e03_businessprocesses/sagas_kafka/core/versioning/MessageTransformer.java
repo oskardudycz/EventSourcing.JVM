@@ -4,5 +4,5 @@ import tools.jackson.databind.ObjectMapper;
 
 @FunctionalInterface
 public interface MessageTransformer {
-  Object transform(byte[] json, ObjectMapper objectMapper);
+    Object transform(byte[] json, ObjectMapper objectMapper);
 }

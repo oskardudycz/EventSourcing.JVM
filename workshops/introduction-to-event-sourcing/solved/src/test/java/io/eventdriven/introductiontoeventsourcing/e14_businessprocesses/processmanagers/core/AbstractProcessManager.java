@@ -1,36 +1,37 @@
 package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.processmanagers.core;
 
-import java.util.LinkedList;
-import java.util.Queue;
 import static io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.processmanagers.core.Message.*;
 
+import java.util.LinkedList;
+import java.util.Queue;
+
 public abstract class AbstractProcessManager<Event, Id> implements ProcessManager<Id> {
-  protected Id id;
-  protected int version = -1;
+    protected Id id;
+    protected int version = -1;
 
-  private final Queue<Message> uncommittedMessages = new LinkedList<>();
+    private final Queue<Message> uncommittedMessages = new LinkedList<>();
 
-  public Id id() {
-    return id;
-  }
+    public Id id() {
+        return id;
+    }
 
-  public Message[] dequeueUncommittedMessages() {
-    var dequeuedMessages = uncommittedMessages.toArray(Message[]::new);
+    public Message[] dequeueUncommittedMessages() {
+        var dequeuedMessages = uncommittedMessages.toArray(Message[]::new);
 
-    uncommittedMessages.clear();
+        uncommittedMessages.clear();
 
-    return dequeuedMessages;
-  }
+        return dequeuedMessages;
+    }
 
-  public abstract void apply(Event event);
+    public abstract void apply(Event event);
 
-  protected void enqueue(Event event) {
-    uncommittedMessages.add(Publish(event));
-    apply(event);
-    version++;
-  }
+    protected void enqueue(Event event) {
+        uncommittedMessages.add(Publish(event));
+        apply(event);
+        version++;
+    }
 
-  protected void schedule(Object command) {
-    uncommittedMessages.add(Send(command));
-  }
+    protected void schedule(Object command) {
+        uncommittedMessages.add(Send(command));
+    }
 }

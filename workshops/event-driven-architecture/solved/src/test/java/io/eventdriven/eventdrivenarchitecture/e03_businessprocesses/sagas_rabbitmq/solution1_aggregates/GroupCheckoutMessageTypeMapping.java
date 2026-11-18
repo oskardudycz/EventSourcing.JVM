@@ -5,15 +5,15 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class GroupCheckoutMessageTypeMapping extends MessageMapping {
-  public GroupCheckoutMessageTypeMapping() {
-    // TODO: Register message type mappings for this module
-    // Example:
-    // register(GuestCheckoutInitiated.class,
-    //   "checkout-initiated",                    // Current production name
-    //   "GuestCheckoutStarted",                  // Old name (if renamed)
-    //   "io.old.pkg.GuestCheckoutInitiated");   // Old package (if refactored)
-    //
-    // register(GuestCheckoutCompleted.class, "checkout-completed");
-    // register(GuestCheckoutFailed.class, "checkout-failed");
-  }
+    public GroupCheckoutMessageTypeMapping() {
+        // TODO: Register message type mappings for this module
+        // Example:
+        // register(GuestCheckoutInitiated.class,
+        //   "checkout-initiated",                    // Current production name
+        //   "GuestCheckoutStarted",                  // Old name (if renamed)
+        //   "io.old.pkg.GuestCheckoutInitiated");   // Old package (if refactored)
+        //
+        // register(GuestCheckoutCompleted.class, "checkout-completed");
+        // register(GuestCheckoutFailed.class, "checkout-failed");
+    }
 }

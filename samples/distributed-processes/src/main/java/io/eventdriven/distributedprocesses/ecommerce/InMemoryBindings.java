@@ -5,23 +5,22 @@ import io.github.springwolf.asyncapi.v3.bindings.EmptyOperationBinding;
 import io.github.springwolf.asyncapi.v3.model.AsyncAPI;
 import io.github.springwolf.asyncapi.v3.model.channel.message.MessageObject;
 import io.github.springwolf.core.asyncapi.AsyncApiCustomizer;
-import org.springframework.stereotype.Component;
-
 import java.util.Map;
+import org.springframework.stereotype.Component;
 
 // AsyncAPI allows only its known protocols as binding names, and others only with the x- prefix.
 // Springwolf's UI reads the protocol from the binding name, so it needs one on every operation and message.
 @Component
 public class InMemoryBindings implements AsyncApiCustomizer {
-  public static final String protocol = "x-in-memory";
+    public static final String protocol = "x-in-memory";
 
-  @Override
-  public void customize(AsyncAPI asyncApi) {
-    for (var operation : asyncApi.getOperations().values())
-      operation.setBindings(Map.of(protocol, new EmptyOperationBinding()));
+    @Override
+    public void customize(AsyncAPI asyncApi) {
+        for (var operation : asyncApi.getOperations().values())
+            operation.setBindings(Map.of(protocol, new EmptyOperationBinding()));
 
-    for (var message : asyncApi.getComponents().getMessages().values())
-      if (message instanceof MessageObject messageObject)
-        messageObject.setBindings(Map.of(protocol, new EmptyMessageBinding()));
-  }
+        for (var message : asyncApi.getComponents().getMessages().values())
+            if (message instanceof MessageObject messageObject)
+                messageObject.setBindings(Map.of(protocol, new EmptyMessageBinding()));
+    }
 }

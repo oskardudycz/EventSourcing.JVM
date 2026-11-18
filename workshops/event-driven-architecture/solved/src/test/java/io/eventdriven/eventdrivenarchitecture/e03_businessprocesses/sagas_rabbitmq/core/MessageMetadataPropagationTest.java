@@ -1,196 +1,242 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core;
 
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution1_aggregates.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.*;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution1_aggregates.gueststayaccounts.GuestStayAccountFacade.GuestStayAccountCommand.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.InMemorySpansConfiguration;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution1_aggregates.RabbitMQSolution1Config;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution1_aggregates.groupcheckouts.GroupCheckoutEvent;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution1_aggregates.groupcheckouts.GroupCheckoutFacade;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution1_aggregates.gueststayaccounts.GuestStayAccountEvent;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution1_aggregates.gueststayaccounts.GuestStayAccountFacade;
 import io.micrometer.tracing.Tracer;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution1_aggregates.RabbitMQSolution1Config;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution1_aggregates.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.*;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution1_aggregates.gueststayaccounts.GuestStayAccountFacade.GuestStayAccountCommand.*;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 @SpringBootTest(classes = {RabbitMQSagaTestApplication.class, RabbitMQSolution1Config.class})
 @Import(InMemorySpansConfiguration.class)
 @AutoConfigureTracing
 public class MessageMetadataPropagationTest {
-  @DynamicPropertySource
-  static void configureProperties(DynamicPropertyRegistry registry) {
-    registry.add("app.rabbitmq.exchange", () -> "hotel-financial-metadata-test");
-    registry.add("test.context.id", () -> "metadata-test");
-  }
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("app.rabbitmq.exchange", () -> "hotel-financial-metadata-test");
+        registry.add("test.context.id", () -> "metadata-test");
+    }
 
-  @Autowired
-  private Database database;
-  @Autowired
-  private RabbitMQMessageBus messageBus;
-  @Autowired
-  private Tracer tracer;
-  @Autowired
-  private GuestStayAccountFacade guestStayFacade;
-  @Autowired
-  private GroupCheckoutFacade groupCheckoutFacade;
-  @Autowired
-  private InMemorySpanExporter spanExporter;
-  private MessageCatcher publishedMessages;
-  private OffsetDateTime now;
+    @Autowired
+    private Database database;
 
-  @BeforeEach
-  public void setUp() {
-    publishedMessages = new MessageCatcher();
-    now = OffsetDateTime.now();
-    messageBus.clearMiddleware();
-    messageBus.use(publishedMessages::catchMessage);
-    spanExporter.reset();
-  }
+    @Autowired
+    private RabbitMQMessageBus messageBus;
 
-  @Test
-  public void shouldPropagateMessageMetadataCorrectly() {
-    AtomicReference<String> initiatedMessageId = new AtomicReference<>();
-    AtomicReference<String> initiatedCorrelationId = new AtomicReference<>();
-    AtomicReference<String> initiatedTraceId = new AtomicReference<>();
-    AtomicReference<String> initiatedSpanId = new AtomicReference<>();
+    @Autowired
+    private Tracer tracer;
 
-    AtomicReference<String> checkOutGuestCausationId = new AtomicReference<>();
+    @Autowired
+    private GuestStayAccountFacade guestStayFacade;
 
-    AtomicReference<String> checkedOutMessageId = new AtomicReference<>();
-    AtomicReference<String> checkedOutCorrelationId = new AtomicReference<>();
-    AtomicReference<String> checkedOutCausationId = new AtomicReference<>();
-    AtomicReference<String> checkedOutTraceId = new AtomicReference<>();
-    AtomicReference<String> checkedOutSpanId = new AtomicReference<>();
+    @Autowired
+    private GroupCheckoutFacade groupCheckoutFacade;
 
-    messageBus.subscribe(GroupCheckoutEvent.GroupCheckoutInitiated.class, event -> {
-      if (initiatedMessageId.get() != null) return;
+    @Autowired
+    private InMemorySpanExporter spanExporter;
 
-      var correlationId = tracer.getBaggage("correlationId");
-      var causationId = tracer.getBaggage("causationId");
-      var currentSpan = tracer.currentSpan();
+    private MessageCatcher publishedMessages;
+    private OffsetDateTime now;
 
-      assertThat(causationId).as("causationId should be present").isNotNull();
-      assertThat(causationId.get()).as("causationId should not be empty").isNotNull().isNotEmpty();
-      initiatedMessageId.set(causationId.get());
+    @BeforeEach
+    public void setUp() {
+        publishedMessages = new MessageCatcher();
+        now = OffsetDateTime.now();
+        messageBus.clearMiddleware();
+        messageBus.use(publishedMessages::catchMessage);
+        spanExporter.reset();
+    }
 
-      assertThat(correlationId).as("correlationId should be present").isNotNull();
-      assertThat(correlationId.get()).as("correlationId should not be empty").isNotNull().isNotEmpty();
-      initiatedCorrelationId.set(correlationId.get());
+    @Test
+    public void shouldPropagateMessageMetadataCorrectly() {
+        AtomicReference<String> initiatedMessageId = new AtomicReference<>();
+        AtomicReference<String> initiatedCorrelationId = new AtomicReference<>();
+        AtomicReference<String> initiatedTraceId = new AtomicReference<>();
+        AtomicReference<String> initiatedSpanId = new AtomicReference<>();
 
-      assertThat(causationId).as("Initial event causationId should not be null").isNotNull();
+        AtomicReference<String> checkOutGuestCausationId = new AtomicReference<>();
 
-      assertThat(currentSpan).as("Current span should be present in handler").isNotNull();
-      assertThat(currentSpan.context().traceId()).as("TraceId should be present").isNotEmpty();
-      assertThat(currentSpan.context().spanId()).as("SpanId should be present").isNotEmpty();
-      initiatedTraceId.set(currentSpan.context().traceId());
-      initiatedSpanId.set(currentSpan.context().spanId());
-    });
+        AtomicReference<String> checkedOutMessageId = new AtomicReference<>();
+        AtomicReference<String> checkedOutCorrelationId = new AtomicReference<>();
+        AtomicReference<String> checkedOutCausationId = new AtomicReference<>();
+        AtomicReference<String> checkedOutTraceId = new AtomicReference<>();
+        AtomicReference<String> checkedOutSpanId = new AtomicReference<>();
 
-    messageBus.subscribe(CheckOutGuest.class, command -> {
-      if (checkOutGuestCausationId.get() != null) return;
+        messageBus.subscribe(GroupCheckoutEvent.GroupCheckoutInitiated.class, event -> {
+            if (initiatedMessageId.get() != null) return;
 
-      var causationId = tracer.getBaggage("causationId");
-      assertThat(causationId).as("causationId should be present").isNotNull();
-      checkOutGuestCausationId.set(causationId.get());
-    });
+            var correlationId = tracer.getBaggage("correlationId");
+            var causationId = tracer.getBaggage("causationId");
+            var currentSpan = tracer.currentSpan();
 
-    messageBus.subscribe(GuestStayAccountEvent.GuestCheckedOut.class, event -> {
-      if (checkedOutMessageId.get() != null) return;
+            assertThat(causationId).as("causationId should be present").isNotNull();
+            assertThat(causationId.get())
+                    .as("causationId should not be empty")
+                    .isNotNull()
+                    .isNotEmpty();
+            initiatedMessageId.set(causationId.get());
 
-      var correlationId = tracer.getBaggage("correlationId");
-      var causationId = tracer.getBaggage("causationId");
-      var currentSpan = tracer.currentSpan();
+            assertThat(correlationId).as("correlationId should be present").isNotNull();
+            assertThat(correlationId.get())
+                    .as("correlationId should not be empty")
+                    .isNotNull()
+                    .isNotEmpty();
+            initiatedCorrelationId.set(correlationId.get());
 
-      assertThat(causationId).as("messageId should be present").isNotNull();
-      assertThat(causationId.get()).as("messageId should not be empty").isNotNull().isNotEmpty();
-      checkedOutMessageId.set(causationId.get());
+            assertThat(causationId)
+                    .as("Initial event causationId should not be null")
+                    .isNotNull();
 
-      assertThat(correlationId).as("correlationId should be present").isNotNull();
-      assertThat(correlationId.get()).as("correlationId should match initial").isEqualTo(initiatedCorrelationId.get());
-      checkedOutCorrelationId.set(correlationId.get());
+            assertThat(currentSpan)
+                    .as("Current span should be present in handler")
+                    .isNotNull();
+            assertThat(currentSpan.context().traceId())
+                    .as("TraceId should be present")
+                    .isNotEmpty();
+            assertThat(currentSpan.context().spanId())
+                    .as("SpanId should be present")
+                    .isNotEmpty();
+            initiatedTraceId.set(currentSpan.context().traceId());
+            initiatedSpanId.set(currentSpan.context().spanId());
+        });
 
-      assertThat(causationId).as("causationId should be present for subsequent events").isNotNull();
-      assertThat(causationId.get()).as("causationId should not be empty").isNotNull().isNotEmpty();
-      checkedOutCausationId.set(causationId.get());
+        messageBus.subscribe(CheckOutGuest.class, command -> {
+            if (checkOutGuestCausationId.get() != null) return;
 
-      assertThat(currentSpan).as("Current span should be present in handler").isNotNull();
-      assertThat(currentSpan.context().traceId()).as("TraceId should be present").isNotEmpty();
-      assertThat(currentSpan.context().spanId()).as("SpanId should be present").isNotEmpty();
-      checkedOutTraceId.set(currentSpan.context().traceId());
-      checkedOutSpanId.set(currentSpan.context().spanId());
-    });
+            var causationId = tracer.getBaggage("causationId");
+            assertThat(causationId).as("causationId should be present").isNotNull();
+            checkOutGuestCausationId.set(causationId.get());
+        });
 
-    UUID guestStayId = UUID.randomUUID();
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStayId, now.minusDays(1)));
-    publishedMessages.reset();
+        messageBus.subscribe(GuestStayAccountEvent.GuestCheckedOut.class, event -> {
+            if (checkedOutMessageId.get() != null) return;
 
-    UUID groupCheckoutId = UUID.randomUUID();
-    UUID clerkId = UUID.randomUUID();
-    groupCheckoutFacade.initiateGroupCheckout(
-      new InitiateGroupCheckout(groupCheckoutId, clerkId, new UUID[]{guestStayId}, now)
-    );
+            var correlationId = tracer.getBaggage("correlationId");
+            var causationId = tracer.getBaggage("causationId");
+            var currentSpan = tracer.currentSpan();
 
-    publishedMessages.shouldReceiveMessages(List.of(
-      new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, new UUID[]{guestStayId}, now),
-      new CheckOutGuest(guestStayId, now, groupCheckoutId),
-      new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, groupCheckoutId)
-    ));
+            assertThat(causationId).as("messageId should be present").isNotNull();
+            assertThat(causationId.get())
+                    .as("messageId should not be empty")
+                    .isNotNull()
+                    .isNotEmpty();
+            checkedOutMessageId.set(causationId.get());
 
-    await()
-      .atMost(Duration.ofSeconds(10))
-      .untilAsserted(() -> {
-        assertThat(initiatedMessageId.get()).as("Initiated messageId should be captured").isNotNull();
-        assertThat(initiatedCorrelationId.get()).as("Initiated correlationId should be captured").isNotNull();
-        assertThat(initiatedTraceId.get()).as("Initiated traceId should be captured").isNotNull();
-        assertThat(checkOutGuestCausationId.get()).as("CheckOutGuest causationId should be captured").isNotNull();
-        assertThat(checkedOutMessageId.get()).as("CheckedOut messageId should be captured").isNotNull();
-        assertThat(checkedOutCorrelationId.get()).as("CheckedOut correlationId should be captured").isNotNull();
-        assertThat(checkedOutCausationId.get()).as("CheckedOut causationId should be captured").isNotNull();
-        assertThat(checkedOutTraceId.get()).as("CheckedOut traceId should be captured").isNotNull();
-      });
+            assertThat(correlationId).as("correlationId should be present").isNotNull();
+            assertThat(correlationId.get())
+                    .as("correlationId should match initial")
+                    .isEqualTo(initiatedCorrelationId.get());
+            checkedOutCorrelationId.set(correlationId.get());
 
-    assertThat(initiatedMessageId.get())
-      .as("messageId should be unique between messages")
-      .isNotEqualTo(checkedOutMessageId.get());
+            assertThat(causationId)
+                    .as("causationId should be present for subsequent events")
+                    .isNotNull();
+            assertThat(causationId.get())
+                    .as("causationId should not be empty")
+                    .isNotNull()
+                    .isNotEmpty();
+            checkedOutCausationId.set(causationId.get());
 
-    assertThat(checkedOutCorrelationId.get())
-      .as("correlationId should be preserved across message chain")
-      .isEqualTo(initiatedCorrelationId.get());
+            assertThat(currentSpan)
+                    .as("Current span should be present in handler")
+                    .isNotNull();
+            assertThat(currentSpan.context().traceId())
+                    .as("TraceId should be present")
+                    .isNotEmpty();
+            assertThat(currentSpan.context().spanId())
+                    .as("SpanId should be present")
+                    .isNotEmpty();
+            checkedOutTraceId.set(currentSpan.context().traceId());
+            checkedOutSpanId.set(currentSpan.context().spanId());
+        });
 
-    assertThat(checkedOutTraceId.get())
-      .as("traceId should be propagated across message chain")
-      .isEqualTo(initiatedTraceId.get());
+        UUID guestStayId = UUID.randomUUID();
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStayId, now.minusDays(1)));
+        publishedMessages.reset();
 
-    assertThat(checkedOutSpanId.get())
-      .as("spanId should be different for each message")
-      .isNotEqualTo(initiatedSpanId.get());
+        UUID groupCheckoutId = UUID.randomUUID();
+        UUID clerkId = UUID.randomUUID();
+        groupCheckoutFacade.initiateGroupCheckout(
+                new InitiateGroupCheckout(groupCheckoutId, clerkId, new UUID[] {guestStayId}, now));
 
-    assertThat(List.of(initiatedMessageId.get(), checkOutGuestCausationId.get(), checkedOutCausationId.get()))
-      .as("each handler should get the ID of the message it handles as causationId")
-      .doesNotHaveDuplicates();
+        publishedMessages.shouldReceiveMessages(List.of(
+                new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, new UUID[] {guestStayId}, now),
+                new CheckOutGuest(guestStayId, now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, groupCheckoutId)));
 
-    await()
-      .atMost(Duration.ofSeconds(10))
-      .untilAsserted(() -> assertThat(spanExporter.getFinishedSpanItems())
-        .as("the business action that starts the process should be the root of its trace")
-        .anyMatch(span -> span.getTraceId().equals(initiatedTraceId.get())
-          && span.getName().equals("GroupCheckoutFacade#initiateGroupCheckout")
-          && !span.getParentSpanContext().isValid()));
-  }
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+            assertThat(initiatedMessageId.get())
+                    .as("Initiated messageId should be captured")
+                    .isNotNull();
+            assertThat(initiatedCorrelationId.get())
+                    .as("Initiated correlationId should be captured")
+                    .isNotNull();
+            assertThat(initiatedTraceId.get())
+                    .as("Initiated traceId should be captured")
+                    .isNotNull();
+            assertThat(checkOutGuestCausationId.get())
+                    .as("CheckOutGuest causationId should be captured")
+                    .isNotNull();
+            assertThat(checkedOutMessageId.get())
+                    .as("CheckedOut messageId should be captured")
+                    .isNotNull();
+            assertThat(checkedOutCorrelationId.get())
+                    .as("CheckedOut correlationId should be captured")
+                    .isNotNull();
+            assertThat(checkedOutCausationId.get())
+                    .as("CheckedOut causationId should be captured")
+                    .isNotNull();
+            assertThat(checkedOutTraceId.get())
+                    .as("CheckedOut traceId should be captured")
+                    .isNotNull();
+        });
+
+        assertThat(initiatedMessageId.get())
+                .as("messageId should be unique between messages")
+                .isNotEqualTo(checkedOutMessageId.get());
+
+        assertThat(checkedOutCorrelationId.get())
+                .as("correlationId should be preserved across message chain")
+                .isEqualTo(initiatedCorrelationId.get());
+
+        assertThat(checkedOutTraceId.get())
+                .as("traceId should be propagated across message chain")
+                .isEqualTo(initiatedTraceId.get());
+
+        assertThat(checkedOutSpanId.get())
+                .as("spanId should be different for each message")
+                .isNotEqualTo(initiatedSpanId.get());
+
+        assertThat(List.of(initiatedMessageId.get(), checkOutGuestCausationId.get(), checkedOutCausationId.get()))
+                .as("each handler should get the ID of the message it handles as causationId")
+                .doesNotHaveDuplicates();
+
+        await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(spanExporter.getFinishedSpanItems())
+                        .as("the business action that starts the process should be the root of its trace")
+                        .anyMatch(span -> span.getTraceId().equals(initiatedTraceId.get())
+                                && span.getName().equals("GroupCheckoutFacade#initiateGroupCheckout")
+                                && !span.getParentSpanContext().isValid()));
+    }
 }

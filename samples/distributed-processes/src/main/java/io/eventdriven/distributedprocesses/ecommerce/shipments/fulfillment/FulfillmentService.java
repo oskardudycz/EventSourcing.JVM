@@ -8,5 +8,5 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 // package was delivered. In this sample the implementation answers by sending ConfirmPackageSent,
 // RejectFulfillment and DeliverPackage.
 public interface FulfillmentService {
-  void request(ShipmentId shipmentId, ProductItem[] productItems);
+    void request(ShipmentId shipmentId, ProductItem[] productItems);
 }

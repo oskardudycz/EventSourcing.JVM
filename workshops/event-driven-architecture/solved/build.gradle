@@ -2,6 +2,7 @@ plugins {
   id 'java'
   id 'org.springframework.boot' version '4.1.2'
   id 'io.spring.dependency-management' version '1.1.7'
+  id 'com.diffplug.spotless' version '8.11.0'
 }
 
 java {
@@ -98,4 +99,13 @@ test {
   jvmArgs += "-javaagent:${configurations.mockitoAgent.asPath}"
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
+}
+
+spotless {
+  enforceCheck false
+  java {
+    palantirJavaFormat('2.103.0')
+    removeUnusedImports()
+    formatAnnotations()
+  }
 }

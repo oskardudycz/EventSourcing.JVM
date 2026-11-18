@@ -48,21 +48,17 @@ There are some simple mappings that we could handle on the code structure or ser
 Having event defined as such:
 
 ```java
-public record ShoppingCartOpened(
-    UUID shoppingCartId,
-    UUID clientId
-  ) { }
+public record ShoppingCartOpened(UUID shoppingCartId, UUID clientId) {}
 ```
 
 If we'd like to add a new not required property, e.g. `intializedAt`, we can add it just as a new nullable property. The essential fact to decide if that's the right strategy is if we're good with not having it defined. It can be handled as:
 
 ```java
 public record ShoppingCartOpened(
-    UUID shoppingCartId,
-    UUID clientId,
-    // Adding new not required property
-    LocalDateTime initializedAt
-  ) { }
+        UUID shoppingCartId,
+        UUID clientId,
+        // Adding new not required property
+        LocalDateTime initializedAt) {}
 ```
 
 Then, most serialisers will put the null value by default and not fail unless we use strict mode. The new events will contain whole information, for the old ones we'll have to live with that.
@@ -78,23 +74,22 @@ For instance, we decide that we'd like to add a validation step when the shoppin
 
 ```java
 public enum ShoppingCartStatus {
-  Pending,
-  Opened,
-  Confirmed,
-  Cancelled
+    Pending,
+    Opened,
+    Confirmed,
+    Cancelled
 }
 
 public record ShoppingCartOpened(
-  UUID shoppingCartId,
-  UUID clientId,
-  // Adding new not required property as nullable
-  ShoppingCartStatus status
-) {
-  public ShoppingCartOpened {
-    if (status == null) {
-      status = ShoppingCartStatus.Opened;
+        UUID shoppingCartId,
+        UUID clientId,
+        // Adding new not required property as nullable
+        ShoppingCartStatus status) {
+    public ShoppingCartOpened {
+        if (status == null) {
+            status = ShoppingCartStatus.Opened;
+        }
     }
-  }
 }
 ```
 
@@ -110,10 +105,7 @@ We could do it as:
 
 ```java
 record ShoppingCartOpened(
-  @JsonProperty("shoppingCartId") UUID cartId,
-  UUID clientId
-) implements ShoppingCartEvent {
-}
+        @JsonProperty("shoppingCartId") UUID cartId, UUID clientId) implements ShoppingCartEvent {}
 ```
 
 The benefit is that both old and the new structure will be backward and forward compatible. The downside of this solution is that we're still keeping the old JSON structure, so all consumers need to be aware of that and do mapping if they want to use the new structure.
@@ -131,21 +123,15 @@ We can use an upcasting pattern for that. We can plug a middleware between the d
 For instance, we decide to send also other information about the client, instead of just their id. We'd like to have a nested object instead of the flattened list of fields. We could model new event structure as:
 
 ```java
-public record Client(
-  UUID id,
-  String name
-) {
-  public Client {
-    if (name == null) {
-      name = "Unknown";
+public record Client(UUID id, String name) {
+    public Client {
+        if (name == null) {
+            name = "Unknown";
+        }
     }
-  }
 }
 
-public record ShoppingCartOpened(
-  UUID shoppingCartId,
-  Client client
-) { }
+public record ShoppingCartOpened(UUID shoppingCartId, Client client) {}
 ```
 
 We can define upcaster as a function that'll later plug in the deserialisation process. 
@@ -153,31 +139,20 @@ We can define upcaster as a function that'll later plug in the deserialisation p
 We can define the transformation of the object of the old structure as:
 
 ```java
-public static ShoppingCartOpened upcast(
-  ShoppingCartEvent.ShoppingCartOpened oldEvent
-  ) {
-  return new ShoppingCartOpened(
-    oldEvent.shoppingCartId(),
-    new Client(oldEvent.clientId(), null)
-  );
+public static ShoppingCartOpened upcast(ShoppingCartEvent.ShoppingCartOpened oldEvent) {
+    return new ShoppingCartOpened(oldEvent.shoppingCartId(), new Client(oldEvent.clientId(), null));
 }
 ```
 
 Or we can map it from JSON
 
 ```java
-public static ShoppingCartOpened upcast(
-  byte[] oldEventJson
-) {
-  var oldEvent = Serializer.deserialize(oldEventJson);
+public static ShoppingCartOpened upcast(byte[] oldEventJson) {
+    var oldEvent = Serializer.deserialize(oldEventJson);
 
-  return new ShoppingCartOpened(
-    UUID.fromString(oldEvent.at("/shoppingCartId").asText()),
-    new Client(
-      UUID.fromString(oldEvent.at("/clientId").asText()),
-      null
-    )
-  );
+    return new ShoppingCartOpened(
+            UUID.fromString(oldEvent.at("/shoppingCartId").asText()),
+            new Client(UUID.fromString(oldEvent.at("/clientId").asText()), null));
 }
 ```
 
@@ -190,47 +165,31 @@ We can also solve the same cases as simple mappings, but we have more handling o
 Let's say that we forget to add information about who initialised the shopping cart (user id). We cannot retroactively guess what the user was, but if we were lucky enough to track such information in user metadata (e.g. for tracing), we could try to map it.
 
 ```java
-public record EventMetadata(
-  UUID userId
-) { }
+public record EventMetadata(UUID userId) {}
 
-public record ShoppingCartOpened(
-  UUID shoppingCartId,
-  UUID clientId,
-  UUID initializedBy
-) { }
+public record ShoppingCartOpened(UUID shoppingCartId, UUID clientId, UUID initializedBy) {}
 ```
 
 Upcaster from old object to the new one can look like:
 
 ```java
 public static ShoppingCartOpened upcast(
-  ShoppingCartEvent.ShoppingCartOpened oldEvent,
-  EventMetadata eventMetadata
-) {
-  return new ShoppingCartOpened(
-    oldEvent.shoppingCartId(),
-    oldEvent.clientId(),
-    eventMetadata.userId()
-  );
+        ShoppingCartEvent.ShoppingCartOpened oldEvent, EventMetadata eventMetadata) {
+    return new ShoppingCartOpened(oldEvent.shoppingCartId(), oldEvent.clientId(), eventMetadata.userId());
 }
 ```
 
 From JSON to the object:
 
 ```java
-public static ShoppingCartOpened upcast(
-  byte[] oldEventJson,
-  byte[] eventMetadataJson
-  ) {
-  var oldEvent = Serializer.deserialize(oldEventJson);
-  var eventMetadata = Serializer.deserialize(eventMetadataJson);
+public static ShoppingCartOpened upcast(byte[] oldEventJson, byte[] eventMetadataJson) {
+    var oldEvent = Serializer.deserialize(oldEventJson);
+    var eventMetadata = Serializer.deserialize(eventMetadataJson);
 
-  return new ShoppingCartOpened(
-    UUID.fromString(oldEvent.at("/shoppingCartId").asText()),
-    UUID.fromString(oldEvent.at("/clientId").asText()),
-    UUID.fromString(eventMetadata.at("/userId").asText())
-  );
+    return new ShoppingCartOpened(
+            UUID.fromString(oldEvent.at("/shoppingCartId").asText()),
+            UUID.fromString(oldEvent.at("/clientId").asText()),
+            UUID.fromString(eventMetadata.at("/userId").asText()));
 }
 ```
 
@@ -243,28 +202,21 @@ In the same way, as described above, we can downcast the events from the new str
 From the new object to the old one:
 
 ```java
-public static ShoppingCartEvent.ShoppingCartOpened downcast(
-  ShoppingCartOpened newEvent
-) {
-  return new ShoppingCartEvent.ShoppingCartOpened(
-    newEvent.shoppingCartId(),
-    newEvent.client().id()
-  );
+public static ShoppingCartEvent.ShoppingCartOpened downcast(ShoppingCartOpened newEvent) {
+    return new ShoppingCartEvent.ShoppingCartOpened(
+            newEvent.shoppingCartId(), newEvent.client().id());
 }
 ```
 
 From new JSON format to the old object:
 
 ```java
-public static ShoppingCartEvent.ShoppingCartOpened downcast(
-  byte[] newEventJson
-) {
-  var newEvent = Serializer.deserialize(newEventJson);
+public static ShoppingCartEvent.ShoppingCartOpened downcast(byte[] newEventJson) {
+    var newEvent = Serializer.deserialize(newEventJson);
 
-  return new ShoppingCartEvent.ShoppingCartOpened(
-    UUID.fromString(newEvent.at("/shoppingCartId").asText()),
-    UUID.fromString(newEvent.at("/client/id").asText())
-  );
+    return new ShoppingCartEvent.ShoppingCartOpened(
+            UUID.fromString(newEvent.at("/shoppingCartId").asText()),
+            UUID.fromString(newEvent.at("/client/id").asText()));
 }
 ```
 
@@ -278,41 +230,31 @@ We'll be plugging between the serialisation and application logic as explained i
 
 ```java
 public class EventTransformations {
-  private final Map<String, Function<byte[], Object>> jsonTransformations = new HashMap<>();
+    private final Map<String, Function<byte[], Object>> jsonTransformations = new HashMap<>();
 
-  public Optional<Object> tryTransform(String eventTypeName, byte[] json) {
-    if (!jsonTransformations.containsKey(eventTypeName)) {
-      return Optional.empty();
+    public Optional<Object> tryTransform(String eventTypeName, byte[] json) {
+        if (!jsonTransformations.containsKey(eventTypeName)) {
+            return Optional.empty();
+        }
+
+        var transformJson = jsonTransformations.get(eventTypeName);
+
+        return Optional.of(transformJson.apply(json));
     }
 
-    var transformJson = jsonTransformations.get(eventTypeName);
+    public <Event> EventTransformations register(String eventTypeName, Function<JsonNode, Event> transformJson) {
+        jsonTransformations.put(eventTypeName, json -> transformJson.apply(Serializer.deserialize(json)));
+        return this;
+    }
 
-    return Optional.of(transformJson.apply(json));
-  }
-
-  public <Event> EventTransformations register(
-    String eventTypeName,
-    Function<JsonNode, Event> transformJson
-  ) {
-    jsonTransformations.put(
-      eventTypeName,
-      json -> transformJson.apply(Serializer.deserialize(json))
-    );
-    return this;
-  }
-
-  public <OldEvent, Event> EventTransformations register(
-    Class<OldEvent> oldEventClass,
-    String eventTypeName,
-    Function<OldEvent, Event> transformEvent
-  ) {
-    jsonTransformations.put(
-      eventTypeName,
-      json -> transformEvent.apply(Serializer.deserialize(oldEventClass, json)
-        .orElseThrow(() -> new RuntimeException("Error deserializing")))
-    );
-    return this;
-  }
+    public <OldEvent, Event> EventTransformations register(
+            Class<OldEvent> oldEventClass, String eventTypeName, Function<OldEvent, Event> transformEvent) {
+        jsonTransformations.put(
+                eventTypeName,
+                json -> transformEvent.apply(Serializer.deserialize(oldEventClass, json)
+                        .orElseThrow(() -> new RuntimeException("Error deserializing"))));
+        return this;
+    }
 }
 ```
 
@@ -320,8 +262,11 @@ We have two `register` methods. Both of them has JSON and handler function as pa
 
 ```java
 var transformations = new EventTransformations()
-  .register(eventTypeV1Name, MultipleTransformationsWithDifferentEventTypesTests::upcastV1)
-  .register(ShoppingCartOpened.class, eventTypeV2Name, MultipleTransformationsWithDifferentEventTypesTests::upcastV2);
+        .register(eventTypeV1Name, MultipleTransformationsWithDifferentEventTypesTests::upcastV1)
+        .register(
+                ShoppingCartOpened.class,
+                eventTypeV2Name,
+                MultipleTransformationsWithDifferentEventTypesTests::upcastV2);
 ```
 
 We also have `tryTransform` that either transforms JSON into the new object structure or returns `null`. We'll use it further on.
@@ -330,19 +275,20 @@ Let's also define the type mapping class responsible for mapping event type name
 
 ```java
 public class EventTypeMapping {
-  private final Map<String, Class> mappings = new HashMap<>();
+    private final Map<String, Class> mappings = new HashMap<>();
 
-  public <Event> EventTypeMapping register(Class<Event> eventClass, String... typeNames) {
-    for (var typeName : typeNames) {
-      mappings.put(typeName, eventClass);
+    public <Event> EventTypeMapping register(Class<Event> eventClass, String... typeNames) {
+
+        for (var typeName : typeNames) {
+            mappings.put(typeName, eventClass);
+        }
+
+        return this;
     }
 
-    return this;
-  }
-
-  public Class map(String eventType) {
-    return mappings.get(eventType);
-  }
+    public Class map(String eventType) {
+        return mappings.get(eventType);
+    }
 }
 ```
 
@@ -354,11 +300,7 @@ final String eventTypeV2Name = "shopping_cart_opened_v2";
 final String eventTypeV3Name = "shopping_cart_opened_v3";
 
 var mapping = new EventTypeMapping()
-  .register(ShoppingCartInitializedWithStatus.class,
-    eventTypeV1Name,
-    eventTypeV2Name,
-    eventTypeV3Name
-  );
+        .register(ShoppingCartInitializedWithStatus.class, eventTypeV1Name, eventTypeV2Name, eventTypeV3Name);
 ```
 
 See details of `EventTypeMapping` in [MultipleTransformationsWithDifferentEventTypesTests.java](./src/test/java/io/eventdriven/eventsversioning/transformations/MultipleTransformationsWithDifferentEventTypesTests.java).
@@ -368,14 +310,12 @@ It's the most straightforward wrapper that requires manual mapping for all the e
 Having those classes, we can define the final deserialisation logic.
 
 ```java
-public record EventSerializer(
-  EventTypeMapping mapping,
-  EventTransformations transformations
-) {
-  public Optional<Object> deserialize(String eventTypeName, byte[] json) {
-    return transformations.tryTransform(eventTypeName, json)
-      .or(() -> Serializer.deserialize(mapping().map(eventTypeName), json));
-  }
+public record EventSerializer(EventTypeMapping mapping, EventTransformations transformations) {
+    public Optional<Object> deserialize(String eventTypeName, byte[] json) {
+        return transformations
+                .tryTransform(eventTypeName, json)
+                .or(() -> Serializer.deserialize(mapping().map(eventTypeName), json));
+    }
 }
 ```
 
@@ -390,31 +330,17 @@ You might want not only to transform a single event into another (1:1) but also 
 Let's take as an example scenario where we can initialise not only empty shopping cart but also filled with products. For some time, we were doing that by publishing multiple events: `ShoppingCartOpened` and `ProductItemAddedToShoppingCart` for each added product item. We decided that we'd like to replace this with event containing list of product items:
 
 ```java
-public record ProductItem(
-  UUID productId,
-  int quantity
-) {}
+public record ProductItem(UUID productId, int quantity) {}
 
-public record PricedProductItem(
-  ProductItem productItem,
-  double unitPrice
-) { }
+public record PricedProductItem(ProductItem productItem, double unitPrice) {}
 
-public record ShoppingCartOpened(
-  UUID shoppingCartId,
-  UUID clientId
-) implements ShoppingCartEvent { }
+public record ShoppingCartOpened(UUID shoppingCartId, UUID clientId) implements ShoppingCartEvent {}
 
-public record ProductItemAddedToShoppingCart(
-  UUID shoppingCartId,
-  PricedProductItem productItem
-) implements ShoppingCartEvent { }
+public record ProductItemAddedToShoppingCart(UUID shoppingCartId, PricedProductItem productItem)
+        implements ShoppingCartEvent {}
 
 public record ShoppingCartInitializedWithProducts(
-  UUID shoppingCartId,
-  UUID clientId,
-  List<PricedProductItem> productItems
-) { }
+        UUID shoppingCartId, UUID clientId, List<PricedProductItem> productItems) {}
 ```
 
 We want to process our logic using a new event schema. However, that'd require zipping multiple stream events into a single one. We were lucky enough that we decided to store in metadata correlation id. It's an identifier of the command that initiated business logic. All of the events resulting from the command processing will share the same correlation id.
@@ -427,24 +353,23 @@ We need to take the stream events and transform them into another sequence of ev
 
 ```java
 public class StreamTransformations {
-  private final List<Function<List<EventData>, List<EventData>>> jsonTransformations = new ArrayList<>();
+    private final List<Function<List<EventData>, List<EventData>>> jsonTransformations = new ArrayList<>();
 
-  public List<EventData> transform(List<EventData> events) {
-    if (jsonTransformations.isEmpty())
-      return events;
+    public List<EventData> transform(List<EventData> events) {
+        if (jsonTransformations.isEmpty()) return events;
 
-    var result = events;
+        var result = events;
 
-    for (var transform : jsonTransformations) {
-      result = transform.apply(result);
+        for (var transform : jsonTransformations) {
+            result = transform.apply(result);
+        }
+        return result;
     }
-    return result;
-  }
 
-  public StreamTransformations register(Function<List<EventData>, List<EventData>> transformJson) {
-    jsonTransformations.add(transformJson);
-    return this;
-  }
+    public StreamTransformations register(Function<List<EventData>, List<EventData>> transformJson) {
+        jsonTransformations.add(transformJson);
+        return this;
+    }
 }
 ```
 
@@ -454,20 +379,20 @@ To connect it with the deserialisation process, we need to add it to the `EventS
 
 ```java
 public record EventSerializer(
-  EventTypeMapping mapping,
-  StreamTransformations streamTransformations,
-  EventTransformations transformations
-) {
-  public Optional<Object> deserialize(String eventTypeName, byte[] json) {
-    return transformations.tryTransform(eventTypeName, json)
-      .or(() -> Serializer.deserialize(mapping().map(eventTypeName), json));
-  }
+        EventTypeMapping mapping,
+        StreamTransformations streamTransformations,
+        EventTransformations transformations) {
+    public Optional<Object> deserialize(String eventTypeName, byte[] json) {
+        return transformations
+                .tryTransform(eventTypeName, json)
+                .or(() -> Serializer.deserialize(mapping().map(eventTypeName), json));
+    }
 
-  public List<Optional<Object>> deserialize(List<EventData> events) {
-    return streamTransformations.transform(events).stream()
-      .map(event -> deserialize(event.eventType, event.data))
-      .toList();
-  }
+    public List<Optional<Object>> deserialize(List<EventData> events) {
+        return streamTransformations.transform(events).stream()
+                .map(event -> deserialize(event.eventType, event.data))
+                .toList();
+    }
 }
 ```
 
@@ -477,73 +402,62 @@ We can implement function doing event grouping as described above as:
 
 ```java
 public static List<EventData> flattenInitializedEventsWithProductItemsAdded(List<EventData> events) {
-  var cartOpened = events.get(0);
-  var cartInitializedCorrelationId =
-    Serializer.deserialize(EventMetadata.class, cartOpened.metaData)
-      .orElseThrow(() -> new RuntimeException("Error deserializing metadata"))
-      .correlationId;
+    var cartOpened = events.get(0);
+    var cartInitializedCorrelationId = Serializer.deserialize(EventMetadata.class, cartOpened.metaData)
+            .orElseThrow(() -> new RuntimeException("Error deserializing metadata"))
+            .correlationId;
 
-  var i = 1;
-  var productItemsAdded = new ArrayList<EventData>();
+    var i = 1;
+    var productItemsAdded = new ArrayList<EventData>();
 
-  while (i < events.size()) {
-    var eventData = events.get(i);
+    while (i < events.size()) {
+        var eventData = events.get(i);
 
-    if (!eventData.eventType().equals("product_item_added_v1"))
-      break;
+        if (!eventData.eventType().equals("product_item_added_v1")) break;
 
-    var correlationId =
-      Serializer.deserialize(EventMetadata.class, eventData.metaData)
-        .orElseThrow(() -> new RuntimeException("Error deserializing metadata"))
-        .correlationId;
+        var correlationId = Serializer.deserialize(EventMetadata.class, eventData.metaData)
+                .orElseThrow(() -> new RuntimeException("Error deserializing metadata"))
+                .correlationId;
 
-    if (!correlationId.equals(cartInitializedCorrelationId))
-      break;
+        if (!correlationId.equals(cartInitializedCorrelationId)) break;
 
-    productItemsAdded.add(eventData);
-    i++;
-  }
+        productItemsAdded.add(eventData);
+        i++;
+    }
 
-  var mergedEvent = toShoppingCartInitializedWithProducts(
-    cartOpened,
-    productItemsAdded
-  );
+    var mergedEvent = toShoppingCartInitializedWithProducts(cartOpened, productItemsAdded);
 
-  return Stream.concat(
-    Stream.of(mergedEvent),
-    events.stream().skip(i)
-  ).toList();
+    return Stream.concat(Stream.of(mergedEvent), events.stream().skip(i)).toList();
 }
 
 private static EventData toShoppingCartInitializedWithProducts(
-  EventData shoppingCartInitialized,
-  List<EventData> productItemsAdded
-) {
-  var shoppingCartInitializedJson =
-    Serializer.deserialize(shoppingCartInitialized.data);
+        EventData shoppingCartInitialized, List<EventData> productItemsAdded) {
+    var shoppingCartInitializedJson = Serializer.deserialize(shoppingCartInitialized.data);
 
-  var newEvent = new ShoppingCartInitializedWithProducts(
-    UUID.fromString(shoppingCartInitializedJson.at("/shoppingCartId").asText()),
-    UUID.fromString(shoppingCartInitializedJson.at("/clientId").asText()),
-    productItemsAdded.stream()
-      .map(pi -> {
-        var pricedProductItem = Serializer.deserialize(pi.data);
+    var newEvent = new ShoppingCartInitializedWithProducts(
+            UUID.fromString(
+                    shoppingCartInitializedJson.at("/shoppingCartId").asText()),
+            UUID.fromString(shoppingCartInitializedJson.at("/clientId").asText()),
+            productItemsAdded.stream()
+                    .map(pi -> {
+                        var pricedProductItem = Serializer.deserialize(pi.data);
 
-        return new PricedProductItem(
-          new ProductItem(
-            UUID.fromString(pricedProductItem.at("/productItem/productItem/productId").asText()),
-            pricedProductItem.at("/productItem/productItem/quantity").asInt()
-          ),
-          pricedProductItem.at("/productItem/unitPrice").asDouble()
-        );
-      }).toList()
-  );
+                        return new PricedProductItem(
+                                new ProductItem(
+                                        UUID.fromString(pricedProductItem
+                                                .at("/productItem/productItem/productId")
+                                                .asText()),
+                                        pricedProductItem
+                                                .at("/productItem/productItem/quantity")
+                                                .asInt()),
+                                pricedProductItem
+                                        .at("/productItem/unitPrice")
+                                        .asDouble());
+                    })
+                    .toList());
 
-  return new EventData(
-    "shopping_cart_opened_v2",
-    Serializer.serialize(newEvent),
-    shoppingCartInitialized.metaData
-  );
+    return new EventData(
+            "shopping_cart_opened_v2", Serializer.serialize(newEvent), shoppingCartInitialized.metaData);
 }
 ```
 

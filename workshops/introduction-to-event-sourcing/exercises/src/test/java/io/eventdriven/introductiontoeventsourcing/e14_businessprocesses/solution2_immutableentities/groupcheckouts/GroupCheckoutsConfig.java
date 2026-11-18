@@ -4,12 +4,9 @@ import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.Com
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.EventStore;
 
 public final class GroupCheckoutsConfig {
-  public static void configureGroupCheckouts(
-    EventStore eventStore,
-    CommandBus commandBus,
-    GroupCheckoutFacade groupCheckoutFacade
-  ) {
+    public static void configureGroupCheckouts(
+            EventStore eventStore, CommandBus commandBus, GroupCheckoutFacade groupCheckoutFacade) {
 
-    throw new RuntimeException("Configure group checkouts handler here");
-  }
+        throw new RuntimeException("Configure group checkouts handler here");
+    }
 }

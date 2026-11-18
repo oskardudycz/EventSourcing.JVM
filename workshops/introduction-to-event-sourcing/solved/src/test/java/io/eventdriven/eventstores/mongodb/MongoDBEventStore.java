@@ -8,27 +8,22 @@ import io.eventdriven.eventstores.mongodb.subscriptions.EventSubscription;
 import io.eventdriven.eventstores.mongodb.subscriptions.EventSubscriptionSettings;
 
 public interface MongoDBEventStore extends EventStore {
-  EventSubscription subscribe(EventSubscriptionSettings settings);
+    EventSubscription subscribe(EventSubscriptionSettings settings);
 
-  enum Storage {
-    EventAsDocument,
-    StoreAsDocument,
-  }
-
-  static MongoDBEventStore with(
-    Storage storage,
-    MongoClient mongoClient,
-    String databaseName
-  ) {
-    switch (storage) {
-      case EventAsDocument -> {
-        return new MongoDBEventStoreWithEventAsDocument(mongoClient, databaseName);
-      }
-      case StoreAsDocument -> {
-        return new MongoDBEventStoreWithStreamAsDocument(mongoClient, databaseName);
-      }
-      default ->
-        throw new IllegalStateException("Unexpected value: " + storage);
+    enum Storage {
+        EventAsDocument,
+        StoreAsDocument,
     }
-  }
+
+    static MongoDBEventStore with(Storage storage, MongoClient mongoClient, String databaseName) {
+        switch (storage) {
+            case EventAsDocument -> {
+                return new MongoDBEventStoreWithEventAsDocument(mongoClient, databaseName);
+            }
+            case StoreAsDocument -> {
+                return new MongoDBEventStoreWithStreamAsDocument(mongoClient, databaseName);
+            }
+            default -> throw new IllegalStateException("Unexpected value: " + storage);
+        }
+    }
 }

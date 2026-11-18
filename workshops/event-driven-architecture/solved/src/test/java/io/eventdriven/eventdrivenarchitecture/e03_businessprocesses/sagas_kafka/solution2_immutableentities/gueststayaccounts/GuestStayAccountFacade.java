@@ -1,62 +1,61 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities.gueststayaccounts;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
-import io.micrometer.observation.annotation.Observed;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities.gueststayaccounts.GuestStayAccount.INITIAL;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities.gueststayaccounts.GuestStayAccount.evolve;
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.decide;
 
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
+import io.micrometer.observation.annotation.Observed;
+import java.util.List;
+import org.springframework.stereotype.Service;
+
 @Service
 @Observed(name = "guest.stay.account")
 public class GuestStayAccountFacade {
-  private final Database.Collection<GuestStayAccount> collection;
-  private final MessageBus messageBus;
+    private final Database.Collection<GuestStayAccount> collection;
+    private final MessageBus messageBus;
 
-  public GuestStayAccountFacade(Database database, MessageBus messageBus) {
-    this.collection = database.collection(GuestStayAccount.class);
-    this.messageBus = messageBus;
-  }
+    public GuestStayAccountFacade(Database database, MessageBus messageBus) {
+        this.collection = database.collection(GuestStayAccount.class);
+        this.messageBus = messageBus;
+    }
 
-  public void checkInGuest(CheckInGuest command) {
-    var checkedIn = decide(command, INITIAL);
+    public void checkInGuest(CheckInGuest command) {
+        var checkedIn = decide(command, INITIAL);
 
-    collection.store(command.guestStayId(), evolve(INITIAL, checkedIn));
-    messageBus.publish(List.of(checkedIn));
-  }
+        collection.store(command.guestStayId(), evolve(INITIAL, checkedIn));
+        messageBus.publish(List.of(checkedIn));
+    }
 
-  public void recordCharge(RecordCharge command) {
-    var account = collection.get(command.guestStayId())
-      .orElseThrow(() -> new IllegalStateException("Entity not found"));
+    public void recordCharge(RecordCharge command) {
+        var account =
+                collection.get(command.guestStayId()).orElseThrow(() -> new IllegalStateException("Entity not found"));
 
-    var chargeRecorded = decide(command, account);
+        var chargeRecorded = decide(command, account);
 
-    collection.store(command.guestStayId(), evolve(account, chargeRecorded));
-    messageBus.publish(List.of(chargeRecorded));
-  }
+        collection.store(command.guestStayId(), evolve(account, chargeRecorded));
+        messageBus.publish(List.of(chargeRecorded));
+    }
 
-  public void recordPayment(RecordPayment command) {
-    var account = collection.get(command.guestStayId())
-      .orElseThrow(() -> new IllegalStateException("Entity not found"));
+    public void recordPayment(RecordPayment command) {
+        var account =
+                collection.get(command.guestStayId()).orElseThrow(() -> new IllegalStateException("Entity not found"));
 
-    var recordPayment = decide(command, account);
+        var recordPayment = decide(command, account);
 
-    collection.store(command.guestStayId(), evolve(account, recordPayment));
-    messageBus.publish(List.of(recordPayment));
-  }
+        collection.store(command.guestStayId(), evolve(account, recordPayment));
+        messageBus.publish(List.of(recordPayment));
+    }
 
-  public void checkOutGuest(CheckOutGuest command) {
-    var account = collection.get(command.guestStayId())
-      .orElseThrow(() -> new IllegalStateException("Entity not found"));
+    public void checkOutGuest(CheckOutGuest command) {
+        var account =
+                collection.get(command.guestStayId()).orElseThrow(() -> new IllegalStateException("Entity not found"));
 
-    var checkedOut = decide(command, account);
+        var checkedOut = decide(command, account);
 
-    collection.store(command.guestStayId(), evolve(account, checkedOut));
-    messageBus.publish(List.of(checkedOut));
-  }
+        collection.store(command.guestStayId(), evolve(account, checkedOut));
+        messageBus.publish(List.of(checkedOut));
+    }
 }

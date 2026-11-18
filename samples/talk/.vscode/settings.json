@@ -1,0 +1,18 @@
+{
+  "files.exclude": {
+    "**/.gradle/": true,
+    "**/build/": true,
+    "**/bin/": true,
+    "**/node_modules/": true,
+    "**/dist/": true
+  },
+  "java.import.gradle.enabled": true,
+  "java.import.gradle.wrapper.enabled": true,
+  "java.configuration.updateBuildConfiguration": "interactive",
+  "spotlessGradle.format.enable": true,
+  "[java]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "richardwillis.vscode-spotless-gradle",
+    "editor.tabSize": 4
+  }
+}

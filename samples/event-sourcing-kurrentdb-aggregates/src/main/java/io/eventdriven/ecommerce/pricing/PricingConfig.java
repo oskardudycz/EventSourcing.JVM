@@ -6,10 +6,9 @@ import org.springframework.web.context.annotation.ApplicationScope;
 
 @Configuration
 class PricingConfig {
-  @Bean
-  @ApplicationScope
-  ProductPriceCalculator productPriceCalculator() {
-    return new RandomProductPriceCalculator();
-  }
+    @Bean
+    @ApplicationScope
+    ProductPriceCalculator productPriceCalculator() {
+        return new RandomProductPriceCalculator();
+    }
 }
-

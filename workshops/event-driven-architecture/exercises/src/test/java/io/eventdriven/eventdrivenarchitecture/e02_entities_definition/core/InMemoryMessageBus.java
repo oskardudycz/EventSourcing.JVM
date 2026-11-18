@@ -7,40 +7,36 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 public class InMemoryMessageBus implements MessageBus {
-  private final Map<String, List<Consumer<Object>>> handlers = new ConcurrentHashMap<>();
-  private final List<Consumer<Object>> middlewares = new ArrayList<>();
+    private final Map<String, List<Consumer<Object>>> handlers = new ConcurrentHashMap<>();
+    private final List<Consumer<Object>> middlewares = new ArrayList<>();
 
-  public <Message> void publish(List<Message> messages) {
-    for (Object message : messages) {
+    public <Message> void publish(List<Message> messages) {
+        for (Object message : messages) {
 
-      for (var middleware : middlewares)
-        middleware.accept(message);
+            for (var middleware : middlewares) middleware.accept(message);
 
-      var messageHandlers = handlers.get(message.getClass().getTypeName());
+            var messageHandlers = handlers.get(message.getClass().getTypeName());
 
-      if (messageHandlers != null)
-        for (var handle : messageHandlers) {
-          handle.accept(message);
+            if (messageHandlers != null)
+                for (var handle : messageHandlers) {
+                    handle.accept(message);
+                }
         }
     }
-  }
 
-  public <Message> MessageBus subscribe(Class<Message> messageClass, Consumer<Message> handler) {
-    handlers.compute(messageClass.getTypeName(), (messageType, consumers) -> {
-      if (consumers == null)
-        consumers = new ArrayList<>();
+    public <Message> MessageBus subscribe(Class<Message> messageClass, Consumer<Message> handler) {
+        handlers.compute(messageClass.getTypeName(), (messageType, consumers) -> {
+            if (consumers == null) consumers = new ArrayList<>();
 
-      consumers.add(
-        message -> handler.accept(messageClass.cast(message))
-      );
+            consumers.add(message -> handler.accept(messageClass.cast(message)));
 
-      return consumers;
-    });
+            return consumers;
+        });
 
-    return this;
-  }
+        return this;
+    }
 
-  public void use(Consumer<Object> middleware) {
-    middlewares.add(middleware);
-  }
+    public void use(Consumer<Object> middleware) {
+        middlewares.add(middleware);
+    }
 }

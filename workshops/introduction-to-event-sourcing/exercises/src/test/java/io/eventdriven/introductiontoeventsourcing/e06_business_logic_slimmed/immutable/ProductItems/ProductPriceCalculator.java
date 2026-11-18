@@ -4,5 +4,5 @@ import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slim
 import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.ProductItems.ProductItems.ProductItem;
 
 public interface ProductPriceCalculator {
-  PricedProductItem calculate(ProductItem productItems);
+    PricedProductItem calculate(ProductItem productItems);
 }

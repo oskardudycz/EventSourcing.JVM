@@ -1,9 +1,9 @@
 package io.eventdriven.distributedprocesses.core.identifiers;
 
 public interface EntityId {
-  String value();
+    String value();
 
-  default String tail() {
-    return Urns.tailOf(value());
-  }
+    default String tail() {
+        return Urns.tailOf(value());
+    }
 }

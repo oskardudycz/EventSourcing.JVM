@@ -1,16 +1,15 @@
 package kurrentdb;
 
+import java.util.Set;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
-import java.util.Set;
-
 public class KurrentDBContainer extends GenericContainer<KurrentDBContainer> {
     private static final int PORT = 2113;
     private static final String IMAGE = Set.of("aarch64", "arm64").contains(System.getProperty("os.arch"))
-        ? "kurrentplatform/kurrentdb:26.2.3-experimental-arm64-10.0-noble"
-        : "kurrentplatform/kurrentdb:26.2.3";
+            ? "kurrentplatform/kurrentdb:26.2.3-experimental-arm64-10.0-noble"
+            : "kurrentplatform/kurrentdb:26.2.3";
     private static final KurrentDBContainer shared = new KurrentDBContainer();
 
     public KurrentDBContainer() {
@@ -26,8 +25,7 @@ public class KurrentDBContainer extends GenericContainer<KurrentDBContainer> {
     }
 
     public static synchronized KurrentDBContainer shared() {
-        if (!shared.isRunning())
-            shared.start();
+        if (!shared.isRunning()) shared.start();
 
         return shared;
     }

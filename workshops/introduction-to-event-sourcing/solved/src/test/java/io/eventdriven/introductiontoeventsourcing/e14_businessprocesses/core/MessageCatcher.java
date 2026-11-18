@@ -1,36 +1,34 @@
 package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 public class MessageCatcher {
-  public List<Object> published = new ArrayList<>();
+    public List<Object> published = new ArrayList<>();
 
-  public void catchMessage(Object event) {
-    published.add(event);
-  }
+    public void catchMessage(Object event) {
+        published.add(event);
+    }
 
-  public void reset() {
-    published.clear();
-  }
+    public void reset() {
+        published.clear();
+    }
 
-  public void shouldNotReceiveAnyEvent() {
-    assertThat(published).isEmpty();
-  }
+    public void shouldNotReceiveAnyEvent() {
+        assertThat(published).isEmpty();
+    }
 
-  public <Event> void shouldReceiveSingleEvent(Event event) {
-    assertThat(published).hasSize(1);
-    assertThat(published).hasOnlyElementsOfTypes(event.getClass()).hasSize(1);
-    assertEquals(event, published.getFirst());
-  }
+    public <Event> void shouldReceiveSingleEvent(Event event) {
+        assertThat(published).hasSize(1);
+        assertThat(published).hasOnlyElementsOfTypes(event.getClass()).hasSize(1);
+        assertEquals(event, published.getFirst());
+    }
 
-  public void shouldReceiveMessages(Object[] messages) {
-    assertThat(published)
-      .usingRecursiveComparison()
-      .isEqualTo(Arrays.asList(messages));
-  }
+    public void shouldReceiveMessages(Object[] messages) {
+        assertThat(published).usingRecursiveComparison().isEqualTo(Arrays.asList(messages));
+    }
 }

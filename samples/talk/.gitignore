@@ -18,7 +18,8 @@ bin/
 !**/src/test/**/bin/
 
 ### IntelliJ IDEA ###
-.idea
+.idea/*
+!.idea/externalDependencies.xml
 *.iws
 *.iml
 *.ipr
@@ -34,4 +35,8 @@ out/
 /.nb-gradle/
 
 ### VS Code ###
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json

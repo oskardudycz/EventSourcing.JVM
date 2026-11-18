@@ -1,0 +1,30 @@
+{
+  "name": "workshops/build-your-own-event-store/exercises",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "25.0.5.0+8-tem",
+      "jdkDistro": "tem",
+      "installGradle": false
+    },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "workspaceMount": "source=${localWorkspaceFolder}/../../..,target=/workspaces/EventSourcing.JVM,type=bind",
+  "workspaceFolder": "/workspaces/EventSourcing.JVM/workshops/build-your-own-event-store/exercises",
+  "runArgs": [
+    "--add-host=host.docker.internal:host-gateway"
+  ],
+  "containerEnv": {
+    "TESTCONTAINERS_HOST_OVERRIDE": "host.docker.internal"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-gradle",
+        "richardwillis.vscode-spotless-gradle"
+      ]
+    }
+  },
+  "postCreateCommand": "git config core.hooksPath .githooks && ./gradlew --version"
+}

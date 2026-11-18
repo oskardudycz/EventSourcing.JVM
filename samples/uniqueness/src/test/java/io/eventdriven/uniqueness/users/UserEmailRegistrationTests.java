@@ -1,92 +1,92 @@
 package io.eventdriven.uniqueness.users;
 
-import io.kurrent.dbclient.ConnectionStringParsingException;
-import io.kurrent.dbclient.KurrentDBClient;
-import io.kurrent.dbclient.KurrentDBClientSettings;
-import io.kurrent.dbclient.KurrentDBConnectionString;
-import io.eventdriven.uniqueness.core.kurrentdb.EventStore;
-import io.eventdriven.uniqueness.core.resourcereservation.Hash;
-import io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.KurrentDBResourceReservationHandler;
-import io.eventdriven.uniqueness.users.reservation.UserCommandHandler;
-import io.eventdriven.uniqueness.testing.TestDatabases;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.core.retry.RetryPolicy;
-import org.springframework.core.retry.RetryTemplate;
-
-import java.time.Duration;
-import java.util.UUID;
-
 import static io.eventdriven.uniqueness.core.kurrentdb.EventStore.ReadResult;
 import static io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.ResourceReservationEvent.*;
 import static io.eventdriven.uniqueness.core.serialization.EventSerializer.deserialize;
 import static io.eventdriven.uniqueness.users.UserEvent.UserRegistered;
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.eventdriven.uniqueness.core.kurrentdb.EventStore;
+import io.eventdriven.uniqueness.core.resourcereservation.Hash;
+import io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.KurrentDBResourceReservationHandler;
+import io.eventdriven.uniqueness.testing.TestDatabases;
+import io.eventdriven.uniqueness.users.reservation.UserCommandHandler;
+import io.kurrent.dbclient.ConnectionStringParsingException;
+import io.kurrent.dbclient.KurrentDBClient;
+import io.kurrent.dbclient.KurrentDBClientSettings;
+import io.kurrent.dbclient.KurrentDBConnectionString;
+import java.time.Duration;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.core.retry.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
+
 public class UserEmailRegistrationTests {
-  @Test
-  public void forNotUsedEmail_ReservationSucceeds() {
-    var userId = UUID.randomUUID();
-    var email = "%s@email.com".formatted(UUID.randomUUID().toString().replace("-", ""));
+    @Test
+    public void forNotUsedEmail_ReservationSucceeds() {
+        var userId = UUID.randomUUID();
+        var email = "%s@email.com".formatted(UUID.randomUUID().toString().replace("-", ""));
 
-    assertTrue(userCommandHandler.registerUser(userId, email));
+        assertTrue(userCommandHandler.registerUser(userId, email));
 
-    var userReadResult = eventStore.read("user-%s".formatted(userId));
+        var userReadResult = eventStore.read("user-%s".formatted(userId));
 
-    assertInstanceOf(ReadResult.Success.class, userReadResult);
+        assertInstanceOf(ReadResult.Success.class, userReadResult);
 
-    if (userReadResult instanceof ReadResult.Success success) {
-      var userEvents = success.events();
-      assertEquals(1, userEvents.length);
+        if (userReadResult instanceof ReadResult.Success success) {
+            var userEvents = success.events();
+            assertEquals(1, userEvents.length);
 
-      var userRegistered = deserialize(UserRegistered.class, userEvents[0]);
+            var userRegistered = deserialize(UserRegistered.class, userEvents[0]);
 
-      assertTrue(userRegistered.isPresent());
+            assertTrue(userRegistered.isPresent());
 
-      assertEquals(userId, userRegistered.get().userId());
-      assertEquals(email, userRegistered.get().email());
-    } else {
-      fail();
+            assertEquals(userId, userRegistered.get().userId());
+            assertEquals(email, userRegistered.get().email());
+        } else {
+            fail();
+        }
+
+        var resourceKey = Hash.hash(email).toString();
+        var reservationReadResult = eventStore.read("reservation-%s".formatted(resourceKey));
+
+        assertInstanceOf(ReadResult.Success.class, reservationReadResult);
+
+        if (reservationReadResult instanceof ReadResult.Success success) {
+            var reservationEvents = success.events();
+            assertEquals(2, reservationEvents.length);
+
+            var reservationInitiated = deserialize(ResourceReservationInitiated.class, reservationEvents[0]);
+
+            assertTrue(reservationInitiated.isPresent());
+
+            assertEquals(resourceKey, reservationInitiated.get().resourceKey());
+            assertEquals(reservationLockDuration, reservationInitiated.get().tentativeLockFor());
+
+            var reservationConfirmed = deserialize(ResourceReservationConfirmed.class, reservationEvents[0]);
+
+            assertTrue(reservationConfirmed.isPresent());
+
+            assertEquals(resourceKey, reservationConfirmed.get().resourceKey());
+        } else {
+            fail();
+        }
     }
 
-    var resourceKey = Hash.hash(email).toString();
-    var reservationReadResult = eventStore.read("reservation-%s".formatted(resourceKey));
+    private final Duration reservationLockDuration = Duration.ofMinutes(15);
+    private EventStore eventStore;
+    private UserCommandHandler userCommandHandler;
 
-    assertInstanceOf(ReadResult.Success.class, reservationReadResult);
+    @BeforeEach
+    void beforeEach() throws ConnectionStringParsingException {
+        KurrentDBClientSettings settings =
+                KurrentDBConnectionString.parseOrThrow(TestDatabases.kurrentDBConnectionString());
+        var kurrentDBClient = KurrentDBClient.create(settings);
+        eventStore = new EventStore(kurrentDBClient);
 
-    if (reservationReadResult instanceof ReadResult.Success success) {
-      var reservationEvents = success.events();
-      assertEquals(2, reservationEvents.length);
-
-      var reservationInitiated = deserialize(ResourceReservationInitiated.class, reservationEvents[0]);
-
-      assertTrue(reservationInitiated.isPresent());
-
-      assertEquals(resourceKey, reservationInitiated.get().resourceKey());
-      assertEquals(reservationLockDuration, reservationInitiated.get().tentativeLockFor());
-
-      var reservationConfirmed = deserialize(ResourceReservationConfirmed.class, reservationEvents[0]);
-
-      assertTrue(reservationConfirmed.isPresent());
-
-      assertEquals(resourceKey, reservationConfirmed.get().resourceKey());
-    } else {
-      fail();
+        var resourceReservationCommandHandler = new KurrentDBResourceReservationHandler(
+                reservationLockDuration, new RetryTemplate(RetryPolicy.withMaxRetries(0)), eventStore);
+        userCommandHandler = new UserCommandHandler(resourceReservationCommandHandler, eventStore);
     }
-
-  }
-
-  private final Duration reservationLockDuration = Duration.ofMinutes(15);
-  private EventStore eventStore;
-  private UserCommandHandler userCommandHandler;
-
-  @BeforeEach
-  void beforeEach() throws ConnectionStringParsingException {
-    KurrentDBClientSettings settings = KurrentDBConnectionString.parseOrThrow(TestDatabases.kurrentDBConnectionString());
-    var kurrentDBClient = KurrentDBClient.create(settings);
-    eventStore = new EventStore(kurrentDBClient);
-
-    var resourceReservationCommandHandler = new KurrentDBResourceReservationHandler(reservationLockDuration, new RetryTemplate(RetryPolicy.withMaxRetries(0)), eventStore);
-    userCommandHandler = new UserCommandHandler(resourceReservationCommandHandler, eventStore);
-  }
 }

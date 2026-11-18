@@ -4,9 +4,9 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 
 public interface PaymentTerms {
-  OffsetDateTime dueAt(OffsetDateTime failedAt);
+    OffsetDateTime dueAt(OffsetDateTime failedAt);
 
-  static PaymentTerms within(Duration timeToPay) {
-    return failedAt -> failedAt.plus(timeToPay);
-  }
+    static PaymentTerms within(Duration timeToPay) {
+        return failedAt -> failedAt.plus(timeToPay);
+    }
 }

@@ -1,0 +1,98 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "compile",
+      "type": "shell",
+      "command": "./gradlew testClasses",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$java"
+      ]
+    },
+    {
+      "label": "build (full)",
+      "type": "shell",
+      "command": "./gradlew build",
+      "group": "build",
+      "problemMatcher": [
+        "$java"
+      ]
+    },
+    {
+      "label": "test",
+      "type": "shell",
+      "command": "./gradlew test",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$java"
+      ]
+    },
+    {
+      "label": "test (debug)",
+      "type": "shell",
+      "command": "./gradlew test --debug-jvm",
+      "group": "test",
+      "isBackground": true,
+      "problemMatcher": [
+        {
+          "pattern": [
+            {
+              "regexp": ".",
+              "file": 1,
+              "location": 2,
+              "message": 3
+            }
+          ],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "Listening for transport dt_socket",
+            "endsPattern": "Listening for transport dt_socket"
+          }
+        }
+      ]
+    },
+    {
+      "label": "clean",
+      "type": "shell",
+      "command": "./gradlew clean",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "format",
+      "type": "shell",
+      "command": "./gradlew spotlessApply",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "verify format",
+      "type": "shell",
+      "command": "./gradlew spotlessCheck",
+      "group": "build",
+      "problemMatcher": [
+        "$java"
+      ]
+    },
+    {
+      "label": "reset build state",
+      "detail": "Deep clean: removes build/ and the .gradle project cache. Use when Spotless reports targets outside the project dir after switching between host and container builds.",
+      "type": "shell",
+      "command": "./gradlew clean && rm -rf .gradle",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Install All Recommended Extensions",
+      "type": "shell",
+      "command": "node -e \"console.log(JSON.parse(require('fs').readFileSync('./.vscode/extensions.json')).recommendations.join('\\n'))\" | xargs -L 1 code --install-extension"
+    }
+  ]
+}

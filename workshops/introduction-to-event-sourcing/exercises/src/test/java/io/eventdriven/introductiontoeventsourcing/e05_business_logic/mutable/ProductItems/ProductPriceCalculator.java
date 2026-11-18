@@ -3,5 +3,5 @@ package io.eventdriven.introductiontoeventsourcing.e05_business_logic.mutable.Pr
 import static io.eventdriven.introductiontoeventsourcing.e05_business_logic.mutable.ProductItems.ProductItems.*;
 
 public interface ProductPriceCalculator {
-  PricedProductItem calculate(ProductItem productItems);
+    PricedProductItem calculate(ProductItem productItems);
 }

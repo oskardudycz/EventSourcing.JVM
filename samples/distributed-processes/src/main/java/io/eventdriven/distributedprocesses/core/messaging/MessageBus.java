@@ -20,29 +20,29 @@ import java.util.function.Consumer;
  * that's up to how the application wires it.
  */
 public interface MessageBus {
-  /**
-   * Publishes messages (commands or events). Middleware sees each message first,
-   * then every queue that the message's channel and key reach.
-   */
-  <Message> void publish(List<Message> messages);
+    /**
+     * Publishes messages (commands or events). Middleware sees each message first,
+     * then every queue that the message's channel and key reach.
+     */
+    <Message> void publish(List<Message> messages);
 
-  /**
-   * Adds the routes a module publishes with. Returns the bus to allow chaining.
-   */
-  MessageBus routes(MessageRoutes routes);
+    /**
+     * Adds the routes a module publishes with. Returns the bus to allow chaining.
+     */
+    MessageBus routes(MessageRoutes routes);
 
-  /**
-   * Binds a queue to a channel for the routing keys that match the pattern.
-   */
-  MessageBus bind(String queue, String channel, String routingPattern);
+    /**
+     * Binds a queue to a channel for the routing keys that match the pattern.
+     */
+    MessageBus bind(String queue, String channel, String routingPattern);
 
-  /**
-   * Registers a handler for messages of the given type that reach the queue.
-   */
-  <Message> MessageBus subscribe(String queue, Class<Message> messageClass, Consumer<Message> handler);
+    /**
+     * Registers a handler for messages of the given type that reach the queue.
+     */
+    <Message> MessageBus subscribe(String queue, Class<Message> messageClass, Consumer<Message> handler);
 
-  /**
-   * Registers middleware called for every published message before subscribers.
-   */
-  void use(Consumer<Object> middleware);
+    /**
+     * Registers middleware called for every published message before subscribers.
+     */
+    void use(Consumer<Object> middleware);
 }
