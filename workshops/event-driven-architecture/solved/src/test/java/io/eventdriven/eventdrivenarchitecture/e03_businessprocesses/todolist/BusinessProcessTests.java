@@ -1,8 +1,14 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist;
 
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.InitiateGroupCheckout;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutsConfig.configureGroupCheckouts;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountsConfig.configureGuestStayAccounts;
+import static org.assertj.core.api.Assertions.assertThat;
+
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.InMemoryMessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageCatcher;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckout;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutEvent;
@@ -12,245 +18,244 @@ import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gro
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccount;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountEvent;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountFacade;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.UUID;
 import net.datafaker.Faker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.UUID;
-
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.InitiateGroupCheckout;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.groupcheckouts.GroupCheckoutsConfig.configureGroupCheckouts;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts.GuestStayAccountsConfig.configureGuestStayAccounts;
-import static org.assertj.core.api.Assertions.assertThat;
-
 public class BusinessProcessTests {
 
-  private Database database;
-  private MessageBus messageBus;
-  private MessageCatcher publishedMessages;
-  private GuestStayAccountFacade guestStayFacade;
-  private GroupCheckoutFacade groupCheckoutFacade;
-  private Faker faker;
-  private OffsetDateTime now;
+    private Database database;
+    private MessageBus messageBus;
+    private MessageCatcher publishedMessages;
+    private GuestStayAccountFacade guestStayFacade;
+    private GroupCheckoutFacade groupCheckoutFacade;
+    private Faker faker;
+    private OffsetDateTime now;
 
-  @BeforeEach
-  public void setUp() {
-    database = new Database();
-    messageBus = new InMemoryMessageBus();
-    publishedMessages = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), messageBus);
-    groupCheckoutFacade = new GroupCheckoutFacade(messageBus);
-    faker = new Faker();
-    now = OffsetDateTime.now();
+    @BeforeEach
+    public void setUp() {
+        database = new Database();
+        messageBus = new InMemoryMessageBus();
+        publishedMessages = new MessageCatcher();
+        guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), messageBus);
+        groupCheckoutFacade = new GroupCheckoutFacade(messageBus);
+        faker = new Faker();
+        now = OffsetDateTime.now();
 
-    messageBus.use(publishedMessages::catchMessage);
+        messageBus.use(publishedMessages::catchMessage);
 
-    configureGroupCheckouts(
-      messageBus,
-      new GroupCheckoutToDoList(new GroupCheckoutProjection(database.collection(GroupCheckout.class)), messageBus)
-    );
-    configureGuestStayAccounts(messageBus, guestStayFacade);
-  }
+        configureGroupCheckouts(
+                messageBus,
+                new GroupCheckoutToDoList(
+                        new GroupCheckoutProjection(database.collection(GroupCheckout.class)), messageBus));
+        configureGuestStayAccounts(messageBus, guestStayFacade);
+    }
 
-  @Test
-  public void groupCheckoutForMultipleGuestStayWithoutPaymentsAndCharges_ShouldComplete() {
-    // Given
-    UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
+    @Test
+    public void groupCheckoutForMultipleGuestStayWithoutPaymentsAndCharges_ShouldComplete() {
+        // Given
+        UUID[] guestStays = new UUID[] {UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()};
 
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStays[0], now.minusDays(1)));
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStays[1], now.minusDays(1)));
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStays[2], now.minusDays(1)));
-    publishedMessages.reset();
-    // And
-    var groupCheckoutId = UUID.randomUUID();
-    var clerkId = UUID.randomUUID();
-    var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStays[0], now.minusDays(1)));
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStays[1], now.minusDays(1)));
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStays[2], now.minusDays(1)));
+        publishedMessages.reset();
+        // And
+        var groupCheckoutId = UUID.randomUUID();
+        var clerkId = UUID.randomUUID();
+        var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
 
-    // When
-    groupCheckoutFacade.initiateGroupCheckout(command);
+        // When
+        groupCheckoutFacade.initiateGroupCheckout(command);
 
-    // Then
-    publishedMessages.shouldReceiveMessages(List.of(
-      new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
-      new CheckOutGuest(guestStays[0], now, groupCheckoutId),
-      new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
-      new CheckOutGuest(guestStays[1], now, groupCheckoutId),
-      new GuestStayAccountEvent.GuestCheckedOut(guestStays[1], now, groupCheckoutId),
-      new CheckOutGuest(guestStays[2], now, groupCheckoutId),
-      new GuestStayAccountEvent.GuestCheckedOut(guestStays[2], now, groupCheckoutId),
-      new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
-    ));
-    assertThat(database.collection(GroupCheckout.class).get(groupCheckoutId))
-      .as("done group checkout is removed from the to-do list")
-      .isEmpty();
-  }
+        // Then
+        publishedMessages.shouldReceiveMessages(List.of(
+                new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
+                new CheckOutGuest(guestStays[0], now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
+                new CheckOutGuest(guestStays[1], now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckedOut(guestStays[1], now, groupCheckoutId),
+                new CheckOutGuest(guestStays[2], now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckedOut(guestStays[2], now, groupCheckoutId),
+                new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)));
+        assertThat(database.collection(GroupCheckout.class).get(groupCheckoutId))
+                .as("done group checkout is removed from the to-do list")
+                .isEmpty();
+    }
 
-  @Test
-  public void groupCheckoutForMultipleGuestStayWithAllStaysSettled_ShouldComplete() {
-    // Given
-    UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
-    double[] amounts = new double[] {
-      faker.number().randomDouble(2, 10, 1000),
-      faker.number().randomDouble(2, 10, 1000),
-      faker.number().randomDouble(2, 10, 1000)
-    };
+    @Test
+    public void groupCheckoutForMultipleGuestStayWithAllStaysSettled_ShouldComplete() {
+        // Given
+        UUID[] guestStays = new UUID[] {UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()};
+        double[] amounts = new double[] {
+            faker.number().randomDouble(2, 10, 1000),
+            faker.number().randomDouble(2, 10, 1000),
+            faker.number().randomDouble(2, 10, 1000)
+        };
 
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStays[0], now.minusDays(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[0], amounts[0], now.minusHours(2)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[0], amounts[0], now.minusHours(1)));
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStays[0], now.minusDays(1)));
+        guestStayFacade.recordCharge(new RecordCharge(guestStays[0], amounts[0], now.minusHours(2)));
+        guestStayFacade.recordPayment(new RecordPayment(guestStays[0], amounts[0], now.minusHours(1)));
 
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStays[1], now.minusDays(1)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[1], amounts[1], now.minusHours(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[1], amounts[1], now.minusHours(2)));
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStays[1], now.minusDays(1)));
+        guestStayFacade.recordPayment(new RecordPayment(guestStays[1], amounts[1], now.minusHours(1)));
+        guestStayFacade.recordCharge(new RecordCharge(guestStays[1], amounts[1], now.minusHours(2)));
 
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStays[2], now.minusDays(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[2], amounts[2], now.minusHours(2)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[2], amounts[2] / 2, now.minusHours(1)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[2], amounts[2] / 2, now.minusHours(1)));
-    publishedMessages.reset();
-    // And
-    var groupCheckoutId = UUID.randomUUID();
-    var clerkId = UUID.randomUUID();
-    var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStays[2], now.minusDays(1)));
+        guestStayFacade.recordCharge(new RecordCharge(guestStays[2], amounts[2], now.minusHours(2)));
+        guestStayFacade.recordPayment(new RecordPayment(guestStays[2], amounts[2] / 2, now.minusHours(1)));
+        guestStayFacade.recordPayment(new RecordPayment(guestStays[2], amounts[2] / 2, now.minusHours(1)));
+        publishedMessages.reset();
+        // And
+        var groupCheckoutId = UUID.randomUUID();
+        var clerkId = UUID.randomUUID();
+        var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
 
-    // When
-    groupCheckoutFacade.initiateGroupCheckout(command);
+        // When
+        groupCheckoutFacade.initiateGroupCheckout(command);
 
-    // Then
-    publishedMessages.shouldReceiveMessages(List.of(
-      new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
-      new CheckOutGuest(guestStays[0], now, groupCheckoutId),
-      new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
-      new CheckOutGuest(guestStays[1], now, groupCheckoutId),
-      new GuestStayAccountEvent.GuestCheckedOut(guestStays[1], now, groupCheckoutId),
-      new CheckOutGuest(guestStays[2], now, groupCheckoutId),
-      new GuestStayAccountEvent.GuestCheckedOut(guestStays[2], now, groupCheckoutId),
-      new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)
-    ));
-    assertThat(database.collection(GroupCheckout.class).get(groupCheckoutId))
-      .as("done group checkout is removed from the to-do list")
-      .isEmpty();
-  }
+        // Then
+        publishedMessages.shouldReceiveMessages(List.of(
+                new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
+                new CheckOutGuest(guestStays[0], now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
+                new CheckOutGuest(guestStays[1], now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckedOut(guestStays[1], now, groupCheckoutId),
+                new CheckOutGuest(guestStays[2], now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckedOut(guestStays[2], now, groupCheckoutId),
+                new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStays, now)));
+        assertThat(database.collection(GroupCheckout.class).get(groupCheckoutId))
+                .as("done group checkout is removed from the to-do list")
+                .isEmpty();
+    }
 
-  @Test
-  public void groupCheckoutForMultipleGuestStayWithOneSettledAndRestUnsettled_ShouldFail() {
-    // Given
-    UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
-    double[] amounts = new double[] {
-      faker.number().randomDouble(2, 10, 1000),
-      faker.number().randomDouble(2, 10, 1000),
-      faker.number().randomDouble(2, 10, 1000)
-    };
+    @Test
+    public void groupCheckoutForMultipleGuestStayWithOneSettledAndRestUnsettled_ShouldFail() {
+        // Given
+        UUID[] guestStays = new UUID[] {UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()};
+        double[] amounts = new double[] {
+            faker.number().randomDouble(2, 10, 1000),
+            faker.number().randomDouble(2, 10, 1000),
+            faker.number().randomDouble(2, 10, 1000)
+        };
 
-    // 🟢 settled
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStays[0], now.minusDays(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[0], amounts[0], now.minusHours(2)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[0], amounts[0], now.minusHours(1)));
+        // 🟢 settled
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStays[0], now.minusDays(1)));
+        guestStayFacade.recordCharge(new RecordCharge(guestStays[0], amounts[0], now.minusHours(2)));
+        guestStayFacade.recordPayment(new RecordPayment(guestStays[0], amounts[0], now.minusHours(1)));
 
-    // 🛑 payment without charge
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStays[1], now.minusDays(1)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[1], amounts[1], now.minusHours(1)));
+        // 🛑 payment without charge
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStays[1], now.minusDays(1)));
+        guestStayFacade.recordPayment(new RecordPayment(guestStays[1], amounts[1], now.minusHours(1)));
 
-    // 🛑 partial payment
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStays[2], now.minusDays(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[2], amounts[2], now.minusHours(2)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[2], amounts[2] / 2, now.minusHours(1)));
-    publishedMessages.reset();
-    // And
-    var groupCheckoutId = UUID.randomUUID();
-    var clerkId = UUID.randomUUID();
-    var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
+        // 🛑 partial payment
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStays[2], now.minusDays(1)));
+        guestStayFacade.recordCharge(new RecordCharge(guestStays[2], amounts[2], now.minusHours(2)));
+        guestStayFacade.recordPayment(new RecordPayment(guestStays[2], amounts[2] / 2, now.minusHours(1)));
+        publishedMessages.reset();
+        // And
+        var groupCheckoutId = UUID.randomUUID();
+        var clerkId = UUID.randomUUID();
+        var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
 
-    // When
-    groupCheckoutFacade.initiateGroupCheckout(command);
+        // When
+        groupCheckoutFacade.initiateGroupCheckout(command);
 
-    // Then
-    publishedMessages.shouldReceiveMessages(List.of(
-      new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
-      new CheckOutGuest(guestStays[0], now, groupCheckoutId),
-      new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
-      new CheckOutGuest(guestStays[1], now, groupCheckoutId),
-      new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[1],
-        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
-      new CheckOutGuest(guestStays[2], now, groupCheckoutId),
-      new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[2],
-        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
-      new GroupCheckoutEvent.GroupCheckoutFailed(
-        groupCheckoutId,
-        new UUID[] {guestStays[0]},
-        new UUID[] {guestStays[1], guestStays[2]},
-        now
-      )
-    ));
-    assertThat(database.collection(GroupCheckout.class).get(groupCheckoutId))
-      .as("done group checkout is removed from the to-do list")
-      .isEmpty();
-  }
+        // Then
+        publishedMessages.shouldReceiveMessages(List.of(
+                new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
+                new CheckOutGuest(guestStays[0], now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
+                new CheckOutGuest(guestStays[1], now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckoutFailed(
+                        guestStays[1],
+                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        now,
+                        groupCheckoutId),
+                new CheckOutGuest(guestStays[2], now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckoutFailed(
+                        guestStays[2],
+                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        now,
+                        groupCheckoutId),
+                new GroupCheckoutEvent.GroupCheckoutFailed(
+                        groupCheckoutId, new UUID[] {guestStays[0]}, new UUID[] {guestStays[1], guestStays[2]}, now)));
+        assertThat(database.collection(GroupCheckout.class).get(groupCheckoutId))
+                .as("done group checkout is removed from the to-do list")
+                .isEmpty();
+    }
 
-  @Test
-  public void groupCheckoutForMultipleGuestStayWithAllUnsettled_ShouldFail() {
-    // Given
-    UUID[] guestStays = new UUID[] { UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID() };
-    double[] amounts = new double[] {
-      faker.number().randomDouble(2, 10, 1000),
-      faker.number().randomDouble(2, 10, 1000),
-      faker.number().randomDouble(2, 10, 1000)
-    };
+    @Test
+    public void groupCheckoutForMultipleGuestStayWithAllUnsettled_ShouldFail() {
+        // Given
+        UUID[] guestStays = new UUID[] {UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()};
+        double[] amounts = new double[] {
+            faker.number().randomDouble(2, 10, 1000),
+            faker.number().randomDouble(2, 10, 1000),
+            faker.number().randomDouble(2, 10, 1000)
+        };
 
-    // 🛑 charge without payment
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStays[0], now.minusDays(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[0], amounts[0], now.minusHours(2)));
+        // 🛑 charge without payment
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStays[0], now.minusDays(1)));
+        guestStayFacade.recordCharge(new RecordCharge(guestStays[0], amounts[0], now.minusHours(2)));
 
-    // 🛑 payment without charge
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStays[1], now.minusDays(1)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[1], amounts[1], now.minusHours(1)));
+        // 🛑 payment without charge
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStays[1], now.minusDays(1)));
+        guestStayFacade.recordPayment(new RecordPayment(guestStays[1], amounts[1], now.minusHours(1)));
 
-    // 🛑 partial payment
-    guestStayFacade.checkInGuest(new CheckInGuest(guestStays[2], now.minusDays(1)));
-    guestStayFacade.recordCharge(new RecordCharge(guestStays[2], amounts[2], now.minusHours(2)));
-    guestStayFacade.recordPayment(new RecordPayment(guestStays[2], amounts[2] / 2, now.minusHours(1)));
-    publishedMessages.reset();
-    // And
-    var groupCheckoutId = UUID.randomUUID();
-    var clerkId = UUID.randomUUID();
-    var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
+        // 🛑 partial payment
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStays[2], now.minusDays(1)));
+        guestStayFacade.recordCharge(new RecordCharge(guestStays[2], amounts[2], now.minusHours(2)));
+        guestStayFacade.recordPayment(new RecordPayment(guestStays[2], amounts[2] / 2, now.minusHours(1)));
+        publishedMessages.reset();
+        // And
+        var groupCheckoutId = UUID.randomUUID();
+        var clerkId = UUID.randomUUID();
+        var command = new InitiateGroupCheckout(groupCheckoutId, clerkId, guestStays, now);
 
-    // When
-    groupCheckoutFacade.initiateGroupCheckout(command);
+        // When
+        groupCheckoutFacade.initiateGroupCheckout(command);
 
-    // Then
-    publishedMessages.shouldReceiveMessages(List.of(
-      new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
-      new CheckOutGuest(guestStays[0], now, groupCheckoutId),
-      new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[0],
-        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
-      new CheckOutGuest(guestStays[1], now, groupCheckoutId),
-      new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[1],
-        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
-      new CheckOutGuest(guestStays[2], now, groupCheckoutId),
-      new GuestStayAccountEvent.GuestCheckoutFailed(guestStays[2],
-        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, groupCheckoutId),
-      new GroupCheckoutEvent.GroupCheckoutFailed(
-        groupCheckoutId,
-        new UUID[] {},
-        new UUID[] {guestStays[0], guestStays[1], guestStays[2]},
-        now
-      )
-    ));
-    assertThat(database.collection(GroupCheckout.class).get(groupCheckoutId))
-      .as("done group checkout is removed from the to-do list")
-      .isEmpty();
-  }
+        // Then
+        publishedMessages.shouldReceiveMessages(List.of(
+                new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStays, now),
+                new CheckOutGuest(guestStays[0], now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckoutFailed(
+                        guestStays[0],
+                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        now,
+                        groupCheckoutId),
+                new CheckOutGuest(guestStays[1], now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckoutFailed(
+                        guestStays[1],
+                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        now,
+                        groupCheckoutId),
+                new CheckOutGuest(guestStays[2], now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckoutFailed(
+                        guestStays[2],
+                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        now,
+                        groupCheckoutId),
+                new GroupCheckoutEvent.GroupCheckoutFailed(
+                        groupCheckoutId,
+                        new UUID[] {},
+                        new UUID[] {guestStays[0], guestStays[1], guestStays[2]},
+                        now)));
+        assertThat(database.collection(GroupCheckout.class).get(groupCheckoutId))
+                .as("done group checkout is removed from the to-do list")
+                .isEmpty();
+    }
 
-  @Test
-  public void guestCheckoutForGroupCheckoutNotOnTheToDoList_IsIgnored() {
-    var guestCheckedOut = new GuestStayAccountEvent.GuestCheckedOut(UUID.randomUUID(), now, UUID.randomUUID());
+    @Test
+    public void guestCheckoutForGroupCheckoutNotOnTheToDoList_IsIgnored() {
+        var guestCheckedOut = new GuestStayAccountEvent.GuestCheckedOut(UUID.randomUUID(), now, UUID.randomUUID());
 
-    messageBus.publish(List.of(guestCheckedOut));
+        messageBus.publish(List.of(guestCheckedOut));
 
-    publishedMessages.shouldReceiveMessages(List.of(guestCheckedOut));
-  }
+        publishedMessages.shouldReceiveMessages(List.of(guestCheckedOut));
+    }
 }

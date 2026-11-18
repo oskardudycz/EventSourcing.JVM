@@ -1,20 +1,17 @@
 package io.eventdriven.buildyourowneventstore;
 
-import tools.jackson.databind.cfg.DateTimeFeature;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.cfg.DateTimeFeature;
 import tools.jackson.databind.json.JsonMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Optional;
-import java.util.UUID;
 
 public final class JsonEventSerializer {
     private static final Logger logger = LoggerFactory.getLogger(JsonEventSerializer.class);
-    public static final ObjectMapper mapper =
-        JsonMapper.builder()
+    public static final ObjectMapper mapper = JsonMapper.builder()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
             .build();
@@ -32,8 +29,7 @@ public final class JsonEventSerializer {
 
             var result = mapper.readValue(payload, eventClass);
 
-            if (result == null)
-                return Optional.empty();
+            if (result == null) return Optional.empty();
 
             return Optional.of(result);
         } catch (JacksonException e) {

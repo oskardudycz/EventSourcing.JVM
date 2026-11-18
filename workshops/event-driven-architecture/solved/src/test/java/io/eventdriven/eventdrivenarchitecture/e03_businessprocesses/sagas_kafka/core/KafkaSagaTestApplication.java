@@ -9,10 +9,11 @@ import org.springframework.context.annotation.Import;
 
 @SpringBootConfiguration
 @EnableAutoConfiguration
-@ComponentScan(basePackages = {
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core",
-  "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core"
-}, excludeFilters = @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class))
+@ComponentScan(
+        basePackages = {
+            "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core",
+            "io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core"
+        },
+        excludeFilters = @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class))
 @Import(KafkaTestConfiguration.class)
-public class KafkaSagaTestApplication {
-}
+public class KafkaSagaTestApplication {}

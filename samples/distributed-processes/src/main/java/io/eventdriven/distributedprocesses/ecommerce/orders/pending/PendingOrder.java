@@ -4,27 +4,26 @@ import io.eventdriven.distributedprocesses.core.projections.Versioned;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 
 public class PendingOrder implements Versioned {
-  private OrderId orderId;
-  private long version;
+    private OrderId orderId;
+    private long version;
 
-  public PendingOrder() {
-  }
+    public PendingOrder() {}
 
-  public PendingOrder(OrderId orderId) {
-    this.orderId = orderId;
-  }
+    public PendingOrder(OrderId orderId) {
+        this.orderId = orderId;
+    }
 
-  public OrderId getOrderId() {
-    return orderId;
-  }
+    public OrderId getOrderId() {
+        return orderId;
+    }
 
-  @Override
-  public long getVersion() {
-    return version;
-  }
+    @Override
+    public long getVersion() {
+        return version;
+    }
 
-  @Override
-  public void setVersion(long version) {
-    this.version = version;
-  }
+    @Override
+    public void setVersion(long version) {
+        this.version = version;
+    }
 }

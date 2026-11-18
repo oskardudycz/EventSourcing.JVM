@@ -1,15 +1,14 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities;
 
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.groupcheckouts.GroupCheckoutsConfig.configureGroupCheckouts;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.gueststayaccounts.GuestStayAccountsConfig.configureGuestStayAccounts;
+
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.groupcheckouts.GroupCheckoutFacade;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.gueststayaccounts.GuestStayAccountFacade;
+import jakarta.annotation.PostConstruct;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-
-import jakarta.annotation.PostConstruct;
-
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.groupcheckouts.GroupCheckoutsConfig.configureGroupCheckouts;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.solution2_immutableentities.gueststayaccounts.GuestStayAccountsConfig.configureGuestStayAccounts;
 
 @Configuration
 @ComponentScan
@@ -20,10 +19,9 @@ public class RabbitMQSolution2Config {
     private final GuestStayAccountFacade guestStayAccountFacade;
 
     public RabbitMQSolution2Config(
-        MessageBus messageBus,
-        GroupCheckoutFacade groupCheckoutFacade,
-        GuestStayAccountFacade guestStayAccountFacade
-    ) {
+            MessageBus messageBus,
+            GroupCheckoutFacade groupCheckoutFacade,
+            GuestStayAccountFacade guestStayAccountFacade) {
         this.messageBus = messageBus;
         this.groupCheckoutFacade = groupCheckoutFacade;
         this.guestStayAccountFacade = guestStayAccountFacade;

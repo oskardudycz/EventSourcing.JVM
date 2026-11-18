@@ -1,6 +1,3 @@
 package io.eventdriven.uniqueness.shoppingcarts.productitems;
 
-public record PricedProductItem(
-  ProductItem productItem,
-  double unitPrice
-) {}
+public record PricedProductItem(ProductItem productItem, double unitPrice) {}

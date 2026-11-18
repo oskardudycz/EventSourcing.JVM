@@ -35,21 +35,23 @@ var shoppingCartStreamId = "shopping_cart-%s".formatted(clientId);
 var shoppingCartOpened = new ShoppingCartOpened(clientId, clientId);
 
 // This one should succeed as we don't have such stream yet
-eventStore.appendToStream(
-  shoppingCartStreamId,
-  AppendToStreamOptions.get().streamState(StreamState.noStream()),
-  EventSerializer.serialize(shoppingCartOpened)
-).get();
+eventStore
+        .appendToStream(
+                shoppingCartStreamId,
+                AppendToStreamOptions.get().streamState(StreamState.noStream()),
+                EventSerializer.serialize(shoppingCartOpened))
+        .get();
 
 // This one will fail, as we're expecting that stream doesn't exist
 try {
-  eventStore.appendToStream(
-    shoppingCartStreamId,
-  AppendToStreamOptions.get().streamState(StreamState.noStream()),
-    EventSerializer.serialize(shoppingCartOpened)
-  ).get();
+    eventStore
+            .appendToStream(
+                    shoppingCartStreamId,
+                    AppendToStreamOptions.get().streamState(StreamState.noStream()),
+                    EventSerializer.serialize(shoppingCartOpened))
+            .get();
 } catch (ExecutionException exception) {
-  assertInstanceOf(WrongExpectedVersionException.class, exception.getCause());
+    assertInstanceOf(WrongExpectedVersionException.class, exception.getCause());
 }
 ```
 
@@ -58,9 +60,8 @@ See more in [ShoppingCartTests](./src/test/java/io/eventdriven/uniqueness/shoppi
 We could also use stream id to enforce the uniqueness of multiple keys. For instance, cinema ticket reservations should be unique for the specific screening and seat id. We could either create a conjoined stream id or use some [decent hash](./src/main/java/io/eventdriven/uniqueness/core/resourcereservation/Hash.java). We can combine all the values into the string and hash them, e.g.:
 
 ```java
-var seatReservationId = "cinema_ticket-%s".formatted(
-  Hash.hash("%s_%s".formatted(screeningId, seatId)).toString()
-);
+var seatReservationId = "cinema_ticket-%s"
+        .formatted(Hash.hash("%s_%s".formatted(screeningId, seatId)).toString());
 ```
 See more in [CinemaTicketTests](./src/test/java/io/eventdriven/uniqueness/cinematickets/CinemaTicketTests.java).
 
@@ -88,123 +89,106 @@ Implementation of the reservation pattern in KurrentDB could look like this:
 
 ```java
 public class KurrentDBResourceReservationHandler implements ResourceReservationHandler {
-  private static final Logger logger = LoggerFactory.getLogger(KurrentDBResourceReservationHandler.class);
-  private final Duration reservationLockDuration;
-  private final EventStore eventStore;
-  private final RetryTemplate retryTemplate;
+    private static final Logger logger = LoggerFactory.getLogger(KurrentDBResourceReservationHandler.class);
+    private final Duration reservationLockDuration;
+    private final EventStore eventStore;
+    private final RetryTemplate retryTemplate;
 
-  public KurrentDBResourceReservationHandler(
-    Duration reservationLockDuration,
-    RetryTemplate retryTemplate,
-    EventStore eventStore
-  ) {
-    this.reservationLockDuration = reservationLockDuration;
-    this.eventStore = eventStore;
-    this.retryTemplate = retryTemplate;
-  }
-
-  @Override
-  public Boolean reserve(String resourceKey, HandlerWithAck<Boolean> onReserved) {
-    try {
-      final var reservationStreamId = streamName(resourceKey);
-
-      var initiationResult = initiateReservation(
-        resourceKey,
-        reservationStreamId,
-        reservationLockDuration
-      );
-
-      if (!(initiationResult instanceof EventStore.AppendResult.Success success)) {
-        logger.error("Failed to reserve '%s'".formatted(reservationStreamId));
-        return false;
-      }
-
-      var succeeded = run(onReserved).orElse(false);
-
-      if (!succeeded) {
-        markReservationAsReleased(resourceKey, reservationStreamId, success.nextExpectedRevision());
-        return false;
-      }
-
-      var confirmationReservation = confirmReservation(
-        resourceKey,
-        reservationStreamId,
-        success.nextExpectedRevision()
-      );
-
-      return confirmationReservation instanceof EventStore.AppendResult.Success;
-    } catch (Throwable e) {
-      logger.error("Error while reserving resource");
-      return false;
+    public KurrentDBResourceReservationHandler(
+            Duration reservationLockDuration, RetryTemplate retryTemplate, EventStore eventStore) {
+        this.reservationLockDuration = reservationLockDuration;
+        this.eventStore = eventStore;
+        this.retryTemplate = retryTemplate;
     }
-  }
 
-  @Override
-  public void release(String resourceKey) {
-    var result = eventStore.deleteStream(streamName(resourceKey));
+    @Override
+    public Boolean reserve(String resourceKey, HandlerWithAck<Boolean> onReserved) {
+        try {
+            final var reservationStreamId = streamName(resourceKey);
 
-    if (result instanceof EventStore.DeleteResult.UnexpectedFailure) {
-      throw new RuntimeException("Error while deleting stream: %s".formatted(result));
+            var initiationResult = initiateReservation(resourceKey, reservationStreamId, reservationLockDuration);
+
+            if (!(initiationResult instanceof EventStore.AppendResult.Success success)) {
+                logger.error("Failed to reserve '%s'".formatted(reservationStreamId));
+                return false;
+            }
+
+            var succeeded = run(onReserved).orElse(false);
+
+            if (!succeeded) {
+                markReservationAsReleased(resourceKey, reservationStreamId, success.nextExpectedRevision());
+                return false;
+            }
+
+            var confirmationReservation =
+                    confirmReservation(resourceKey, reservationStreamId, success.nextExpectedRevision());
+
+            return confirmationReservation instanceof EventStore.AppendResult.Success;
+        } catch (Throwable e) {
+            logger.error("Error while reserving resource");
+            return false;
+        }
     }
-  }
 
-  private EventStore.AppendResult initiateReservation(String resourceKey, String reservationStreamId, Duration tentativeLockDuration) {
-    final var reservationInitiated = new ResourceReservationInitiated(
-      resourceKey,
-      OffsetDateTime.now(),
-      tentativeLockDuration
-    );
+    @Override
+    public void release(String resourceKey) {
+        var result = eventStore.deleteStream(streamName(resourceKey));
 
-    return retryTemplate.invoke(() -> {
-      var result = eventStore.append(reservationStreamId, reservationInitiated);
+        if (result instanceof EventStore.DeleteResult.UnexpectedFailure) {
+            throw new RuntimeException("Error while deleting stream: %s".formatted(result));
+        }
+    }
 
-      if (result instanceof EventStore.AppendResult.UnexpectedFailure)
-        throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
+    private EventStore.AppendResult initiateReservation(
+            String resourceKey, String reservationStreamId, Duration tentativeLockDuration) {
+        final var reservationInitiated =
+                new ResourceReservationInitiated(resourceKey, OffsetDateTime.now(), tentativeLockDuration);
 
-      return result;
-    });
-  }
+        return retryTemplate.invoke(() -> {
+            var result = eventStore.append(reservationStreamId, reservationInitiated);
 
-  private EventStore.AppendResult confirmReservation(String resourceKey, String reservationStreamId, StreamState expectedRevision) {
-    final var reservationConfirmed = new ResourceReservationConfirmed(
-      resourceKey,
-      OffsetDateTime.now()
-    );
+            if (result instanceof EventStore.AppendResult.UnexpectedFailure)
+                throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
 
-    return retryTemplate.invoke(() -> {
-      var result = eventStore.append(reservationStreamId, expectedRevision, reservationConfirmed);
+            return result;
+        });
+    }
 
-      if (result instanceof EventStore.AppendResult.UnexpectedFailure)
-        throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
+    private EventStore.AppendResult confirmReservation(
+            String resourceKey, String reservationStreamId, StreamState expectedRevision) {
+        final var reservationConfirmed = new ResourceReservationConfirmed(resourceKey, OffsetDateTime.now());
 
-      return result;
-    });
-  }
+        return retryTemplate.invoke(() -> {
+            var result = eventStore.append(reservationStreamId, expectedRevision, reservationConfirmed);
 
-  private void markReservationAsReleased(String resourceKey, String reservationStreamId, StreamState expectedRevision) {
-    // We're marking reservation as to be released instead of deleting stream.
-    // That's needed as if we'd delete stream here, then we wouldn't get event notification through subscriptions.
-    // Because of that we wouldn't be able to clear the lookup for timed out reservations.
-    final var reservationReleased = new ResourceReservationReleaseInitiated(
-      resourceKey,
-      OffsetDateTime.now()
-    );
+            if (result instanceof EventStore.AppendResult.UnexpectedFailure)
+                throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
 
-    retryTemplate.invoke(() -> {
-      var result = eventStore.append(
-        reservationStreamId,
-        AppendToStreamOptions.get().streamState(expectedRevision),
-        EventSerializer.serialize(reservationReleased)
-      );
+            return result;
+        });
+    }
 
-      if (result instanceof EventStore.AppendResult.UnexpectedFailure)
-        throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
-    });
-  }
+    private void markReservationAsReleased(
+            String resourceKey, String reservationStreamId, StreamState expectedRevision) {
+        // We're marking reservation as to be released instead of deleting stream.
+        // That's needed as if we'd delete stream here, then we wouldn't get event notification through subscriptions.
+        // Because of that we wouldn't be able to clear the lookup for timed out reservations.
+        final var reservationReleased = new ResourceReservationReleaseInitiated(resourceKey, OffsetDateTime.now());
 
-  private static String streamName(String resourceKey) {
-    return "reservation-%s".formatted(resourceKey);
-  }
+        retryTemplate.invoke(() -> {
+            var result = eventStore.append(
+                    reservationStreamId,
+                    AppendToStreamOptions.get().streamState(expectedRevision),
+                    EventSerializer.serialize(reservationReleased));
+
+            if (result instanceof EventStore.AppendResult.UnexpectedFailure)
+                throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
+        });
+    }
+
+    private static String streamName(String resourceKey) {
+        return "reservation-%s".formatted(resourceKey);
+    }
 }
 ```
 

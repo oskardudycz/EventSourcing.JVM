@@ -4,12 +4,9 @@ import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.C
 import io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core.EventStore;
 
 public final class GroupCheckoutsConfig {
-  public static void configureGroupCheckouts(
-    EventStore eventStore,
-    CommandBus commandBus,
-    GroupCheckoutFacade groupCheckoutFacade
-  ) {
+    public static void configureGroupCheckouts(
+            EventStore eventStore, CommandBus commandBus, GroupCheckoutFacade groupCheckoutFacade) {
 
-    throw new RuntimeException("Configure group checkouts handler here");
-  }
+        throw new RuntimeException("Configure group checkouts handler here");
+    }
 }

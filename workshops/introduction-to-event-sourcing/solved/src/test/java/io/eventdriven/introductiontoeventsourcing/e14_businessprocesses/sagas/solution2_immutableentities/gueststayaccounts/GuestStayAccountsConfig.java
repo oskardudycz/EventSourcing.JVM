@@ -4,11 +4,7 @@ import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core.Com
 import io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.sagas.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
 
 public final class GuestStayAccountsConfig {
-  public static void configureGuestStayAccounts(
-    CommandBus commandBus,
-    GuestStayAccountFacade guestStayFacade
-  )
-  {
-    commandBus.handle(CheckOutGuest.class, guestStayFacade::checkOutGuest);
-  }
+    public static void configureGuestStayAccounts(CommandBus commandBus, GuestStayAccountFacade guestStayFacade) {
+        commandBus.handle(CheckOutGuest.class, guestStayFacade::checkOutGuest);
+    }
 }

@@ -3,7 +3,7 @@ package io.eventdriven.introductiontoeventsourcing.e05_business_logic.mutable.so
 import java.util.UUID;
 
 public interface Aggregate<ShoppingCartEvent> {
-  UUID id();
+    UUID id();
 
-  void evolve(ShoppingCartEvent event);
+    void evolve(ShoppingCartEvent event);
 }

@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Debug Current Test",
+      "request": "launch",
+      "mainClass": "${file}",
+      "projectName": "introduction-to-event-sourcing-exercises"
+    },
+    {
+      "type": "java",
+      "name": "Attach to Gradle Test",
+      "request": "attach",
+      "hostName": "localhost",
+      "port": 5005
+    }
+  ]
+}

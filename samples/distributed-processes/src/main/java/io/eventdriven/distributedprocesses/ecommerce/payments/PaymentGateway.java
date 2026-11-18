@@ -8,17 +8,12 @@ import java.time.OffsetDateTime;
 // same way. In this sample both webhooks are modelled by the implementation sending a command back.
 // Canceling and expiring a checkout session do not answer back.
 public interface PaymentGateway {
-  CheckoutSession createCheckoutSession(
-    PaymentId paymentId,
-    double amount,
-    URI successUrl,
-    URI cancelUrl,
-    OffsetDateTime expiresAt
-  );
+    CheckoutSession createCheckoutSession(
+            PaymentId paymentId, double amount, URI successUrl, URI cancelUrl, OffsetDateTime expiresAt);
 
-  void expireCheckoutSession(PaymentId paymentId);
+    void expireCheckoutSession(PaymentId paymentId);
 
-  void capture(PaymentId paymentId, double amount);
+    void capture(PaymentId paymentId, double amount);
 
-  void cancel(PaymentId paymentId);
+    void cancel(PaymentId paymentId);
 }

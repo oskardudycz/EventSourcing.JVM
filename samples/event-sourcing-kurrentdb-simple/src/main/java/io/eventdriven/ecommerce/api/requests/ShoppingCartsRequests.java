@@ -1,25 +1,15 @@
 package io.eventdriven.ecommerce.api.requests;
 
-import org.springframework.validation.annotation.Validated;
-
 import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
+import org.springframework.validation.annotation.Validated;
 
 public final class ShoppingCartsRequests {
-  public record Open(
-    @NotNull UUID clientId
-  ) {
-  }
+    public record Open(@NotNull UUID clientId) {}
 
-  @Validated
-  public record ProductItemRequest(
-    @NotNull UUID productId,
-    @NotNull Integer quantity
-  ) {
-  }
+    @Validated
+    public record ProductItemRequest(
+            @NotNull UUID productId, @NotNull Integer quantity) {}
 
-  public record AddProduct(
-    @NotNull ProductItemRequest productItem
-  ) {
-  }
+    public record AddProduct(@NotNull ProductItemRequest productItem) {}
 }

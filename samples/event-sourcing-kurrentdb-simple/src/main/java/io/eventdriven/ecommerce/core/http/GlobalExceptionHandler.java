@@ -11,33 +11,33 @@ import org.springframework.web.client.RestClientException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
-  @ExceptionHandler(value = IllegalArgumentException.class)
-  public ResponseEntity<Void> illegalArgumentException(IllegalArgumentException ignored) {
-    return ResponseEntity.badRequest().build();
-  }
+    @ExceptionHandler(value = IllegalArgumentException.class)
+    public ResponseEntity<Void> illegalArgumentException(IllegalArgumentException ignored) {
+        return ResponseEntity.badRequest().build();
+    }
 
-  @ExceptionHandler(value = EntityNotFoundException.class)
-  public ResponseEntity<Void> entityNotFoundException(EntityNotFoundException ignored) {
-    return ResponseEntity.notFound().build();
-  }
+    @ExceptionHandler(value = EntityNotFoundException.class)
+    public ResponseEntity<Void> entityNotFoundException(EntityNotFoundException ignored) {
+        return ResponseEntity.notFound().build();
+    }
 
-  @ExceptionHandler(value = StreamNotFoundException.class)
-  public ResponseEntity<Void> streamNotFoundException(StreamNotFoundException ignored) {
-    return ResponseEntity.notFound().build();
-  }
+    @ExceptionHandler(value = StreamNotFoundException.class)
+    public ResponseEntity<Void> streamNotFoundException(StreamNotFoundException ignored) {
+        return ResponseEntity.notFound().build();
+    }
 
-  @ExceptionHandler(value = IllegalStateException.class)
-  public ResponseEntity<Void> illegalStateException(IllegalStateException ignored) {
-    return ResponseEntity.status(HttpStatus.CONFLICT).build();
-  }
+    @ExceptionHandler(value = IllegalStateException.class)
+    public ResponseEntity<Void> illegalStateException(IllegalStateException ignored) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).build();
+    }
 
-  @ExceptionHandler(value = WrongExpectedVersionException.class)
-  public ResponseEntity<Void> wrongExpectedVersionException(WrongExpectedVersionException ignored) {
-    return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).build();
-  }
+    @ExceptionHandler(value = WrongExpectedVersionException.class)
+    public ResponseEntity<Void> wrongExpectedVersionException(WrongExpectedVersionException ignored) {
+        return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).build();
+    }
 
-  @ExceptionHandler(value = RestClientException.class)
-  public ResponseEntity<Void> wrongRestClientException(RestClientException ignored) {
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-  }
+    @ExceptionHandler(value = RestClientException.class)
+    public ResponseEntity<Void> wrongRestClientException(RestClientException ignored) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
 }

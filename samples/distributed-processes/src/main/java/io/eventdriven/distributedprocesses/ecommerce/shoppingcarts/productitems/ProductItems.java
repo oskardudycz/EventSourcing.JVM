@@ -5,77 +5,78 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public record ProductItems(
-  List<PricedProductItem> items
-) {
-  public ProductItems add(PricedProductItem productItem) {
-    var clone = new ArrayList<>(items);
+public record ProductItems(List<PricedProductItem> items) {
+    public ProductItems add(PricedProductItem productItem) {
+        var clone = new ArrayList<>(items);
 
-    var currentProductItem = find(productItem);
+        var currentProductItem = find(productItem);
 
-    if (currentProductItem.isEmpty())
-      clone.add(productItem);
-    else
-      clone.set(clone.indexOf(currentProductItem.get()), currentProductItem.get().mergeWith(productItem));
+        if (currentProductItem.isEmpty()) clone.add(productItem);
+        else
+            clone.set(
+                    clone.indexOf(currentProductItem.get()),
+                    currentProductItem.get().mergeWith(productItem));
 
-    return new ProductItems(clone);
-  }
+        return new ProductItems(clone);
+    }
 
-  public ProductItems remove(PricedProductItem productItem) {
-    var clone = new ArrayList<>(items);
+    public ProductItems remove(PricedProductItem productItem) {
+        var clone = new ArrayList<>(items);
 
-    var currentProductItem = assertThatCanRemove(productItem);
+        var currentProductItem = assertThatCanRemove(productItem);
 
-    if (currentProductItem.quantity() == productItem.quantity())
-      clone.remove(currentProductItem);
-    else
-      clone.set(clone.indexOf(currentProductItem), currentProductItem.subtract(productItem));
+        if (currentProductItem.quantity() == productItem.quantity()) clone.remove(currentProductItem);
+        else clone.set(clone.indexOf(currentProductItem), currentProductItem.subtract(productItem));
 
-    return new ProductItems(clone);
-  }
+        return new ProductItems(clone);
+    }
 
-  public ProductItems changeUnitPrice(UUID productId, double unitPrice) {
-    var clone = new ArrayList<>(items);
+    public ProductItems changeUnitPrice(UUID productId, double unitPrice) {
+        var clone = new ArrayList<>(items);
 
-    find(productId).ifPresent(current ->
-      clone.set(clone.indexOf(current), new PricedProductItem(current.productItem(), unitPrice))
-    );
+        find(productId)
+                .ifPresent(current ->
+                        clone.set(clone.indexOf(current), new PricedProductItem(current.productItem(), unitPrice)));
 
-    return new ProductItems(clone);
-  }
+        return new ProductItems(clone);
+    }
 
-  public Optional<PricedProductItem> find(UUID productId) {
-    return items.stream().filter(pi -> pi.productId().equals(productId)).findAny();
-  }
+    public Optional<PricedProductItem> find(UUID productId) {
+        return items.stream().filter(pi -> pi.productId().equals(productId)).findAny();
+    }
 
-  Optional<PricedProductItem> find(PricedProductItem productItem) {
-    return items.stream().filter(pi -> pi.matchesProductAndUnitPrice(productItem)).findAny();
-  }
+    Optional<PricedProductItem> find(PricedProductItem productItem) {
+        return items.stream()
+                .filter(pi -> pi.matchesProductAndUnitPrice(productItem))
+                .findAny();
+    }
 
-  public PricedProductItem assertThatCanRemove(PricedProductItem productItem) {
+    public PricedProductItem assertThatCanRemove(PricedProductItem productItem) {
 
-    var currentProductItem = find(productItem);
+        var currentProductItem = find(productItem);
 
-    if (currentProductItem.isEmpty())
-      throw new IllegalStateException("Product item wasn't found");
+        if (currentProductItem.isEmpty()) throw new IllegalStateException("Product item wasn't found");
 
-    if(currentProductItem.get().quantity() < productItem.quantity())
-      throw new IllegalStateException("Not enough product items");
+        if (currentProductItem.get().quantity() < productItem.quantity())
+            throw new IllegalStateException("Not enough product items");
 
-    return currentProductItem.get();
-  }
+        return currentProductItem.get();
+    }
 
-  public double totalPrice() {
-    return Math.round(items.stream().mapToDouble(PricedProductItem::totalPrice).sum() * 100) / 100.0;
-  }
+    public double totalPrice() {
+        return Math.round(items.stream()
+                                .mapToDouble(PricedProductItem::totalPrice)
+                                .sum()
+                        * 100)
+                / 100.0;
+    }
 
-  public static ProductItems empty() {
-    return new ProductItems(new ArrayList<>());
-  }
+    public static ProductItems empty() {
+        return new ProductItems(new ArrayList<>());
+    }
 
-  @Override
-  public String toString() {
-    return "ProductItemsList{items=%s}".formatted(items);
-  }
+    @Override
+    public String toString() {
+        return "ProductItemsList{items=%s}".formatted(items);
+    }
 }
-

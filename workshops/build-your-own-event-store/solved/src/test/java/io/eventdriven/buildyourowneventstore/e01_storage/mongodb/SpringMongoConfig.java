@@ -1,8 +1,8 @@
 package io.eventdriven.buildyourowneventstore.e01_storage.mongodb;
 
-import io.eventdriven.buildyourowneventstore.tools.TestDatabases;
 import com.mongodb.ConnectionString;
 import com.mongodb.client.MongoClients;
+import io.eventdriven.buildyourowneventstore.tools.TestDatabases;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -10,10 +10,10 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 @Configuration
 public class SpringMongoConfig {
 
-  @Bean
-  public MongoTemplate mongoTemplate() {
-    // no special typeMapper => default is _class
-    var connectionString = new ConnectionString(TestDatabases.mongoDBConnectionString("test"));
-    return new MongoTemplate(MongoClients.create(connectionString), "test");
-  }
+    @Bean
+    public MongoTemplate mongoTemplate() {
+        // no special typeMapper => default is _class
+        var connectionString = new ConnectionString(TestDatabases.mongoDBConnectionString("test"));
+        return new MongoTemplate(MongoClients.create(connectionString), "test");
+    }
 }

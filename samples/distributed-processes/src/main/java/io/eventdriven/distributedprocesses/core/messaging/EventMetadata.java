@@ -1,8 +1,3 @@
 package io.eventdriven.distributedprocesses.core.messaging;
 
-public record EventMetadata(
-  String streamId,
-  long streamPosition,
-  long logPosition
-) {
-}
+public record EventMetadata(String streamId, long streamPosition, long logPosition) {}

@@ -1,38 +1,24 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
-import io.kurrent.dbclient.KurrentDBClient;
 import io.eventdriven.ecommerce.core.entities.CommandHandler;
 import io.eventdriven.ecommerce.pricing.ProductPriceCalculator;
-import io.eventdriven.ecommerce.shoppingcarts.gettingbyid.ShoppingCartDetailsRepository;
-import io.eventdriven.ecommerce.shoppingcarts.gettingcarts.ShoppingCartShortInfoRepository;
+import io.kurrent.dbclient.KurrentDBClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.context.annotation.ApplicationScope;
 
 @Configuration
 class ShoppingCartsConfig {
-  @Bean
-  ShoppingCartDecider shoppingCartDecider(
-    ProductPriceCalculator productPriceCalculator
-  ) {
-    return new ShoppingCartDecider(
-      productPriceCalculator
-    );
-  }
+    @Bean
+    ShoppingCartDecider shoppingCartDecider(ProductPriceCalculator productPriceCalculator) {
+        return new ShoppingCartDecider(productPriceCalculator);
+    }
 
-  @Bean
-  @ApplicationScope
-  CommandHandler<ShoppingCart, ShoppingCartCommand, ShoppingCartEvent> shoppingCartStore(
-    KurrentDBClient eventStore,
-    ShoppingCartDecider decider
-  ) {
-    return new CommandHandler<>(
-      eventStore,
-      ShoppingCart::when,
-      decider::handle,
-      ShoppingCart::mapToStreamId,
-      ShoppingCart::empty
-    );
-  }
+    @Bean
+    @ApplicationScope
+    CommandHandler<ShoppingCart, ShoppingCartCommand, ShoppingCartEvent> shoppingCartStore(
+            KurrentDBClient eventStore, ShoppingCartDecider decider) {
+        return new CommandHandler<>(
+                eventStore, ShoppingCart::when, decider::handle, ShoppingCart::mapToStreamId, ShoppingCart::empty);
+    }
 }
-

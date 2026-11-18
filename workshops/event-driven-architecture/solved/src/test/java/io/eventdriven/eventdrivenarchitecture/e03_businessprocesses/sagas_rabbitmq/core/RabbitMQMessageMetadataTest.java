@@ -1,6 +1,13 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core;
 
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.CAUSATION_ID;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.CORRELATION_ID;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.MESSAGE_ID;
+import static org.assertj.core.api.Assertions.assertThat;
+
 import io.micrometer.tracing.Tracer;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.core.BindingBuilder;
@@ -12,71 +19,65 @@ import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfig
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 
-import java.util.List;
-import java.util.UUID;
-
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.CAUSATION_ID;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.CORRELATION_ID;
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core.messages.MessageMetadata.MESSAGE_ID;
-import static org.assertj.core.api.Assertions.assertThat;
-
 @SpringBootTest(classes = RabbitMQSagaTestApplication.class)
-@TestPropertySource(properties = {
-  "app.rabbitmq.exchange=message-metadata"
-})
+@TestPropertySource(properties = {"app.rabbitmq.exchange=message-metadata"})
 @AutoConfigureTracing
 public class RabbitMQMessageMetadataTest {
-  public record RoomInspected(String roomId, String notes) {
-  }
+    public record RoomInspected(String roomId, String notes) {}
 
-  @Autowired
-  private RabbitMQMessageBus messageBus;
-  @Autowired
-  private Tracer tracer;
-  @Autowired
-  private AmqpAdmin amqpAdmin;
-  @Autowired
-  private RabbitTemplate rabbitTemplate;
+    @Autowired
+    private RabbitMQMessageBus messageBus;
 
-  @Autowired
-  private RabbitMQMessageBusProperties properties;
+    @Autowired
+    private Tracer tracer;
 
-  @Test
-  public void messageStartingAProcess_CarriesAMessageIdAndAGeneratedCorrelationId() {
-    var queue = bindQueue();
+    @Autowired
+    private AmqpAdmin amqpAdmin;
 
-    messageBus.publish(List.of(new RoomInspected(UUID.randomUUID().toString(), "clean")));
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
 
-    var headers = receive(queue).getMessageProperties();
-    assertThat(headers.<String>getHeader(MESSAGE_ID)).satisfies(UUID::fromString);
-    assertThat(headers.<String>getHeader(CORRELATION_ID)).satisfies(UUID::fromString);
-    assertThat(headers.<String>getHeader(CAUSATION_ID)).isNull();
-  }
+    @Autowired
+    private RabbitMQMessageBusProperties properties;
 
-  @Test
-  public void messagePublishedWhileHandlingAnother_CarriesItsCorrelationAndCausationIds() {
-    var queue = bindQueue();
+    @Test
+    public void messageStartingAProcess_CarriesAMessageIdAndAGeneratedCorrelationId() {
+        var queue = bindQueue();
 
-    try (var _ = tracer.createBaggageInScope(CORRELATION_ID, "process-correlation-id");
-         var _ = tracer.createBaggageInScope(CAUSATION_ID, "handled-message-id")) {
-      messageBus.publish(List.of(new RoomInspected(UUID.randomUUID().toString(), "clean")));
+        messageBus.publish(List.of(new RoomInspected(UUID.randomUUID().toString(), "clean")));
+
+        var headers = receive(queue).getMessageProperties();
+        assertThat(headers.<String>getHeader(MESSAGE_ID)).satisfies(UUID::fromString);
+        assertThat(headers.<String>getHeader(CORRELATION_ID)).satisfies(UUID::fromString);
+        assertThat(headers.<String>getHeader(CAUSATION_ID)).isNull();
     }
 
-    var headers = receive(queue).getMessageProperties();
-    assertThat(headers.<String>getHeader(MESSAGE_ID)).satisfies(UUID::fromString);
-    assertThat(headers.<String>getHeader(CORRELATION_ID)).isEqualTo("process-correlation-id");
-    assertThat(headers.<String>getHeader(CAUSATION_ID)).isEqualTo("handled-message-id");
-  }
+    @Test
+    public void messagePublishedWhileHandlingAnother_CarriesItsCorrelationAndCausationIds() {
+        var queue = bindQueue();
 
-  private String bindQueue() {
-    var queue = amqpAdmin.declareQueue();
-    amqpAdmin.declareBinding(BindingBuilder.bind(queue).to(new TopicExchange(properties.exchange())).with(RoomInspected.class.getName()));
-    return queue.getName();
-  }
+        try (var _ = tracer.createBaggageInScope(CORRELATION_ID, "process-correlation-id");
+                var _ = tracer.createBaggageInScope(CAUSATION_ID, "handled-message-id")) {
+            messageBus.publish(List.of(new RoomInspected(UUID.randomUUID().toString(), "clean")));
+        }
 
-  private Message receive(String queue) {
-    var message = rabbitTemplate.receive(queue, 5000);
-    assertThat(message).as("message should arrive at " + queue).isNotNull();
-    return message;
-  }
+        var headers = receive(queue).getMessageProperties();
+        assertThat(headers.<String>getHeader(MESSAGE_ID)).satisfies(UUID::fromString);
+        assertThat(headers.<String>getHeader(CORRELATION_ID)).isEqualTo("process-correlation-id");
+        assertThat(headers.<String>getHeader(CAUSATION_ID)).isEqualTo("handled-message-id");
+    }
+
+    private String bindQueue() {
+        var queue = amqpAdmin.declareQueue();
+        amqpAdmin.declareBinding(BindingBuilder.bind(queue)
+                .to(new TopicExchange(properties.exchange()))
+                .with(RoomInspected.class.getName()));
+        return queue.getName();
+    }
+
+    private Message receive(String queue) {
+        var message = rabbitTemplate.receive(queue, 5000);
+        assertThat(message).as("message should arrive at " + queue).isNotNull();
+        return message;
+    }
 }

@@ -5,9 +5,8 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 class PricingConfig {
-  @Bean
-  ProductPriceCalculator productPriceCalculator() {
-    return new RandomProductPriceCalculator();
-  }
+    @Bean
+    ProductPriceCalculator productPriceCalculator() {
+        return new RandomProductPriceCalculator();
+    }
 }
-

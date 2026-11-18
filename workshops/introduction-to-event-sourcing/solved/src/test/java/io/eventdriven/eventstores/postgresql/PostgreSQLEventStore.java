@@ -1,134 +1,108 @@
 package io.eventdriven.eventstores.postgresql;
 
+import static io.eventdriven.eventstores.JsonEventSerializer.deserialize;
+import static io.eventdriven.eventstores.postgresql.tools.SqlInvoker.*;
+
 import io.eventdriven.eventstores.EventStore;
 import io.eventdriven.eventstores.EventTypeMapper;
 import io.eventdriven.eventstores.JsonEventSerializer;
 import io.eventdriven.eventstores.StreamName;
-
 import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import static io.eventdriven.eventstores.JsonEventSerializer.deserialize;
-import static io.eventdriven.eventstores.postgresql.tools.SqlInvoker.*;
-
-
 public class PostgreSQLEventStore implements EventStore, AutoCloseable {
-  private final Connection dbConnection;
+    private final Connection dbConnection;
 
-  public PostgreSQLEventStore(Connection dbConnection) {
-    this.dbConnection = dbConnection;
-  }
+    public PostgreSQLEventStore(Connection dbConnection) {
+        this.dbConnection = dbConnection;
+    }
 
-  @Override
-  public void init() {
-    executeSql(dbConnection, createStreamsTableSql);
-    executeSql(dbConnection, createEventsTableSql);
-    executeSql(dbConnection, createAppendFunctionSql);
-  }
+    @Override
+    public void init() {
+        executeSql(dbConnection, createStreamsTableSql);
+        executeSql(dbConnection, createEventsTableSql);
+        executeSql(dbConnection, createAppendFunctionSql);
+    }
 
-  @Override
-  public void close() throws Exception {
-    dbConnection.close();
-  }
+    @Override
+    public void close() throws Exception {
+        dbConnection.close();
+    }
 
-  @Override
-  public AppendResult appendToStream(
-    StreamName streamName,
-    Long expectedStreamPosition,
-    List<Object> events
-  ) {
-    return runInTransaction(dbConnection, connection ->
-    {
-      var ids = events.stream()
-        .map(_ -> UUID.randomUUID().toString())
-        .toArray(String[]::new);
+    @Override
+    public AppendResult appendToStream(StreamName streamName, Long expectedStreamPosition, List<Object> events) {
+        return runInTransaction(dbConnection, connection -> {
+            var ids = events.stream().map(_ -> UUID.randomUUID().toString()).toArray(String[]::new);
 
-      var eventData = events.stream()
-        .map(JsonEventSerializer::serialize)
-        .toArray(String[]::new);
+            var eventData = events.stream().map(JsonEventSerializer::serialize).toArray(String[]::new);
 
-      var eventMetadata = events.stream()
-        .map(_ -> "{}")
-        .toArray(String[]::new);
+            var eventMetadata = events.stream().map(_ -> "{}").toArray(String[]::new);
 
-      var eventTypes = events.stream()
-        .map(event -> EventTypeMapper.toName(event.getClass()))
-        .toArray(String[]::new);
+            var eventTypes = events.stream()
+                    .map(event -> EventTypeMapper.toName(event.getClass()))
+                    .toArray(String[]::new);
 
-      boolean succeeded = querySingleSql(
-        connection,
-        "SELECT append_to_stream(?::text[], ?::jsonb[], ?::jsonb[], ?::text[], ?::text, ?, ?) AS succeeded",
-        ps -> {
-          setArrayOf(dbConnection, ps, 1, "text", ids);
-          setArrayOf(dbConnection, ps, 2, "jsonb", eventData);
-          setArrayOf(dbConnection, ps, 3, "jsonb", eventMetadata);
-          setArrayOf(dbConnection, ps, 4, "text", eventTypes);
-          setStringParam(ps, 5, streamName.streamId());
-          setStringParam(ps, 6, streamName.streamType());
-          setLong(ps, 7, expectedStreamPosition);
-        },
-        rs -> getBoolean(rs, "succeeded")
-      );
+            boolean succeeded = querySingleSql(
+                    connection,
+                    "SELECT append_to_stream(?::text[], ?::jsonb[], ?::jsonb[], ?::text[], ?::text, ?, ?) AS succeeded",
+                    ps -> {
+                        setArrayOf(dbConnection, ps, 1, "text", ids);
+                        setArrayOf(dbConnection, ps, 2, "jsonb", eventData);
+                        setArrayOf(dbConnection, ps, 3, "jsonb", eventMetadata);
+                        setArrayOf(dbConnection, ps, 4, "text", eventTypes);
+                        setStringParam(ps, 5, streamName.streamId());
+                        setStringParam(ps, 6, streamName.streamType());
+                        setLong(ps, 7, expectedStreamPosition);
+                    },
+                    rs -> getBoolean(rs, "succeeded"));
 
-      if (!succeeded)
-        throw new InvalidExpectedStreamPositionException(streamName.toString(), expectedStreamPosition);
+            if (!succeeded)
+                throw new InvalidExpectedStreamPositionException(streamName.toString(), expectedStreamPosition);
 
-      var nextExpectedPosition = (expectedStreamPosition != null? expectedStreamPosition: 0)+ events.size();
+            var nextExpectedPosition = (expectedStreamPosition != null ? expectedStreamPosition : 0) + events.size();
 
-      return new AppendResult(nextExpectedPosition);
-    });
-  }
+            return new AppendResult(nextExpectedPosition);
+        });
+    }
 
-  @Override
-  public ReadStreamResult readStream(StreamName streamName) {
-    return readStream(streamName, null, null);
-  }
+    @Override
+    public ReadStreamResult readStream(StreamName streamName) {
+        return readStream(streamName, null, null);
+    }
 
-  public ReadStreamResult readStream(
-    StreamName streamName,
-    Long atStreamPosition,
-    LocalDateTime atTimestamp
-  ) {
-    var atStreamCondition = atStreamPosition != null ? "AND stream_position <= ?" : "";
-    var atTimestampCondition = atTimestamp != null ? "AND created <= ?" : "";
+    public ReadStreamResult readStream(StreamName streamName, Long atStreamPosition, LocalDateTime atTimestamp) {
+        var atStreamCondition = atStreamPosition != null ? "AND stream_position <= ?" : "";
+        var atTimestampCondition = atTimestamp != null ? "AND created <= ?" : "";
 
-    var getStreamSql = """
+        var getStreamSql = """
       SELECT id, data, stream_id, type, stream_position, created
       FROM events
       WHERE stream_id = ?
-      """
-      + atStreamCondition
-      + atTimestampCondition
-      + " ORDER BY stream_position";
+      """ + atStreamCondition + atTimestampCondition + " ORDER BY stream_position";
 
-    var events = querySql(
-      dbConnection,
-      getStreamSql,
-      ps -> {
-        var index = 1;
-        setStringParam(ps, index++, streamName.streamId());
-        if (atStreamPosition != null)
-          setLong(ps, index++, atStreamPosition);
-        if (atTimestamp != null)
-          setLocalDateTime(ps, index, atTimestamp);
-      },
-      rs -> {
-        var eventTypeName = getString(rs, "type");
-        return deserialize(
-          EventTypeMapper.toClass(eventTypeName).get(),
-          eventTypeName,
-          getString(rs, "data")
-        ).get();
-      }
-    );
+        var events = querySql(
+                dbConnection,
+                getStreamSql,
+                ps -> {
+                    var index = 1;
+                    setStringParam(ps, index++, streamName.streamId());
+                    if (atStreamPosition != null) setLong(ps, index++, atStreamPosition);
+                    if (atTimestamp != null) setLocalDateTime(ps, index, atTimestamp);
+                },
+                rs -> {
+                    var eventTypeName = getString(rs, "type");
+                    return deserialize(
+                                    EventTypeMapper.toClass(eventTypeName).get(), eventTypeName, getString(rs, "data"))
+                            .get();
+                });
 
-    // TODO: This should read the position from Streams table
-    return new ReadStreamResult(events.size(), events);
-  }
+        // TODO: This should read the position from Streams table
+        return new ReadStreamResult(events.size(), events);
+    }
 
-  private final String createStreamsTableSql = """
+    private final String createStreamsTableSql = """
     CREATE TABLE IF NOT EXISTS streams(
         id               TEXT                      NOT NULL    PRIMARY KEY,
         type             TEXT                      NOT NULL,
@@ -136,7 +110,7 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
     );
     """;
 
-  private final String createEventsTableSql = """
+    private final String createEventsTableSql = """
     CREATE SEQUENCE IF NOT EXISTS global_event_position;
 
     CREATE TABLE IF NOT EXISTS events(
@@ -153,8 +127,7 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
     );
     """;
 
-
-  private final String createAppendFunctionSql = """
+    private final String createAppendFunctionSql = """
     CREATE OR REPLACE FUNCTION append_to_stream(
         ids_array TEXT[],
         data_array jsonb[],

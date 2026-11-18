@@ -1,25 +1,15 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.mongodb.mixed.app.api;
 
 import jakarta.validation.constraints.NotNull;
+import java.util.UUID;
 import org.springframework.validation.annotation.Validated;
 
-import java.util.UUID;
-
 public final class ShoppingCartsRequests {
-  public record Open(
-    @NotNull UUID clientId
-  ) {
-  }
+    public record Open(@NotNull UUID clientId) {}
 
-  @Validated
-  public record ProductItemRequest(
-    @NotNull UUID productId,
-    @NotNull Integer quantity
-  ) {
-  }
+    @Validated
+    public record ProductItemRequest(
+            @NotNull UUID productId, @NotNull Integer quantity) {}
 
-  public record AddProduct(
-    @NotNull ProductItemRequest productItem
-  ) {
-  }
+    public record AddProduct(@NotNull ProductItemRequest productItem) {}
 }

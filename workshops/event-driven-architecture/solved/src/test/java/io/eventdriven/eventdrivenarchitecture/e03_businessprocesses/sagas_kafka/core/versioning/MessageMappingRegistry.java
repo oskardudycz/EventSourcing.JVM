@@ -1,35 +1,30 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.versioning;
 
-import tools.jackson.databind.ObjectMapper;
-
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import tools.jackson.databind.ObjectMapper;
 
 public class MessageMappingRegistry {
-  private final Map<String, Class<?>> typeMappings;
-  private final MessageTransformations messageTransformations;
+    private final Map<String, Class<?>> typeMappings;
+    private final MessageTransformations messageTransformations;
 
-  public MessageMappingRegistry(
-    List<MessageMapping> mappings,
-    ObjectMapper objectMapper
-  ) {
-    this.typeMappings = mappings.stream()
-      .flatMap(m -> m.getTypeMappings().entrySet().stream())
-      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    public MessageMappingRegistry(List<MessageMapping> mappings, ObjectMapper objectMapper) {
+        this.typeMappings = mappings.stream()
+                .flatMap(m -> m.getTypeMappings().entrySet().stream())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    var allTransformations = mappings.stream()
-      .flatMap(m -> m.getTransformations().stream())
-      .toList();
+        var allTransformations =
+                mappings.stream().flatMap(m -> m.getTransformations().stream()).toList();
 
-    this.messageTransformations = new MessageTransformations(allTransformations);
-  }
+        this.messageTransformations = new MessageTransformations(allTransformations);
+    }
 
-  public Map<String, Class<?>> getTypeMappings() {
-    return typeMappings;
-  }
+    public Map<String, Class<?>> getTypeMappings() {
+        return typeMappings;
+    }
 
-  public MessageTransformations getMessageTransformations() {
-    return messageTransformations;
-  }
+    public MessageTransformations getMessageTransformations() {
+        return messageTransformations;
+    }
 }

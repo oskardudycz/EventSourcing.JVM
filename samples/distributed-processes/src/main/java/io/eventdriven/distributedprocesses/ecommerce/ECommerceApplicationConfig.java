@@ -23,129 +23,125 @@ import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.api.Carts;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.util.function.Supplier;
 import org.springdoc.core.customizers.GlobalOperationCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.bind.annotation.GetMapping;
 
-import java.time.Duration;
-import java.time.OffsetDateTime;
-import java.util.function.Supplier;
-
 @Configuration
 @EnableScheduling
 public class ECommerceApplicationConfig {
-  @Bean
-  OpenAPI openApi() {
-    return new OpenAPI().info(new Info().title("E-Commerce").version("1.0.0"));
-  }
+    @Bean
+    OpenAPI openApi() {
+        return new OpenAPI().info(new Info().title("E-Commerce").version("1.0.0"));
+    }
 
-  @Bean
-  GlobalOperationCustomizer eventCatalogOperationTypes() {
-    return (operation, handlerMethod) -> {
-      operation.addExtension(
-        "x-eventcatalog-message-type",
-        handlerMethod.hasMethodAnnotation(GetMapping.class) ? "query" : "command"
-      );
-      return operation;
-    };
-  }
+    @Bean
+    GlobalOperationCustomizer eventCatalogOperationTypes() {
+        return (operation, handlerMethod) -> {
+            operation.addExtension(
+                    "x-eventcatalog-message-type",
+                    handlerMethod.hasMethodAnnotation(GetMapping.class) ? "query" : "command");
+            return operation;
+        };
+    }
 
-  @Bean
-  Supplier<OffsetDateTime> clock() {
-    return OffsetDateTime::now;
-  }
+    @Bean
+    Supplier<OffsetDateTime> clock() {
+        return OffsetDateTime::now;
+    }
 
-  @Bean
-  EventStore eventStore() {
-    return new InMemoryEventStore();
-  }
+    @Bean
+    EventStore eventStore() {
+        return new InMemoryEventStore();
+    }
 
-  @Bean
-  MessageBus messageBus() {
-    return new InMemoryMessageBus();
-  }
+    @Bean
+    MessageBus messageBus() {
+        return new InMemoryMessageBus();
+    }
 
-  @Bean
-  SandboxPaymentGateway sandboxPaymentGateway(MessageBus messageBus, Supplier<OffsetDateTime> clock) {
-    return new SandboxPaymentGateway(messageBus, clock);
-  }
+    @Bean
+    SandboxPaymentGateway sandboxPaymentGateway(MessageBus messageBus, Supplier<OffsetDateTime> clock) {
+        return new SandboxPaymentGateway(messageBus, clock);
+    }
 
-  @Bean
-  SandboxFulfillmentService sandboxFulfillmentService(MessageBus messageBus) {
-    return new SandboxFulfillmentService(messageBus);
-  }
+    @Bean
+    SandboxFulfillmentService sandboxFulfillmentService(MessageBus messageBus) {
+        return new SandboxFulfillmentService(messageBus);
+    }
 
-  @Bean
-  ECommerceModule eCommerce(
-    EventStore eventStore,
-    MessageBus messageBus,
-    ProductPriceCalculator prices,
-    PaymentGateway paymentGateway,
-    FulfillmentService fulfillmentService,
-    Supplier<OffsetDateTime> clock
-  ) {
-    return ECommerceConfig.configure(
-      eventStore,
-      messageBus,
-      prices,
-      paymentGateway,
-      PaymentValidity.of(Duration.ofHours(24)),
-      PaymentTerms.within(Duration.ofDays(7)),
-      fulfillmentService,
-      productItem -> true,
-      clock
-    );
-  }
+    @Bean
+    ECommerceModule eCommerce(
+            EventStore eventStore,
+            MessageBus messageBus,
+            ProductPriceCalculator prices,
+            PaymentGateway paymentGateway,
+            FulfillmentService fulfillmentService,
+            Supplier<OffsetDateTime> clock) {
+        return ECommerceConfig.configure(
+                eventStore,
+                messageBus,
+                prices,
+                paymentGateway,
+                PaymentValidity.of(Duration.ofHours(24)),
+                PaymentTerms.within(Duration.ofDays(7)),
+                fulfillmentService,
+                productItem -> true,
+                clock);
+    }
 
-  @Bean
-  ShoppingCartFacade shoppingCartFacade(ECommerceModule eCommerce) {
-    return eCommerce.shoppingCarts().facade();
-  }
+    @Bean
+    ShoppingCartFacade shoppingCartFacade(ECommerceModule eCommerce) {
+        return eCommerce.shoppingCarts().facade();
+    }
 
-  @Bean
-  CustomerShoppingCarts customerShoppingCarts(ECommerceModule eCommerce) {
-    return eCommerce.shoppingCarts().customerShoppingCarts();
-  }
+    @Bean
+    CustomerShoppingCarts customerShoppingCarts(ECommerceModule eCommerce) {
+        return eCommerce.shoppingCarts().customerShoppingCarts();
+    }
 
-  @Bean
-  Carts carts(ECommerceModule eCommerce) {
-    return eCommerce.shoppingCarts().carts();
-  }
+    @Bean
+    Carts carts(ECommerceModule eCommerce) {
+        return eCommerce.shoppingCarts().carts();
+    }
 
-  @Bean
-  OrderFacade orderFacade(ECommerceModule eCommerce) {
-    return eCommerce.orders().facade();
-  }
+    @Bean
+    OrderFacade orderFacade(ECommerceModule eCommerce) {
+        return eCommerce.orders().facade();
+    }
 
-  @Bean
-  CustomerOrders customerOrders(ECommerceModule eCommerce) {
-    return eCommerce.orders().customerOrders();
-  }
+    @Bean
+    CustomerOrders customerOrders(ECommerceModule eCommerce) {
+        return eCommerce.orders().customerOrders();
+    }
 
-  @Bean
-  OrderStatuses orderStatuses(ECommerceModule eCommerce) {
-    return eCommerce.orders().orderStatuses();
-  }
+    @Bean
+    OrderStatuses orderStatuses(ECommerceModule eCommerce) {
+        return eCommerce.orders().orderStatuses();
+    }
 
-  @Bean
-  PaymentFacade paymentFacade(ECommerceModule eCommerce) {
-    return eCommerce.payments().facade();
-  }
+    @Bean
+    PaymentFacade paymentFacade(ECommerceModule eCommerce) {
+        return eCommerce.payments().facade();
+    }
 
-  @Bean
-  ScheduledPaymentTimeoutWorker paymentTimeoutWorker(ECommerceModule eCommerce) {
-    return eCommerce.payments().timeoutWorker();
-  }
+    @Bean
+    ScheduledPaymentTimeoutWorker paymentTimeoutWorker(ECommerceModule eCommerce) {
+        return eCommerce.payments().timeoutWorker();
+    }
 
-  @Bean
-  ScheduledAuthorizationExpiryWorker authorizationExpiryWorker(ECommerceModule eCommerce) {
-    return eCommerce.payments().authorizationExpiryWorker();
-  }
+    @Bean
+    ScheduledAuthorizationExpiryWorker authorizationExpiryWorker(ECommerceModule eCommerce) {
+        return eCommerce.payments().authorizationExpiryWorker();
+    }
 
-  @Bean
-  ScheduledUnpaidOrdersWorker unpaidOrdersWorker(ECommerceModule eCommerce) {
-    return eCommerce.orders().unpaidOrdersWorker();
-  }
+    @Bean
+    ScheduledUnpaidOrdersWorker unpaidOrdersWorker(ECommerceModule eCommerce) {
+        return eCommerce.orders().unpaidOrdersWorker();
+    }
 }

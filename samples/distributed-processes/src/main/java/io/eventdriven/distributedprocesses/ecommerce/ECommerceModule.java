@@ -6,9 +6,4 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsModule;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartsModule;
 
 public record ECommerceModule(
-  ShoppingCartsModule shoppingCarts,
-  OrdersModule orders,
-  PaymentsModule payments,
-  ShipmentsModule shipments
-) {
-}
+        ShoppingCartsModule shoppingCarts, OrdersModule orders, PaymentsModule payments, ShipmentsModule shipments) {}

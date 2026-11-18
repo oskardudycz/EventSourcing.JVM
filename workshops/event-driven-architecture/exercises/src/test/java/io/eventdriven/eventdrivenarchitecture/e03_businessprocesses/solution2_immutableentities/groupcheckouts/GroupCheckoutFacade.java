@@ -1,82 +1,63 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.groupcheckouts;
 
-import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.GuestStayFacade;
+import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.*;
+
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
-
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.solution2_immutableentities.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.*;
-
 public class GroupCheckoutFacade {
-  private final Database.Collection<GroupCheckout> collection;
-  private final MessageBus messageBus;
+    private final Database.Collection<GroupCheckout> collection;
+    private final MessageBus messageBus;
 
-  public GroupCheckoutFacade(Database database, MessageBus messageBus) {
-    this.collection = database.collection(GroupCheckout.class);
-    this.messageBus = messageBus;
-  }
-
-  public void initiateGroupCheckout(InitiateGroupCheckout command) {
-    // TODO: Fill the implementation calling your entity/aggregate
-    throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
-  }
-
-  public void recordGuestCheckoutCompletion(RecordGuestCheckoutCompletion command)
-  {
-    var account = collection.get(command.groupCheckoutId()).orElse(null);
-    if (account == null)
-      return;
-
-    // TODO: Fill the implementation calling your entity/aggregate
-    // account.doSomething;
-    var events = List.of();
-
-    collection.store(command.groupCheckoutId(), account);
-    messageBus.publish(events);
-
-    throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
-  }
-
-  public void recordGuestCheckoutFailure(RecordGuestCheckoutFailure command)
-  {
-    var account = collection.get(command.groupCheckoutId()).orElse(null);
-    if (account == null)
-      return;
-
-    // TODO: Fill the implementation calling your entity/aggregate
-    // account.doSomething;
-    var events = List.of();
-
-    collection.store(command.groupCheckoutId(), account);
-    messageBus.publish(events);
-
-    throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
-  }
-
-  public sealed interface GroupCheckoutCommand {
-    record InitiateGroupCheckout(
-      UUID groupCheckoutId,
-      UUID clerkId,
-      UUID[] guestStayIds,
-      OffsetDateTime now
-    ) implements GroupCheckoutCommand {
+    public GroupCheckoutFacade(Database database, MessageBus messageBus) {
+        this.collection = database.collection(GroupCheckout.class);
+        this.messageBus = messageBus;
     }
 
-    record RecordGuestCheckoutCompletion(
-      UUID groupCheckoutId,
-      UUID guestStayId,
-      OffsetDateTime now
-    ) implements GroupCheckoutCommand {
+    public void initiateGroupCheckout(InitiateGroupCheckout command) {
+        // TODO: Fill the implementation calling your entity/aggregate
+        throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
     }
 
-    record RecordGuestCheckoutFailure(
-      UUID groupCheckoutId,
-      UUID guestStayId,
-      OffsetDateTime now
-    ) implements GroupCheckoutCommand {
+    public void recordGuestCheckoutCompletion(RecordGuestCheckoutCompletion command) {
+        var account = collection.get(command.groupCheckoutId()).orElse(null);
+        if (account == null) return;
+
+        // TODO: Fill the implementation calling your entity/aggregate
+        // account.doSomething;
+        var events = List.of();
+
+        collection.store(command.groupCheckoutId(), account);
+        messageBus.publish(events);
+
+        throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
     }
-  }
+
+    public void recordGuestCheckoutFailure(RecordGuestCheckoutFailure command) {
+        var account = collection.get(command.groupCheckoutId()).orElse(null);
+        if (account == null) return;
+
+        // TODO: Fill the implementation calling your entity/aggregate
+        // account.doSomething;
+        var events = List.of();
+
+        collection.store(command.groupCheckoutId(), account);
+        messageBus.publish(events);
+
+        throw new RuntimeException("TODO: Fill the implementation calling your entity/aggregate");
+    }
+
+    public sealed interface GroupCheckoutCommand {
+        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayIds, OffsetDateTime now)
+                implements GroupCheckoutCommand {}
+
+        record RecordGuestCheckoutCompletion(UUID groupCheckoutId, UUID guestStayId, OffsetDateTime now)
+                implements GroupCheckoutCommand {}
+
+        record RecordGuestCheckoutFailure(UUID groupCheckoutId, UUID guestStayId, OffsetDateTime now)
+                implements GroupCheckoutCommand {}
+    }
 }

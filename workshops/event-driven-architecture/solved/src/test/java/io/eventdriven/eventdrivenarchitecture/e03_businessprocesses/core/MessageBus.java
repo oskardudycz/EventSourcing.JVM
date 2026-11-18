@@ -17,19 +17,19 @@ import java.util.function.Consumer;
  * that a command has exactly one subscriber; that's up to how the application wires it.
  */
 public interface MessageBus {
-  /**
-   * Publishes messages (commands or events). Middleware sees each message first,
-   * then every subscriber registered for the message's type.
-   */
-  <Message> void publish(List<Message> messages);
+    /**
+     * Publishes messages (commands or events). Middleware sees each message first,
+     * then every subscriber registered for the message's type.
+     */
+    <Message> void publish(List<Message> messages);
 
-  /**
-   * Registers a handler for messages of the given type. Returns the bus to allow chaining.
-   */
-  <Message> MessageBus subscribe(Class<Message> messageClass, Consumer<Message> handler);
+    /**
+     * Registers a handler for messages of the given type. Returns the bus to allow chaining.
+     */
+    <Message> MessageBus subscribe(Class<Message> messageClass, Consumer<Message> handler);
 
-  /**
-   * Registers middleware called for every published message before subscribers.
-   */
-  void use(Consumer<Object> middleware);
+    /**
+     * Registers middleware called for every published message before subscribers.
+     */
+    void use(Consumer<Object> middleware);
 }

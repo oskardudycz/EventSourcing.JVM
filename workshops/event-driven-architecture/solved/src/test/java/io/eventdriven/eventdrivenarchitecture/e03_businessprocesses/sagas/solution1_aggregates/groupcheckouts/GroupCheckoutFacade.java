@@ -1,79 +1,57 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.groupcheckouts;
 
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
-import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
-
 import static io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas.solution1_aggregates.groupcheckouts.GroupCheckoutFacade.GroupCheckoutCommand.*;
 
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
+import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public class GroupCheckoutFacade {
-  private final Database.Collection<GroupCheckout> collection;
-  private final MessageBus messageBus;
+    private final Database.Collection<GroupCheckout> collection;
+    private final MessageBus messageBus;
 
-  public GroupCheckoutFacade(Database.Collection<GroupCheckout> collection, MessageBus messageBus) {
-    this.collection = collection;
-    this.messageBus = messageBus;
-  }
-
-  public void initiateGroupCheckout(InitiateGroupCheckout command) {
-    var groupCheckout = GroupCheckout.initiate(
-      command.groupCheckoutId(),
-      command.clerkId(),
-      command.guestStayIds(),
-      command.now()
-    );
-
-    collection.store(command.groupCheckoutId(), groupCheckout);
-    messageBus.publish(groupCheckout.dequeueUncommittedEvents());
-  }
-
-  public void recordGuestCheckoutCompletion(RecordGuestCheckoutCompletion command)
-  {
-    var groupCheckout = collection.get(command.groupCheckoutId()).orElse(null);
-    if (groupCheckout == null)
-      return;
-
-    groupCheckout.recordGuestCheckoutCompletion(command.guestStayId(), command.completedAt());
-
-    collection.store(command.groupCheckoutId(), groupCheckout);
-    messageBus.publish(groupCheckout.dequeueUncommittedEvents());
-  }
-
-  public void recordGuestCheckoutFailure(RecordGuestCheckoutFailure command)
-  {
-    var groupCheckout = collection.get(command.groupCheckoutId()).orElse(null);
-    if (groupCheckout == null)
-      return;
-
-    groupCheckout.recordGuestCheckoutFailure(command.guestStayId(), command.failedAt());
-
-    collection.store(command.groupCheckoutId(), groupCheckout);
-    messageBus.publish(groupCheckout.dequeueUncommittedEvents());
-  }
-
-  public sealed interface GroupCheckoutCommand {
-    record InitiateGroupCheckout(
-      UUID groupCheckoutId,
-      UUID clerkId,
-      UUID[] guestStayIds,
-      OffsetDateTime now
-    ) implements GroupCheckoutCommand {
+    public GroupCheckoutFacade(Database.Collection<GroupCheckout> collection, MessageBus messageBus) {
+        this.collection = collection;
+        this.messageBus = messageBus;
     }
 
-    record RecordGuestCheckoutCompletion(
-      UUID groupCheckoutId,
-      UUID guestStayId,
-      OffsetDateTime completedAt
-    ) implements GroupCheckoutCommand {
+    public void initiateGroupCheckout(InitiateGroupCheckout command) {
+        var groupCheckout = GroupCheckout.initiate(
+                command.groupCheckoutId(), command.clerkId(), command.guestStayIds(), command.now());
+
+        collection.store(command.groupCheckoutId(), groupCheckout);
+        messageBus.publish(groupCheckout.dequeueUncommittedEvents());
     }
 
-    record RecordGuestCheckoutFailure(
-      UUID groupCheckoutId,
-      UUID guestStayId,
-      OffsetDateTime failedAt
-    ) implements GroupCheckoutCommand {
+    public void recordGuestCheckoutCompletion(RecordGuestCheckoutCompletion command) {
+        var groupCheckout = collection.get(command.groupCheckoutId()).orElse(null);
+        if (groupCheckout == null) return;
+
+        groupCheckout.recordGuestCheckoutCompletion(command.guestStayId(), command.completedAt());
+
+        collection.store(command.groupCheckoutId(), groupCheckout);
+        messageBus.publish(groupCheckout.dequeueUncommittedEvents());
     }
-  }
+
+    public void recordGuestCheckoutFailure(RecordGuestCheckoutFailure command) {
+        var groupCheckout = collection.get(command.groupCheckoutId()).orElse(null);
+        if (groupCheckout == null) return;
+
+        groupCheckout.recordGuestCheckoutFailure(command.guestStayId(), command.failedAt());
+
+        collection.store(command.groupCheckoutId(), groupCheckout);
+        messageBus.publish(groupCheckout.dequeueUncommittedEvents());
+    }
+
+    public sealed interface GroupCheckoutCommand {
+        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayIds, OffsetDateTime now)
+                implements GroupCheckoutCommand {}
+
+        record RecordGuestCheckoutCompletion(UUID groupCheckoutId, UUID guestStayId, OffsetDateTime completedAt)
+                implements GroupCheckoutCommand {}
+
+        record RecordGuestCheckoutFailure(UUID groupCheckoutId, UUID guestStayId, OffsetDateTime failedAt)
+                implements GroupCheckoutCommand {}
+    }
 }

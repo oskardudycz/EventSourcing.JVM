@@ -8,37 +8,35 @@ import org.junit.jupiter.api.TestInstance;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class MongoDBTest {
-  protected static MongoClient mongoClient;
-  private static final int maxDatabaseLength = 63;
+    protected static MongoClient mongoClient;
+    private static final int maxDatabaseLength = 63;
 
-  @BeforeAll
-  public void setupConnection() {
-    mongoClient = NativeMongoConfig.createClient();
-  }
+    @BeforeAll
+    public void setupConnection() {
+        mongoClient = NativeMongoConfig.createClient();
+    }
 
-  protected MongoDatabase getFreshDatabase() {
-    var databaseName = StackWalker
-      .getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
-      .getCallerClass()
-      .getName()
-      .replace("io.eventdriven.buildyourowneventstore", "")
-      .replace(".", "-")
-      .toLowerCase();
+    protected MongoDatabase getFreshDatabase() {
+        var databaseName = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
+                .getCallerClass()
+                .getName()
+                .replace("io.eventdriven.buildyourowneventstore", "")
+                .replace(".", "-")
+                .toLowerCase();
 
-    if (databaseName.length() >= maxDatabaseLength)
-      databaseName = databaseName.substring(0, maxDatabaseLength);
+        if (databaseName.length() >= maxDatabaseLength) databaseName = databaseName.substring(0, maxDatabaseLength);
 
-    return getFreshDatabase(databaseName);
-  }
+        return getFreshDatabase(databaseName);
+    }
 
-  protected MongoDatabase getFreshDatabase(String databaseName) {
-    mongoClient.getDatabase(databaseName).drop();
+    protected MongoDatabase getFreshDatabase(String databaseName) {
+        mongoClient.getDatabase(databaseName).drop();
 
-    return mongoClient.getDatabase(databaseName);
-  }
+        return mongoClient.getDatabase(databaseName);
+    }
 
-  @AfterAll
-  public void tearDown() {
-    mongoClient.close();
-  }
+    @AfterAll
+    public void tearDown() {
+        mongoClient.close();
+    }
 }

@@ -4,5 +4,5 @@ import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.m
 import static io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.immutable.app.shoppingcarts.productItems.ProductItems.ProductItem;
 
 public interface ProductPriceCalculator {
-  PricedProductItem calculate(ProductItem productItems);
+    PricedProductItem calculate(ProductItem productItems);
 }

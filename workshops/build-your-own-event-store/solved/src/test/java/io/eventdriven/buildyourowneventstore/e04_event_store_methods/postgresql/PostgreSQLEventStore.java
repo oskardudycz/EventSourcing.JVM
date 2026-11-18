@@ -1,156 +1,130 @@
 package io.eventdriven.buildyourowneventstore.e04_event_store_methods.postgresql;
 
-import tools.jackson.databind.cfg.DateTimeFeature;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
+import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.*;
+
 import io.eventdriven.buildyourowneventstore.EventTypeMapper;
 import io.eventdriven.buildyourowneventstore.JsonEventSerializer;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.EventStore;
 import io.eventdriven.buildyourowneventstore.e04_event_store_methods.StreamName;
-
 import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
-import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.*;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 public class PostgreSQLEventStore implements EventStore {
-  private final Connection dbConnection;
+    private final Connection dbConnection;
 
-  public PostgreSQLEventStore(Connection dbConnection) {
-    this.dbConnection = dbConnection;
-  }
+    public PostgreSQLEventStore(Connection dbConnection) {
+        this.dbConnection = dbConnection;
+    }
 
-  @Override
-  public void init() {
-    executeSql(dbConnection, createStreamsTableSql);
-    executeSql(dbConnection, createEventsTableSql);
-    executeSql(dbConnection, createAppendFunctionSql);
-  }
+    @Override
+    public void init() {
+        executeSql(dbConnection, createStreamsTableSql);
+        executeSql(dbConnection, createEventsTableSql);
+        executeSql(dbConnection, createAppendFunctionSql);
+    }
 
-  @Override
-  public void appendEvents(
-    StreamName streamName,
-    Long expectedStreamPosition,
-    Object... events
-  ) {
+    @Override
+    public void appendEvents(StreamName streamName, Long expectedStreamPosition, Object... events) {
 
-    runInTransaction(dbConnection, connection ->
-    {
-      var ids = Arrays.stream(events)
-        .map(_ -> UUID.randomUUID().toString())
-        .toArray(String[]::new);
+        runInTransaction(dbConnection, connection -> {
+            var ids =
+                    Arrays.stream(events).map(_ -> UUID.randomUUID().toString()).toArray(String[]::new);
 
-      var eventData = Arrays.stream(events)
-        .map(JsonEventSerializer::serialize)
-        .toArray(String[]::new);
+            var eventData =
+                    Arrays.stream(events).map(JsonEventSerializer::serialize).toArray(String[]::new);
 
-      var eventMetadata = Arrays.stream(events)
-        .map(_ -> "{}")
-        .toArray(String[]::new);
+            var eventMetadata = Arrays.stream(events).map(_ -> "{}").toArray(String[]::new);
 
-      var eventTypes = Arrays.stream(events)
-        .map(event -> EventTypeMapper.toName(event.getClass()))
-        .toArray(String[]::new);
+            var eventTypes = Arrays.stream(events)
+                    .map(event -> EventTypeMapper.toName(event.getClass()))
+                    .toArray(String[]::new);
 
-      boolean succeeded = querySingleSql(
-        connection,
-        "SELECT append_event(?::text[], ?::jsonb[], ?::jsonb[], ?::text[], ?::text, ?, ?) AS succeeded",
-        ps -> {
-          setArrayOf(dbConnection, ps, 1, "text", ids);
-          setArrayOf(dbConnection, ps, 2, "jsonb", eventData);
-          setArrayOf(dbConnection, ps, 3, "jsonb", eventMetadata);
-          setArrayOf(dbConnection, ps, 4, "text", eventTypes);
-          setStringParam(ps, 5, streamName.streamId());
-          setStringParam(ps, 6, streamName.streamType());
-          setLong(ps, 7, expectedStreamPosition);
-        },
-        rs -> getBoolean(rs, "succeeded")
-      );
+            boolean succeeded = querySingleSql(
+                    connection,
+                    "SELECT append_event(?::text[], ?::jsonb[], ?::jsonb[], ?::text[], ?::text, ?, ?) AS succeeded",
+                    ps -> {
+                        setArrayOf(dbConnection, ps, 1, "text", ids);
+                        setArrayOf(dbConnection, ps, 2, "jsonb", eventData);
+                        setArrayOf(dbConnection, ps, 3, "jsonb", eventMetadata);
+                        setArrayOf(dbConnection, ps, 4, "text", eventTypes);
+                        setStringParam(ps, 5, streamName.streamId());
+                        setStringParam(ps, 6, streamName.streamType());
+                        setLong(ps, 7, expectedStreamPosition);
+                    },
+                    rs -> getBoolean(rs, "succeeded"));
 
-      if (!succeeded)
-        throw new IllegalStateException("Expected stream position did not match the current stream position!");
+            if (!succeeded)
+                throw new IllegalStateException("Expected stream position did not match the current stream position!");
+        });
+    }
 
-    });
-  }
+    @Override
+    public List<Object> getEvents(StreamName streamName, Long atStreamPosition, LocalDateTime atTimestamp) {
+        var atStreamCondition = atStreamPosition != null ? "AND stream_position <= ?" : "";
+        var atTimestampCondition = atTimestamp != null ? "AND created <= ?" : "";
 
-  @Override
-  public List<Object> getEvents(
-    StreamName streamName,
-    Long atStreamPosition,
-    LocalDateTime atTimestamp
-  ) {
-    var atStreamCondition = atStreamPosition != null ? "AND stream_position <= ?" : "";
-    var atTimestampCondition = atTimestamp != null ? "AND created <= ?" : "";
-
-    var getStreamSql = """
+        var getStreamSql = """
       SELECT id, data, stream_id, type, stream_position, created
       FROM events
       WHERE stream_id = ?
-      """
-      + atStreamCondition
-      + atTimestampCondition
-      + " ORDER BY stream_position";
+      """ + atStreamCondition + atTimestampCondition + " ORDER BY stream_position";
 
-    var events = querySql(
-      dbConnection,
-      getStreamSql,
-      ps -> {
-        var index = 1;
-        setStringParam(ps, index++, streamName.streamId());
-        if (atStreamPosition != null)
-          setLong(ps, index++, atStreamPosition);
-        if (atTimestamp != null)
-          setLocalDateTime(ps, index, atTimestamp);
-      },
-      rs -> {
-        var eventTypeName = getString(rs, "type");
-        return deserialize(
-          EventTypeMapper.toClass(eventTypeName).get(),
-          eventTypeName,
-          getString(rs, "data")
-        ).get();
-      }
-    );
+        var events = querySql(
+                dbConnection,
+                getStreamSql,
+                ps -> {
+                    var index = 1;
+                    setStringParam(ps, index++, streamName.streamId());
+                    if (atStreamPosition != null) setLong(ps, index++, atStreamPosition);
+                    if (atTimestamp != null) setLocalDateTime(ps, index, atTimestamp);
+                },
+                rs -> {
+                    var eventTypeName = getString(rs, "type");
+                    return deserialize(
+                                    EventTypeMapper.toClass(eventTypeName).get(), eventTypeName, getString(rs, "data"))
+                            .get();
+                });
 
-    // TODO: This should read the position from Streams table
-    return events;
-  }
-
-  public static final ObjectMapper mapper =
-    JsonMapper.builder()
-      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-      .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-      .build();
-
-  public static String serialize(Object event) {
-    try {
-      return mapper.writeValueAsString(event);
-    } catch (JacksonException e) {
-      throw new RuntimeException(e);
+        // TODO: This should read the position from Streams table
+        return events;
     }
-  }
 
-  public static <Event> Optional<Event> deserialize(Class<Event> eventClass, String eventType, String payload) {
-    try {
+    public static final ObjectMapper mapper = JsonMapper.builder()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+            .build();
 
-      var result = mapper.readValue(payload, eventClass);
-
-      if (result == null)
-        return Optional.empty();
-
-      return Optional.of(result);
-    } catch (JacksonException e) {
-      return Optional.empty();
+    public static String serialize(Object event) {
+        try {
+            return mapper.writeValueAsString(event);
+        } catch (JacksonException e) {
+            throw new RuntimeException(e);
+        }
     }
-  }
 
-  private final String createStreamsTableSql = """
+    public static <Event> Optional<Event> deserialize(Class<Event> eventClass, String eventType, String payload) {
+        try {
+
+            var result = mapper.readValue(payload, eventClass);
+
+            if (result == null) return Optional.empty();
+
+            return Optional.of(result);
+        } catch (JacksonException e) {
+            return Optional.empty();
+        }
+    }
+
+    private final String createStreamsTableSql = """
     CREATE TABLE IF NOT EXISTS streams(
         id               TEXT                      NOT NULL    PRIMARY KEY,
         type             TEXT                      NOT NULL,
@@ -158,7 +132,7 @@ public class PostgreSQLEventStore implements EventStore {
     );
     """;
 
-  private final String createEventsTableSql = """
+    private final String createEventsTableSql = """
     CREATE SEQUENCE IF NOT EXISTS global_event_position;
 
     CREATE TABLE IF NOT EXISTS events(
@@ -175,7 +149,7 @@ public class PostgreSQLEventStore implements EventStore {
     );
     """;
 
-  private final String createAppendFunctionSql = """
+    private final String createAppendFunctionSql = """
     CREATE OR REPLACE FUNCTION append_event(
         ids_array TEXT[],
         data_array jsonb[],

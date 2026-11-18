@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+set -eu
+
+staged=$(git diff --cached --name-only --diff-filter=ACM -- '*.java')
+[ -z "$staged" ] && exit 0
+
+builds=$(printf '%s\n' "$staged" | while IFS= read -r file; do
+  directory=$(dirname "$file")
+  while [ "$directory" != . ] && [ ! -f "$directory/gradlew" ]; do
+    directory=$(dirname "$directory")
+  done
+  if [ "$directory" != . ]; then
+    echo "$directory"
+  fi
+done | sort -u)
+
+for build in $builds; do
+  echo "pre-commit: formatting $build with Spotless..."
+  (cd "$build" && ./gradlew spotlessApply --quiet)
+done
+
+printf '%s\n' "$staged" | while IFS= read -r file; do
+  git add -- "$file"
+done

@@ -4,5 +4,5 @@ import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurre
 import static io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.postgresql.immutable.app.shoppingcarts.productItems.ProductItems.ProductItem;
 
 public interface ProductPriceCalculator {
-  PricedProductItem calculate(ProductItem productItems);
+    PricedProductItem calculate(ProductItem productItems);
 }

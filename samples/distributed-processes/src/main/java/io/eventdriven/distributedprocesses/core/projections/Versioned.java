@@ -1,7 +1,7 @@
 package io.eventdriven.distributedprocesses.core.projections;
 
 public interface Versioned {
-  long getVersion();
+    long getVersion();
 
-  void setVersion(long version);
+    void setVersion(long version);
 }

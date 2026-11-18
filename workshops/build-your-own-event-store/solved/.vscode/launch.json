@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Debug Current Test",
+      "request": "launch",
+      "mainClass": "${file}",
+      "projectName": "build-your-own-event-store-solved"
+    },
+    {
+      "type": "java",
+      "name": "Attach to Gradle Test",
+      "request": "attach",
+      "hostName": "localhost",
+      "port": 5005
+    }
+  ]
+}

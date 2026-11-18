@@ -1,47 +1,39 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_kafka.core.versioning;
 
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 public class MessageTransformations {
-  private final Map<String, MessageTransformer> transformations = new HashMap<>();
+    private final Map<String, MessageTransformer> transformations = new HashMap<>();
 
-  public MessageTransformations(List<MessageTransformation> messageTransformations) {
-    for (var transformation : messageTransformations) {
-      register(transformation);
+    public MessageTransformations(List<MessageTransformation> messageTransformations) {
+        for (var transformation : messageTransformations) {
+            register(transformation);
+        }
     }
-  }
 
-  public Optional<Object> tryTransform(ObjectMapper objectMapper, String messageTypeName, byte[] json) {
-    return Optional
-      .ofNullable(transformations.get(messageTypeName))
-      .map(t -> t.transform(json, objectMapper));
-  }
+    public Optional<Object> tryTransform(ObjectMapper objectMapper, String messageTypeName, byte[] json) {
+        return Optional.ofNullable(transformations.get(messageTypeName)).map(t -> t.transform(json, objectMapper));
+    }
 
-  public MessageTransformations register(MessageTransformation transformation) {
-    transformations.put(transformation.messageTypeName(), transformation.transformer());
+    public MessageTransformations register(MessageTransformation transformation) {
+        transformations.put(transformation.messageTypeName(), transformation.transformer());
 
-    return this;
-  }
+        return this;
+    }
 
-  public <Message> MessageTransformations register(
-    String messageTypeName,
-    Function<JsonNode, Message> transformJson
-  ) {
-    return register(MessageTransformation.from(messageTypeName, transformJson));
-  }
+    public <Message> MessageTransformations register(
+            String messageTypeName, Function<JsonNode, Message> transformJson) {
+        return register(MessageTransformation.from(messageTypeName, transformJson));
+    }
 
-  public <OldMessage, Message> MessageTransformations register(
-    Class<OldMessage> oldMessageClass,
-    String messageTypeName,
-    Function<OldMessage, Message> transformMessage
-  ) {
-    return register(MessageTransformation.from(oldMessageClass, messageTypeName, transformMessage));
-  }
+    public <OldMessage, Message> MessageTransformations register(
+            Class<OldMessage> oldMessageClass, String messageTypeName, Function<OldMessage, Message> transformMessage) {
+        return register(MessageTransformation.from(oldMessageClass, messageTypeName, transformMessage));
+    }
 }

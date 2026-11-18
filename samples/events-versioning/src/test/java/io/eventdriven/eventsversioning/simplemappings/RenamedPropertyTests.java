@@ -1,56 +1,50 @@
 package io.eventdriven.eventsversioning.simplemappings;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.eventdriven.eventsversioning.serialization.Serializer;
 import io.eventdriven.eventsversioning.v1.ShoppingCartEvent;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-
 public class RenamedPropertyTests {
-  record ShoppingCartOpened(
-    @JsonProperty("shoppingCartId") UUID cartId,
-    UUID clientId
-  ) implements ShoppingCartEvent {
-  }
+    record ShoppingCartOpened(
+            @JsonProperty("shoppingCartId") UUID cartId, UUID clientId) implements ShoppingCartEvent {}
 
-  @Test
-  public void Should_BeForwardCompatible()
-  {
-    // Given
-    var oldEvent = new ShoppingCartEvent.ShoppingCartOpened(UUID.randomUUID(), UUID.randomUUID());
-    var bytes = Serializer.serialize(oldEvent);
+    @Test
+    public void Should_BeForwardCompatible() {
+        // Given
+        var oldEvent = new ShoppingCartEvent.ShoppingCartOpened(UUID.randomUUID(), UUID.randomUUID());
+        var bytes = Serializer.serialize(oldEvent);
 
-    // When
-    var result = Serializer.deserialize(ShoppingCartOpened.class, bytes);
+        // When
+        var result = Serializer.deserialize(ShoppingCartOpened.class, bytes);
 
-    // Then
-    assertTrue(result.isPresent());
+        // Then
+        assertTrue(result.isPresent());
 
-    var event = result.get();
+        var event = result.get();
 
-    assertEquals(oldEvent.shoppingCartId(), event.cartId());
-    assertEquals(oldEvent.clientId(), event.clientId());
-  }
+        assertEquals(oldEvent.shoppingCartId(), event.cartId());
+        assertEquals(oldEvent.clientId(), event.clientId());
+    }
 
-  @Test
-  public void Should_BeBackwardCompatible()
-  {
-    // Given
-    var event = new ShoppingCartOpened(UUID.randomUUID(), UUID.randomUUID());
-    var bytes = Serializer.serialize(event);
+    @Test
+    public void Should_BeBackwardCompatible() {
+        // Given
+        var event = new ShoppingCartOpened(UUID.randomUUID(), UUID.randomUUID());
+        var bytes = Serializer.serialize(event);
 
-    // When
-    var result = Serializer.deserialize(ShoppingCartEvent.ShoppingCartOpened.class, bytes);
+        // When
+        var result = Serializer.deserialize(ShoppingCartEvent.ShoppingCartOpened.class, bytes);
 
-    // Then
-    assertTrue(result.isPresent());
+        // Then
+        assertTrue(result.isPresent());
 
-    var oldEvent = result.get();
+        var oldEvent = result.get();
 
-    assertEquals(event.cartId(), oldEvent.shoppingCartId());
-    assertEquals(event.clientId(), oldEvent.clientId());
-  }
+        assertEquals(event.cartId(), oldEvent.shoppingCartId());
+        assertEquals(event.clientId(), oldEvent.clientId());
+    }
 }

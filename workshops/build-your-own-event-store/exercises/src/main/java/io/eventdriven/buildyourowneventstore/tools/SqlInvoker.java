@@ -3,10 +3,8 @@ package io.eventdriven.buildyourowneventstore.tools;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 public final class SqlInvoker {
     public static void exectuteSql(Connection dbConnection, String sql) {
@@ -18,20 +16,15 @@ public final class SqlInvoker {
     }
 
     public static <Result> ArrayList<Result> querySql(
-        Connection dbConnection,
-        String sql,
-        Function<ResultSet, Result> map
-    ) {
-        return querySql(dbConnection, sql, ps -> {
-        }, map);
+            Connection dbConnection, String sql, Function<ResultSet, Result> map) {
+        return querySql(dbConnection, sql, ps -> {}, map);
     }
 
     public static <Result> ArrayList<Result> querySql(
-        Connection dbConnection,
-        String sql,
-        Consumer<PreparedStatement> setParams,
-        Function<ResultSet, Result> map
-    ) {
+            Connection dbConnection,
+            String sql,
+            Consumer<PreparedStatement> setParams,
+            Function<ResultSet, Result> map) {
         try (var st = dbConnection.prepareStatement(sql)) {
             setParams.accept(st);
             var results = new ArrayList<Result>();
@@ -46,10 +39,7 @@ public final class SqlInvoker {
         }
     }
 
-    public static void runInTransaction(
-        Connection dbConnection,
-        Consumer<Connection> callback
-    ) {
+    public static void runInTransaction(Connection dbConnection, Consumer<Connection> callback) {
         try {
             dbConnection.setAutoCommit(false);
             callback.accept(dbConnection);
@@ -64,21 +54,15 @@ public final class SqlInvoker {
         }
     }
 
-    public static <Result> Result querySingleSql(
-        Connection dbConnection,
-        String sql,
-        Function<ResultSet, Result> map
-    ) {
-        return querySingleSql(dbConnection, sql, ps -> {
-        }, map);
+    public static <Result> Result querySingleSql(Connection dbConnection, String sql, Function<ResultSet, Result> map) {
+        return querySingleSql(dbConnection, sql, ps -> {}, map);
     }
 
     public static <Result> Result querySingleSql(
-        Connection dbConnection,
-        String sql,
-        Consumer<PreparedStatement> setParams,
-        Function<ResultSet, Result> map
-    ) {
+            Connection dbConnection,
+            String sql,
+            Consumer<PreparedStatement> setParams,
+            Function<ResultSet, Result> map) {
         try (var st = dbConnection.prepareStatement(sql)) {
             setParams.accept(st);
             try (var rs = st.executeQuery()) {

@@ -1,61 +1,55 @@
 package io.eventdriven.buildyourowneventstore.e02_append_events.postgresql.single_event;
 
-import io.eventdriven.buildyourowneventstore.EventTypeMapper;
-import io.eventdriven.buildyourowneventstore.e02_append_events.EventStore;
-
-import java.sql.Connection;
-import java.util.UUID;
-
 import static io.eventdriven.buildyourowneventstore.JsonEventSerializer.serialize;
 import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.*;
 
+import io.eventdriven.buildyourowneventstore.EventTypeMapper;
+import io.eventdriven.buildyourowneventstore.e02_append_events.EventStore;
+import java.sql.Connection;
+import java.util.UUID;
+
 public class PostgreSQLEventStore implements EventStore {
-  private final Connection dbConnection;
+    private final Connection dbConnection;
 
-  public PostgreSQLEventStore(Connection dbConnection) {
-    this.dbConnection = dbConnection;
-  }
+    public PostgreSQLEventStore(Connection dbConnection) {
+        this.dbConnection = dbConnection;
+    }
 
-  @Override
-  public void init() {
-    executeSql(dbConnection, createStreamsTableSql);
-    executeSql(dbConnection, createEventsTableSql);
-    executeSql(dbConnection, createAppendFunctionSql);
-  }
+    @Override
+    public void init() {
+        executeSql(dbConnection, createStreamsTableSql);
+        executeSql(dbConnection, createEventsTableSql);
+        executeSql(dbConnection, createAppendFunctionSql);
+    }
 
-  @Override
-  public <Stream> void appendEvents(
-    Class<Stream> streamClass,
-    String streamId,
-    Long expectedStreamPosition,
-    Object... events
-  ) {
+    @Override
+    public <Stream> void appendEvents(
+            Class<Stream> streamClass, String streamId, Long expectedStreamPosition, Object... events) {
 
-    runInTransaction(dbConnection, connection ->
-    {
-      for (var event : events) {
-        boolean succeeded = querySingleSql(
-          connection,
-          "SELECT append_event(?::TEXT, ?::jsonb, ?::jsonb, ?, ?::TEXT, ?, ?) AS succeeded",
-          ps -> {
-            setStringParam(ps, 1, UUID.randomUUID().toString());
-            setStringParam(ps, 2, serialize(event));
-            setStringParam(ps, 3, "{}");
-            setStringParam(ps, 4, EventTypeMapper.toName(event.getClass()));
-            setStringParam(ps, 5, streamId);
-            setStringParam(ps, 6, streamClass.getTypeName());
-            setLong(ps, 7, expectedStreamPosition);
-          },
-          rs -> getBoolean(rs, "succeeded")
-        );
+        runInTransaction(dbConnection, connection -> {
+            for (var event : events) {
+                boolean succeeded = querySingleSql(
+                        connection,
+                        "SELECT append_event(?::TEXT, ?::jsonb, ?::jsonb, ?, ?::TEXT, ?, ?) AS succeeded",
+                        ps -> {
+                            setStringParam(ps, 1, UUID.randomUUID().toString());
+                            setStringParam(ps, 2, serialize(event));
+                            setStringParam(ps, 3, "{}");
+                            setStringParam(ps, 4, EventTypeMapper.toName(event.getClass()));
+                            setStringParam(ps, 5, streamId);
+                            setStringParam(ps, 6, streamClass.getTypeName());
+                            setLong(ps, 7, expectedStreamPosition);
+                        },
+                        rs -> getBoolean(rs, "succeeded"));
 
-        if (!succeeded)
-          throw new IllegalStateException("Expected stream position did not match the current stream position!");
-      }
-    });
-  }
+                if (!succeeded)
+                    throw new IllegalStateException(
+                            "Expected stream position did not match the current stream position!");
+            }
+        });
+    }
 
-  private final String createStreamsTableSql = """
+    private final String createStreamsTableSql = """
     CREATE TABLE IF NOT EXISTS streams(
         id               TEXT                      NOT NULL    PRIMARY KEY,
         type             TEXT                      NOT NULL,
@@ -63,7 +57,7 @@ public class PostgreSQLEventStore implements EventStore {
     );
     """;
 
-  private final String createEventsTableSql = """
+    private final String createEventsTableSql = """
     CREATE SEQUENCE IF NOT EXISTS global_event_position;
 
     CREATE TABLE IF NOT EXISTS events(
@@ -80,7 +74,7 @@ public class PostgreSQLEventStore implements EventStore {
     );
     """;
 
-  private final String createAppendFunctionSql = """
+    private final String createAppendFunctionSql = """
     CREATE OR REPLACE FUNCTION append_event(
         id TEXT,
         data jsonb,

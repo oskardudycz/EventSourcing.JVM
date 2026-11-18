@@ -1,110 +1,99 @@
 package io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core;
 
-import tools.jackson.databind.cfg.DateTimeFeature;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 public class EventStore {
-  private final Map<String, List<Consumer<Object>>> handlers = new ConcurrentHashMap<>();
-  private final List<Consumer<Object>> middlewares = new ArrayList<>();
-  private final Map<String, List<EventEnvelope>> events = new HashMap<>();
+    private final Map<String, List<Consumer<Object>>> handlers = new ConcurrentHashMap<>();
+    private final List<Consumer<Object>> middlewares = new ArrayList<>();
+    private final Map<String, List<EventEnvelope>> events = new HashMap<>();
 
-  public void appendToStream(String streamId, Object[] toAppend) {
-    events.compute(streamId, (stream, events) -> {
-      if (events == null)
-        events = new ArrayList<>();
+    public void appendToStream(String streamId, Object[] toAppend) {
+        events.compute(streamId, (stream, events) -> {
+            if (events == null) events = new ArrayList<>();
 
-      events.addAll(
-        Arrays.stream(toAppend)
-          .map(e -> {
-            try {
-              return new EventEnvelope(e.getClass().getTypeName(), mapper.writeValueAsString(e));
-            } catch (JacksonException ex) {
-              throw new RuntimeException(ex);
-            }
-          }).toList()
-      );
+            events.addAll(Arrays.stream(toAppend)
+                    .map(e -> {
+                        try {
+                            return new EventEnvelope(e.getClass().getTypeName(), mapper.writeValueAsString(e));
+                        } catch (JacksonException ex) {
+                            throw new RuntimeException(ex);
+                        }
+                    })
+                    .toList());
 
-      return events;
-    });
+            return events;
+        });
 
-    for (Object event : toAppend) {
-      for (var middleware : middlewares)
-        middleware.accept(event);
+        for (Object event : toAppend) {
+            for (var middleware : middlewares) middleware.accept(event);
 
-      var eventHandlers = handlers.get(event.getClass().getTypeName());
+            var eventHandlers = handlers.get(event.getClass().getTypeName());
 
-      if (eventHandlers != null)
-        for (var handle : eventHandlers) {
-          handle.accept(event);
+            if (eventHandlers != null)
+                for (var handle : eventHandlers) {
+                    handle.accept(event);
+                }
         }
     }
-  }
 
-  public <State, Event> State aggregateStream(
-    String streamId,
-    BiFunction<State, Event, State> evolve,
-    Supplier<State> getInitial
-  ) {
-    var events = readStream(streamId);
+    public <State, Event> State aggregateStream(
+            String streamId, BiFunction<State, Event, State> evolve, Supplier<State> getInitial) {
+        var events = readStream(streamId);
 
-    var state = getInitial.get();
+        var state = getInitial.get();
 
-    for (var event : events) {
-      state = evolve.apply(state, (Event) event);
+        for (var event : events) {
+            state = evolve.apply(state, (Event) event);
+        }
+
+        return state;
     }
 
-    return state;
-  }
+    public List<Object> readStream(String streamId) {
+        return events.getOrDefault(streamId, new ArrayList<>()).stream()
+                .map(eventEnvelope -> {
+                    try {
+                        var eventClass = Class.forName(eventEnvelope.eventType);
+                        return (Object) mapper.readValue(eventEnvelope.json, eventClass);
+                    } catch (JacksonException | ClassNotFoundException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .toList();
+    }
 
-  public List<Object> readStream(String streamId) {
-    return events.getOrDefault(streamId, new ArrayList<>()).stream().map(eventEnvelope -> {
-      try {
-        var eventClass = Class.forName(eventEnvelope.eventType);
-        return (Object) mapper.readValue(eventEnvelope.json, eventClass);
-      } catch (JacksonException | ClassNotFoundException e) {
-        throw new RuntimeException(e);
-      }
-    }).toList();
-  }
+    public <Event> EventStore subscribe(Class<Event> eventClass, Consumer<Event> handler) {
+        handlers.compute(eventClass.getTypeName(), (eventType, consumers) -> {
+            if (consumers == null) consumers = new ArrayList<>();
 
-  public <Event> EventStore subscribe(Class<Event> eventClass, Consumer<Event> handler) {
-    handlers.compute(eventClass.getTypeName(), (eventType, consumers) -> {
-      if (consumers == null)
-        consumers = new ArrayList<>();
+            consumers.add(event -> handler.accept(eventClass.cast(event)));
 
-      consumers.add(
-        event -> handler.accept(eventClass.cast(event))
-      );
+            return consumers;
+        });
 
-      return consumers;
-    });
+        return this;
+    }
 
-    return this;
-  }
+    public void use(Consumer<Object> middleware) {
+        middlewares.add(middleware);
+    }
 
-  public void use(Consumer<Object> middleware) {
-    middlewares.add(middleware);
-  }
+    record EventEnvelope(String eventType, String json) {}
 
-
-  record EventEnvelope(String eventType, String json) {
-  }
-
-  private static final ObjectMapper mapper =
-    JsonMapper.builder()
-      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-      .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-      .configure(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
-      .changeDefaultVisibility(visibility -> visibility.withFieldVisibility(JsonAutoDetect.Visibility.ANY))
-      .build();
+    private static final ObjectMapper mapper = JsonMapper.builder()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+            .configure(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
+            .changeDefaultVisibility(visibility -> visibility.withFieldVisibility(JsonAutoDetect.Visibility.ANY))
+            .build();
 }

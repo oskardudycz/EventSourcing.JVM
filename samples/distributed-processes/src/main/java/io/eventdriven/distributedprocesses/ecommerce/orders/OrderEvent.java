@@ -4,108 +4,55 @@ import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProdu
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
-
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public sealed interface OrderEvent {
-  record OrderPlaced(
-    OrderId orderId,
-    ShoppingCartId cartId,
-    UUID customerId,
-    PricedProductItem[] productItems,
-    double totalPrice,
-    OffsetDateTime placedAt
-  ) implements OrderEvent {
-  }
+    record OrderPlaced(
+            OrderId orderId,
+            ShoppingCartId cartId,
+            UUID customerId,
+            PricedProductItem[] productItems,
+            double totalPrice,
+            OffsetDateTime placedAt)
+            implements OrderEvent {}
 
-  record OrderPaymentAuthorized(
-    OrderId orderId,
-    PaymentId paymentId,
-    OffsetDateTime authorizedAt
-  ) implements OrderEvent {
-  }
+    record OrderPaymentAuthorized(OrderId orderId, PaymentId paymentId, OffsetDateTime authorizedAt)
+            implements OrderEvent {}
 
-  record OrderStockReserved(
-    OrderId orderId,
-    ShipmentId shipmentId,
-    OffsetDateTime reservedAt
-  ) implements OrderEvent {
-  }
+    record OrderStockReserved(OrderId orderId, ShipmentId shipmentId, OffsetDateTime reservedAt)
+            implements OrderEvent {}
 
-  record OrderConfirmed(
-    OrderId orderId,
-    PaymentId paymentId,
-    ShipmentId shipmentId,
-    OffsetDateTime confirmedAt
-  ) implements OrderEvent {
-  }
+    record OrderConfirmed(OrderId orderId, PaymentId paymentId, ShipmentId shipmentId, OffsetDateTime confirmedAt)
+            implements OrderEvent {}
 
-  record OrderPaymentCaptured(
-    OrderId orderId,
-    PaymentId paymentId,
-    double amount,
-    OffsetDateTime capturedAt
-  ) implements OrderEvent {
-  }
+    record OrderPaymentCaptured(OrderId orderId, PaymentId paymentId, double amount, OffsetDateTime capturedAt)
+            implements OrderEvent {}
 
-  record OrderPackageSent(
-    OrderId orderId,
-    String carrier,
-    String trackingNumber,
-    OffsetDateTime sentAt
-  ) implements OrderEvent {
-  }
+    record OrderPackageSent(OrderId orderId, String carrier, String trackingNumber, OffsetDateTime sentAt)
+            implements OrderEvent {}
 
-  record OrderPaymentDue(
-    OrderId orderId,
-    PaymentId paymentId,
-    OffsetDateTime dueAt
-  ) implements OrderEvent {
-  }
+    record OrderPaymentDue(OrderId orderId, PaymentId paymentId, OffsetDateTime dueAt) implements OrderEvent {}
 
-  record OrderPaymentFailed(
-    OrderId orderId,
-    OffsetDateTime failedAt,
-    OffsetDateTime dueAt
-  ) implements OrderEvent {
-  }
+    record OrderPaymentFailed(OrderId orderId, OffsetDateTime failedAt, OffsetDateTime dueAt) implements OrderEvent {}
 
-  record OrderShipmentFailed(
-    OrderId orderId,
-    OrderCancellationReason reason,
-    OffsetDateTime failedAt
-  ) implements OrderEvent {
-  }
+    record OrderShipmentFailed(OrderId orderId, OrderCancellationReason reason, OffsetDateTime failedAt)
+            implements OrderEvent {}
 
-  record OrderPaymentRetried(
-    OrderId orderId,
-    PaymentId paymentId,
-    double amount,
-    OffsetDateTime retriedAt
-  ) implements OrderEvent {
-  }
+    record OrderPaymentRetried(OrderId orderId, PaymentId paymentId, double amount, OffsetDateTime retriedAt)
+            implements OrderEvent {}
 
-  record OrderClosedUnpaid(
-    OrderId orderId,
-    OffsetDateTime closedAt
-  ) implements OrderEvent {
-  }
+    record OrderClosedUnpaid(OrderId orderId, OffsetDateTime closedAt) implements OrderEvent {}
 
-  record OrderCompleted(
-    OrderId orderId,
-    OffsetDateTime completedAt
-  ) implements OrderEvent {
-  }
+    record OrderCompleted(OrderId orderId, OffsetDateTime completedAt) implements OrderEvent {}
 
-  record OrderCanceled(
-    OrderId orderId,
-    PaymentId paymentId, // nullable — an order canceled before the authorisation has none
-    OrderPaymentStatus paymentStatus,
-    ShipmentId shipmentId, // nullable — an order canceled before the reservation has none
-    OrderShipmentStatus shipmentStatus,
-    OrderCancellationReason reason,
-    OffsetDateTime canceledAt
-  ) implements OrderEvent {
-  }
+    record OrderCanceled(
+            OrderId orderId,
+            PaymentId paymentId, // nullable — an order canceled before the authorisation has none
+            OrderPaymentStatus paymentStatus,
+            ShipmentId shipmentId, // nullable — an order canceled before the reservation has none
+            OrderShipmentStatus shipmentStatus,
+            OrderCancellationReason reason,
+            OffsetDateTime canceledAt)
+            implements OrderEvent {}
 }

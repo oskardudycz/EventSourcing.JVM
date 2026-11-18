@@ -1,5 +1,12 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbitmq.core;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.amqp.AmqpException;
@@ -15,66 +22,63 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.TestPropertySource;
 
-import java.time.Duration;
-import java.util.List;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.awaitility.Awaitility.await;
-
 @SpringBootTest(classes = RabbitMQSagaTestApplication.class)
-@TestPropertySource(properties = {
-  "app.rabbitmq.exchange=publishing",
-  "app.rabbitmq.publish-timeout=5s"
-})
+@TestPropertySource(properties = {"app.rabbitmq.exchange=publishing", "app.rabbitmq.publish-timeout=5s"})
 @AutoConfigureTracing
 @ExtendWith(OutputCaptureExtension.class)
 public class RabbitMQPublishTest {
-  public record RoomInspected(String id) {
-  }
+    public record RoomInspected(String id) {}
 
-  private static final Duration PUBLISH_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration PUBLISH_TIMEOUT = Duration.ofSeconds(5);
 
-  @Autowired
-  private RabbitMQMessageBus messageBus;
-  @Autowired
-  private AmqpAdmin amqpAdmin;
-  @Autowired
-  private RabbitTemplate rabbitTemplate;
+    @Autowired
+    private RabbitMQMessageBus messageBus;
 
-  @Autowired
-  private RabbitMQMessageBusProperties properties;
+    @Autowired
+    private AmqpAdmin amqpAdmin;
 
-  @Test
-  public void messages_AreRoutedByTheirTypeName() {
-    var queue = amqpAdmin.declareQueue();
-    amqpAdmin.declareBinding(BindingBuilder.bind(queue).to(new TopicExchange(properties.exchange())).with(RoomInspected.class.getName()));
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
 
-    var message = new RoomInspected(UUID.randomUUID().toString());
-    messageBus.publish(List.of(message));
+    @Autowired
+    private RabbitMQMessageBusProperties properties;
 
-    assertThat(rabbitTemplate.receiveAndConvert(queue.getName(), 5000)).isEqualTo(message);
-  }
+    @Test
+    public void messages_AreRoutedByTheirTypeName() {
+        var queue = amqpAdmin.declareQueue();
+        amqpAdmin.declareBinding(BindingBuilder.bind(queue)
+                .to(new TopicExchange(properties.exchange()))
+                .with(RoomInspected.class.getName()));
 
-  @Test
-  public void publishingToAnExchangeThatDoesNotExist_Fails(CapturedOutput output) {
-    amqpAdmin.deleteExchange(properties.exchange());
+        var message = new RoomInspected(UUID.randomUUID().toString());
+        messageBus.publish(List.of(message));
 
-    try {
-      var startedAt = System.nanoTime();
-
-      assertThatThrownBy(() -> messageBus.publish(List.of(new RoomInspected(UUID.randomUUID().toString()))))
-        .isInstanceOf(AmqpException.class)
-        .hasMessageContaining("NOT_FOUND - no exchange '" + properties.exchange() + "'");
-
-      assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(PUBLISH_TIMEOUT);
-      await().atMost(Duration.ofSeconds(5)).untilAsserted(() ->
-        assertThat(output).contains("Shutdown Signal: channel error; protocol method: #method<channel.close>(reply-code=404")
-      );
-    } finally {
-      amqpAdmin.declareExchange(new TopicExchange(properties.exchange()));
-      amqpAdmin.declareBinding(BindingBuilder.bind(new Queue(properties.exchange() + "-saga")).to(new TopicExchange(properties.exchange())).with("#"));
+        assertThat(rabbitTemplate.receiveAndConvert(queue.getName(), 5000)).isEqualTo(message);
     }
-  }
+
+    @Test
+    public void publishingToAnExchangeThatDoesNotExist_Fails(CapturedOutput output) {
+        amqpAdmin.deleteExchange(properties.exchange());
+
+        try {
+            var startedAt = System.nanoTime();
+
+            assertThatThrownBy(() -> messageBus.publish(
+                            List.of(new RoomInspected(UUID.randomUUID().toString()))))
+                    .isInstanceOf(AmqpException.class)
+                    .hasMessageContaining("NOT_FOUND - no exchange '" + properties.exchange() + "'");
+
+            assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(PUBLISH_TIMEOUT);
+            await().atMost(Duration.ofSeconds(5))
+                    .untilAsserted(
+                            () -> assertThat(output)
+                                    .contains(
+                                            "Shutdown Signal: channel error; protocol method: #method<channel.close>(reply-code=404"));
+        } finally {
+            amqpAdmin.declareExchange(new TopicExchange(properties.exchange()));
+            amqpAdmin.declareBinding(BindingBuilder.bind(new Queue(properties.exchange() + "-saga"))
+                    .to(new TopicExchange(properties.exchange()))
+                    .with("#"));
+        }
+    }
 }

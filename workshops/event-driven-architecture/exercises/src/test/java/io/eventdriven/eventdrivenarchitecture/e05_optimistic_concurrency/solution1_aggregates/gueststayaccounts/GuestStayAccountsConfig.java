@@ -3,11 +3,8 @@ package io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.soluti
 import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.core.MessageBus;
 
 public final class GuestStayAccountsConfig {
-  public static void configureGuestStayAccounts(
-    MessageBus messageBus,
-    GuestStayAccountFacade guestStayFacade
-  )
-  {
-    messageBus.subscribe(GuestStayAccountFacade.GuestStayAccountCommand.CheckOutGuest.class, guestStayFacade::checkOutGuest);
-  }
+    public static void configureGuestStayAccounts(MessageBus messageBus, GuestStayAccountFacade guestStayFacade) {
+        messageBus.subscribe(
+                GuestStayAccountFacade.GuestStayAccountCommand.CheckOutGuest.class, guestStayFacade::checkOutGuest);
+    }
 }

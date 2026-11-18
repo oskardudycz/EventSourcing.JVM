@@ -7,19 +7,19 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class GroupCheckoutMessageTypeMapping {
 
-  @Bean
-  public MessageMapping groupCheckoutMessageMapping() {
-    return new MessageMapping();
-    // TODO: Register message type mappings and transformations for this module
-    // Example for current schema:
-    //   .register("checkout-initiated", GuestCheckoutInitiated.class)
-    //   .register("checkout-completed", GuestCheckoutCompleted.class)
-    //
-    // Example for old schema transformation:
-    //   .register(
-    //     "checkout-started-v1",
-    //     OldGuestCheckoutStarted.class,
-    //     old -> new GuestCheckoutInitiated(old.id(), old.timestamp())
-    //   )
-  }
+    @Bean
+    public MessageMapping groupCheckoutMessageMapping() {
+        return new MessageMapping();
+        // TODO: Register message type mappings and transformations for this module
+        // Example for current schema:
+        //   .register("checkout-initiated", GuestCheckoutInitiated.class)
+        //   .register("checkout-completed", GuestCheckoutCompleted.class)
+        //
+        // Example for old schema transformation:
+        //   .register(
+        //     "checkout-started-v1",
+        //     OldGuestCheckoutStarted.class,
+        //     old -> new GuestCheckoutInitiated(old.id(), old.timestamp())
+        //   )
+    }
 }

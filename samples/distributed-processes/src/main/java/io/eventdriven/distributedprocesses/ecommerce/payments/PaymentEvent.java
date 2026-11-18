@@ -4,65 +4,30 @@ import java.net.URI;
 import java.time.OffsetDateTime;
 
 public sealed interface PaymentEvent {
-  record PaymentAuthorizationRequested(
-    PaymentId paymentId,
-    String referenceId,
-    double amount,
-    OffsetDateTime requestedAt,
-    OffsetDateTime timesOutAt
-  ) implements PaymentEvent {
-  }
+    record PaymentAuthorizationRequested(
+            PaymentId paymentId,
+            String referenceId,
+            double amount,
+            OffsetDateTime requestedAt,
+            OffsetDateTime timesOutAt)
+            implements PaymentEvent {}
 
-  record CheckoutSessionCreated(
-    PaymentId paymentId,
-    URI url,
-    OffsetDateTime expiresAt
-  ) implements PaymentEvent {
-  }
+    record CheckoutSessionCreated(PaymentId paymentId, URI url, OffsetDateTime expiresAt) implements PaymentEvent {}
 
-  record PaymentAuthorized(
-    PaymentId paymentId,
-    OffsetDateTime authorizedAt,
-    OffsetDateTime captureBefore
-  ) implements PaymentEvent {
-  }
+    record PaymentAuthorized(PaymentId paymentId, OffsetDateTime authorizedAt, OffsetDateTime captureBefore)
+            implements PaymentEvent {}
 
-  record PaymentCaptureRequested(
-    PaymentId paymentId,
-    double amount,
-    OffsetDateTime requestedAt
-  ) implements PaymentEvent {
-  }
+    record PaymentCaptureRequested(PaymentId paymentId, double amount, OffsetDateTime requestedAt)
+            implements PaymentEvent {}
 
-  record PaymentCaptured(
-    PaymentId paymentId,
-    double amount,
-    OffsetDateTime capturedAt
-  ) implements PaymentEvent {
-  }
+    record PaymentCaptured(PaymentId paymentId, double amount, OffsetDateTime capturedAt) implements PaymentEvent {}
 
-  record PaymentCaptureFailed(
-    PaymentId paymentId,
-    CaptureFailureReason reason,
-    OffsetDateTime failedAt
-  ) implements PaymentEvent {
-  }
+    record PaymentCaptureFailed(PaymentId paymentId, CaptureFailureReason reason, OffsetDateTime failedAt)
+            implements PaymentEvent {}
 
-  record PaymentCanceled(
-    PaymentId paymentId,
-    OffsetDateTime voidedAt) implements PaymentEvent {
-  }
+    record PaymentCanceled(PaymentId paymentId, OffsetDateTime voidedAt) implements PaymentEvent {}
 
+    record PaymentTimedOut(PaymentId paymentId, OffsetDateTime timedOutAt) implements PaymentEvent {}
 
-  record PaymentTimedOut(
-    PaymentId paymentId,
-    OffsetDateTime timedOutAt
-  ) implements PaymentEvent {
-  }
-
-  record PaymentAuthorizationExpired(
-    PaymentId paymentId,
-    OffsetDateTime expiredAt
-  ) implements PaymentEvent {
-  }
+    record PaymentAuthorizationExpired(PaymentId paymentId, OffsetDateTime expiredAt) implements PaymentEvent {}
 }
