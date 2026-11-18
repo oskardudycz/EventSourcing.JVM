@@ -25,8 +25,9 @@ public class GroupCheckoutFacade {
   }
 
   public void recordGuestCheckoutCompletion(RecordGuestCheckoutCompletion command) {
-    final var groupCheckout = collection.get(command.groupCheckoutId())
-      .orElseThrow(() -> new IllegalStateException("Entity not found"));
+    final var groupCheckout = collection.get(command.groupCheckoutId()).orElse(null);
+    if (groupCheckout == null)
+      return;
 
     var events = decide(command, groupCheckout);
 
@@ -35,8 +36,9 @@ public class GroupCheckoutFacade {
   }
 
   public void recordGuestCheckoutFailure(RecordGuestCheckoutFailure command) {
-    var groupCheckout = collection.get(command.groupCheckoutId())
-      .orElseThrow(() -> new IllegalStateException("Entity not found"));
+    var groupCheckout = collection.get(command.groupCheckoutId()).orElse(null);
+    if (groupCheckout == null)
+      return;
 
     var events = decide(command, groupCheckout);
 

@@ -29,7 +29,7 @@ public final class GroupCheckoutDecider {
     var guestStayId = command.guestStayId();
     var now = command.now();
 
-    if (state.status() != CheckoutStatus.INITIATED || state.recordedAlreadyGuestCheckoutWithStatus(guestStayId, CheckoutStatus.COMPLETED))
+    if (state.status() != CheckoutStatus.INITIATED)
       return List.of();
 
     var guestCheckoutCompleted = new GuestCheckoutCompletionRecorded(
@@ -53,7 +53,7 @@ public final class GroupCheckoutDecider {
     var guestStayId = command.guestStayId();
     var now = command.now();
 
-    if (state.status() != CheckoutStatus.INITIATED || state.recordedAlreadyGuestCheckoutWithStatus(guestStayId, CheckoutStatus.FAILED))
+    if (state.status() != CheckoutStatus.INITIATED)
       return List.of();
 
     var guestCheckoutFailed = new GuestCheckoutFailureRecorded(

@@ -72,10 +72,6 @@ public record GroupCheckout(
     };
   }
 
-  public boolean recordedAlreadyGuestCheckoutWithStatus(UUID guestStayId, CheckoutStatus status) {
-    return guestStayCheckouts().get(guestStayId) == status;
-  }
-
   public boolean areAnyOngoingCheckouts() {
     return guestStayCheckouts.values().stream()
       .anyMatch(guestStayStatus -> guestStayStatus.equals(CheckoutStatus.INITIATED));

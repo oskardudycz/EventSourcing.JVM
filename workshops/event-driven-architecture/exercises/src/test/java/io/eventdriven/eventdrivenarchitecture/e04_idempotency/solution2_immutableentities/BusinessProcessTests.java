@@ -25,31 +25,6 @@ import static io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_i
 import static io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution2_immutableentities.gueststayaccounts.GuestStayAccountsConfig.configureGuestStayAccounts;
 
 public class BusinessProcessTests {
-
-  private Database database;
-  private MessageBus messageBus;
-  private MessageCatcher publishedMessages;
-  private GuestStayAccountFacade guestStayFacade;
-  private GroupCheckoutFacade groupCheckoutFacade;
-  private Faker faker;
-  private OffsetDateTime now;
-
-  @BeforeEach
-  public void setUp() {
-    database = new Database();
-    messageBus = new InMemoryMessageBus();
-    publishedMessages = new MessageCatcher();
-    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), messageBus);
-    groupCheckoutFacade = new GroupCheckoutFacade(database.collection(GroupCheckout.class), messageBus);
-    faker = new Faker();
-    now = OffsetDateTime.now();
-
-    messageBus.use(publishedMessages::catchMessage);
-
-    configureGroupCheckouts(messageBus, groupCheckoutFacade);
-    configureGuestStayAccounts(messageBus, guestStayFacade);
-  }
-
   @Test
 
   @Tag("Exercise")
@@ -258,6 +233,30 @@ public class BusinessProcessTests {
         now
       )
     ));
+  }
+
+  private Database database;
+  private MessageBus messageBus;
+  private MessageCatcher publishedMessages;
+  private GuestStayAccountFacade guestStayFacade;
+  private GroupCheckoutFacade groupCheckoutFacade;
+  private Faker faker;
+  private OffsetDateTime now;
+
+  @BeforeEach
+  public void setUp() {
+    database = new Database();
+    messageBus = new InMemoryMessageBus();
+    publishedMessages = new MessageCatcher();
+    guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), messageBus);
+    groupCheckoutFacade = new GroupCheckoutFacade(database.collection(GroupCheckout.class), messageBus);
+    faker = new Faker();
+    now = OffsetDateTime.now();
+
+    messageBus.use(publishedMessages::catchMessage);
+
+    configureGroupCheckouts(messageBus, groupCheckoutFacade);
+    configureGuestStayAccounts(messageBus, guestStayFacade);
   }
 }
 

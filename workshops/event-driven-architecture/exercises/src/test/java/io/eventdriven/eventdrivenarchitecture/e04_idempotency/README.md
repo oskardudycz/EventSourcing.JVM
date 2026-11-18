@@ -34,4 +34,17 @@ Message brokers usually guarantee at-least-once delivery, and clients retry requ
   - recording the same guest checkout completion twice,
   - recording the same guest checkout failure twice,
 - The whole process should give the same result when [the message bus](./core/InMemoryMessageBus.java) delivers every message twice,
-- Use `IdempotencyTests` ([DDD Aggregate](./solution1_aggregates/IdempotencyTests.java), [Functional Decider](./solution2_immutableentities/IdempotencyTests.java)) to guide you and verify if you implemented it correctly. `BusinessProcessTests` and `EntityDefinitionTests` should stay green.
+- Use the idempotency tests to guide you and verify if you implemented it correctly. Business process and entity definition tests should stay green.
+
+## Tests
+
+The business process tests and the test where the message bus delivers every message twice are in the variant folder. The entity definition and idempotency tests of each module sit next to the module's code.
+
+- DDD Aggregate:
+  - [Business process](./solution1_aggregates/BusinessProcessTests.java) and [message bus delivers every message twice](./solution1_aggregates/IdempotencyTests.java),
+  - group checkouts: [entity definition](./solution1_aggregates/groupcheckouts/EntityDefinitionTests.java) and [idempotency](./solution1_aggregates/groupcheckouts/IdempotencyTests.java),
+  - guest stay accounts: [entity definition](./solution1_aggregates/gueststayaccounts/EntityDefinitionTests.java) and [idempotency](./solution1_aggregates/gueststayaccounts/IdempotencyTests.java).
+- Functional Decider:
+  - [Business process](./solution2_immutableentities/BusinessProcessTests.java) and [message bus delivers every message twice](./solution2_immutableentities/IdempotencyTests.java),
+  - group checkouts: [entity definition](./solution2_immutableentities/groupcheckouts/EntityDefinitionTests.java) and [idempotency](./solution2_immutableentities/groupcheckouts/IdempotencyTests.java),
+  - guest stay accounts: [entity definition](./solution2_immutableentities/gueststayaccounts/EntityDefinitionTests.java) and [idempotency](./solution2_immutableentities/gueststayaccounts/IdempotencyTests.java).

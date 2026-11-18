@@ -46,17 +46,10 @@ public class GroupCheckoutProjection extends Projection<GroupCheckout> {
   protected @Nullable GroupCheckout evolve(@Nullable GroupCheckout current, Object event) {
     return switch (event) {
       case GroupCheckoutInitiated e -> GroupCheckout.initiated(e.groupCheckoutId(), e.guestStayAccountIds(), e.initiatedAt());
-      case GuestCheckedOut e -> existing(current).withCheckout(e.guestStayAccountId(), COMPLETED, e.completedAt());
-      case GuestCheckoutFailed e -> existing(current).withCheckout(e.guestStayAccountId(), FAILED, e.failedAt());
+      case GuestCheckedOut e -> current == null ? null : current.withCheckout(e.guestStayAccountId(), COMPLETED, e.completedAt());
+      case GuestCheckoutFailed e -> current == null ? null : current.withCheckout(e.guestStayAccountId(), FAILED, e.failedAt());
       case GroupCheckoutCompleted _, GroupCheckoutFailed _ -> null;
       default -> current;
     };
-  }
-
-  private static GroupCheckout existing(@Nullable GroupCheckout current) {
-    if (current == null)
-      throw new IllegalStateException("Entity not found");
-
-    return current;
   }
 }

@@ -40,7 +40,7 @@ public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
     UUID guestStayId,
     OffsetDateTime now
   ) {
-    if (status != CheckoutStatus.INITIATED || this.guestStayCheckouts.get(guestStayId) == CheckoutStatus.COMPLETED)
+    if (status != CheckoutStatus.INITIATED)
       return;
 
     var guestCheckoutCompleted = new GuestCheckoutCompletionRecorded(id(), guestStayId, now);
@@ -55,7 +55,7 @@ public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
     UUID guestStayId,
     OffsetDateTime now
   ) {
-    if (status != CheckoutStatus.INITIATED || this.guestStayCheckouts.get(guestStayId) == CheckoutStatus.FAILED)
+    if (status != CheckoutStatus.INITIATED)
       return;
 
     var guestCheckoutFailed = new GuestCheckoutFailureRecorded(id(), guestStayId, now);

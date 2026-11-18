@@ -60,12 +60,12 @@ public class Database {
       this.typeClass = typeClass;
       this.storage = database.storage.computeIfAbsent(
         typeClass,
-        ignored -> new LinkedHashMap<>()
+        _ -> new LinkedHashMap<>()
       );
     }
 
     public void store(UUID id, Object obj) {
-      storage.compute(getId(id), (ignore, value) -> obj);
+      storage.compute(getId(id), (ignore, _) -> obj);
     }
 
     public void delete(UUID id) {
