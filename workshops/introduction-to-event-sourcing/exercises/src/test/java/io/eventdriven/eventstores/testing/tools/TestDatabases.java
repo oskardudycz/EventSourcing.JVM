@@ -15,31 +15,43 @@ public final class TestDatabases {
     private static final String DOCKER_COMPOSE_PROJECT = "eventsourcing";
 
     public static String kurrentDBConnectionString() {
-        return dockerComposePort("kurrentdb", 2113)
-                .map("kurrentdb://localhost:%d?tls=false"::formatted)
+        return kurrentDBConnectionString(DOCKER_COMPOSE_PROJECT);
+    }
+
+    static String kurrentDBConnectionString(String dockerComposeProject) {
+        return dockerComposePort(dockerComposeProject, "kurrentdb", 2113)
+                .map(port -> "kurrentdb://%s:%d?tls=false".formatted(dockerHost(), port))
                 .orElseGet(() -> KurrentDBContainer.shared().getConnectionString());
     }
 
     public static String mongoDBConnectionString(String databaseName) {
-        return dockerComposePort("mongodb", 27017)
-                .map(port ->
-                        "mongodb://localhost:%d/%s?replicaSet=rs0&directConnection=true".formatted(port, databaseName))
+        return mongoDBConnectionString(DOCKER_COMPOSE_PROJECT, databaseName);
+    }
+
+    static String mongoDBConnectionString(String dockerComposeProject, String databaseName) {
+        return dockerComposePort(dockerComposeProject, "mongodb", 27017)
+                .map(port -> "mongodb://%s:%d/%s?replicaSet=rs0&directConnection=true"
+                        .formatted(dockerHost(), port, databaseName))
                 .orElseGet(() -> MongoDBTestContainer.connectionString(databaseName));
     }
 
     public static Settings postgreSQL() {
-        return dockerComposePort("postgres", 5432)
-                .map(port ->
-                        new Settings("jdbc:postgresql://localhost:%d/postgres".formatted(port), "postgres", "postgres"))
+        return postgreSQL(DOCKER_COMPOSE_PROJECT);
+    }
+
+    static Settings postgreSQL(String dockerComposeProject) {
+        return dockerComposePort(dockerComposeProject, "postgres", 5432)
+                .map(port -> new Settings(
+                        "jdbc:postgresql://%s:%d/postgres".formatted(dockerHost(), port), "postgres", "postgres"))
                 .orElseGet(PostgreSQLTestContainer::settings);
     }
 
-    private static Optional<Integer> dockerComposePort(String service, int containerPort) {
+    private static Optional<Integer> dockerComposePort(String dockerComposeProject, String service, int containerPort) {
         return DockerClientFactory.instance()
                 .client()
                 .listContainersCmd()
                 .withLabelFilter(Map.of(
-                        "com.docker.compose.project", DOCKER_COMPOSE_PROJECT,
+                        "com.docker.compose.project", dockerComposeProject,
                         "com.docker.compose.service", service))
                 .exec()
                 .stream()
@@ -47,5 +59,9 @@ public final class TestDatabases {
                 .filter(port -> Objects.equals(port.getPrivatePort(), containerPort) && port.getPublicPort() != null)
                 .map(ContainerPort::getPublicPort)
                 .findFirst();
+    }
+
+    private static String dockerHost() {
+        return DockerClientFactory.instance().dockerHostIpAddress();
     }
 }

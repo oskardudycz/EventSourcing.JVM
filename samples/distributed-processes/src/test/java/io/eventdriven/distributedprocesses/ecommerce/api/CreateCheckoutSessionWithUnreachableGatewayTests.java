@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
 import io.eventdriven.testing.ApiSpecification;
@@ -34,6 +34,6 @@ public class CreateCheckoutSessionWithUnreachableGatewayTests extends ApiSpecifi
         var status = GET("/%s/orders".formatted(customerId), JsonNode.class)
                 .apply(restTestClient, order.orderId())
                 .getResponseBody();
-        assertEquals("PayNow", status.get("actions").get(0).asString());
+        assertThat(status.get("actions").get(0).asString()).isEqualTo("PayNow");
     }
 }

@@ -1,7 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e11_projections_singlestream_eventual_consistency;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.introductiontoeventsourcing.e11_projections_singlestream_eventual_consistency.Projections.ShoppingCartDetails;
 import io.eventdriven.introductiontoeventsourcing.e11_projections_singlestream_eventual_consistency.Projections.ShoppingCartDetailsProjection;
@@ -149,73 +148,73 @@ public class ProjectionsTests {
         // first confirmed
         var shoppingCart =
                 database.getExpectingGreaterOrEqualVersionWithRetries(ShoppingCartDetails.class, shoppingCartId, 4);
-        assertTrue(shoppingCart.isPresent());
-        assertEquals(shoppingCartId, shoppingCart.get().getId());
-        assertEquals(clientId, shoppingCart.get().getClientId());
-        assertEquals(ShoppingCartStatus.Confirmed, shoppingCart.get().getStatus());
-        assertEquals(2, shoppingCart.get().getProductItems().size());
-        assertEquals(pairOfShoes, shoppingCart.get().getProductItems().get(0));
-        assertEquals(tShirt, shoppingCart.get().getProductItems().get(1));
+        assertThat(shoppingCart.isPresent()).isTrue();
+        assertThat(shoppingCart.get().getId()).isEqualTo(shoppingCartId);
+        assertThat(shoppingCart.get().getClientId()).isEqualTo(clientId);
+        assertThat(shoppingCart.get().getStatus()).isEqualTo(ShoppingCartStatus.Confirmed);
+        assertThat(shoppingCart.get().getProductItems().size()).isEqualTo(2);
+        assertThat(shoppingCart.get().getProductItems().get(0)).isEqualTo(pairOfShoes);
+        assertThat(shoppingCart.get().getProductItems().get(1)).isEqualTo(tShirt);
 
         var shoppingCartShortInfo =
                 database.getExpectingGreaterOrEqualVersionWithRetries(ShoppingCartShortInfo.class, shoppingCartId, 4);
-        assertTrue(shoppingCartShortInfo.isEmpty());
+        assertThat(shoppingCartShortInfo.isEmpty()).isTrue();
 
         // cancelled
         shoppingCart = database.getExpectingGreaterOrEqualVersionWithRetries(
                 ShoppingCartDetails.class, cancelledShoppingCartId, 2);
-        assertTrue(shoppingCart.isPresent());
-        assertEquals(cancelledShoppingCartId, shoppingCart.get().getId());
-        assertEquals(clientId, shoppingCart.get().getClientId());
-        assertEquals(ShoppingCartStatus.Canceled, shoppingCart.get().getStatus());
-        assertEquals(1, shoppingCart.get().getProductItems().size());
-        assertEquals(dress, shoppingCart.get().getProductItems().get(0));
+        assertThat(shoppingCart.isPresent()).isTrue();
+        assertThat(shoppingCart.get().getId()).isEqualTo(cancelledShoppingCartId);
+        assertThat(shoppingCart.get().getClientId()).isEqualTo(clientId);
+        assertThat(shoppingCart.get().getStatus()).isEqualTo(ShoppingCartStatus.Canceled);
+        assertThat(shoppingCart.get().getProductItems().size()).isEqualTo(1);
+        assertThat(shoppingCart.get().getProductItems().get(0)).isEqualTo(dress);
 
         shoppingCartShortInfo = database.getExpectingGreaterOrEqualVersionWithRetries(
                 ShoppingCartShortInfo.class, cancelledShoppingCartId, 2);
-        assertTrue(shoppingCartShortInfo.isEmpty());
+        assertThat(shoppingCartShortInfo.isEmpty()).isTrue();
 
         // confirmed but other client
         shoppingCart = database.getExpectingGreaterOrEqualVersionWithRetries(
                 ShoppingCartDetails.class, otherClientShoppingCartId, 2);
-        assertTrue(shoppingCart.isPresent());
-        assertEquals(otherClientShoppingCartId, shoppingCart.get().getId());
-        assertEquals(otherClientId, shoppingCart.get().getClientId());
-        assertEquals(ShoppingCartStatus.Confirmed, shoppingCart.get().getStatus());
-        assertEquals(1, shoppingCart.get().getProductItems().size());
-        assertEquals(dress, shoppingCart.get().getProductItems().get(0));
+        assertThat(shoppingCart.isPresent()).isTrue();
+        assertThat(shoppingCart.get().getId()).isEqualTo(otherClientShoppingCartId);
+        assertThat(shoppingCart.get().getClientId()).isEqualTo(otherClientId);
+        assertThat(shoppingCart.get().getStatus()).isEqualTo(ShoppingCartStatus.Confirmed);
+        assertThat(shoppingCart.get().getProductItems().size()).isEqualTo(1);
+        assertThat(shoppingCart.get().getProductItems().get(0)).isEqualTo(dress);
 
         shoppingCartShortInfo = database.getExpectingGreaterOrEqualVersionWithRetries(
                 ShoppingCartShortInfo.class, otherClientShoppingCartId, 2);
-        assertTrue(shoppingCartShortInfo.isEmpty());
+        assertThat(shoppingCartShortInfo.isEmpty()).isTrue();
 
         // second confirmed
         shoppingCart = database.getExpectingGreaterOrEqualVersionWithRetries(
                 ShoppingCartDetails.class, otherConfirmedShoppingCartId, 2);
-        assertTrue(shoppingCart.isPresent());
-        assertEquals(otherConfirmedShoppingCartId, shoppingCart.get().getId());
-        assertEquals(clientId, shoppingCart.get().getClientId());
-        assertEquals(ShoppingCartStatus.Confirmed, shoppingCart.get().getStatus());
-        assertEquals(1, shoppingCart.get().getProductItems().size());
-        assertEquals(trousers, shoppingCart.get().getProductItems().get(0));
+        assertThat(shoppingCart.isPresent()).isTrue();
+        assertThat(shoppingCart.get().getId()).isEqualTo(otherConfirmedShoppingCartId);
+        assertThat(shoppingCart.get().getClientId()).isEqualTo(clientId);
+        assertThat(shoppingCart.get().getStatus()).isEqualTo(ShoppingCartStatus.Confirmed);
+        assertThat(shoppingCart.get().getProductItems().size()).isEqualTo(1);
+        assertThat(shoppingCart.get().getProductItems().get(0)).isEqualTo(trousers);
 
         shoppingCartShortInfo = database.getExpectingGreaterOrEqualVersionWithRetries(
                 ShoppingCartShortInfo.class, otherConfirmedShoppingCartId, 2);
-        assertTrue(shoppingCartShortInfo.isEmpty());
+        assertThat(shoppingCartShortInfo.isEmpty()).isTrue();
 
         // first pending
         shoppingCart = database.getExpectingGreaterOrEqualVersionWithRetries(
                 ShoppingCartDetails.class, otherPendingShoppingCartId, 0);
-        assertTrue(shoppingCart.isPresent());
-        assertEquals(otherPendingShoppingCartId, shoppingCart.get().getId());
-        assertEquals(clientId, shoppingCart.get().getClientId());
-        assertEquals(ShoppingCartStatus.Pending, shoppingCart.get().getStatus());
-        assertEquals(0, shoppingCart.get().getProductItems().size());
+        assertThat(shoppingCart.isPresent()).isTrue();
+        assertThat(shoppingCart.get().getId()).isEqualTo(otherPendingShoppingCartId);
+        assertThat(shoppingCart.get().getClientId()).isEqualTo(clientId);
+        assertThat(shoppingCart.get().getStatus()).isEqualTo(ShoppingCartStatus.Pending);
+        assertThat(shoppingCart.get().getProductItems().size()).isEqualTo(0);
 
         shoppingCartShortInfo = database.getExpectingGreaterOrEqualVersionWithRetries(
                 ShoppingCartShortInfo.class, otherPendingShoppingCartId, 0);
-        assertTrue(shoppingCartShortInfo.isPresent());
-        assertEquals(otherPendingShoppingCartId, shoppingCartShortInfo.get().getId());
-        assertEquals(clientId, shoppingCartShortInfo.get().getClientId());
+        assertThat(shoppingCartShortInfo.isPresent()).isTrue();
+        assertThat(shoppingCartShortInfo.get().getId()).isEqualTo(otherPendingShoppingCartId);
+        assertThat(shoppingCartShortInfo.get().getClientId()).isEqualTo(clientId);
     }
 }

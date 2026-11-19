@@ -11,18 +11,22 @@ public final class TestDatabases {
     private static final String DOCKER_COMPOSE_PROJECT = "eventsourcing";
 
     public static Settings postgreSQL() {
-        return dockerComposePort("postgres", 5432)
-                .map(port ->
-                        new Settings("jdbc:postgresql://localhost:%d/postgres".formatted(port), "postgres", "postgres"))
+        return postgreSQL(DOCKER_COMPOSE_PROJECT);
+    }
+
+    static Settings postgreSQL(String dockerComposeProject) {
+        return dockerComposePort(dockerComposeProject, "postgres", 5432)
+                .map(port -> new Settings(
+                        "jdbc:postgresql://%s:%d/postgres".formatted(dockerHost(), port), "postgres", "postgres"))
                 .orElseGet(PostgreSQLTestContainer::settings);
     }
 
-    private static Optional<Integer> dockerComposePort(String service, int containerPort) {
+    private static Optional<Integer> dockerComposePort(String dockerComposeProject, String service, int containerPort) {
         return DockerClientFactory.instance()
                 .client()
                 .listContainersCmd()
                 .withLabelFilter(Map.of(
-                        "com.docker.compose.project", DOCKER_COMPOSE_PROJECT,
+                        "com.docker.compose.project", dockerComposeProject,
                         "com.docker.compose.service", service))
                 .exec()
                 .stream()
@@ -30,5 +34,9 @@ public final class TestDatabases {
                 .filter(port -> Objects.equals(port.getPrivatePort(), containerPort) && port.getPublicPort() != null)
                 .map(ContainerPort::getPublicPort)
                 .findFirst();
+    }
+
+    private static String dockerHost() {
+        return DockerClientFactory.instance().dockerHostIpAddress();
     }
 }

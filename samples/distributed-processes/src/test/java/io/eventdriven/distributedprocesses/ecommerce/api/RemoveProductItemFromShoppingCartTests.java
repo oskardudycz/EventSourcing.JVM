@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
@@ -33,7 +33,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
                 .when(DELETE(cartItems(customerId), eTag))
                 .then(response -> {
                     OK.accept(response);
-                    assertEquals("W/\"1\"", response.getResponseHeaders().getETag());
+                    assertThat(response.getResponseHeaders().getETag()).isEqualTo("W/\"1\"");
                 });
     }
 

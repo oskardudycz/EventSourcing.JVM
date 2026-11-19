@@ -60,7 +60,7 @@ Read also more in my article [Introduction to Event Sourcing - Self Paced Kit](h
 
 1. Install git - https://git-scm.com/downloads.
 2. Clone this repository.
-3. Install Java JDK 17 or later to run Gradle - https://www.oracle.com/java/technologies/downloads/. The build uses JDK 22 through a Gradle toolchain and downloads it if it isn't installed.
+3. Install Java JDK 22 or newer - https://www.oracle.com/java/technologies/downloads/. The build compiles for Java 22 and runs on the JDK you start Gradle with. CI checks JDK 22, 25 and 27.
 4. Install IntelliJ, Eclipse, VSCode or other preferred IDE.
 5. Install docker - https://docs.docker.com/engine/install/.
 6. Open [exercises](./exercises/) folder as project.

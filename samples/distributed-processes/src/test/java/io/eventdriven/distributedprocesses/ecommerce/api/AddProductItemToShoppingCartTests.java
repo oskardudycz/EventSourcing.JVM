@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
 import io.eventdriven.testing.ApiSpecification;
@@ -24,7 +24,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
                 .when(POST("/%s/shopping-carts/current/product-items".formatted(customerId)))
                 .then(response -> {
                     OK.accept(response);
-                    assertEquals("W/\"0\"", response.getResponseHeaders().getETag());
+                    assertThat(response.getResponseHeaders().getETag()).isEqualTo("W/\"0\"");
                 });
     }
 
@@ -37,7 +37,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
                 .when(POST("/%s/shopping-carts/current/product-items".formatted(customerId)))
                 .then(response -> {
                     OK.accept(response);
-                    assertEquals("W/\"1\"", response.getResponseHeaders().getETag());
+                    assertThat(response.getResponseHeaders().getETag()).isEqualTo("W/\"1\"");
                 });
     }
 
@@ -52,7 +52,7 @@ public class AddProductItemToShoppingCartTests extends ApiSpecification {
                 .when(POST("/%s/shopping-carts/current/product-items".formatted(customerId)))
                 .then(response -> {
                     OK.accept(response);
-                    assertEquals("W/\"0\"", response.getResponseHeaders().getETag());
+                    assertThat(response.getResponseHeaders().getETag()).isEqualTo("W/\"0\"");
                 });
     }
 

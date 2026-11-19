@@ -1,7 +1,6 @@
 package io.eventdriven.eventsversioning.transformations;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.eventsversioning.serialization.Serializer;
 import io.eventdriven.eventsversioning.v1.ShoppingCartEvent;
@@ -216,29 +215,27 @@ public class StreamTransformationsTests {
                 .toList();
 
         // Then
-        assertEquals(3, deserializedEvents.size());
+        assertThat(deserializedEvents.size()).isEqualTo(3);
 
-        assertInstanceOf(ShoppingCartInitializedWithProducts.class, deserializedEvents.get(0));
+        assertThat(deserializedEvents.get(0)).isInstanceOf(ShoppingCartInitializedWithProducts.class);
         var shoppingCartInitializedWithProducts = (ShoppingCartInitializedWithProducts) deserializedEvents.get(0);
 
-        assertEquals(shoppingCardId, shoppingCartInitializedWithProducts.shoppingCartId());
-        assertEquals(clientId, shoppingCartInitializedWithProducts.clientId());
-        assertEquals(2, shoppingCartInitializedWithProducts.productItems().size());
-        assertEquals(
-                productItem, shoppingCartInitializedWithProducts.productItems().get(0));
-        assertEquals(
-                productItem, shoppingCartInitializedWithProducts.productItems().get(1));
+        assertThat(shoppingCartInitializedWithProducts.shoppingCartId()).isEqualTo(shoppingCardId);
+        assertThat(shoppingCartInitializedWithProducts.clientId()).isEqualTo(clientId);
+        assertThat(shoppingCartInitializedWithProducts.productItems().size()).isEqualTo(2);
+        assertThat(shoppingCartInitializedWithProducts.productItems().get(0)).isEqualTo(productItem);
+        assertThat(shoppingCartInitializedWithProducts.productItems().get(1)).isEqualTo(productItem);
 
-        assertInstanceOf(ShoppingCartEvent.ProductItemAddedToShoppingCart.class, deserializedEvents.get(1));
+        assertThat(deserializedEvents.get(1)).isInstanceOf(ShoppingCartEvent.ProductItemAddedToShoppingCart.class);
         var productItemAddedToShoppingCart =
                 (ShoppingCartEvent.ProductItemAddedToShoppingCart) deserializedEvents.get(1);
 
-        assertEquals(shoppingCardId, productItemAddedToShoppingCart.shoppingCartId());
-        assertEquals(productItem, productItemAddedToShoppingCart.productItem());
+        assertThat(productItemAddedToShoppingCart.shoppingCartId()).isEqualTo(shoppingCardId);
+        assertThat(productItemAddedToShoppingCart.productItem()).isEqualTo(productItem);
 
-        assertInstanceOf(ShoppingCartEvent.ShoppingCartConfirmed.class, deserializedEvents.get(2));
+        assertThat(deserializedEvents.get(2)).isInstanceOf(ShoppingCartEvent.ShoppingCartConfirmed.class);
         var shoppingCartConfirmed = (ShoppingCartEvent.ShoppingCartConfirmed) deserializedEvents.get(2);
 
-        assertEquals(shoppingCardId, shoppingCartConfirmed.shoppingCartId());
+        assertThat(shoppingCartConfirmed.shoppingCartId()).isEqualTo(shoppingCardId);
     }
 }

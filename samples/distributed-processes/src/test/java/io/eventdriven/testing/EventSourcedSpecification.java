@@ -1,7 +1,7 @@
 package io.eventdriven.testing;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -69,9 +69,9 @@ public abstract class EventSourcedSpecification<Entity, Event> {
 
         public EventSourcedSpecificationBuilder<Entity, Event> then(Event... expectedEvents) {
             return then(events -> {
-                assertEquals(expectedEvents.length, events.length);
+                assertThat(events.length).isEqualTo(expectedEvents.length);
                 for (var i = 0; i < events.length; i++) {
-                    assertEquals(expectedEvents[i], events[i]);
+                    assertThat(events[i]).isEqualTo(expectedEvents[i]);
                 }
             });
         }

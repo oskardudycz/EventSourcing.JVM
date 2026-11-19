@@ -2,7 +2,7 @@ package io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events
 
 import static io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.mongodb.immutable.FunctionalTools.groupingByOrdered;
 import static io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.mongodb.immutable.solution2.GettingStateFromEventsTests.ShoppingCartEvent.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.eventstores.EventStore;
 import io.eventdriven.eventstores.StreamName;
@@ -176,11 +176,11 @@ public class GettingStateFromEventsTests extends MongoDBTest {
 
         var shoppingCart = getShoppingCart(eventStore, streamName);
 
-        assertEquals(shoppingCartId, shoppingCart.id());
-        assertEquals(clientId, shoppingCart.clientId());
-        assertEquals(2, shoppingCart.productItems().values().length);
+        assertThat(shoppingCart.id()).isEqualTo(shoppingCartId);
+        assertThat(shoppingCart.clientId()).isEqualTo(clientId);
+        assertThat(shoppingCart.productItems().values().length).isEqualTo(2);
 
-        assertEquals(pairOfShoes, shoppingCart.productItems().values()[0]);
-        assertEquals(tShirt, shoppingCart.productItems().values()[1]);
+        assertThat(shoppingCart.productItems().values()[0]).isEqualTo(pairOfShoes);
+        assertThat(shoppingCart.productItems().values()[1]).isEqualTo(tShirt);
     }
 }

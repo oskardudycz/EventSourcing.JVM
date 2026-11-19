@@ -1,7 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
 import io.eventdriven.testing.ApiSpecification;
@@ -23,7 +22,8 @@ public class CreateCheckoutSessionTests extends ApiSpecification {
 
         given(() -> null).when(POST(checkoutSession(order))).then(response -> {
             SEE_OTHER.accept(response);
-            assertTrue(response.getResponseHeaders().getLocation().toString().startsWith("/sandbox/checkout/"));
+            assertThat(response.getResponseHeaders().getLocation().toString().startsWith("/sandbox/checkout/"))
+                    .isTrue();
         });
     }
 
@@ -37,7 +37,7 @@ public class CreateCheckoutSessionTests extends ApiSpecification {
 
         given(() -> null).when(POST(checkoutSession(order))).then(response -> {
             SEE_OTHER.accept(response);
-            assertEquals(first, response.getResponseHeaders().getLocation());
+            assertThat(response.getResponseHeaders().getLocation()).isEqualTo(first);
         });
     }
 

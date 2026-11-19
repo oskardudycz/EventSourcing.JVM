@@ -1,7 +1,7 @@
 package io.eventdriven.uniqueness.users;
 
 import static io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.ResourceReservationEvent.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.uniqueness.core.kurrentdb.EventStore;
 import io.eventdriven.uniqueness.core.resourcereservation.Hash;
@@ -72,19 +72,18 @@ public class UserEmailRegistrationScavengingTests {
         for (var reservation : toScavenge) {
             var resourceKey = reservation.getResourceKey();
 
-            assertFalse(repository.existsById(resourceKey));
-            assertInstanceOf(
-                    EventStore.ReadResult.StreamDoesNotExist.class,
-                    eventStore.read(getReservationStreamId(resourceKey)));
+            assertThat(repository.existsById(resourceKey)).isFalse();
+            assertThat(eventStore.read(getReservationStreamId(resourceKey)))
+                    .isInstanceOf(EventStore.ReadResult.StreamDoesNotExist.class);
         }
 
         for (var reservation : toKeep) {
             var resourceKey = reservation.getResourceKey();
 
-            assertTrue(repository.existsById(resourceKey));
+            assertThat(repository.existsById(resourceKey)).isTrue();
             var result = eventStore.read(getReservationStreamId(resourceKey));
-            assertInstanceOf(EventStore.ReadResult.Success.class, result);
-            assertEquals(2, ((EventStore.ReadResult.Success) result).events().length);
+            assertThat(result).isInstanceOf(EventStore.ReadResult.Success.class);
+            assertThat(((EventStore.ReadResult.Success) result).events().length).isEqualTo(2);
         }
     }
 

@@ -1,7 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e03_appending_event.kurrentdb;
 
 import static io.eventdriven.introductiontoeventsourcing.e03_appending_event.kurrentdb.AppendingEventsTests.ShoppingCartEvent.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.eventstores.testing.tools.TestDatabases;
 import io.kurrent.dbclient.*;
@@ -42,7 +42,7 @@ public class AppendingEventsTests {
 
     @Tag("Exercise")
     @Test
-    public void AppendingEvents_ForSequenceOfEvents_ShouldSucceed() {
+    public void AppendingEvents_ForSequenceOfEvents_ShouldSucceed() throws Exception {
         var shoppingCartId = UUID.randomUUID();
         var clientId = UUID.randomUUID();
         var shoesId = UUID.randomUUID();
@@ -66,10 +66,8 @@ public class AppendingEventsTests {
 
         var streamName = "shopping_cart-%s".formatted(shoppingCartId);
 
-        var nextStreamRevision = assertDoesNotThrow(() -> {
-            var result = appendEvents(eventStore, streamName, events).get();
-            return result.getNextExpectedRevision();
-        });
-        assertEquals(nextStreamRevision, StreamState.streamRevision(events.length - 1));
+        var result = appendEvents(eventStore, streamName, events).get();
+        var nextStreamRevision = result.getNextExpectedRevision();
+        assertThat(nextStreamRevision).isEqualTo(StreamState.streamRevision(events.length - 1));
     }
 }

@@ -1,6 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.mutable.tests.api.builders;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.mutable.app.api.ShoppingCartsRequests.AddProduct;
 import io.eventdriven.introductiontoeventsourcing.e07_application_logic.mongodb.mutable.app.api.ShoppingCartsRequests.Open;
@@ -91,16 +91,16 @@ public class ShoppingCartRestBuilder {
                 .exchange()
                 .returnResult(Void.class);
 
-        assertEquals(HttpStatus.CREATED, response.getStatus());
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.CREATED);
 
         var locationHeader = response.getResponseHeaders().getLocation();
 
-        assertNotNull(locationHeader);
+        assertThat(locationHeader).isNotNull();
 
         var location = locationHeader.toString();
 
-        assertTrue(location.startsWith(apiPrefix));
-        var newId = assertDoesNotThrow(() -> UUID.fromString(location.substring(apiPrefix.length() + 1)));
+        assertThat(location.startsWith(apiPrefix)).isTrue();
+        var newId = UUID.fromString(location.substring(apiPrefix.length() + 1));
 
         return getResult(response, newId);
     }
@@ -116,7 +116,7 @@ public class ShoppingCartRestBuilder {
                 .exchange()
                 .returnResult(Void.class);
 
-        assertEquals(HttpStatus.OK, response.getStatus());
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
         return getResult(response, result.id());
     }
 
@@ -130,7 +130,7 @@ public class ShoppingCartRestBuilder {
                 .exchange()
                 .returnResult(Void.class);
 
-        assertEquals(HttpStatus.OK, response.getStatus());
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
         return getResult(response, result.id());
     }
 
@@ -144,7 +144,7 @@ public class ShoppingCartRestBuilder {
                 .exchange()
                 .returnResult(Void.class);
 
-        assertEquals(HttpStatus.OK, response.getStatus());
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
         return getResult(response, result.id());
     }
 

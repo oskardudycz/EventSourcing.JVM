@@ -51,7 +51,7 @@ try {
                     EventSerializer.serialize(shoppingCartOpened))
             .get();
 } catch (ExecutionException exception) {
-    assertInstanceOf(WrongExpectedVersionException.class, exception.getCause());
+    assertThat(exception.getCause()).isInstanceOf(WrongExpectedVersionException.class);
 }
 ```
 

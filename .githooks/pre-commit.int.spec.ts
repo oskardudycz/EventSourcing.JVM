@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -90,7 +90,7 @@ describe('pre-commit hook', () => {
     assert.deepEqual(await checkRuns(root), []);
   });
 
-  it('stages the formatted content of the staged files', async () => {
+  it('stops the commit and leaves the formatting unstaged when a staged file is not formatted', async () => {
     const root = await createRepository();
     const build = join(root, 'samples/talk');
     await mkdir(build, { recursive: true });
@@ -99,8 +99,22 @@ describe('pre-commit hook', () => {
 
     const run = await runPreCommit(root);
 
+    assert.notEqual(run.exitCode, 0);
+    assert.match(run.stderr, /samples\/talk\/src\/App\.java/);
+    assert.equal(await readFile(join(root, 'samples/talk/src/App.java'), 'utf8'), 'class App {}\n');
+    assert.equal(await stagedContent(root, 'samples/talk/src/App.java'), 'class   App{}\n');
+  });
+
+  it('lets the commit through when the staged files are formatted', async () => {
+    const root = await createRepository();
+    const build = join(root, 'samples/talk');
+    await mkdir(build, { recursive: true });
+    await writeGradleWrapper(build, `printf 'class App {}\\n' > src/App.java`);
+    await stage(root, 'samples/talk/src/App.java', 'class App {}\n');
+
+    const run = await runPreCommit(root);
+
     assert.equal(run.exitCode, 0);
-    assert.equal(await stagedContent(root, 'samples/talk/src/App.java'), 'class App {}\n');
   });
 
   it('stops the commit when formatting fails', async () => {

@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.ScheduledPaymentTimeoutWorker;
@@ -36,18 +36,17 @@ public class RetryOrderPaymentTests extends ApiSpecification {
                         .checkedOut());
         clock.moveBy(Duration.ofHours(25));
         paymentTimeoutWorker.handleAll();
-        assertEquals("PaymentFailed", statusOf(order.orderId()).get("progress").asString());
+        assertThat(statusOf(order.orderId()).get("progress").asString()).isEqualTo("PaymentFailed");
 
         given(() -> null)
                 .when(POST("/%s/orders/%s/retry-payment".formatted(customerId, order.orderId())))
                 .then(ACCEPTED);
 
         var status = statusOf(order.orderId());
-        assertEquals("AwaitingPayment", status.get("progress").asString());
-        assertEquals(
-                "urn:ecommerce:payment:%s-2".formatted(order.orderId()),
-                status.get("paymentId").asString());
-        assertEquals("PayNow", status.get("actions").get(0).asString());
+        assertThat(status.get("progress").asString()).isEqualTo("AwaitingPayment");
+        assertThat(status.get("paymentId").asString())
+                .isEqualTo("urn:ecommerce:payment:%s-2".formatted(order.orderId()));
+        assertThat(status.get("actions").get(0).asString()).isEqualTo("PayNow");
     }
 
     @Test
@@ -61,9 +60,8 @@ public class RetryOrderPaymentTests extends ApiSpecification {
                 .when(POST("/%s/orders/%s/retry-payment".formatted(customerId, order.orderId())))
                 .then(ACCEPTED);
 
-        assertEquals(
-                "urn:ecommerce:payment:" + order.paymentId(),
-                statusOf(order.orderId()).get("paymentId").asString());
+        assertThat(statusOf(order.orderId()).get("paymentId").asString())
+                .isEqualTo("urn:ecommerce:payment:" + order.paymentId());
     }
 
     @Test

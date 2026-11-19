@@ -1,6 +1,6 @@
 package io.eventdriven.eventsversioning.upcasters;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.eventsversioning.serialization.Serializer;
 import io.eventdriven.eventsversioning.v1.ShoppingCartEvent;
@@ -39,12 +39,12 @@ public class ChangedStructureTests {
         var event = upcast(oldEvent);
 
         // Then
-        assertNotNull(event);
+        assertThat(event).isNotNull();
 
-        assertEquals(oldEvent.shoppingCartId(), event.shoppingCartId());
-        assertNotNull(event.client());
-        assertEquals(oldEvent.clientId(), event.client().id());
-        assertEquals("Unknown", event.client().name());
+        assertThat(event.shoppingCartId()).isEqualTo(oldEvent.shoppingCartId());
+        assertThat(event.client()).isNotNull();
+        assertThat(event.client().id()).isEqualTo(oldEvent.clientId());
+        assertThat(event.client().name()).isEqualTo("Unknown");
     }
 
     @Test
@@ -56,11 +56,11 @@ public class ChangedStructureTests {
         var event = upcast(Serializer.serialize(oldEvent));
 
         // Then
-        assertNotNull(event);
+        assertThat(event).isNotNull();
 
-        assertEquals(oldEvent.shoppingCartId(), event.shoppingCartId());
-        assertNotNull(event.client());
-        assertEquals(oldEvent.clientId(), event.client().id());
-        assertEquals("Unknown", event.client().name());
+        assertThat(event.shoppingCartId()).isEqualTo(oldEvent.shoppingCartId());
+        assertThat(event.client()).isNotNull();
+        assertThat(event.client().id()).isEqualTo(oldEvent.clientId());
+        assertThat(event.client().name()).isEqualTo("Unknown");
     }
 }

@@ -2,7 +2,7 @@ package io.eventdriven.buildyourowneventstore.e02_append_events.postgresql.multi
 
 import static bankaccounts.BankAccount.Event.BankAccountOpened;
 import static io.eventdriven.buildyourowneventstore.tools.SqlInvoker.*;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import bankaccounts.BankAccount;
 import io.eventdriven.buildyourowneventstore.e02_append_events.EventStore;
@@ -43,13 +43,13 @@ public class CreateAppendFunctionTests extends PostgresTest {
                 "select exists (select 1 as exist from streams where id = ?) as exist",
                 setStringParam(bankAccountId),
                 rs -> getBoolean(rs, "exist"));
-        assertTrue(wasStreamCreated);
+        assertThat(wasStreamCreated).isTrue();
 
         var wasEventAppended = querySingleSql(
                 dbConnection,
                 "select exists (select 1 from events where stream_id = ?) as exist",
                 setStringParam(bankAccountId),
                 rs -> getBoolean(rs, "exist"));
-        assertTrue(wasEventAppended);
+        assertThat(wasEventAppended).isTrue();
     }
 }

@@ -1,8 +1,7 @@
 package io.eventdriven.eventsversioning.snapshottesting;
 
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.eventdriven.eventsversioning.serialization.Serializer;
 import io.eventdriven.strictland.MessageContract;
@@ -77,7 +76,7 @@ public class ShoppingCartVersioningTests {
         MessageContract.specification(options)
                 .given(MessageSnapshot.of(ShoppingCartConfirmedV1.class))
                 .whenDeserializedAs(ShoppingCartConfirmedV2.class)
-                .thenBackwardCompatible(v2 -> assertNull(v2.initializedBy()));
+                .thenBackwardCompatible(v2 -> assertThat(v2.initializedBy()).isNull());
     }
 
     @Test
@@ -90,13 +89,11 @@ public class ShoppingCartVersioningTests {
 
     @Test
     public void givenV1Event_whenReadByV3AddingARequiredField_thenNotBackwardCompatible() {
-        var error = assertThrows(
-                AssertionError.class,
-                () -> MessageContract.specification(options)
+        assertThatThrownBy(() -> MessageContract.specification(options)
                         .given(MessageSnapshot.of(ShoppingCartConfirmedV1.class))
                         .whenDeserializedAs(ShoppingCartConfirmedV3.class)
-                        .thenBackwardCompatible());
-
-        assertTrue(error.getMessage().contains("confirmedBy"), error.getMessage());
+                        .thenBackwardCompatible())
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("confirmedBy");
     }
 }

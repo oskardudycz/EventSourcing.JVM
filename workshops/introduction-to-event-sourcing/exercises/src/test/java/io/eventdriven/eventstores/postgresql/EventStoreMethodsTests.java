@@ -1,7 +1,7 @@
 package io.eventdriven.eventstores.postgresql;
 
 import static io.eventdriven.eventstores.testing.bankaccounts.BankAccount.Event.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.eventstores.EventStore;
 import io.eventdriven.eventstores.StreamName;
@@ -52,11 +52,11 @@ public class EventStoreMethodsTests extends PostgreSQLTest {
         var result = eventStore.readStream(streamName);
         var events = result.events();
 
-        assertEquals(3, events.size());
+        assertThat(events.size()).isEqualTo(3);
 
-        assertEquals(bankAccountCreated, findFirstOfType(BankAccountOpened.class, events));
-        assertEquals(depositRecorded, findFirstOfType(DepositRecorded.class, events));
-        assertEquals(cashWithdrawn, findFirstOfType(CashWithdrawnFromATM.class, events));
+        assertThat(findFirstOfType(BankAccountOpened.class, events)).isEqualTo(bankAccountCreated);
+        assertThat(findFirstOfType(DepositRecorded.class, events)).isEqualTo(depositRecorded);
+        assertThat(findFirstOfType(CashWithdrawnFromATM.class, events)).isEqualTo(cashWithdrawn);
     }
 
     private <Event> Event findFirstOfType(Class<Event> type, List<Object> events) {

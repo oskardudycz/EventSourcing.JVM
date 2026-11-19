@@ -21,9 +21,10 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       # define the test matrix
       matrix:
-        java-version: [22]
+        java-version: [22, 25, 27]
 
     steps:
       - name: Check Out Repo
@@ -48,5 +49,5 @@ jobs:
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: Test report
+          name: Test report - Java ${{ matrix.java-version }}
           path: ./samples/event-sourcing-kurrentdb-aggregates/build/test-results/test

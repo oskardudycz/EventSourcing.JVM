@@ -1,7 +1,7 @@
 package io.eventdriven.eventsversioning.transformations;
 
 import static java.util.stream.Collectors.toMap;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.eventsversioning.serialization.Serializer;
 import io.eventdriven.eventsversioning.v1.ShoppingCartEvent;
@@ -144,24 +144,24 @@ public class MultipleTransformationsWithDifferentEventTypesTests {
                 .collect(toMap(ShoppingCartInitializedWithStatus::shoppingCartId, event -> event));
 
         // Then
-        assertEquals(3, deserializedEvents.size());
+        assertThat(deserializedEvents.size()).isEqualTo(3);
 
-        assertTrue(deserializedEvents.containsKey(eventV1.shoppingCartId()));
+        assertThat(deserializedEvents.containsKey(eventV1.shoppingCartId())).isTrue();
         var upcastedV1Event = deserializedEvents.get(eventV1.shoppingCartId());
 
-        assertEquals(eventV1.shoppingCartId(), upcastedV1Event.shoppingCartId());
-        assertEquals(eventV1.clientId(), upcastedV1Event.client().id());
-        assertEquals("Unknown", upcastedV1Event.client().name());
-        assertEquals(ShoppingCartStatus.Opened, upcastedV1Event.status());
+        assertThat(upcastedV1Event.shoppingCartId()).isEqualTo(eventV1.shoppingCartId());
+        assertThat(upcastedV1Event.client().id()).isEqualTo(eventV1.clientId());
+        assertThat(upcastedV1Event.client().name()).isEqualTo("Unknown");
+        assertThat(upcastedV1Event.status()).isEqualTo(ShoppingCartStatus.Opened);
 
-        assertTrue(deserializedEvents.containsKey(eventV2.shoppingCartId()));
+        assertThat(deserializedEvents.containsKey(eventV2.shoppingCartId())).isTrue();
         var upcastedV2Event = deserializedEvents.get(eventV2.shoppingCartId());
 
-        assertEquals(eventV2.shoppingCartId(), upcastedV2Event.shoppingCartId());
-        assertEquals(eventV2.client(), upcastedV2Event.client());
-        assertEquals(ShoppingCartStatus.Opened, upcastedV2Event.status());
+        assertThat(upcastedV2Event.shoppingCartId()).isEqualTo(eventV2.shoppingCartId());
+        assertThat(upcastedV2Event.client()).isEqualTo(eventV2.client());
+        assertThat(upcastedV2Event.status()).isEqualTo(ShoppingCartStatus.Opened);
 
-        assertTrue(deserializedEvents.containsKey(eventV3.shoppingCartId()));
-        assertEquals(eventV3, deserializedEvents.get(eventV3.shoppingCartId()));
+        assertThat(deserializedEvents.containsKey(eventV3.shoppingCartId())).isTrue();
+        assertThat(deserializedEvents.get(eventV3.shoppingCartId())).isEqualTo(eventV3);
     }
 }

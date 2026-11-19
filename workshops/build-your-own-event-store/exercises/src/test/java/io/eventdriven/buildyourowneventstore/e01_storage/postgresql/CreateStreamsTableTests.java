@@ -1,8 +1,7 @@
 package io.eventdriven.buildyourowneventstore.e01_storage.postgresql;
 
 import static io.eventdriven.buildyourowneventstore.tools.PostgresSchemaProvider.Column.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.buildyourowneventstore.tools.PostgresTest;
 import org.junit.jupiter.api.BeforeAll;
@@ -33,8 +32,8 @@ public class CreateStreamsTableTests extends PostgresTest {
     public void streamsTable_ShouldBeCreated() {
         var streamsTable = schemaProvider.getTable(streamsTableName);
 
-        assertTrue(streamsTable.isPresent());
-        assertEquals(streamsTableName, streamsTable.get().getName());
+        assertThat(streamsTable.isPresent()).isTrue();
+        assertThat(streamsTable.get().getName()).isEqualTo(streamsTableName);
     }
 
     /**
@@ -45,9 +44,9 @@ public class CreateStreamsTableTests extends PostgresTest {
     public void streamsTable_ShouldHave_IdColumn() {
         var idColumn = schemaProvider.getTable(streamsTableName).flatMap(table -> table.getColumn(idColumnName));
 
-        assertTrue(idColumn.isPresent());
-        assertEquals(idColumnName, idColumn.get().getName());
-        assertEquals(uuidType, idColumn.get().getType());
+        assertThat(idColumn.isPresent()).isTrue();
+        assertThat(idColumn.get().getName()).isEqualTo(idColumnName);
+        assertThat(idColumn.get().getType()).isEqualTo(uuidType);
     }
 
     /**
@@ -58,9 +57,9 @@ public class CreateStreamsTableTests extends PostgresTest {
     public void streamsTable_ShouldHave_TypeColumn_WithStringType() {
         var typeColumn = schemaProvider.getTable(streamsTableName).flatMap(table -> table.getColumn(typeColumnName));
 
-        assertTrue(typeColumn.isPresent());
-        assertEquals(typeColumnName, typeColumn.get().getName());
-        assertEquals(textType, typeColumn.get().getType());
+        assertThat(typeColumn.isPresent()).isTrue();
+        assertThat(typeColumn.get().getName()).isEqualTo(typeColumnName);
+        assertThat(typeColumn.get().getType()).isEqualTo(textType);
     }
 
     /**
@@ -72,8 +71,8 @@ public class CreateStreamsTableTests extends PostgresTest {
         var streamPositionColumn =
                 schemaProvider.getTable(streamsTableName).flatMap(table -> table.getColumn(streamPositionColumnName));
 
-        assertTrue(streamPositionColumn.isPresent());
-        assertEquals(streamPositionColumnName, streamPositionColumn.get().getName());
-        assertEquals(bigintType, streamPositionColumn.get().getType());
+        assertThat(streamPositionColumn.isPresent()).isTrue();
+        assertThat(streamPositionColumn.get().getName()).isEqualTo(streamPositionColumnName);
+        assertThat(streamPositionColumn.get().getType()).isEqualTo(bigintType);
     }
 }

@@ -1,6 +1,6 @@
 package io.eventdriven.eventsversioning.upcasters;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.eventsversioning.serialization.Serializer;
 import io.eventdriven.eventsversioning.v1.ShoppingCartEvent;
@@ -37,11 +37,11 @@ public class NewRequiredPropertyFromMetadataTests {
         var event = upcast(oldEvent, eventMetadata);
 
         // Then
-        assertNotNull(event);
+        assertThat(event).isNotNull();
 
-        assertEquals(oldEvent.shoppingCartId(), event.shoppingCartId());
-        assertEquals(oldEvent.clientId(), event.clientId());
-        assertEquals(eventMetadata.userId(), event.initializedBy());
+        assertThat(event.shoppingCartId()).isEqualTo(oldEvent.shoppingCartId());
+        assertThat(event.clientId()).isEqualTo(oldEvent.clientId());
+        assertThat(event.initializedBy()).isEqualTo(eventMetadata.userId());
     }
 
     @Test
@@ -54,10 +54,10 @@ public class NewRequiredPropertyFromMetadataTests {
         var event = upcast(Serializer.serialize(oldEvent), Serializer.serialize(eventMetadata));
 
         // Then
-        assertNotNull(event);
+        assertThat(event).isNotNull();
 
-        assertEquals(oldEvent.shoppingCartId(), event.shoppingCartId());
-        assertEquals(oldEvent.clientId(), event.clientId());
-        assertEquals(eventMetadata.userId(), event.initializedBy());
+        assertThat(event.shoppingCartId()).isEqualTo(oldEvent.shoppingCartId());
+        assertThat(event.clientId()).isEqualTo(oldEvent.clientId());
+        assertThat(event.initializedBy()).isEqualTo(eventMetadata.userId());
     }
 }

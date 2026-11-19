@@ -1,7 +1,6 @@
 package io.eventdriven.eventsversioning.downcasters;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.eventsversioning.serialization.Serializer;
 import io.eventdriven.eventsversioning.v1.ShoppingCartEvent;
@@ -41,10 +40,10 @@ public class ChangedStructureTests {
         var oldEvent = downcast(newEvent);
 
         // Then
-        assertNotNull(oldEvent);
+        assertThat(oldEvent).isNotNull();
 
-        assertEquals(newEvent.shoppingCartId(), oldEvent.shoppingCartId());
-        assertEquals(newEvent.client().id(), oldEvent.clientId());
+        assertThat(oldEvent.shoppingCartId()).isEqualTo(newEvent.shoppingCartId());
+        assertThat(oldEvent.clientId()).isEqualTo(newEvent.client().id());
     }
 
     @Test
@@ -56,9 +55,9 @@ public class ChangedStructureTests {
         var oldEvent = downcast(Serializer.serialize(newEvent));
 
         // Then
-        assertNotNull(oldEvent);
+        assertThat(oldEvent).isNotNull();
 
-        assertEquals(newEvent.shoppingCartId(), oldEvent.shoppingCartId());
-        assertEquals(newEvent.client().id(), oldEvent.clientId());
+        assertThat(oldEvent.shoppingCartId()).isEqualTo(newEvent.shoppingCartId());
+        assertThat(oldEvent.clientId()).isEqualTo(newEvent.client().id());
     }
 }

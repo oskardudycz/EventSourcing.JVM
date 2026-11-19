@@ -1,7 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e01_events_definition.solution2;
 
 import static io.eventdriven.introductiontoeventsourcing.e01_events_definition.solution2.EventsDefinitionTests.ShoppingCartEvent.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.OffsetDateTime;
 import java.util.Arrays;
@@ -179,11 +179,10 @@ public class EventsDefinitionTests {
         };
 
         final int expectedEventTypesCount = 5;
-        assertEquals(expectedEventTypesCount, events.length);
-        assertEquals(
-                expectedEventTypesCount,
-                Arrays.stream(events)
+        assertThat(events.length).isEqualTo(expectedEventTypesCount);
+        assertThat(Arrays.stream(events)
                         .collect(Collectors.groupingBy(Object::getClass))
-                        .size());
+                        .size())
+                .isEqualTo(expectedEventTypesCount);
     }
 }

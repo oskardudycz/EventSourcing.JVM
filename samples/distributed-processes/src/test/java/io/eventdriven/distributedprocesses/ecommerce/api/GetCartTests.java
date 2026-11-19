@@ -1,6 +1,7 @@
 package io.eventdriven.distributedprocesses.ecommerce.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
 import io.eventdriven.testing.ApiSpecification;
@@ -27,16 +28,14 @@ public class GetCartTests extends ApiSpecification {
                 .when(GET("/%s/shopping-carts/current".formatted(customerId), JsonNode.class))
                 .then(response -> {
                     OK.accept(response);
-                    assertEquals("W/\"0\"", response.getResponseHeaders().getETag());
+                    assertThat(response.getResponseHeaders().getETag()).isEqualTo("W/\"0\"");
 
                     var cart = (JsonNode) response.getResponseBody();
                     var line = cart.get("lines").get(0);
-                    assertEquals(shoes.toString(), line.get("productId").asString());
-                    assertEquals(2, line.get("quantity").asInt());
-                    assertEquals(
-                            line.get("unitPrice").asDouble() * 2,
-                            cart.get("totalPrice").asDouble(),
-                            0.001);
+                    assertThat(line.get("productId").asString()).isEqualTo(shoes.toString());
+                    assertThat(line.get("quantity").asInt()).isEqualTo(2);
+                    assertThat(cart.get("totalPrice").asDouble())
+                            .isCloseTo(line.get("unitPrice").asDouble() * 2, within(0.001));
                 });
     }
 

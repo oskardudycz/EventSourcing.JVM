@@ -4,7 +4,7 @@ import static io.eventdriven.uniqueness.core.kurrentdb.EventStore.ReadResult;
 import static io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.ResourceReservationEvent.*;
 import static io.eventdriven.uniqueness.core.serialization.EventSerializer.deserialize;
 import static io.eventdriven.uniqueness.users.UserEvent.UserRegistered;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.uniqueness.core.kurrentdb.EventStore;
 import io.eventdriven.uniqueness.core.resourcereservation.Hash;
@@ -28,49 +28,46 @@ public class UserEmailRegistrationTests {
         var userId = UUID.randomUUID();
         var email = "%s@email.com".formatted(UUID.randomUUID().toString().replace("-", ""));
 
-        assertTrue(userCommandHandler.registerUser(userId, email));
+        assertThat(userCommandHandler.registerUser(userId, email)).isTrue();
 
         var userReadResult = eventStore.read("user-%s".formatted(userId));
 
-        assertInstanceOf(ReadResult.Success.class, userReadResult);
+        assertThat(userReadResult).isInstanceOf(ReadResult.Success.class);
 
         if (userReadResult instanceof ReadResult.Success success) {
             var userEvents = success.events();
-            assertEquals(1, userEvents.length);
+            assertThat(userEvents.length).isEqualTo(1);
 
             var userRegistered = deserialize(UserRegistered.class, userEvents[0]);
 
-            assertTrue(userRegistered.isPresent());
+            assertThat(userRegistered.isPresent()).isTrue();
 
-            assertEquals(userId, userRegistered.get().userId());
-            assertEquals(email, userRegistered.get().email());
-        } else {
-            fail();
+            assertThat(userRegistered.get().userId()).isEqualTo(userId);
+            assertThat(userRegistered.get().email()).isEqualTo(email);
         }
 
         var resourceKey = Hash.hash(email).toString();
         var reservationReadResult = eventStore.read("reservation-%s".formatted(resourceKey));
 
-        assertInstanceOf(ReadResult.Success.class, reservationReadResult);
+        assertThat(reservationReadResult).isInstanceOf(ReadResult.Success.class);
 
         if (reservationReadResult instanceof ReadResult.Success success) {
             var reservationEvents = success.events();
-            assertEquals(2, reservationEvents.length);
+            assertThat(reservationEvents.length).isEqualTo(2);
 
             var reservationInitiated = deserialize(ResourceReservationInitiated.class, reservationEvents[0]);
 
-            assertTrue(reservationInitiated.isPresent());
+            assertThat(reservationInitiated.isPresent()).isTrue();
 
-            assertEquals(resourceKey, reservationInitiated.get().resourceKey());
-            assertEquals(reservationLockDuration, reservationInitiated.get().tentativeLockFor());
+            assertThat(reservationInitiated.get().resourceKey()).isEqualTo(resourceKey);
+            assertThat(reservationInitiated.get().tentativeLockFor()).isEqualTo(reservationLockDuration);
 
-            var reservationConfirmed = deserialize(ResourceReservationConfirmed.class, reservationEvents[0]);
+            var reservationConfirmed = deserialize(ResourceReservationConfirmed.class, reservationEvents[1]);
 
-            assertTrue(reservationConfirmed.isPresent());
+            assertThat(reservationConfirmed.isPresent()).isTrue();
 
-            assertEquals(resourceKey, reservationConfirmed.get().resourceKey());
-        } else {
-            fail();
+            assertThat(reservationConfirmed.get().resourceKey()).isEqualTo(resourceKey);
+            assertThat(reservationConfirmed.get().reservedAt()).isNotNull();
         }
     }
 

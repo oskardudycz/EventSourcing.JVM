@@ -18,10 +18,14 @@ public class RabbitMQTestConfiguration {
 
     @Bean
     DynamicPropertyRegistrar rabbitMQProperties() {
+        return rabbitMQPropertiesOf(DOCKER_COMPOSE_PROJECT);
+    }
+
+    static DynamicPropertyRegistrar rabbitMQPropertiesOf(String dockerComposeProject) {
         return registry -> {
-            var composePort = dockerComposePort("rabbitmq", 5672);
+            var composePort = dockerComposePort(dockerComposeProject, "rabbitmq", 5672);
             if (composePort.isPresent()) {
-                registry.add("spring.rabbitmq.host", () -> "localhost");
+                registry.add("spring.rabbitmq.host", () -> dockerHost());
                 registry.add("spring.rabbitmq.port", composePort::get);
                 return;
             }
@@ -40,12 +44,12 @@ public class RabbitMQTestConfiguration {
         return shared;
     }
 
-    private static Optional<Integer> dockerComposePort(String service, int containerPort) {
+    private static Optional<Integer> dockerComposePort(String dockerComposeProject, String service, int containerPort) {
         return DockerClientFactory.instance()
                 .client()
                 .listContainersCmd()
                 .withLabelFilter(Map.of(
-                        "com.docker.compose.project", DOCKER_COMPOSE_PROJECT,
+                        "com.docker.compose.project", dockerComposeProject,
                         "com.docker.compose.service", service))
                 .exec()
                 .stream()
@@ -53,5 +57,9 @@ public class RabbitMQTestConfiguration {
                 .filter(port -> Objects.equals(port.getPrivatePort(), containerPort) && port.getPublicPort() != null)
                 .map(ContainerPort::getPublicPort)
                 .findFirst();
+    }
+
+    private static String dockerHost() {
+        return DockerClientFactory.instance().dockerHostIpAddress();
     }
 }

@@ -2,7 +2,6 @@ package io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events
 
 import static io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.mongodb.mutable.GettingStateFromEventsTests.ShoppingCartEvent.*;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.eventdriven.eventstores.EventStore;
 import io.eventdriven.eventstores.StreamName;
@@ -112,8 +111,8 @@ public class GettingStateFromEventsTests extends MongoDBTest {
                 case ShoppingCartOpened opened -> apply(opened);
                 case ProductItemAddedToShoppingCart productItemAdded -> apply(productItemAdded);
                 case ProductItemRemovedFromShoppingCart productItemRemoved -> apply(productItemRemoved);
-                case ShoppingCartConfirmed _ -> apply(confirmed);
-                case ShoppingCartCanceled _ -> apply(canceled);
+                case ShoppingCartConfirmed confirmed -> apply(confirmed);
+                case ShoppingCartCanceled canceled -> apply(canceled);
             }
         }
 
@@ -258,9 +257,9 @@ public class GettingStateFromEventsTests extends MongoDBTest {
 
         var shoppingCart = getShoppingCart(eventStore, streamName);
 
-        assertEquals(shoppingCartId, shoppingCart.id());
-        assertEquals(clientId, shoppingCart.clientId());
-        assertEquals(2, shoppingCart.productItems().length);
+        assertThat(shoppingCart.id()).isEqualTo(shoppingCartId);
+        assertThat(shoppingCart.clientId()).isEqualTo(clientId);
+        assertThat(shoppingCart.productItems().length).isEqualTo(2);
 
         assertThat(shoppingCart.productItems()[0]).usingRecursiveComparison().isEqualTo(pairOfShoes);
         assertThat(shoppingCart.productItems()[1]).usingRecursiveComparison().isEqualTo(tShirt);

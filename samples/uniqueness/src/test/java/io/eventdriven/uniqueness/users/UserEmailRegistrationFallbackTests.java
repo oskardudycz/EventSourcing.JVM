@@ -4,7 +4,7 @@ import static io.eventdriven.uniqueness.core.kurrentdb.subscriptions.KurrentDBSu
 import static io.eventdriven.uniqueness.core.resourcereservation.kurrentdb.ResourceReservationEvent.*;
 import static io.eventdriven.uniqueness.core.serialization.EventSerializer.deserialize;
 import static io.eventdriven.uniqueness.users.UserEvent.UserRegistered;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.uniqueness.core.async.SyncProcessor;
 import io.eventdriven.uniqueness.core.kurrentdb.EventStore;
@@ -81,10 +81,10 @@ public class UserEmailRegistrationFallbackTests {
         // Then
         var resourceReservation = repository.findById(resourceKey).orElse(null);
 
-        assertNotNull(resourceReservation);
-        assertEquals(resourceKey, resourceReservation.getResourceKey());
-        assertEquals(ResourceReservation.Status.Confirmed, resourceReservation.getStatus());
-        assertNotNull(resourceReservation.getReservedAt());
+        assertThat(resourceReservation).isNotNull();
+        assertThat(resourceReservation.getResourceKey()).isEqualTo(resourceKey);
+        assertThat(resourceReservation.getStatus()).isEqualTo(ResourceReservation.Status.Confirmed);
+        assertThat(resourceReservation.getReservedAt()).isNotNull();
     }
 
     @Test
@@ -107,9 +107,9 @@ public class UserEmailRegistrationFallbackTests {
         // Then
         var resourceReservation = repository.findById(resourceKey).orElse(null);
 
-        assertNotNull(resourceReservation);
-        assertEquals(resourceKey, resourceReservation.getResourceKey());
-        assertEquals(ResourceReservation.Status.Pending, resourceReservation.getStatus());
+        assertThat(resourceReservation).isNotNull();
+        assertThat(resourceReservation.getResourceKey()).isEqualTo(resourceKey);
+        assertThat(resourceReservation.getStatus()).isEqualTo(ResourceReservation.Status.Pending);
     }
 
     @Test
@@ -141,10 +141,10 @@ public class UserEmailRegistrationFallbackTests {
         // Then
         var resourceReservation = repository.findById(resourceKey).orElse(null);
 
-        assertNotNull(resourceReservation);
-        assertEquals(resourceKey, resourceReservation.getResourceKey());
-        assertEquals(ResourceReservation.Status.Confirmed, resourceReservation.getStatus());
-        assertNotNull(resourceReservation.getReservedAt());
+        assertThat(resourceReservation).isNotNull();
+        assertThat(resourceReservation.getResourceKey()).isEqualTo(resourceKey);
+        assertThat(resourceReservation.getStatus()).isEqualTo(ResourceReservation.Status.Confirmed);
+        assertThat(resourceReservation.getReservedAt()).isNotNull();
     }
 
     @Test
@@ -172,7 +172,7 @@ public class UserEmailRegistrationFallbackTests {
         // Then
         var resourceReservation = repository.findById(resourceKey).orElse(null);
 
-        assertNull(resourceReservation);
+        assertThat(resourceReservation).isNull();
     }
 
     @Autowired

@@ -119,8 +119,8 @@ public class ShoppingCart {
             case ShoppingCartOpened opened -> apply(opened);
             case ProductItemAddedToShoppingCart productItemAdded -> apply(productItemAdded);
             case ProductItemRemovedFromShoppingCart productItemRemoved -> apply(productItemRemoved);
-            case ShoppingCartConfirmed _ -> apply(confirmed);
-            case ShoppingCartCanceled _ -> apply(canceled);
+            case ShoppingCartConfirmed confirmed -> apply(confirmed);
+            case ShoppingCartCanceled canceled -> apply(canceled);
         }
     }
 
