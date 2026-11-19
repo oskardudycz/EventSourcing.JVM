@@ -29,7 +29,7 @@ The repository root and each of the 13 folders have their own copies of `.devcon
 
 ## Build environment
 
-The builds compile for Java 22 (`options.release = 22` in `build.gradle`), and Gradle builds and tests with the JDK it runs on, which must be 22 or newer. CI checks JDK 22, 25 and 27. If `java -version` shows an older JDK, set `JAVA_HOME` to JDK 22 or newer. A missing JDK is not a reason to skip a build.
+The builds compile for Java 22 (`options.release = 22` in `build.gradle`). Gradle builds and tests with the JDK it runs on when that JDK is 22 or newer. With an older JDK, `build.gradle` asks for a Java 22 toolchain, and Gradle uses an installed JDK 22 or downloads it. CI checks JDK 22, 25 and 27. A missing JDK is not a reason to skip a build.
 
 The tests need Docker. They start KurrentDB, PostgreSQL and MongoDB with Testcontainers, so they fail if Docker isn't running. If a KurrentDB from Docker Compose is running (`docker compose --profile kurrentdb up` in the repository root), the tests that get their connection string from `TestDatabases` use it instead of starting a container.
 

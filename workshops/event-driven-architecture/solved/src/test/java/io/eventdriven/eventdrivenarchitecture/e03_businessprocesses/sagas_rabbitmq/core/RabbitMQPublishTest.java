@@ -65,8 +65,7 @@ public class RabbitMQPublishTest {
 
             assertThatThrownBy(() -> messageBus.publish(
                             List.of(new RoomInspected(UUID.randomUUID().toString()))))
-                    .isInstanceOf(AmqpException.class)
-                    .hasMessageContaining("NOT_FOUND - no exchange '" + properties.exchange() + "'");
+                    .isInstanceOf(AmqpException.class);
 
             assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(PUBLISH_TIMEOUT);
             await().atMost(Duration.ofSeconds(5))

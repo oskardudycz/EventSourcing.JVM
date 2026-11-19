@@ -68,7 +68,7 @@ It uses:
 ## Prerequisites
 
 1. Install git - https://git-scm.com/downloads.
-2. Install Java JDK 22 or newer - https://www.oracle.com/java/technologies/downloads/. The build compiles for Java 22 and runs on the JDK you start Gradle with. CI checks JDK 22, 25 and 27.
+2. Install Java JDK 22 or newer - https://www.oracle.com/java/technologies/downloads/. The build compiles and tests with the JDK you start Gradle with. If that JDK is older than 22 (Gradle needs at least 17), Gradle uses an installed JDK 22 or downloads it. CI checks JDK 22, 25 and 27.
 3. Install IntelliJ, Eclipse, VSCode or other preferred IDE.
 4. Install docker - https://docs.docker.com/engine/install/.
 5. Open project folder.
