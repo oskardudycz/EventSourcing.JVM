@@ -42,6 +42,15 @@ jobs:
         with:
           cache-provider: basic
 
+      - name: Download dependencies
+        run: |
+          for attempt in 1 2 3; do
+            ./gradlew testClasses -Pci=true --refresh-dependencies && exit 0
+            echo "Attempt $attempt failed, retrying in 30 seconds"
+            sleep 30
+          done
+          exit 1
+
       - name: Build with Gradle
         run: ./gradlew build -Pci=true
 

@@ -354,7 +354,7 @@ There are two variations of those samples:
 
 For running the Event Store examples you need to have:
 
-1. Java JDK 22 or newer - https://www.oracle.com/java/technologies/downloads/. The build compiles for Java 22 and runs on the JDK you start Gradle with. CI checks JDK 22, 25 and 27.
+1. Java JDK 22 or newer - https://www.oracle.com/java/technologies/downloads/. The build compiles and tests with the JDK you start Gradle with. If that JDK is older than 22 (Gradle needs at least 17), Gradle uses an installed JDK 22 or downloads it. CI checks JDK 22, 25 and 27.
 2. Installed IntelliJ, Eclipse, VSCode or other preferred IDE.
 3. [Docker](https://store.docker.com/search?type=edition&offering=community) installed.
 
@@ -448,7 +448,7 @@ A sample's or workshop's container mounts the whole repository and opens that fo
 
 ### Your own machine
 
-Install Java 22 or newer, and Docker. The builds compile for Java 22, and Gradle builds and tests with the JDK you start it with, so a newer JDK works too. CI checks JDK 22, 25 and 27.
+Install Java 22 or newer, and Docker. The builds compile for Java 22, and Gradle builds and tests with the JDK you start it with, so a newer JDK works too. If that JDK is older than 22 (Gradle needs at least 17), Gradle uses an installed JDK 22 or downloads it. CI checks JDK 22, 25 and 27.
 
 Then build and test from a sample or workshop folder:
 

@@ -18,7 +18,7 @@ This guide takes you through one purchase in the sample shop, step by step. Afte
 
 ## What you need
 
-- Java 22 or newer. The sample compiles for Java 22 and runs on the JDK you start Gradle with.
+- Java 22 or newer. The sample builds and tests with the JDK you start Gradle with. If that JDK is older than 22 (Gradle needs at least 17), Gradle uses an installed JDK 22 or downloads it.
 - Docker, only for the two test classes that use KurrentDB.
 
 You don't need Node.js. Gradle downloads it for the EventCatalog tasks.

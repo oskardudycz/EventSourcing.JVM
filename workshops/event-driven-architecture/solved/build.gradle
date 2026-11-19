@@ -5,6 +5,14 @@ plugins {
   id 'com.diffplug.spotless' version '8.11.0'
 }
 
+java {
+  if (!JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_22)) {
+    toolchain {
+      languageVersion = JavaLanguageVersion.of(22)
+    }
+  }
+}
+
 tasks.withType(JavaCompile).configureEach {
   options.release = 22
 }
@@ -22,6 +30,7 @@ version = '0.0.1-SNAPSHOT'
 
 repositories {
   mavenCentral()
+  maven { url = 'https://maven-central.storage-download.googleapis.com/maven2/' }
 }
 
 configurations {
