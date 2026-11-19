@@ -707,7 +707,7 @@ public void cancelOrder_succeeds_withAcceptedAndCancelsTheUnpaidOrder() {
             .when(POST("/%s/orders/%s/cancel".formatted(customerId, order.orderId())))
             .then(ACCEPTED);
 
-    assertEquals("Canceled", progressOf(order.orderId()));
+    assertThat(progressOf(order.orderId())).isEqualTo("Canceled");
 }
 ```
 

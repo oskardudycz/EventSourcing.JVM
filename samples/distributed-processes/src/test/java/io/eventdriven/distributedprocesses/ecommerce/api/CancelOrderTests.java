@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
 import io.eventdriven.testing.ApiSpecification;
@@ -28,7 +28,7 @@ public class CancelOrderTests extends ApiSpecification {
                 .when(POST("/%s/orders/%s/cancel".formatted(customerId, order.orderId())))
                 .then(ACCEPTED);
 
-        assertEquals("Canceled", progressOf(order.orderId()));
+        assertThat(progressOf(order.orderId())).isEqualTo("Canceled");
     }
 
     @Test
@@ -42,7 +42,7 @@ public class CancelOrderTests extends ApiSpecification {
                 .when(POST("/%s/orders/%s/cancel".formatted(customerId, order.orderId())))
                 .then(ACCEPTED);
 
-        assertEquals("Completed", progressOf(order.orderId()));
+        assertThat(progressOf(order.orderId())).isEqualTo("Completed");
     }
 
     @Test

@@ -1,7 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
 import io.eventdriven.testing.ApiSpecification;
@@ -28,24 +27,24 @@ public class PurchaseOverHttpTests extends ApiSpecification {
         var checkoutPage = builder.openCheckout(order.orderId(), order.paymentId());
         var backToTheShop = builder.payOn(checkoutPage, "4242 4242 4242 4242");
 
-        assertTrue(backToTheShop.endsWith("/shop/customers/%s/orders/%s".formatted(customerId, order.orderId())));
+        assertThat(backToTheShop.endsWith("/shop/customers/%s/orders/%s".formatted(customerId, order.orderId())))
+                .isTrue();
 
         given(() -> order.orderId())
                 .when(GET("/%s/orders".formatted(customerId), JsonNode.class))
                 .then(response -> {
                     OK.accept(response);
                     var status = (JsonNode) response.getResponseBody();
-                    assertEquals("Completed", status.get("progress").asString());
-                    assertEquals("Sandbox Express", status.get("carrier").asString());
+                    assertThat(status.get("progress").asString()).isEqualTo("Completed");
+                    assertThat(status.get("carrier").asString()).isEqualTo("Sandbox Express");
                 });
 
         given(() -> "")
                 .when(GET("/%s/orders".formatted(customerId), JsonNode.class))
-                .then(response -> assertEquals(
-                        "Completed",
-                        ((JsonNode) response.getResponseBody())
+                .then(response -> assertThat(((JsonNode) response.getResponseBody())
                                 .get(0)
                                 .get("progress")
-                                .asString()));
+                                .asString())
+                        .isEqualTo("Completed"));
     }
 }

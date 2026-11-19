@@ -7,7 +7,7 @@ import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slim
 import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.productItems.ProductItems.PricedProductItem;
 import static io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.productItems.ProductItems.ProductItem;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.immutable.productItems.FakeProductPriceCalculator;
 import io.eventdriven.introductiontoeventsourcing.e06_business_logic_slimmed.tools.EventStore;
@@ -79,10 +79,11 @@ public class BusinessLogicTests {
 
         // Try Cancel
         ShoppingCart finalShoppingCart = getShoppingCart(eventStore, shoppingCartId);
-        assertThrows(IllegalStateException.class, () -> {
-            var cancelResult = decide(new Cancel(shoppingCartId, now), finalShoppingCart);
-            eventStore.appendToStream(shoppingCartId, new Object[] {cancelResult});
-        });
+        assertThatThrownBy(() -> {
+                    var cancelResult = decide(new Cancel(shoppingCartId, now), finalShoppingCart);
+                    eventStore.appendToStream(shoppingCartId, new Object[] {cancelResult});
+                })
+                .isInstanceOf(IllegalStateException.class);
 
         shoppingCart = getShoppingCart(eventStore, shoppingCartId);
 

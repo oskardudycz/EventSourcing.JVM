@@ -1,7 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.api.builders;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import java.util.ArrayList;
@@ -91,8 +90,8 @@ public class PurchaseRestBuilder {
                 .exchange()
                 .returnResult(Void.class);
 
-        assertEquals(HttpStatus.SEE_OTHER, response.getStatus());
-        assertNotNull(response.getResponseHeaders().getLocation());
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.SEE_OTHER);
+        assertThat(response.getResponseHeaders().getLocation()).isNotNull();
 
         return response.getResponseHeaders().getLocation().toString();
     }
@@ -109,7 +108,7 @@ public class PurchaseRestBuilder {
                 .exchange()
                 .returnResult(Void.class);
 
-        assertEquals(HttpStatus.SEE_OTHER, response.getStatus());
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.SEE_OTHER);
 
         return response.getResponseHeaders().getLocation().toString();
     }
@@ -127,7 +126,7 @@ public class PurchaseRestBuilder {
                 .exchange()
                 .returnResult(Void.class);
 
-        assertEquals(HttpStatus.OK, response.getStatus());
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
 
         return new ETag(response.getResponseHeaders().getETag());
     }
@@ -139,7 +138,7 @@ public class PurchaseRestBuilder {
                 .exchange()
                 .returnResult(JsonNode.class);
 
-        assertEquals(HttpStatus.OK, response.getStatus());
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
 
         return response.getResponseBody().get("shoppingCartId").asString();
     }
@@ -152,7 +151,7 @@ public class PurchaseRestBuilder {
                 .exchange()
                 .returnResult(Void.class);
 
-        assertEquals(HttpStatus.ACCEPTED, response.getStatus());
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.ACCEPTED);
     }
 
     private String apiUrl(String path) {

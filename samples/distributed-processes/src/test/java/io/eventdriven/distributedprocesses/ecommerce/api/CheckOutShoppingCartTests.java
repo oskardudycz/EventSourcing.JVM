@@ -1,7 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
@@ -40,9 +39,8 @@ public class CheckOutShoppingCartTests extends ApiSpecification {
     public void checkOut_succeeds_withAcceptedAndTheOrderStatusAsLocation() {
         given(() -> null).when(POST(checkout(customerId), eTag)).then(response -> {
             ACCEPTED.accept(response);
-            assertEquals(
-                    "/customers/%s/orders/%s-1".formatted(customerId, customerId),
-                    response.getResponseHeaders().getLocation().toString());
+            assertThat(response.getResponseHeaders().getLocation().toString())
+                    .isEqualTo("/customers/%s/orders/%s-1".formatted(customerId, customerId));
         });
     }
 
@@ -52,14 +50,14 @@ public class CheckOutShoppingCartTests extends ApiSpecification {
 
         given(() -> null).when(POST(checkout(customerId), eTag)).then(response -> {
             CONFLICT.accept(response);
-            assertEquals("W/\"1\"", response.getResponseHeaders().getETag());
+            assertThat(response.getResponseHeaders().getETag()).isEqualTo("W/\"1\"");
         });
 
         var cart = GET("/%s/shopping-carts/current".formatted(customerId), JsonNode.class)
                 .apply(restTestClient, "");
-        assertEquals(
-                60, cart.getResponseBody().get("lines").get(0).get("unitPrice").asDouble());
-        assertFalse(cart.getResponseBody().get("checkedOut").asBoolean());
+        assertThat(cart.getResponseBody().get("lines").get(0).get("unitPrice").asDouble())
+                .isEqualTo(60);
+        assertThat(cart.getResponseBody().get("checkedOut").asBoolean()).isFalse();
     }
 
     @Test

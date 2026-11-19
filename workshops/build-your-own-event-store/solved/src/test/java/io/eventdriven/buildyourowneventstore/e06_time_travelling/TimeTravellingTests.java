@@ -2,7 +2,7 @@ package io.eventdriven.buildyourowneventstore.e06_time_travelling;
 
 import static bankaccounts.BankAccount.Event.*;
 import static bankaccounts.BankAccountService.getBankAccount;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import bankaccounts.BankAccount;
 import io.eventdriven.buildyourowneventstore.EventStore;
@@ -48,24 +48,24 @@ public class TimeTravellingTests extends PostgresTest {
         var aggregateAtVersion1 =
                 getBankAccount(eventStore, bankAccountId, 0L, null).get();
 
-        assertEquals(new BankAccount(bankAccountId, BankAccount.BankAccountStatus.Opened, 0, 0), aggregateAtVersion1);
+        assertThat(aggregateAtVersion1)
+                .isEqualTo(new BankAccount(bankAccountId, BankAccount.BankAccountStatus.Opened, 0, 0));
 
         var aggregateAtVersion2 =
                 getBankAccount(eventStore, bankAccountId, 1L, null).get();
 
-        assertEquals(
-                new BankAccount(bankAccountId, BankAccount.BankAccountStatus.Opened, depositRecorded.amount(), 1),
-                aggregateAtVersion2);
+        assertThat(aggregateAtVersion2)
+                .isEqualTo(new BankAccount(
+                        bankAccountId, BankAccount.BankAccountStatus.Opened, depositRecorded.amount(), 1));
 
         var aggregateAtVersion3 =
                 getBankAccount(eventStore, bankAccountId, 2L, null).get();
 
-        assertEquals(
-                new BankAccount(
+        assertThat(aggregateAtVersion3)
+                .isEqualTo(new BankAccount(
                         bankAccountId,
                         BankAccount.BankAccountStatus.Opened,
                         depositRecorded.amount() - cashWithdrawn.amount(),
-                        2),
-                aggregateAtVersion3);
+                        2));
     }
 }

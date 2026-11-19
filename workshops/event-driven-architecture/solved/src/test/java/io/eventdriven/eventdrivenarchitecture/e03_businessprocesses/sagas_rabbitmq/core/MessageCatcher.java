@@ -2,7 +2,6 @@ package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.sagas_rabbi
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Duration;
 import java.util.List;
@@ -26,7 +25,7 @@ public class MessageCatcher {
     public <Message> void shouldReceiveSingleMessage(Message message) {
         assertThat(published).hasSize(1);
         assertThat(published).hasOnlyElementsOfTypes(message.getClass()).hasSize(1);
-        assertEquals(message, published.getFirst());
+        assertThat(published.getFirst()).isEqualTo(message);
     }
 
     public void shouldReceiveMessages(List<Object> expectedMessages) {

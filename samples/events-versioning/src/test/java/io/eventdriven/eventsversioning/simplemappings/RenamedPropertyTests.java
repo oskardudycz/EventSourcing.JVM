@@ -1,6 +1,6 @@
 package io.eventdriven.eventsversioning.simplemappings;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.eventdriven.eventsversioning.serialization.Serializer;
@@ -22,12 +22,12 @@ public class RenamedPropertyTests {
         var result = Serializer.deserialize(ShoppingCartOpened.class, bytes);
 
         // Then
-        assertTrue(result.isPresent());
+        assertThat(result.isPresent()).isTrue();
 
         var event = result.get();
 
-        assertEquals(oldEvent.shoppingCartId(), event.cartId());
-        assertEquals(oldEvent.clientId(), event.clientId());
+        assertThat(event.cartId()).isEqualTo(oldEvent.shoppingCartId());
+        assertThat(event.clientId()).isEqualTo(oldEvent.clientId());
     }
 
     @Test
@@ -40,11 +40,11 @@ public class RenamedPropertyTests {
         var result = Serializer.deserialize(ShoppingCartEvent.ShoppingCartOpened.class, bytes);
 
         // Then
-        assertTrue(result.isPresent());
+        assertThat(result.isPresent()).isTrue();
 
         var oldEvent = result.get();
 
-        assertEquals(event.cartId(), oldEvent.shoppingCartId());
-        assertEquals(event.clientId(), oldEvent.clientId());
+        assertThat(oldEvent.shoppingCartId()).isEqualTo(event.cartId());
+        assertThat(oldEvent.clientId()).isEqualTo(event.clientId());
     }
 }

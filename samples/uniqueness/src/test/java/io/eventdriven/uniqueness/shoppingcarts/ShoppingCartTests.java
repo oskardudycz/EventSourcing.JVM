@@ -1,7 +1,7 @@
 package io.eventdriven.uniqueness.shoppingcarts;
 
 import static io.eventdriven.uniqueness.shoppingcarts.ShoppingCartEvent.ShoppingCartOpened;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.uniqueness.core.serialization.EventSerializer;
 import io.eventdriven.uniqueness.testing.TestDatabases;
@@ -38,7 +38,7 @@ public class ShoppingCartTests {
                             EventSerializer.serialize(shoppingCartOpened))
                     .get();
         } catch (ExecutionException exception) {
-            assertInstanceOf(WrongExpectedVersionException.class, exception.getCause());
+            assertThat(exception.getCause()).isInstanceOf(WrongExpectedVersionException.class);
         }
     }
 

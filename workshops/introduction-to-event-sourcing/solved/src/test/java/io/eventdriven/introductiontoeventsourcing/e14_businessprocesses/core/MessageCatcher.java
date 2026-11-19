@@ -1,7 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e14_businessprocesses.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,7 +24,7 @@ public class MessageCatcher {
     public <Event> void shouldReceiveSingleEvent(Event event) {
         assertThat(published).hasSize(1);
         assertThat(published).hasOnlyElementsOfTypes(event.getClass()).hasSize(1);
-        assertEquals(event, published.getFirst());
+        assertThat(published.getFirst()).isEqualTo(event);
     }
 
     public void shouldReceiveMessages(Object[] messages) {

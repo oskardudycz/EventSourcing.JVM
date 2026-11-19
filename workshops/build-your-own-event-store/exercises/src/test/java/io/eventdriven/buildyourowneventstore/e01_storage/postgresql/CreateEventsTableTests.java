@@ -1,8 +1,7 @@
 package io.eventdriven.buildyourowneventstore.e01_storage.postgresql;
 
 import static io.eventdriven.buildyourowneventstore.tools.PostgresSchemaProvider.Column.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.buildyourowneventstore.tools.PostgresTest;
 import org.junit.jupiter.api.BeforeAll;
@@ -38,8 +37,8 @@ public class CreateEventsTableTests extends PostgresTest {
     public void eventsTable_ShouldBeCreated() {
         var eventsTable = schemaProvider.getTable(EventsTableName);
 
-        assertTrue(eventsTable.isPresent());
-        assertEquals(EventsTableName, eventsTable.get().getName());
+        assertThat(eventsTable.isPresent()).isTrue();
+        assertThat(eventsTable.get().getName()).isEqualTo(EventsTableName);
     }
 
     /**
@@ -51,9 +50,9 @@ public class CreateEventsTableTests extends PostgresTest {
         var streamIdColumn =
                 schemaProvider.getTable(EventsTableName).flatMap(table -> table.getColumn(streamIdColumnName));
 
-        assertTrue(streamIdColumn.isPresent());
-        assertEquals(streamIdColumnName, streamIdColumn.get().getName());
-        assertEquals(uuidType, streamIdColumn.get().getType());
+        assertThat(streamIdColumn.isPresent()).isTrue();
+        assertThat(streamIdColumn.get().getName()).isEqualTo(streamIdColumnName);
+        assertThat(streamIdColumn.get().getType()).isEqualTo(uuidType);
     }
 
     /**
@@ -65,9 +64,9 @@ public class CreateEventsTableTests extends PostgresTest {
         var streamPositionColumn =
                 schemaProvider.getTable(EventsTableName).flatMap(table -> table.getColumn(streamPositionColumnName));
 
-        assertTrue(streamPositionColumn.isPresent());
-        assertEquals(streamPositionColumnName, streamPositionColumn.get().getName());
-        assertEquals(bigintType, streamPositionColumn.get().getType());
+        assertThat(streamPositionColumn.isPresent()).isTrue();
+        assertThat(streamPositionColumn.get().getName()).isEqualTo(streamPositionColumnName);
+        assertThat(streamPositionColumn.get().getType()).isEqualTo(bigintType);
     }
 
     /**
@@ -79,9 +78,9 @@ public class CreateEventsTableTests extends PostgresTest {
         var globalPositionColumn =
                 schemaProvider.getTable(EventsTableName).flatMap(table -> table.getColumn(globalPositionColumnName));
 
-        assertTrue(globalPositionColumn.isPresent());
-        assertEquals(globalPositionColumnName, globalPositionColumn.get().getName());
-        assertEquals(bigintType, globalPositionColumn.get().getType());
+        assertThat(globalPositionColumn.isPresent()).isTrue();
+        assertThat(globalPositionColumn.get().getName()).isEqualTo(globalPositionColumnName);
+        assertThat(globalPositionColumn.get().getType()).isEqualTo(bigintType);
     }
 
     /**
@@ -92,9 +91,9 @@ public class CreateEventsTableTests extends PostgresTest {
     public void eventsTable_ShouldHave_IdColumn() {
         var idColumn = schemaProvider.getTable(EventsTableName).flatMap(table -> table.getColumn(idColumnName));
 
-        assertTrue(idColumn.isPresent());
-        assertEquals(idColumnName, idColumn.get().getName());
-        assertEquals(uuidType, idColumn.get().getType());
+        assertThat(idColumn.isPresent()).isTrue();
+        assertThat(idColumn.get().getName()).isEqualTo(idColumnName);
+        assertThat(idColumn.get().getType()).isEqualTo(uuidType);
     }
 
     /**
@@ -105,9 +104,9 @@ public class CreateEventsTableTests extends PostgresTest {
     public void eventsTable_ShouldHave_DataColumn() {
         var dataColumn = schemaProvider.getTable(EventsTableName).flatMap(table -> table.getColumn(dataColumnName));
 
-        assertTrue(dataColumn.isPresent());
-        assertEquals(dataColumnName, dataColumn.get().getName());
-        assertEquals(jsonbType, dataColumn.get().getType());
+        assertThat(dataColumn.isPresent()).isTrue();
+        assertThat(dataColumn.get().getName()).isEqualTo(dataColumnName);
+        assertThat(dataColumn.get().getType()).isEqualTo(jsonbType);
     }
 
     /**
@@ -118,9 +117,9 @@ public class CreateEventsTableTests extends PostgresTest {
     public void eventsTable_ShouldHave_MetadataColumn() {
         var dataColumn = schemaProvider.getTable(EventsTableName).flatMap(table -> table.getColumn(metaDataColumnName));
 
-        assertTrue(dataColumn.isPresent());
-        assertEquals(metaDataColumnName, dataColumn.get().getName());
-        assertEquals(jsonbType, dataColumn.get().getType());
+        assertThat(dataColumn.isPresent()).isTrue();
+        assertThat(dataColumn.get().getName()).isEqualTo(metaDataColumnName);
+        assertThat(dataColumn.get().getType()).isEqualTo(jsonbType);
     }
 
     /**
@@ -131,9 +130,9 @@ public class CreateEventsTableTests extends PostgresTest {
     public void eventsTable_ShouldHave_TypeColumn_WithStringType() {
         var typeColumn = schemaProvider.getTable(EventsTableName).flatMap(table -> table.getColumn(typeColumnName));
 
-        assertTrue(typeColumn.isPresent());
-        assertEquals(typeColumnName, typeColumn.get().getName());
-        assertEquals(textType, typeColumn.get().getType());
+        assertThat(typeColumn.isPresent()).isTrue();
+        assertThat(typeColumn.get().getName()).isEqualTo(typeColumnName);
+        assertThat(typeColumn.get().getType()).isEqualTo(textType);
     }
 
     /**
@@ -145,8 +144,8 @@ public class CreateEventsTableTests extends PostgresTest {
         var createdColumn =
                 schemaProvider.getTable(EventsTableName).flatMap(table -> table.getColumn(createdColumnName));
 
-        assertTrue(createdColumn.isPresent());
-        assertEquals(createdColumnName, createdColumn.get().getName());
-        assertEquals(timestampWithTimeZone, createdColumn.get().getType());
+        assertThat(createdColumn.isPresent()).isTrue();
+        assertThat(createdColumn.get().getName()).isEqualTo(createdColumnName);
+        assertThat(createdColumn.get().getType()).isEqualTo(timestampWithTimeZone);
     }
 }

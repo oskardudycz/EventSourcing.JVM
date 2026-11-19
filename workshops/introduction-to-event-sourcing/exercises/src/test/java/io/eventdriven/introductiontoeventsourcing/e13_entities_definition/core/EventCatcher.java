@@ -1,7 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e13_entities_definition.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +23,6 @@ public class EventCatcher {
     public <Event> void shouldReceiveSingleEvent(Event event) {
         assertThat(published).hasSize(1);
         assertThat(published).hasOnlyElementsOfTypes(event.getClass()).hasSize(1);
-        assertEquals(event, published.getFirst());
+        assertThat(published.getFirst()).isEqualTo(event);
     }
 }

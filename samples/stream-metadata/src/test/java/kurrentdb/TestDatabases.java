@@ -11,17 +11,21 @@ public final class TestDatabases {
     private static final String DOCKER_COMPOSE_PROJECT = "eventsourcing";
 
     public static String kurrentDBConnectionString() {
-        return dockerComposePort("kurrentdb", 2113)
-                .map("kurrentdb://localhost:%d?tls=false"::formatted)
+        return kurrentDBConnectionString(DOCKER_COMPOSE_PROJECT);
+    }
+
+    static String kurrentDBConnectionString(String dockerComposeProject) {
+        return dockerComposePort(dockerComposeProject, "kurrentdb", 2113)
+                .map(port -> "kurrentdb://%s:%d?tls=false".formatted(dockerHost(), port))
                 .orElseGet(() -> KurrentDBContainer.shared().getConnectionString());
     }
 
-    private static Optional<Integer> dockerComposePort(String service, int containerPort) {
+    private static Optional<Integer> dockerComposePort(String dockerComposeProject, String service, int containerPort) {
         return DockerClientFactory.instance()
                 .client()
                 .listContainersCmd()
                 .withLabelFilter(Map.of(
-                        "com.docker.compose.project", DOCKER_COMPOSE_PROJECT,
+                        "com.docker.compose.project", dockerComposeProject,
                         "com.docker.compose.service", service))
                 .exec()
                 .stream()
@@ -29,5 +33,9 @@ public final class TestDatabases {
                 .filter(port -> Objects.equals(port.getPrivatePort(), containerPort) && port.getPublicPort() != null)
                 .map(ContainerPort::getPublicPort)
                 .findFirst();
+    }
+
+    private static String dockerHost() {
+        return DockerClientFactory.instance().dockerHostIpAddress();
     }
 }

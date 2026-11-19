@@ -14,11 +14,24 @@ builds=$(printf '%s\n' "$staged" | while IFS= read -r file; do
   fi
 done | sort -u)
 
+hashes() {
+  printf '%s\n' "$staged" | while IFS= read -r file; do
+    echo "$(git hash-object -- "$file") $file"
+  done
+}
+
+before=$(hashes)
+
 for build in $builds; do
   echo "pre-commit: formatting $build with Spotless..."
   (cd "$build" && ./gradlew spotlessApply --quiet)
 done
 
-printf '%s\n' "$staged" | while IFS= read -r file; do
-  git add -- "$file"
+after=$(hashes)
+[ "$before" = "$after" ] && exit 0
+
+echo "pre-commit: Spotless formatted these staged files. Review the changes, stage them and commit again:" >&2
+printf '%s\n' "$after" | while IFS= read -r line; do
+  printf '%s\n' "$before" | grep -Fxq -- "$line" || echo "  ${line#* }" >&2
 done
+exit 1

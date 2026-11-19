@@ -1,6 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.testing;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import io.eventdriven.eventstores.testing.tools.TestDatabases;
 import io.eventdriven.introductiontoeventsourcing.e08_optimistic_concurrency.core.http.ETag;
@@ -170,12 +171,13 @@ public abstract class ApiSpecification {
 
         var locationHeader = response.getResponseHeaders().getLocation();
 
-        assertNotNull(locationHeader);
+        assertThat(locationHeader).isNotNull();
 
         var location = locationHeader.toString();
 
-        assertTrue(location.startsWith(apiPrefix));
-        assertDoesNotThrow(() -> UUID.fromString(location.substring(apiPrefix.length() + 1)));
+        assertThat(location.startsWith(apiPrefix)).isTrue();
+        assertThatCode(() -> UUID.fromString(location.substring(apiPrefix.length() + 1)))
+                .doesNotThrowAnyException();
     };
 
     public Consumer<EntityExchangeResult> BAD_REQUEST = assertResponseStatus(HttpStatus.BAD_REQUEST);
@@ -189,7 +191,7 @@ public abstract class ApiSpecification {
     public Consumer<EntityExchangeResult> METHOD_NOT_ALLOWED = assertResponseStatus(HttpStatus.METHOD_NOT_ALLOWED);
 
     private Consumer<EntityExchangeResult> assertResponseStatus(HttpStatus status) {
-        return (response) -> assertEquals(status, response.getStatus());
+        return (response) -> assertThat(response.getStatus()).isEqualTo(status);
     }
 
     /////////////////////

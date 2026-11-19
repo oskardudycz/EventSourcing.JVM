@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.shoppingcarts;
 
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
@@ -46,7 +46,7 @@ public class ShoppingCartTests {
                             EventSerializer.serialize(productItemAdded))
                     .get();
         } catch (ExecutionException exception) {
-            assertInstanceOf(WrongExpectedVersionException.class, exception.getCause());
+            assertThat(exception.getCause()).isInstanceOf(WrongExpectedVersionException.class);
         }
     }
 

@@ -1,6 +1,6 @@
 package io.eventdriven.eventsversioning.simplemappings;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.eventsversioning.serialization.Serializer;
 import io.eventdriven.eventsversioning.v1.ShoppingCartEvent;
@@ -37,13 +37,13 @@ public class NewRequiredPropertyTests {
         var result = Serializer.deserialize(ShoppingCartOpened.class, bytes);
 
         // Then
-        assertTrue(result.isPresent());
+        assertThat(result.isPresent()).isTrue();
 
         var event = result.get();
 
-        assertEquals(oldEvent.shoppingCartId(), event.shoppingCartId());
-        assertEquals(oldEvent.clientId(), event.clientId());
-        assertEquals(ShoppingCartStatus.Opened, event.status());
+        assertThat(event.shoppingCartId()).isEqualTo(oldEvent.shoppingCartId());
+        assertThat(event.clientId()).isEqualTo(oldEvent.clientId());
+        assertThat(event.status()).isEqualTo(ShoppingCartStatus.Opened);
     }
 
     @Test
@@ -56,11 +56,11 @@ public class NewRequiredPropertyTests {
         var result = Serializer.deserialize(ShoppingCartEvent.ShoppingCartOpened.class, bytes);
 
         // Then
-        assertTrue(result.isPresent());
+        assertThat(result.isPresent()).isTrue();
 
         var oldEvent = result.get();
 
-        assertEquals(event.shoppingCartId(), oldEvent.shoppingCartId());
-        assertEquals(event.clientId(), oldEvent.clientId());
+        assertThat(oldEvent.shoppingCartId()).isEqualTo(event.shoppingCartId());
+        assertThat(oldEvent.clientId()).isEqualTo(event.clientId());
     }
 }

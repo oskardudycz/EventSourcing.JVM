@@ -2,8 +2,7 @@ package io.eventdriven.buildyourowneventstore.e05_stream_aggregation;
 
 import static bankaccounts.BankAccount.Event.*;
 import static bankaccounts.BankAccountService.getBankAccount;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import bankaccounts.BankAccount;
 import io.eventdriven.buildyourowneventstore.EventStore;
@@ -48,7 +47,8 @@ public class StreamAggregationTests extends PostgresTest {
 
         var bankAccount = getBankAccount(eventStore, bankAccountId);
 
-        assertTrue(bankAccount.isPresent());
-        assertEquals(new BankAccount(bankAccountId, BankAccount.BankAccountStatus.Opened, 50, 2), bankAccount.get());
+        assertThat(bankAccount.isPresent()).isTrue();
+        assertThat(bankAccount.get())
+                .isEqualTo(new BankAccount(bankAccountId, BankAccount.BankAccountStatus.Opened, 50, 2));
     }
 }

@@ -7,8 +7,7 @@ import static io.eventdriven.introductiontoeventsourcing.e05_business_logic.immu
 import static io.eventdriven.introductiontoeventsourcing.e05_business_logic.immutable.ShoppingCartService.ShoppingCartCommand.*;
 import static io.eventdriven.introductiontoeventsourcing.e05_business_logic.immutable.ShoppingCartService.handle;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.eventdriven.introductiontoeventsourcing.e05_business_logic.immutable.ProductItems.FakeProductPriceCalculator;
 import io.eventdriven.introductiontoeventsourcing.e05_business_logic.tools.EventStore;
@@ -74,28 +73,26 @@ public class BusinessLogicTests {
 
         // Try Cancel
         ShoppingCart finalShoppingCart = getShoppingCart(eventStore, shoppingCartId);
-        assertThrows(IllegalStateException.class, () -> {
-            var cancelResult = handle(new CancelShoppingCart(shoppingCartId), finalShoppingCart);
-            eventStore.appendToStream(shoppingCartId, new Object[] {cancelResult});
-        });
+        assertThatThrownBy(() -> {
+                    var cancelResult = handle(new CancelShoppingCart(shoppingCartId), finalShoppingCart);
+                    eventStore.appendToStream(shoppingCartId, new Object[] {cancelResult});
+                })
+                .isInstanceOf(IllegalStateException.class);
 
         shoppingCart = getShoppingCart(eventStore, shoppingCartId);
 
-        assertEquals(shoppingCartId, shoppingCart.id());
-        assertEquals(clientId, shoppingCart.clientId());
-        assertEquals(2, shoppingCart.productItems().size());
-        assertEquals(ShoppingCart.Status.Confirmed, shoppingCart.status());
+        assertThat(shoppingCart.id()).isEqualTo(shoppingCartId);
+        assertThat(shoppingCart.clientId()).isEqualTo(clientId);
+        assertThat(shoppingCart.productItems().size()).isEqualTo(2);
+        assertThat(shoppingCart.status()).isEqualTo(ShoppingCart.Status.Confirmed);
 
-        assertEquals(shoesId, shoppingCart.productItems().get(0).productId());
-        assertEquals(pairOfShoes.quantity(), shoppingCart.productItems().get(0).quantity());
-        assertEquals(
-                pricedPairOfShoes.unitPrice(),
-                shoppingCart.productItems().get(0).unitPrice());
+        assertThat(shoppingCart.productItems().get(0).productId()).isEqualTo(shoesId);
+        assertThat(shoppingCart.productItems().get(0).quantity()).isEqualTo(pairOfShoes.quantity());
+        assertThat(shoppingCart.productItems().get(0).unitPrice()).isEqualTo(pricedPairOfShoes.unitPrice());
 
-        assertEquals(tShirtId, shoppingCart.productItems().get(1).productId());
-        assertEquals(tShirt.quantity(), shoppingCart.productItems().get(1).quantity());
-        assertEquals(
-                pricedTShirt.unitPrice(), shoppingCart.productItems().get(1).unitPrice());
+        assertThat(shoppingCart.productItems().get(1).productId()).isEqualTo(tShirtId);
+        assertThat(shoppingCart.productItems().get(1).quantity()).isEqualTo(tShirt.quantity());
+        assertThat(shoppingCart.productItems().get(1).unitPrice()).isEqualTo(pricedTShirt.unitPrice());
 
         assertThat(shoppingCart.productItems().get(0))
                 .usingRecursiveComparison()

@@ -1,8 +1,7 @@
 package io.eventdriven.introductiontoeventsourcing.e03_appending_event.mongodb;
 
 import static io.eventdriven.introductiontoeventsourcing.e03_appending_event.mongodb.AppendingEventsTests.ShoppingCartEvent.*;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.eventstores.EventStore;
 import io.eventdriven.eventstores.StreamName;
@@ -66,10 +65,8 @@ public class AppendingEventsTests extends MongoDBTest {
 
         var streamName = new StreamName("shopping_cart", shoppingCartId.toString());
 
-        var nextExpectedStreamPosition = assertDoesNotThrow(() -> {
-            var result = appendEvents(eventStore, streamName, events);
-            return result.nextExpectedStreamPosition();
-        });
-        assertEquals(nextExpectedStreamPosition, events.length);
+        var result = appendEvents(eventStore, streamName, events);
+        var nextExpectedStreamPosition = result.nextExpectedStreamPosition();
+        assertThat(nextExpectedStreamPosition).isEqualTo(events.length);
     }
 }

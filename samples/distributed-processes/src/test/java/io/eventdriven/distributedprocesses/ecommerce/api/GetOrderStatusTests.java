@@ -1,7 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.api;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
 import io.eventdriven.testing.ApiSpecification;
@@ -32,11 +31,10 @@ public class GetOrderStatusTests extends ApiSpecification {
                 .then(response -> {
                     OK.accept(response);
                     var status = (JsonNode) response.getResponseBody();
-                    assertEquals("AwaitingPayment", status.get("progress").asString());
-                    assertEquals(
-                            "urn:ecommerce:payment:" + order.paymentId(),
-                            status.get("paymentId").asString());
-                    assertEquals(List.of("PayNow", "CancelOrder"), actionsOf(status));
+                    assertThat(status.get("progress").asString()).isEqualTo("AwaitingPayment");
+                    assertThat(status.get("paymentId").asString())
+                            .isEqualTo("urn:ecommerce:payment:" + order.paymentId());
+                    assertThat(actionsOf(status)).isEqualTo(List.of("PayNow", "CancelOrder"));
                 });
     }
 
@@ -52,10 +50,11 @@ public class GetOrderStatusTests extends ApiSpecification {
                 .then(response -> {
                     OK.accept(response);
                     var status = (JsonNode) response.getResponseBody();
-                    assertEquals("Completed", status.get("progress").asString());
-                    assertEquals("Sandbox Express", status.get("carrier").asString());
-                    assertTrue(status.get("trackingNumber").asString().startsWith("SBX"));
-                    assertEquals(List.of(), actionsOf(status));
+                    assertThat(status.get("progress").asString()).isEqualTo("Completed");
+                    assertThat(status.get("carrier").asString()).isEqualTo("Sandbox Express");
+                    assertThat(status.get("trackingNumber").asString().startsWith("SBX"))
+                            .isTrue();
+                    assertThat(actionsOf(status)).isEqualTo(List.of());
                 });
     }
 

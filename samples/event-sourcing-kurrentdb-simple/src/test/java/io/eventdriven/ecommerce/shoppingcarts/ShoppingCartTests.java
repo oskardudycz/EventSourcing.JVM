@@ -1,6 +1,6 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart.*;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.ProductItemAddedToShoppingCart;
@@ -36,16 +36,17 @@ public class ShoppingCartTests {
             shoppingCart = ShoppingCart.when(shoppingCart, event);
         }
 
-        assertTrue(shoppingCart instanceof Confirmed);
+        assertThat(shoppingCart instanceof Confirmed).isTrue();
         var confirmedShoppingCart = (Confirmed) shoppingCart;
-        assertEquals(confirmedShoppingCart.id(), shoppingCartId);
-        assertEquals(confirmedShoppingCart.clientId(), clientId);
-        assertTrue(confirmedShoppingCart.isClosed());
+        assertThat(shoppingCartId).isEqualTo(confirmedShoppingCart.id());
+        assertThat(clientId).isEqualTo(confirmedShoppingCart.clientId());
+        assertThat(confirmedShoppingCart.isClosed()).isTrue();
 
-        assertEquals(confirmedShoppingCart.productItems().items().stream().count(), 1);
+        assertThat(confirmedShoppingCart.productItems().items().stream().count())
+                .isEqualTo(1);
 
         var tShirtFromShoppingCart =
                 confirmedShoppingCart.productItems().items().get(0);
-        assertEquals(tShirt, tShirtFromShoppingCart);
+        assertThat(tShirtFromShoppingCart).isEqualTo(tShirt);
     }
 }

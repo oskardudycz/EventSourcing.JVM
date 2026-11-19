@@ -35,6 +35,11 @@ Tutorial, practical samples and other resources about Event Sourcing in JVM. See
     - [Uniqueness](#uniqueness)
     - [Distributed Processes](#distributed-processes)
   - [Articles](#articles)
+  - [Working on this repository](#working-on-this-repository)
+    - [Dev container](#dev-container)
+    - [Your own machine](#your-own-machine)
+    - [Editor setup](#editor-setup)
+    - [Formatting and the pre-commit hook](#formatting-and-the-pre-commit-hook)
   
 ## Event Sourcing
 
@@ -349,7 +354,7 @@ There are two variations of those samples:
 
 For running the Event Store examples you need to have:
 
-1. Java JDK 17 or later installed to run Gradle - https://www.oracle.com/java/technologies/downloads/. The build uses JDK 22 through a Gradle toolchain and downloads it if it isn't installed.
+1. Java JDK 22 or newer - https://www.oracle.com/java/technologies/downloads/. The build compiles for Java 22 and runs on the JDK you start Gradle with. CI checks JDK 22, 25 and 27.
 2. Installed IntelliJ, Eclipse, VSCode or other preferred IDE.
 3. [Docker](https://store.docker.com/search?type=edition&offering=community) installed.
 
@@ -427,5 +432,51 @@ Read also more on the **Event Sourcing** and **CQRS** topics in my [blog](https:
 -   📝 [Outbox, Inbox patterns and delivery guarantees explained](https://event-driven.io/en/outbox_inbox_patterns_and_delivery_guarantees_explained/?utm_source=event_sourcing_jvm)
 -   📝 [Saga and Process Manager - distributed processes in practice](https://event-driven.io/en/saga_process_manager_distributed_transactions/?utm_source=event_sourcing_jvm)
 
+
+## Working on this repository
+
+Each sample and each workshop folder is a separate Gradle build. You can open the whole repository or just one of those folders, for example `samples/distributed-processes`: each folder has its own dev container and editor setup, so it works the same on its own.
+
+### Dev container
+
+The quickest start is the dev container. It ships with the JDK, the recommended VS Code extensions, and the Git hooks already configured:
+
+1. Install [Docker](https://docs.docker.com/engine/install/) and [VS Code](https://code.visualstudio.com/) with the **Dev Containers** extension.
+2. Open the repository root, or one sample or workshop folder, and run **Dev Containers: Reopen in Container**.
+
+A sample's or workshop's container mounts the whole repository and opens that folder, so Git and the hooks work there too. The container uses your machine's Docker, so the tests can start KurrentDB, PostgreSQL and MongoDB with Testcontainers. One exception: if the Docker Compose Kafka from `workshops/event-driven-architecture` runs, the Kafka tests in the container fail, because that Kafka advertises `localhost:9092`, which inside the container is the container itself. Stop it, and the tests start their own Kafka.
+
+### Your own machine
+
+Install Java 22 or newer, and Docker. The builds compile for Java 22, and Gradle builds and tests with the JDK you start it with, so a newer JDK works too. CI checks JDK 22, 25 and 27.
+
+Then build and test from a sample or workshop folder:
+
+```shell
+cd samples/uniqueness
+./gradlew build
+```
+
+The tests start their databases with Testcontainers. To reuse a running KurrentDB instead, start it with Docker Compose from the repository root (`docker compose --profile kurrentdb up`), and the tests connect to it.
+
+### Editor setup
+
+**VS Code** - open a sample or workshop folder, or the root workspace file: `code EventSourcing.JVM.code-workspace`. Accept the recommended extensions when prompted (or run the **Install All Recommended Extensions** task). Format-on-save then matches the build exactly, so your changes stay clean as you type.
+
+The common Gradle commands are also VS Code tasks (_Ctrl+Shift+P → Run Task_); **compile** is the default build (Ctrl+Shift+B). In a sample or workshop folder, the tasks run in that build. At the repository root, they run in the build that holds the file open in the editor.
+
+**IntelliJ IDEA** - import a sample or workshop folder as a Gradle project and accept the prompt to install the **palantir-java-format** plugin. Enabling palantir-java-format keeps editor formatting in step with the build.
+
+### Formatting and the pre-commit hook
+
+[Spotless](https://github.com/diffplug/spotless) formats the Java code with [palantir-java-format](https://github.com/palantir/palantir-java-format), with each folder's Gradle build as the single source of truth. The editor integrations and the pre-commit hook both defer to this same config, so once your environment is set up you rarely touch it directly. `./gradlew spotlessApply` reformats everything in a build. Formatting never fails a build or CI, but the pre-commit hook stops a commit with unformatted code.
+
+To get the pre-commit hook on your own machine, point Git at the shared hooks once (the dev containers already do this for you):
+
+```shell
+git config core.hooksPath .githooks
+```
+
+Before each commit, it runs the formatter in each build that has staged Java files. If the formatter changes a staged file, the hook stops the commit and lists the files. It doesn't stage the changes, so you can review them with `git diff`, stage them and commit again.
 
 **EventSourcing.JVM** is Copyright &copy; 2022 [Oskar Dudycz](http://event-driven.io) and other contributors under the [MIT license](LICENSE).

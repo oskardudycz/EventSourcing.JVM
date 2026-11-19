@@ -2,7 +2,7 @@ package io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events
 
 import static io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.mongodb.immutable.FunctionalTools.groupingByOrdered;
 import static io.eventdriven.introductiontoeventsourcing.e04_getting_state_from_events.mongodb.immutable.solution1.GettingStateFromEventsTests.ShoppingCartEvent.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.eventstores.EventStore;
 import io.eventdriven.eventstores.StreamName;
@@ -119,7 +119,7 @@ public class GettingStateFromEventsTests extends MongoDBTest {
                                                     .toArray(PricedProductItem[]::new),
                                             shoppingCart.confirmedAt(),
                                             shoppingCart.canceledAt());
-                                case ShoppingCartConfirmed _ ->
+                                case ShoppingCartConfirmed confirmed ->
                                     shoppingCart = new ShoppingCart(
                                             shoppingCart.id(),
                                             shoppingCart.clientId(),
@@ -127,7 +127,7 @@ public class GettingStateFromEventsTests extends MongoDBTest {
                                             shoppingCart.productItems(),
                                             confirmed.confirmedAt(),
                                             shoppingCart.canceledAt());
-                                case ShoppingCartCanceled _ ->
+                                case ShoppingCartCanceled canceled ->
                                     shoppingCart = new ShoppingCart(
                                             shoppingCart.id(),
                                             shoppingCart.clientId(),
@@ -170,11 +170,11 @@ public class GettingStateFromEventsTests extends MongoDBTest {
 
         var shoppingCart = getShoppingCart(eventStore, streamName);
 
-        assertEquals(shoppingCartId, shoppingCart.id());
-        assertEquals(clientId, shoppingCart.clientId());
-        assertEquals(2, shoppingCart.productItems().length);
+        assertThat(shoppingCart.id()).isEqualTo(shoppingCartId);
+        assertThat(shoppingCart.clientId()).isEqualTo(clientId);
+        assertThat(shoppingCart.productItems().length).isEqualTo(2);
 
-        assertEquals(pairOfShoes, shoppingCart.productItems()[0]);
-        assertEquals(tShirt, shoppingCart.productItems()[1]);
+        assertThat(shoppingCart.productItems()[0]).isEqualTo(pairOfShoes);
+        assertThat(shoppingCart.productItems()[1]).isEqualTo(tShirt);
     }
 }

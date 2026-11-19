@@ -3,7 +3,7 @@ package io.eventdriven.uniqueness.cinematickets;
 import static io.eventdriven.uniqueness.cinematickets.TicketEvent.SeatReservationTimedOut;
 import static io.eventdriven.uniqueness.cinematickets.TicketEvent.SeatReserved;
 import static io.eventdriven.uniqueness.core.serialization.EventSerializer.serialize;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.uniqueness.core.async.SyncProcessor;
 import io.eventdriven.uniqueness.core.resourcereservation.Hash;
@@ -46,7 +46,7 @@ public class CinemaTicketTests {
                             serialize(new SeatReserved(otherTicketId, otherClientId, screeningId, seatId, price)))
                     .get();
         } catch (ExecutionException exception) {
-            assertInstanceOf(WrongExpectedVersionException.class, exception.getCause());
+            assertThat(exception.getCause()).isInstanceOf(WrongExpectedVersionException.class);
         }
     }
 

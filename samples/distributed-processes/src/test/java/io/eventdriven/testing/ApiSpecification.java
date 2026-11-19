@@ -1,6 +1,6 @@
 package io.eventdriven.testing;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import java.util.function.BiFunction;
@@ -123,7 +123,7 @@ public abstract class ApiSpecification {
     public Consumer<EntityExchangeResult<?>> BAD_GATEWAY = assertResponseStatus(HttpStatus.BAD_GATEWAY);
 
     private Consumer<EntityExchangeResult<?>> assertResponseStatus(HttpStatus status) {
-        return (response) -> assertEquals(status, response.getStatus());
+        return (response) -> assertThat(response.getStatus()).isEqualTo(status);
     }
 
     /////////////////////

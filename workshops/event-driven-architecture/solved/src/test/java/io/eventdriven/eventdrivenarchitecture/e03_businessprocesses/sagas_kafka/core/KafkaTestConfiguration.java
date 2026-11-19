@@ -20,10 +20,14 @@ public class KafkaTestConfiguration {
 
     @Bean
     DynamicPropertyRegistrar kafkaProperties() {
+        return kafkaPropertiesOf(DOCKER_COMPOSE_PROJECT);
+    }
+
+    static DynamicPropertyRegistrar kafkaPropertiesOf(String dockerComposeProject) {
         return registry -> registry.add(
                 "spring.kafka.bootstrap-servers",
-                () -> dockerComposePort("kafka", 9092)
-                        .map("localhost:%d"::formatted)
+                () -> dockerComposePort(dockerComposeProject, "kafka", 9092)
+                        .map(port -> "%s:%d".formatted(dockerHost(), port))
                         .orElseGet(() -> sharedContainer().getBootstrapServers()));
     }
 
@@ -33,12 +37,12 @@ public class KafkaTestConfiguration {
         return shared;
     }
 
-    private static Optional<Integer> dockerComposePort(String service, int containerPort) {
+    private static Optional<Integer> dockerComposePort(String dockerComposeProject, String service, int containerPort) {
         return DockerClientFactory.instance()
                 .client()
                 .listContainersCmd()
                 .withLabelFilter(Map.of(
-                        "com.docker.compose.project", DOCKER_COMPOSE_PROJECT,
+                        "com.docker.compose.project", dockerComposeProject,
                         "com.docker.compose.service", service))
                 .exec()
                 .stream()
@@ -46,5 +50,9 @@ public class KafkaTestConfiguration {
                 .filter(port -> Objects.equals(port.getPrivatePort(), containerPort) && port.getPublicPort() != null)
                 .map(ContainerPort::getPublicPort)
                 .findFirst();
+    }
+
+    private static String dockerHost() {
+        return DockerClientFactory.instance().dockerHostIpAddress();
     }
 }

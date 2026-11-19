@@ -1,6 +1,6 @@
 package io.eventdriven.introductiontoeventsourcing.e01_events_definition;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
@@ -18,11 +18,10 @@ public class EventsDefinitionTests {
                 };
 
         final int expectedEventTypesCount = 5;
-        assertEquals(expectedEventTypesCount, events.length);
-        assertEquals(
-                expectedEventTypesCount,
-                Arrays.stream(events)
+        assertThat(events.length).isEqualTo(expectedEventTypesCount);
+        assertThat(Arrays.stream(events)
                         .collect(Collectors.groupingBy(Object::getClass))
-                        .size());
+                        .size())
+                .isEqualTo(expectedEventTypesCount);
     }
 }

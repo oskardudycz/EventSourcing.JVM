@@ -1,7 +1,7 @@
 package io.eventdriven.eventstores.mongodb;
 
 import static io.eventdriven.eventstores.testing.bankaccounts.BankAccount.Event.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.mongodb.client.MongoDatabase;
 import io.eventdriven.eventstores.StreamName;
@@ -10,6 +10,7 @@ import io.eventdriven.eventstores.mongodb.subscriptions.BatchingPolicy;
 import io.eventdriven.eventstores.mongodb.subscriptions.EventSubscriptionSettings;
 import io.eventdriven.eventstores.testing.bankaccounts.BankAccount;
 import io.eventdriven.eventstores.testing.tools.mongodb.MongoDBTest;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -56,7 +57,7 @@ public class EventStoreMethodsTests extends MongoDBTest {
 
         var settings = EventSubscriptionSettings.get()
                 .filterWithStreamType(BankAccount.class)
-                .handleBatch(eventsFuture::complete, BatchingPolicy.ofSize(6));
+                .handleBatch(eventsFuture::complete, BatchingPolicy.of(6, Duration.ofSeconds(5)));
 
         try (var _ = eventStore.subscribe(settings)) {
             eventStore.appendToStream(streamName, List.of(bankAccountCreated, depositRecorded, cashWithdrawn));
@@ -68,12 +69,12 @@ public class EventStoreMethodsTests extends MongoDBTest {
 
             var updateChange = eventsFuture.get(5, TimeUnit.SECONDS);
 
-            assertEquals(6, updateChange.size());
-            assertEquals(6, events.size());
+            assertThat(updateChange.size()).isEqualTo(6);
+            assertThat(events.size()).isEqualTo(6);
 
-            assertEquals(bankAccountCreated, findFirstOfType(BankAccountOpened.class, events));
-            assertEquals(depositRecorded, findFirstOfType(DepositRecorded.class, events));
-            assertEquals(cashWithdrawn, findFirstOfType(CashWithdrawnFromATM.class, events));
+            assertThat(findFirstOfType(BankAccountOpened.class, events)).isEqualTo(bankAccountCreated);
+            assertThat(findFirstOfType(DepositRecorded.class, events)).isEqualTo(depositRecorded);
+            assertThat(findFirstOfType(CashWithdrawnFromATM.class, events)).isEqualTo(cashWithdrawn);
         }
     }
 
