@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="2">
+  <title>Order status · Demo Shop</title>
+  <link rel="stylesheet" th:href="@{/css/shop.css}">
+</head>
+<body>
+<header th:replace="~{shop/fragments :: header(${customerId}, 'orders')}"></header>
+<main class="page narrow">
+  <div class="page-title">
+    <div>
+      <h1>Order status</h1>
+      <p class="muted" th:text="'Order ' + ${orderTail}">Order</p>
+    </div>
+  </div>
+  <section class="card">
+    <p>Your order is being placed</p>
+  </section>
+</main>
+</body>
+</html>

@@ -6,7 +6,7 @@
     "generate": "eventcatalog generate",
     "dev": "eventcatalog dev",
     "build": "eventcatalog build",
-    "preview": "eventcatalog preview",
+    "preview": "eventcatalog preview -- --port 3001",
     "test": "playwright test"
   },
   "dependencies": {

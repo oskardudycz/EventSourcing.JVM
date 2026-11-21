@@ -124,6 +124,37 @@ public class ShopPagesTests {
     }
 
     @Test
+    public void orderPageSaysTheOrderIsBeingPlacedWhileItHasNoStatus() throws Exception {
+        mvc.perform(get(shop + "/orders/" + orderTail))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Your order is being placed")))
+                .andExpect(content().string(containsString("http-equiv=\"refresh\" content=\"2\"")));
+    }
+
+    @Test
+    public void orderPageShowsTheOrderOnceItHasAStatus() throws Exception {
+        mvc.perform(get(shop + "/orders/" + orderTail))
+                .andExpect(content().string(containsString("Your order is being placed")));
+
+        addShoesToCart();
+        mvc.perform(post(shop + "/cart/checkout").param("version", "0"));
+
+        mvc.perform(get(shop + "/orders/" + orderTail))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Order status")))
+                .andExpect(content().string(matchesPattern("(?s)(?!.*Your order is being placed).*")));
+    }
+
+    @Test
+    public void orderPageOfAnotherCustomerIsNotFound() throws Exception {
+        addShoesToCart();
+        mvc.perform(post(shop + "/cart/checkout").param("version", "0"));
+        var anotherCustomer = "/shop/customers/%s".formatted(UUID.randomUUID());
+
+        mvc.perform(get(anotherCustomer + "/orders/" + orderTail)).andExpect(status().isNotFound());
+    }
+
+    @Test
     public void theCustomerCancelsAnOrderFromItsStatusPage() throws Exception {
         addShoesToCart();
         mvc.perform(post(shop + "/cart/checkout").param("version", "0"));
