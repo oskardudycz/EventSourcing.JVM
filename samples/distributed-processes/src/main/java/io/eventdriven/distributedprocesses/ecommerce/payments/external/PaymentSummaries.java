@@ -7,8 +7,8 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
-// What the forwarder adds to the internal events, kept where it can read it without loading
-// the aggregate.
+// What the forwarder adds to the internal events, kept where it can read it without rebuilding
+// the payment from its stream.
 public class PaymentSummaries extends Projection<PaymentSummary, PaymentId> {
     public PaymentSummaries(PaymentSummaryRepository repository) {
         super(repository);

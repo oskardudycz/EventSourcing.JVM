@@ -114,6 +114,29 @@ public class CommandHandlerTests {
     }
 
     @Test
+    public void aCommandWithAClientVersionThatDecidesNothingReturnsThatVersion() {
+        handler.handle(counterId, new CounterCommand.Open("clicks"));
+        handler.handle(counterId, new CounterCommand.Increment(1));
+
+        var version = handler.handle(counterId, new CounterCommand.Increment(0), 1);
+
+        assertThat(version).isEqualTo(1);
+        assertThat(eventsIn(counterId)).hasSize(2);
+    }
+
+    @Test
+    public void aNegativeClientVersionIsAConflictAndDecidesNothing() {
+        handler.handle(counterId, new CounterCommand.Open("clicks"));
+        statesDecidedOn.clear();
+
+        assertThatThrownBy(() -> handler.handle(counterId, new CounterCommand.Increment(10), -1))
+                .isInstanceOf(ConcurrentModificationException.class);
+
+        assertThat(statesDecidedOn).isEmpty();
+        assertThat(handler.get(counterId).total()).isEqualTo(0);
+    }
+
+    @Test
     public void startingAStreamThatSomebodyElseStartedFirstIsRetriedOnTheirStream() {
         eventStore.competeBeforeTheNextAppends(1, new CounterEvent.Opened("views"));
 

@@ -46,7 +46,7 @@ public abstract class ApiSpecification {
     public <T> BiFunction<RestTestClient, Object, EntityExchangeResult<T>> GET(String urlSuffix, Class<T> entityClass) {
         return (api, request) -> exchange(
                 HttpMethod.GET,
-                getApiUrl() + urlSuffix + (request != "" ? "/%s".formatted(request) : request),
+                getApiUrl() + urlSuffix + (!"".equals(request) ? "/%s".formatted(request) : request),
                 new HttpEntity<>(null, getHeaders(headers -> {})),
                 entityClass);
     }
@@ -73,7 +73,7 @@ public abstract class ApiSpecification {
             String urlSuffix, @Nullable ETag eTag) {
         return (api, request) -> exchange(
                 HttpMethod.DELETE,
-                getApiUrl() + urlSuffix + (request != "" ? "?%s".formatted(request) : request),
+                getApiUrl() + urlSuffix + (!"".equals(request) ? "?%s".formatted(request) : request),
                 new HttpEntity<>(null, eTag != null ? getIfMatchHeader(eTag) : getHeaders(headers -> {})),
                 Void.class);
     }

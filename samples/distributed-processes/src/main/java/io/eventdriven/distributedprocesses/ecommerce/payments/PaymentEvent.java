@@ -25,7 +25,7 @@ public sealed interface PaymentEvent {
     record PaymentCaptureFailed(PaymentId paymentId, CaptureFailureReason reason, OffsetDateTime failedAt)
             implements PaymentEvent {}
 
-    record PaymentCanceled(PaymentId paymentId, OffsetDateTime voidedAt) implements PaymentEvent {}
+    record PaymentCanceled(PaymentId paymentId, OffsetDateTime canceledAt) implements PaymentEvent {}
 
     record PaymentTimedOut(PaymentId paymentId, OffsetDateTime timedOutAt) implements PaymentEvent {}
 

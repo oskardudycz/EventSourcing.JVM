@@ -10,4 +10,4 @@ Plan: `plan.md`. Spec: `spec.md`.
 - [x] 4. One type mapper and serializer, and store subscriptions by type name (4, 5, 17.4)
 - [x] 5. The shop on command handlers and immutable entities (6, 8, 9)
 - [x] 6. Broker alignment: dead-letter tags, RabbitMQ retry, in-memory step spans (13, 15)
-- [ ] 7. Names, dead code, test helpers, settings and docs (no criteria)
+- [x] 7. Names, dead code, test helpers, settings and docs (no criteria)

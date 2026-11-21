@@ -52,6 +52,9 @@ public class InMemoryEventStore implements EventStore {
 
     @Override
     public synchronized AppendResult append(String streamId, ExpectedStreamVersion expectedVersion, Object... events) {
+        if (events.length == 0)
+            throw new IllegalArgumentException("Cannot append no events to stream %s".formatted(streamId));
+
         var actualVersion = versionOf(streamId);
 
         if (!matches(expectedVersion, actualVersion)) {

@@ -17,21 +17,21 @@ public class MessageRouterTests {
     public record GuestMoved(String hotelId, String guestId) implements GuestEvent {}
 
     @Test
-    public void messageWithoutRegisteredRoute_HasNoTargetAndNoKey() {
+    public void messageWithoutRegisteredRouteHasNoTargetAndNoKey() {
         var router = new MessageRouter(List.of());
 
         assertThat(router.routeFor(new GuestMoved("hotel-1", "guest-1"))).isEqualTo(new RoutingTarget(null, null));
     }
 
     @Test
-    public void registeredKey_LeavesTheTargetEmpty() {
+    public void registeredKeyLeavesTheTargetEmpty() {
         var router = new MessageRouter(List.of(new MessageRoutes().routeKey(GuestMoved.class, GuestMoved::guestId)));
 
         assertThat(router.routeFor(new GuestMoved("hotel-1", "guest-1"))).isEqualTo(new RoutingTarget(null, "guest-1"));
     }
 
     @Test
-    public void registeredRoute_GivesTargetAndKey() {
+    public void registeredRouteGivesTargetAndKey() {
         var router = new MessageRouter(List.of(new MessageRoutes()
                 .route(
                         RoomInspected.class,
@@ -43,14 +43,14 @@ public class MessageRouterTests {
     }
 
     @Test
-    public void routeRegisteredForAnInterface_AppliesToItsImplementations() {
+    public void routeRegisteredForAnInterfaceAppliesToItsImplementations() {
         var router = new MessageRouter(List.of(new MessageRoutes().routeKey(GuestEvent.class, GuestEvent::guestId)));
 
         assertThat(router.routeFor(new GuestMoved("hotel-1", "guest-1"))).isEqualTo(new RoutingTarget(null, "guest-1"));
     }
 
     @Test
-    public void routesFromSeveralRegistrations_AreAllUsed() {
+    public void routesFromSeveralRegistrationsAreAllUsed() {
         var router = new MessageRouter(List.of(
                 new MessageRoutes().routeKey(GuestMoved.class, GuestMoved::guestId),
                 new MessageRoutes()
@@ -62,14 +62,14 @@ public class MessageRouterTests {
     }
 
     @Test
-    public void registeredTarget_LeavesTheKeyEmpty() {
+    public void registeredTargetLeavesTheKeyEmpty() {
         var router = new MessageRouter(List.of(new MessageRoutes().routeTarget(GuestMoved.class, message -> "guests")));
 
         assertThat(router.routeFor(new GuestMoved("hotel-1", "guest-1"))).isEqualTo(new RoutingTarget("guests", null));
     }
 
     @Test
-    public void targetRegisteredForAPackage_AppliesToMessagesFromItAndItsSubpackages() {
+    public void targetRegisteredForAPackageAppliesToMessagesFromItAndItsSubpackages() {
         var router = new MessageRouter(List.of(new MessageRoutes()
                 .routeTarget(inPackage("io.eventdriven.distributedprocesses.core"), "hotel-messages")));
 
@@ -78,7 +78,7 @@ public class MessageRouterTests {
     }
 
     @Test
-    public void targetRegisteredForAPackage_DoesNotApplyToOtherPackages() {
+    public void targetRegisteredForAPackageDoesNotApplyToOtherPackages() {
         var router = new MessageRouter(List.of(new MessageRoutes()
                 .routeTarget(inPackage("io.eventdriven.distributedprocesses.core.mess"), "hotel-messages")));
 
@@ -86,7 +86,7 @@ public class MessageRouterTests {
     }
 
     @Test
-    public void routeRegisteredForAPackage_AppliesToMessagesFromIt() {
+    public void routeRegisteredForAPackageAppliesToMessagesFromIt() {
         var router = new MessageRouter(List.of(new MessageRoutes()
                 .route(
                         inPackage(MessageRouterTests.class.getPackageName()),
@@ -97,7 +97,7 @@ public class MessageRouterTests {
     }
 
     @Test
-    public void targetAndKeyFromDifferentRegistrations_AreCombined() {
+    public void targetAndKeyFromDifferentRegistrationsAreCombined() {
         var router = new MessageRouter(List.of(new MessageRoutes()
                 .routeTarget(inPackage(MessageRouterTests.class.getPackageName()), "hotel-messages")
                 .routeKey(GuestMoved.class, GuestMoved::guestId)));
@@ -107,7 +107,7 @@ public class MessageRouterTests {
     }
 
     @Test
-    public void earlierRegistration_Wins() {
+    public void earlierRegistrationWins() {
         var router = new MessageRouter(List.of(new MessageRoutes()
                 .routeKey(GuestMoved.class, GuestMoved::guestId)
                 .routeKey(GuestEvent.class, message -> "any-guest")));
@@ -116,14 +116,14 @@ public class MessageRouterTests {
     }
 
     @Test
-    public void registeredKeyResolvedToNull_LeavesTheKeyEmpty() {
+    public void registeredKeyResolvedToNullLeavesTheKeyEmpty() {
         var router = new MessageRouter(List.of(new MessageRoutes().routeKey(GuestMoved.class, message -> null)));
 
         assertThat(router.routeFor(new GuestMoved("hotel-1", "guest-1"))).isEqualTo(new RoutingTarget(null, null));
     }
 
     @Test
-    public void registeredRouteWithNullKey_LeavesTheKeyEmpty() {
+    public void registeredRouteWithNullKeyLeavesTheKeyEmpty() {
         var router = new MessageRouter(
                 List.of(new MessageRoutes().route(GuestMoved.class, message -> new RoutingTarget("guests", null))));
 
@@ -131,7 +131,7 @@ public class MessageRouterTests {
     }
 
     @Test
-    public void registeredRouteResolvedToNull_HasNoTargetAndNoKey() {
+    public void registeredRouteResolvedToNullHasNoTargetAndNoKey() {
         var router = new MessageRouter(List.of(new MessageRoutes().route(GuestMoved.class, message -> null)));
 
         assertThat(router.routeFor(new GuestMoved("hotel-1", "guest-1"))).isEqualTo(new RoutingTarget(null, null));

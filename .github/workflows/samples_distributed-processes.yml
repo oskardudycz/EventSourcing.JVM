@@ -45,7 +45,7 @@ jobs:
       - name: Download dependencies
         run: |
           for attempt in 1 2 3; do
-            ./gradlew testClasses -Pci=true --refresh-dependencies && exit 0
+            ./gradlew testClasses --refresh-dependencies && exit 0
             echo "Attempt $attempt failed, retrying in 30 seconds"
             sleep 30
           done
@@ -55,7 +55,7 @@ jobs:
         run: ./gradlew playwrightInstallDeps
 
       - name: Build with Gradle
-        run: ./gradlew build -Pci=true
+        run: ./gradlew build
 
       - name: Build and test the EventCatalog
         run: ./gradlew eventCatalogTest

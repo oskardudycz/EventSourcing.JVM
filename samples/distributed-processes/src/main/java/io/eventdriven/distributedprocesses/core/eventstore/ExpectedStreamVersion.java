@@ -7,7 +7,11 @@ public sealed interface ExpectedStreamVersion {
 
     record StreamExists() implements ExpectedStreamVersion {}
 
-    record At(long version) implements ExpectedStreamVersion {}
+    record At(long version) implements ExpectedStreamVersion {
+        public At {
+            if (version < 0) throw new IllegalArgumentException("Stream version %s is negative".formatted(version));
+        }
+    }
 
     static ExpectedStreamVersion noStream() {
         return new NoStream();

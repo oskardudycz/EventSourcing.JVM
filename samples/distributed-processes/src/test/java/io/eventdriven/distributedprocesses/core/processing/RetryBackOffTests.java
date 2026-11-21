@@ -6,9 +6,9 @@ import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.util.backoff.BackOffExecution;
 
-public class RetryBackOffTest {
+public class RetryBackOffTests {
     @Test
-    public void retriesTwice_WithDoublingJitteredDelays_ThenStops() {
+    public void retriesTwiceWithDoublingJitteredDelaysThenStops() {
         var backOff = RetryBackOff.exponential(Duration.ofSeconds(1));
 
         for (var i = 0; i < 100; i++) {

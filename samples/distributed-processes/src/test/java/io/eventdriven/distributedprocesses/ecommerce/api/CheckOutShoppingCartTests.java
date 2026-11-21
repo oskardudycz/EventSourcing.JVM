@@ -84,6 +84,11 @@ public class CheckOutShoppingCartTests extends ApiSpecification {
     }
 
     @Test
+    public void checkOut_fails_withPreconditionFailed_forANegativeVersionInIfMatch() {
+        given(() -> null).when(POST(checkout(customerId), new ETag("-1", true))).then(PRECONDITION_FAILED);
+    }
+
+    @Test
     public void checkOut_fails_withBadRequest_forMissingIfMatch() {
         given(() -> null).when(POST(checkout(customerId))).then(BAD_REQUEST);
     }
