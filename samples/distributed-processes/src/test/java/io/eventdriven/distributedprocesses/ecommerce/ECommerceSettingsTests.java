@@ -12,6 +12,7 @@ import io.eventdriven.distributedprocesses.core.eventstore.postgresql.PostgreSQL
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.KafkaMessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.core.messaging.RabbitMQMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 import io.eventdriven.distributedprocesses.ecommerce.orders.pending.PendingOrder;
@@ -45,6 +46,8 @@ import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.env.Environment;
@@ -140,6 +143,17 @@ public class ECommerceSettingsTests {
     @SpringBootTest(properties = {"messaging.bus=rabbitmq", "messaging.retry.initial-interval=10ms"})
     @ActiveProfiles("in-memory")
     public static class RabbitMQDeadLettering {
+        private static final String queue =
+                "dead-lettering-" + UUID.randomUUID().toString().substring(0, 8);
+
+        @TestConfiguration
+        static class DeadLetteringQueue {
+            @Bean
+            static MessageQueue deadLetteringQueue() {
+                return new MessageQueue(queue, ShoppingCartsConfig.external, "#");
+            }
+        }
+
         @DynamicPropertySource
         static void rabbitMQ(DynamicPropertyRegistry registry) {
             var connection = TestDatabases.rabbitMQ();
@@ -157,15 +171,12 @@ public class ECommerceSettingsTests {
 
         @Test
         public void failingHandlerIsRetriedWithTheConfiguredIntervalAndDeadLettered() {
-            var queue = "dead-lettering-" + UUID.randomUUID().toString().substring(0, 8);
             var connection = TestDatabases.rabbitMQ();
             var attempts = new AtomicInteger();
-            messageBus
-                    .bind(queue, ShoppingCartsConfig.external, "#")
-                    .subscribe(queue, ShoppingCartExternalEvent.ShoppingCartCheckedOut.class, event -> {
-                        attempts.incrementAndGet();
-                        throw new IllegalStateException("Nobody can take the checkout");
-                    });
+            messageBus.subscribe(queue, ShoppingCartExternalEvent.ShoppingCartCheckedOut.class, event -> {
+                attempts.incrementAndGet();
+                throw new IllegalStateException("Nobody can take the checkout");
+            });
 
             try (var queues = new RabbitMQQueues(connection)) {
                 messageBus.publish(List.of(new ShoppingCartExternalEvent.ShoppingCartCheckedOut(
@@ -198,6 +209,17 @@ public class ECommerceSettingsTests {
     @AutoConfigureTracing
     @Import(InMemorySpansConfiguration.class)
     public static class KafkaDeadLettering {
+        private static final String queue =
+                "dead-lettering-" + UUID.randomUUID().toString().substring(0, 8);
+
+        @TestConfiguration
+        static class DeadLetteringQueue {
+            @Bean
+            static MessageQueue deadLetteringQueue() {
+                return new MessageQueue(queue, ShoppingCartsConfig.external, "#");
+            }
+        }
+
         @DynamicPropertySource
         static void kafka(DynamicPropertyRegistry registry) {
             registry.add("spring.kafka.bootstrap-servers", TestDatabases::kafkaBootstrapServers);
@@ -214,14 +236,11 @@ public class ECommerceSettingsTests {
 
         @Test
         public void deadLetterPublishHasASpanInTheTraceAndRetriesUseTheConfiguredInterval() {
-            var queue = "dead-lettering-" + UUID.randomUUID().toString().substring(0, 8);
             var attemptTimes = new CopyOnWriteArrayList<Instant>();
-            messageBus
-                    .bind(queue, ShoppingCartsConfig.external, "#")
-                    .subscribe(queue, ShoppingCartExternalEvent.ShoppingCartCheckedOut.class, event -> {
-                        attemptTimes.add(Instant.now());
-                        throw new IllegalStateException("Nobody can take the checkout");
-                    });
+            messageBus.subscribe(queue, ShoppingCartExternalEvent.ShoppingCartCheckedOut.class, event -> {
+                attemptTimes.add(Instant.now());
+                throw new IllegalStateException("Nobody can take the checkout");
+            });
             var publisherSpan = tracer.nextSpan().name("publisher").start();
 
             try (var _ = tracer.withSpan(publisherSpan)) {

@@ -538,11 +538,18 @@ A *channel* is a named place where a module publishes messages. A *queue* is whe
 
 A channel carries many message types. The type only picks the handler inside the queue, so adding a message adds no channel.
 
-Each module's `Config` tells the bus four things, with [MessageRoutes](./src/main/java/io/eventdriven/distributedprocesses/core/messaging/MessageRoutes.java) taken from the [event-driven architecture](../../workshops/event-driven-architecture/) workshop:
+Each module has its own Spring configuration, such as [PaymentsConfig](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/payments/PaymentsConfig.java). It declares its routes, its channels and its queues as beans, so the bus can be built before the module, with [MessageRoutes](./src/main/java/io/eventdriven/distributedprocesses/core/messaging/MessageRoutes.java) taken from the [event-driven architecture](../../workshops/event-driven-architecture/) workshop:
 
 ```java
-messageBus
-        .routes(new MessageRoutes()
+@Configuration
+public class PaymentsConfig {
+    public static final String requests = "payments-requests";
+    public static final String responses = "payments-responses";
+    public static final String internal = "payments-internal";
+
+    @Bean
+    public static MessageRoutes paymentsRoutes() {
+        return new MessageRoutes()
                 .routeTarget(AuthorizePayment.class, command -> requests)
                 .routeTarget(CapturePayment.class, command -> requests)
                 .routeTarget(CancelPayment.class, command -> requests)
@@ -552,20 +559,47 @@ messageBus
                 .routeTarget(MessageRoutes.inPackage(PaymentsConfig.class.getPackageName()), internal)
                 .routeKey(
                         PaymentCommand.class,
-                        command -> Urns.routingKeyOf(command.paymentId().value())))
-        .channel(requests)
-        .channel(responses)
-        .channel(internal)
-        .bind(requests, requests, "#")
-        .bind(internal, internal, "#")
-        .subscribe(requests, AuthorizePayment.class, facade::authorizePayment)
+                        command -> Urns.routingKeyOf(command.paymentId().value()));
+    }
+
+    @Bean
+    public static MessageChannel paymentsRequestsChannel() {
+        return new MessageChannel(requests);
+    }
+
+    // ...
+
+    @Bean
+    public static MessageQueue paymentsRequestsQueue() {
+        return new MessageQueue(requests, requests, "#");
+    }
+
+    // ...
+
+    @Bean
+    public PaymentFacade paymentFacade(
+            EventStore eventStore,
+            MessageBus messageBus,
+            PaymentGateway paymentGateway,
+            PaymentValidity paymentValidity,
+            Supplier<OffsetDateTime> now) {
         // ...
+        messageBus
+                .subscribe(requests, AuthorizePayment.class, facade::authorizePayment)
+                // ...
+        return facade;
+    }
+
+    // ...
+}
 ```
 
 - the routes decide the channel and the routing key of each message that the module publishes. A message with no route, or one routed to a channel that nobody declared, fails the publish with an error that names the message type or the channel;
-- `channel` declares a channel that messages can be published to;
-- `bind` connects a queue to a channel for the routing keys that match a pattern: `*` matches one word, `#` any number of words;
-- `subscribe` registers a handler for one message type that reaches the queue.
+- a `MessageChannel` bean declares a channel that messages can be published to;
+- a `MessageQueue` bean connects a queue to a channel for the routing keys that match a pattern: `*` matches one word, `#` any number of words. A queue can be bound to another module's channel, as orders binds its queues to `payments-responses`, using that module's public channel name;
+- `subscribe` registers a handler for one message type that reaches the queue. The module's beans call it when Spring creates them.
+
+The bus gets the lists of all `MessageRoutes`, `MessageChannel` and `MessageQueue` beans in its constructor. It creates all channels first and all queues after them, so the order of the modules doesn't matter. No module configuration uses another module's beans: the modules share only the bus, the store and the other modules' public channel names and external event classes.
 
 A response goes back to whoever asked, without payments knowing who that is. Its routing key comes from the `referenceId`, which is a *URN*: a standard text id made of a namespace, a type and a value, such as `urn:ecommerce:order:42-1`. That URN becomes the key `ecommerce.order.42-1`. Orders binds its queue to `payments-responses` with `ecommerce.order.*`, so it gets the answers about orders and nothing else. Another client of payments would bind its own queue with its own prefix. The requester owns the queue that reads the responses, as orders owns `orders-payments-responses`.
 
@@ -581,7 +615,11 @@ A subscriber that throws keeps its checkpoint. It gets nothing more in that run,
 
 Only forwarders publish events on the bus, so no module sees another module's internal events. The order saga listens to both sides: to the order's own events from the store, and to the other modules' external events from the bus.
 
-[ECommerceConfig](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceConfig.java) is the *composition root*: the one place that creates the modules and connects them. It configures the four modules on one store and one bus, then wires the order saga last. The store delivers each event to its subscribers in the order they subscribed, so each module's forwarder runs before the saga, and an external event goes out before the steps it causes. [ECommerceTests](./src/test/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceTests.java) drives whole orders through it and checks the commands and the external events in the order they happen.
+[ECommerceApplicationConfig](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceApplicationConfig.java) is the *composition root* for the infrastructure the modules share: the store, the bus, the projections database, the serializer and observability. Each module's own configuration adds its facade, projections, forwarder and workers as beans, and subscribes them to the store and the bus when Spring creates them. The order saga subscribes last, from a `SmartInitializingSingleton` bean that Spring calls once all other beans exist. The store delivers each event to its subscribers in the order they subscribed, so each module's forwarder runs before the saga, and an external event goes out before the steps it causes. [ECommerceTests](./src/test/java/io/eventdriven/distributedprocesses/ecommerce/ECommerceTests.java) drives whole orders through the same bean methods, called as plain Java, and checks the commands and the external events in the order they happen.
+
+#### Waiting for a bus or a subscription to catch up
+
+Tests don't wait a fixed time to see that nothing more happens. `MessageBus.awaitCaughtUp(timeout)` returns once the queues the bus consumes have handled or dead-lettered every message published before the call, and fails with the queue or the consumer group name after the timeout. In memory it returns at once, because `publish` delivers before it returns. Kafka compares each consumer group's committed offsets with the end offsets of its topic, and RabbitMQ sends a probe through each queue. `EventStore.subscribe` returns a `Subscription` with `awaitProcessed(checkpoint, timeout)`, which returns once the subscription has handled the event at that checkpoint or a later one. A test that proves an event was not delivered appends one more event of the subscribed type, waits for its checkpoint, and then asserts once.
 
 ### The payment provider and the fulfillment service
 

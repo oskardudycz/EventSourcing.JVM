@@ -8,6 +8,7 @@ import io.kurrent.dbclient.SubscriptionListener;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
@@ -26,6 +27,7 @@ public final class KurrentDBSubscriptionToAll implements AutoCloseable {
     private final ScheduledExecutorService scheduler;
     private BackOffExecution backOffExecution;
     private volatile Subscription current;
+    private final ReentrantLock handling = new ReentrantLock();
     private volatile boolean closed = false;
 
     public KurrentDBSubscriptionToAll(
@@ -64,6 +66,13 @@ public final class KurrentDBSubscriptionToAll implements AutoCloseable {
 
         var subscription = current;
         if (subscription != null) subscription.stop();
+
+        waitForRunningHandler();
+    }
+
+    private void waitForRunningHandler() {
+        handling.lock();
+        handling.unlock();
     }
 
     private SubscriptionListener listener(AtomicBoolean failed) {
@@ -72,11 +81,16 @@ public final class KurrentDBSubscriptionToAll implements AutoCloseable {
             public void onEvent(Subscription subscription, ResolvedEvent resolvedEvent) {
                 if (failed.get() || closed) return;
 
+                handling.lock();
                 try {
+                    if (closed) return;
+
                     handle.accept(resolvedEvent);
                     resetBackOff();
                 } catch (RuntimeException e) {
                     if (fail(failed, "Subscription '%s' failed on an event".formatted(name), e)) subscription.stop();
+                } finally {
+                    handling.unlock();
                 }
             }
 

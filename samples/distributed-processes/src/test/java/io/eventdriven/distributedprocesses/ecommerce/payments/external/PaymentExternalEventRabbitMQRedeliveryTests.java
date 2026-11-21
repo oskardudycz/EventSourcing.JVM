@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
+import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RabbitMQMessageBus;
@@ -66,13 +67,16 @@ public class PaymentExternalEventRabbitMQRedeliveryTests {
     public void forwarderRepublishesARedeliveredEventWithTheSameMessageId() {
         var eventStore = new InMemoryEventStore(messageContext);
         messageBus = TestRabbitMQ.busOn(
-                connection, messageContext, applicationContext, TestMessages.serializer(ECommerceMessages.mapping()));
-        messageBus
-                .routes(new MessageRoutes()
+                connection,
+                messageContext,
+                applicationContext,
+                TestMessages.serializer(ECommerceMessages.mapping()),
+                List.of(new MessageRoutes()
                         .route(
                                 PaymentExternalEvent.class,
-                                event -> new RoutingTarget(responses, Urns.routingKeyOf(event.referenceId()))))
-                .channel(responses);
+                                event -> new RoutingTarget(responses, Urns.routingKeyOf(event.referenceId())))),
+                List.of(new MessageChannel(responses)),
+                List.of());
         queues = new RabbitMQQueues(connection);
         var collector = queues.collectEverythingPublishedTo(responses);
         var summaries = new PaymentSummaries(H2.bean(PaymentSummaryRepository.class));

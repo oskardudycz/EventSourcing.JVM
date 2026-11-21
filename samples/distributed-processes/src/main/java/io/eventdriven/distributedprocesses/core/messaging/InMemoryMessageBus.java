@@ -12,16 +12,23 @@ import java.util.function.Consumer;
 public class InMemoryMessageBus implements MessageBus {
     private record Binding(String queue, String pattern) {}
 
-    private final List<MessageRoutes> routes = new ArrayList<>();
-    private MessageRouter router = routerFor(routes);
+    private final MessageRouter router;
     private final Set<String> channels = new HashSet<>();
     private final Map<String, List<Binding>> bindings = new LinkedHashMap<>();
     private final Map<String, Map<String, List<Consumer<Object>>>> queues = new LinkedHashMap<>();
     private final List<Consumer<Object>> middlewares = new ArrayList<>();
     private final MessageContext context;
 
-    public InMemoryMessageBus(MessageContext context) {
+    public InMemoryMessageBus(
+            MessageContext context,
+            List<MessageRoutes> routes,
+            List<MessageChannel> channels,
+            List<MessageQueue> queues) {
         this.context = context;
+        this.router = routerFor(routes);
+        channels.forEach(channel -> this.channels.add(channel.name()));
+        queues.forEach(queue -> bindings.computeIfAbsent(queue.channel(), ignored -> new ArrayList<>())
+                .add(new Binding(queue.name(), queue.routingPattern())));
     }
 
     public <Message> void publish(List<Message> messages) {
@@ -47,22 +54,6 @@ public class InMemoryMessageBus implements MessageBus {
                     }
             }
         }
-    }
-
-    public InMemoryMessageBus routes(MessageRoutes moduleRoutes) {
-        routes.add(moduleRoutes);
-        router = routerFor(routes);
-        return this;
-    }
-
-    public InMemoryMessageBus channel(String name) {
-        channels.add(name);
-        return this;
-    }
-
-    public InMemoryMessageBus bind(String queue, String channel, String routingPattern) {
-        bindings.computeIfAbsent(channel, ignored -> new ArrayList<>()).add(new Binding(queue, routingPattern));
-        return this;
     }
 
     public <Message> InMemoryMessageBus subscribe(

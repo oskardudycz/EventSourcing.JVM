@@ -10,36 +10,46 @@ import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCancellationReason;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.*;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderFacade;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrdersConfig;
 import io.eventdriven.distributedprocesses.ecommerce.orders.PaymentTerms;
 import io.eventdriven.distributedprocesses.ecommerce.orders.api.CustomerOrderRepository;
 import io.eventdriven.distributedprocesses.ecommerce.orders.api.OrderStatusRepository;
 import io.eventdriven.distributedprocesses.ecommerce.orders.pending.PendingOrder;
 import io.eventdriven.distributedprocesses.ecommerce.orders.pending.PendingOrderRepository;
+import io.eventdriven.distributedprocesses.ecommerce.orders.pending.PendingOrders;
 import io.eventdriven.distributedprocesses.ecommerce.orders.unpaid.OrderAwaitingPaymentRepository;
+import io.eventdriven.distributedprocesses.ecommerce.orders.unpaid.ScheduledUnpaidOrdersWorker;
 import io.eventdriven.distributedprocesses.ecommerce.payments.CaptureFailureReason;
 import io.eventdriven.distributedprocesses.ecommerce.payments.CheckoutSession;
 import io.eventdriven.distributedprocesses.ecommerce.payments.FailingFirstCapturePaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentFacade;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentGatewayException;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentValidity;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.RecordingPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.RefusingAfterAuthorizationPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.ThrowingPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizedPaymentRepository;
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.PendingPaymentRepository;
+import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.ScheduledPaymentTimeoutWorker;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentSummaryRepository;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.*;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.CallingBackFulfillmentService;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.CustomerShoppingCartRepository;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartCommand.*;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartFacade;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.api.CartRepository;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartSummaryRepository;
@@ -88,11 +98,40 @@ public class ECommerceTests {
     };
 
     private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            TestTracing.untraced(),
+            List.of(
+                    ShoppingCartsConfig.shoppingCartsRoutes(),
+                    OrdersConfig.ordersRoutes(),
+                    PaymentsConfig.paymentsRoutes(),
+                    ShipmentsConfig.shipmentsRoutes()),
+            List.of(
+                    ShoppingCartsConfig.shoppingCartsExternalChannel(),
+                    OrdersConfig.ordersInternalChannel(),
+                    PaymentsConfig.paymentsRequestsChannel(),
+                    PaymentsConfig.paymentsResponsesChannel(),
+                    PaymentsConfig.paymentsInternalChannel(),
+                    ShipmentsConfig.shipmentsRequestsChannel(),
+                    ShipmentsConfig.shipmentsResponsesChannel(),
+                    ShipmentsConfig.shipmentsInternalChannel()),
+            List.of(
+                    OrdersConfig.ordersInternalQueue(),
+                    OrdersConfig.ordersShoppingCartsExternalQueue(),
+                    OrdersConfig.ordersPaymentsResponsesQueue(),
+                    OrdersConfig.ordersShipmentsResponsesQueue(),
+                    PaymentsConfig.paymentsRequestsQueue(),
+                    PaymentsConfig.paymentsInternalQueue(),
+                    ShipmentsConfig.shipmentsRequestsQueue(),
+                    ShipmentsConfig.shipmentsInternalQueue()));
     private final MessageCatcher messages = new MessageCatcher();
     private final AtomicReference<OffsetDateTime> clock = new AtomicReference<>(now);
     private final CallingBackFulfillmentService fulfillmentService = new CallingBackFulfillmentService(messageBus);
-    private ECommerceModule eCommerce;
+    private ShoppingCartFacade shoppingCartFacade;
+    private OrderFacade orderFacade;
+    private PaymentFacade paymentFacade;
+    private PendingOrders pendingOrders;
+    private ScheduledUnpaidOrdersWorker unpaidOrdersWorker;
+    private ScheduledPaymentTimeoutWorker paymentTimeoutWorker;
 
     @Test
     public void checkingOutTheCartPlacesTheOrderHoldsTheStockAndWaitsForTheCustomerToPay() {
@@ -183,9 +222,7 @@ public class ECommerceTests {
                 new ConfirmPaymentCapture(paymentId),
                 new PaymentExternalEvent.PaymentCaptured(orderReference, paymentId, now),
                 new RecordOrderPaymentCapture(orderId, now));
-        assertThat(eCommerce.orders().pendingOrders().all())
-                .extracting(PendingOrder::getOrderId)
-                .doesNotContain(orderId);
+        assertThat(pendingOrders.all()).extracting(PendingOrder::getOrderId).doesNotContain(orderId);
     }
 
     @Test
@@ -288,7 +325,7 @@ public class ECommerceTests {
 
         // When
         clock.set(timedOutAt);
-        eCommerce.payments().timeoutWorker().handleAll();
+        paymentTimeoutWorker.handleAll();
 
         // Then
         messages.shouldReceiveMessages(
@@ -322,7 +359,7 @@ public class ECommerceTests {
         timeOutThePayment();
 
         // When
-        eCommerce.orders().facade().retryOrderPayment(new RetryOrderPayment(orderId));
+        orderFacade.retryOrderPayment(new RetryOrderPayment(orderId));
         payNow(retriedPaymentId);
         confirmByWebhook(retriedPaymentId);
 
@@ -345,7 +382,7 @@ public class ECommerceTests {
 
         // When
         clock.set(timedOutAt.plus(timeToPay));
-        eCommerce.orders().unpaidOrdersWorker().handleAll();
+        unpaidOrdersWorker.handleAll();
 
         // Then
         messages.shouldReceiveMessages(new CloseUnpaidOrder(orderId), new ReleaseStock(shipmentId));
@@ -360,7 +397,7 @@ public class ECommerceTests {
         timeOutThePayment();
 
         // When
-        eCommerce.orders().facade().cancelOrder(new CancelOrder(orderId, OrderCancellationReason.Requested));
+        orderFacade.cancelOrder(new CancelOrder(orderId, OrderCancellationReason.Requested));
 
         // Then
         messages.shouldReceiveMessages(new ReleaseStock(shipmentId));
@@ -414,9 +451,7 @@ public class ECommerceTests {
                 new FailPaymentCapture(paymentId, CaptureFailureReason.UnexpectedError),
                 new PaymentExternalEvent.PaymentFailed(orderReference, paymentId, now),
                 new RecordOrderPaymentFailure(orderId, now));
-        assertThat(eCommerce.orders().pendingOrders().all())
-                .extracting(PendingOrder::getOrderId)
-                .containsOnlyOnce(orderId);
+        assertThat(pendingOrders.all()).extracting(PendingOrder::getOrderId).containsOnlyOnce(orderId);
     }
 
     @Test
@@ -430,7 +465,7 @@ public class ECommerceTests {
         messages.reset();
 
         // When
-        eCommerce.orders().facade().retryOrderPayment(new RetryOrderPayment(orderId));
+        orderFacade.retryOrderPayment(new RetryOrderPayment(orderId));
         payNow(retriedPaymentId);
         confirmByWebhook(retriedPaymentId);
 
@@ -444,9 +479,7 @@ public class ECommerceTests {
                 new ConfirmPaymentCapture(retriedPaymentId),
                 new PaymentExternalEvent.PaymentCaptured(orderReference, retriedPaymentId, now),
                 new RecordOrderPaymentCapture(orderId, now));
-        assertThat(eCommerce.orders().pendingOrders().all())
-                .extracting(PendingOrder::getOrderId)
-                .doesNotContain(orderId);
+        assertThat(pendingOrders.all()).extracting(PendingOrder::getOrderId).doesNotContain(orderId);
     }
 
     @Test
@@ -461,13 +494,11 @@ public class ECommerceTests {
 
         // When
         clock.set(now.plus(timeToPay));
-        eCommerce.orders().unpaidOrdersWorker().handleAll();
+        unpaidOrdersWorker.handleAll();
 
         // Then
         messages.shouldReceiveMessages(new CloseUnpaidOrder(orderId));
-        assertThat(eCommerce.orders().pendingOrders().all())
-                .extracting(PendingOrder::getOrderId)
-                .doesNotContain(orderId);
+        assertThat(pendingOrders.all()).extracting(PendingOrder::getOrderId).doesNotContain(orderId);
     }
 
     @Test
@@ -482,7 +513,7 @@ public class ECommerceTests {
 
         // When
         clock.set(now.plus(timeToPay).minusMinutes(1));
-        eCommerce.orders().unpaidOrdersWorker().handleAll();
+        unpaidOrdersWorker.handleAll();
 
         // Then
         messages.shouldNotReceiveAnyEvent();
@@ -498,11 +529,8 @@ public class ECommerceTests {
     }
 
     private CheckoutSession payNow(PaymentId paymentId) {
-        return eCommerce
-                .payments()
-                .facade()
-                .createCheckoutSession(
-                        new CreateCheckoutSession(paymentId, orderReference, orderStatusPage, orderStatusPage));
+        return paymentFacade.createCheckoutSession(
+                new CreateCheckoutSession(paymentId, orderReference, orderStatusPage, orderStatusPage));
     }
 
     private void confirmByWebhook(PaymentId paymentId) {
@@ -517,7 +545,7 @@ public class ECommerceTests {
 
     private void timeOutThePayment() {
         clock.set(timedOutAt);
-        eCommerce.payments().timeoutWorker().handleAll();
+        paymentTimeoutWorker.handleAll();
         messages.reset();
     }
 
@@ -526,12 +554,12 @@ public class ECommerceTests {
     }
 
     private void addShoesToCart() {
-        eCommerce.shoppingCarts().facade().addProductItem(new AddProductItemToShoppingCart(customerId, shoes));
+        shoppingCartFacade.addProductItem(new AddProductItemToShoppingCart(customerId, shoes));
         messages.reset();
     }
 
     private void checkOutCart() {
-        eCommerce.shoppingCarts().facade().checkOut(new CheckOutShoppingCart(cartId, 0L));
+        shoppingCartFacade.checkOut(new CheckOutShoppingCart(cartId, 0L));
     }
 
     private boolean isAboutThisPurchase(Object message) {
@@ -543,25 +571,43 @@ public class ECommerceTests {
             if (isAboutThisPurchase(message)) messages.catchMessage(message);
         });
 
-        eCommerce = ECommerceConfig.configure(
-                eventStore,
-                messageBus,
-                item -> new PricedProductItem(item, unitPrice),
-                paymentGateway,
-                PaymentValidity.of(paymentTimeout),
-                PaymentTerms.within(timeToPay),
-                fulfillmentService,
-                item -> inStock,
-                H2.bean(CustomerShoppingCartRepository.class),
-                H2.bean(ShoppingCartSummaryRepository.class),
-                H2.bean(CartRepository.class),
-                H2.bean(PendingOrderRepository.class),
-                H2.bean(OrderAwaitingPaymentRepository.class),
-                H2.bean(CustomerOrderRepository.class),
-                H2.bean(OrderStatusRepository.class),
-                H2.bean(PaymentSummaryRepository.class),
-                H2.bean(PendingPaymentRepository.class),
-                H2.bean(AuthorizedPaymentRepository.class),
-                clock::get);
+        var shoppingCartsConfig = new ShoppingCartsConfig();
+        var customerShoppingCarts =
+                shoppingCartsConfig.customerShoppingCarts(eventStore, H2.bean(CustomerShoppingCartRepository.class));
+        shoppingCartFacade = shoppingCartsConfig.shoppingCartFacade(
+                eventStore, customerShoppingCarts, item -> new PricedProductItem(item, unitPrice), clock::get);
+        var shoppingCartSummaries =
+                shoppingCartsConfig.shoppingCartSummaries(eventStore, H2.bean(ShoppingCartSummaryRepository.class));
+        shoppingCartsConfig.shoppingCartExternalEventForwarder(eventStore, shoppingCartSummaries, messageBus);
+        shoppingCartsConfig.carts(eventStore, H2.bean(CartRepository.class));
+
+        var ordersConfig = new OrdersConfig();
+        orderFacade = ordersConfig.orderFacade(eventStore, messageBus, PaymentTerms.within(timeToPay), clock::get);
+        pendingOrders = ordersConfig.pendingOrders(eventStore, H2.bean(PendingOrderRepository.class));
+        var ordersAwaitingPayment =
+                ordersConfig.ordersAwaitingPayment(eventStore, H2.bean(OrderAwaitingPaymentRepository.class));
+        ordersConfig.customerOrders(eventStore, H2.bean(CustomerOrderRepository.class));
+        ordersConfig.orderStatuses(eventStore, H2.bean(OrderStatusRepository.class));
+        unpaidOrdersWorker = ordersConfig.unpaidOrdersWorker(ordersAwaitingPayment, messageBus, clock::get);
+
+        var paymentsConfig = new PaymentsConfig();
+        var paymentSummaries = paymentsConfig.paymentSummaries(eventStore, H2.bean(PaymentSummaryRepository.class));
+        var pendingPayments = paymentsConfig.pendingPayments(eventStore, H2.bean(PendingPaymentRepository.class));
+        var authorizedPayments =
+                paymentsConfig.authorizedPayments(eventStore, H2.bean(AuthorizedPaymentRepository.class));
+        paymentsConfig.paymentExternalEventForwarder(eventStore, paymentSummaries, messageBus);
+        paymentsConfig.captureGatewayClient(eventStore, paymentGateway, messageBus);
+        paymentsConfig.authorizationGatewayClient(eventStore, paymentGateway);
+        paymentFacade = paymentsConfig.paymentFacade(
+                eventStore, messageBus, paymentGateway, PaymentValidity.of(paymentTimeout), clock::get);
+        paymentTimeoutWorker = paymentsConfig.paymentTimeoutWorker(pendingPayments, messageBus, clock::get);
+        paymentsConfig.authorizationExpiryWorker(authorizedPayments, messageBus, clock::get);
+
+        var shipmentsConfig = new ShipmentsConfig();
+        shipmentsConfig.shipmentFacade(eventStore, messageBus, item -> inStock, clock::get);
+        shipmentsConfig.shipmentExternalEventForwarder(eventStore, messageBus);
+        shipmentsConfig.fulfillmentServiceClient(eventStore, fulfillmentService);
+
+        ordersConfig.subscribeOrderSaga(eventStore, messageBus);
     }
 }

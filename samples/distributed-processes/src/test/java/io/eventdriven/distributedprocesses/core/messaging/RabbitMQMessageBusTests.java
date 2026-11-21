@@ -4,8 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
+import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrdersConfig;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
+import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent;
 import io.eventdriven.testing.InMemorySpansConfiguration;
+import io.eventdriven.testing.MessageCatcher;
 import io.eventdriven.testing.RabbitMQConnection;
 import io.eventdriven.testing.RabbitMQManagement;
 import io.eventdriven.testing.RabbitMQQueues;
@@ -16,8 +22,12 @@ import io.micrometer.tracing.Tracer;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,8 +78,10 @@ public class RabbitMQMessageBusTests extends MessageBusTests {
     }
 
     @Override
-    protected MessageBus createBus() {
-        return TestRabbitMQ.busOn(connection, messageContext, applicationContext, serializer());
+    protected MessageBus createBus(
+            List<MessageRoutes> routes, List<MessageChannel> channels, List<MessageQueue> queues) {
+        return TestRabbitMQ.busOn(
+                connection, messageContext, applicationContext, serializer(), routes, channels, queues);
     }
 
     @Override
@@ -96,7 +108,7 @@ public class RabbitMQMessageBusTests extends MessageBusTests {
     public void aChannelWithNoQueueIsStillAnExchange() {
         var lonely = "lonely-" + id;
 
-        newBus().channel(lonely);
+        newBus(List.of(), List.of(new MessageChannel(lonely)), List.of());
 
         assertThat(management.exchangeNames()).contains(lonely);
     }
@@ -104,8 +116,10 @@ public class RabbitMQMessageBusTests extends MessageBusTests {
     @Test
     public void publishToAChannelOfRequestsWithNoQueueFails() {
         var requests = "payments-" + id + "-requests";
-        var bus = newBus().routes(new MessageRoutes().routeTarget(ConfirmOrder.class, command -> requests))
-                .channel(requests);
+        var bus = newBus(
+                List.of(new MessageRoutes().routeTarget(ConfirmOrder.class, command -> requests)),
+                List.of(new MessageChannel(requests)),
+                List.of());
 
         assertThatThrownBy(() -> publish(bus, new ConfirmOrder("order-1")))
                 .isInstanceOf(AmqpException.class)
@@ -116,26 +130,30 @@ public class RabbitMQMessageBusTests extends MessageBusTests {
     public void commandsToChannelsOfRequestsAndInternalMessagesWithAQueueAreHandled() {
         var requests = "payments-" + id + "-requests";
         var internal = "payments-" + id + "-internal";
-        var bus = newBus().routes(new MessageRoutes()
+        var canceled = new MessageCatcher();
+        var bus = newBus(
+                List.of(new MessageRoutes()
                         .routeTarget(ConfirmOrder.class, command -> requests)
-                        .routeTarget(OrderCanceled.class, event -> internal))
-                .channel(requests)
-                .channel(internal)
-                .bind(requests, requests, "#")
-                .bind(internal, internal, "#")
-                .subscribe(requests, ConfirmOrder.class, command -> log.add("confirm"))
-                .subscribe(internal, OrderCanceled.class, event -> log.add("canceled"));
+                        .routeTarget(OrderCanceled.class, event -> internal)),
+                List.of(new MessageChannel(requests), new MessageChannel(internal)),
+                List.of(new MessageQueue(requests, requests, "#"), new MessageQueue(internal, internal, "#")));
+        bus.subscribe(requests, ConfirmOrder.class, messages::catchMessage);
+        bus.subscribe(internal, OrderCanceled.class, canceled::catchMessage);
 
         publish(bus, new ConfirmOrder("order-1"), new OrderCanceled("order-1"));
 
-        awaitLog("confirm", "canceled");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new ConfirmOrder("order-1"));
+        canceled.shouldReceiveSingleEvent(new OrderCanceled("order-1"));
     }
 
     @Test
     public void publishToAChannelOfResponsesWithNoQueueSucceeds() {
         var responses = "payments-" + id + "-responses";
-        var bus = newBus().routes(new MessageRoutes().routeTarget(OrderPlaced.class, event -> responses))
-                .channel(responses);
+        var bus = newBus(
+                List.of(new MessageRoutes().routeTarget(OrderPlaced.class, event -> responses)),
+                List.of(new MessageChannel(responses)),
+                List.of());
 
         publish(bus, new OrderPlaced("order-1"), new OrderPlaced("order-2"));
     }
@@ -143,8 +161,10 @@ public class RabbitMQMessageBusTests extends MessageBusTests {
     @Test
     public void publishToAnExchangeDeletedOnTheBrokerFailsWithinThePublishTimeout() {
         var deleted = "deleted-" + id;
-        var bus = newBus().routes(new MessageRoutes().routeTarget(OrderPlaced.class, event -> deleted))
-                .channel(deleted);
+        var bus = newBus(
+                List.of(new MessageRoutes().routeTarget(OrderPlaced.class, event -> deleted)),
+                List.of(new MessageChannel(deleted)),
+                List.of());
         publish(bus, new OrderPlaced("order-1"));
         management.deleteContaining(deleted);
         var startedAt = System.nanoTime();
@@ -156,7 +176,7 @@ public class RabbitMQMessageBusTests extends MessageBusTests {
 
     @Test
     public void consumerMapsTheStableTypeNameToTheCurrentClass() {
-        messageBus.subscribe(orders, OrderPlaced.class, event -> log.add("placed:" + event.id()));
+        messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
         var properties = MessagePropertiesBuilder.newInstance()
                 .setHeader(RabbitMQMessageBus.MESSAGE_TYPE, "test.OrderPlaced")
                 .build();
@@ -164,7 +184,8 @@ public class RabbitMQMessageBusTests extends MessageBusTests {
         queues.send(orders, KEY, new Message("{\"id\":\"order-1\"}".getBytes(StandardCharsets.UTF_8), properties));
         start((RabbitMQMessageBus) messageBus);
 
-        awaitLog("placed:order-1");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
     @Test
@@ -232,7 +253,8 @@ public class RabbitMQMessageBusTests extends MessageBusTests {
                 .getFirst()
                 .getMessageProperties()
                 .getMessageId();
-        await().atMost(Duration.ofSeconds(30)).until(() -> seen.size() == 4);
+        awaitCaughtUp();
+        assertThat(seen).hasSize(4);
         assertThat(seen.subList(0, 3))
                 .containsExactly(
                         "process-correlation-id",
@@ -248,25 +270,68 @@ public class RabbitMQMessageBusTests extends MessageBusTests {
 
     @Test
     public void aMessageWithoutATypeHeaderDoesNotStopTheNextMessageFromBeingHandled() {
-        messageBus.subscribe(orders, OrderPlaced.class, event -> log.add("placed:" + event.id()));
+        messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
         queues.send(orders, KEY, new Message("{}".getBytes(StandardCharsets.UTF_8), new MessageProperties()));
 
         publish(messageBus, new OrderPlaced("order-1"));
 
-        awaitLog("placed:order-1");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
     @Test
     public void consumerOpensAStepSpanNamedAfterTheMessageType() {
-        messageBus.subscribe(orders, OrderPlaced.class, event -> log.add("placed"));
+        messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
 
         publish(messageBus, new OrderPlaced("order-1"));
 
-        awaitLog("placed");
+        awaitCaughtUp();
         await().atMost(Duration.ofSeconds(30))
                 .untilAsserted(() -> assertThat(spans.getFinishedSpanItems())
                         .extracting(span -> span.getName())
                         .contains("handle OrderPlaced"));
+    }
+
+    @Test
+    public void aQueueBoundToAChannelDeclaredByALaterModuleGetsItsMessages() {
+        var referenceId = Urns.of("ecommerce", "order", UUID.randomUUID());
+        var authorized = new PaymentExternalEvent.PaymentAuthorized(
+                referenceId, PaymentId.derivedFrom(referenceId), OffsetDateTime.now(ZoneOffset.UTC));
+        var bus = newBus(
+                List.of(PaymentsConfig.paymentsRoutes()),
+                List.of(
+                        PaymentsConfig.paymentsRequestsChannel(),
+                        PaymentsConfig.paymentsResponsesChannel(),
+                        PaymentsConfig.paymentsInternalChannel()),
+                List.of(OrdersConfig.ordersPaymentsResponsesQueue()));
+        bus.subscribe(
+                OrdersConfig.paymentsResponses, PaymentExternalEvent.PaymentAuthorized.class, messages::catchMessage);
+
+        publish(bus, authorized);
+
+        awaitCaughtUp();
+        assertThat(messages.published).contains(authorized);
+    }
+
+    @Test
+    public void waitingForCatchUpFailsNamingTheQueueWhenAHandlerDoesNotFinish() {
+        var release = new CountDownLatch(1);
+        messageBus.subscribe(orders, OrderPlaced.class, event -> {
+            try {
+                release.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        publish(messageBus, new OrderPlaced("order-1"));
+
+        try {
+            assertThatThrownBy(() -> messageBus.awaitCaughtUp(Duration.ofSeconds(1)))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining(orders);
+        } finally {
+            release.countDown();
+        }
     }
 
     private void start(RabbitMQMessageBus bus) {

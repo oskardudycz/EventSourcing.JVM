@@ -8,6 +8,8 @@ import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
+import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment;
@@ -23,7 +25,13 @@ import org.junit.jupiter.api.Test;
 public class OrderSagaRedeliveryTests {
     private final TestTracing tracing = new TestTracing();
     private final InMemoryEventStore eventStore = new InMemoryEventStore(tracing.messageContext());
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(tracing.messageContext());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            tracing.messageContext(),
+            List.of(new MessageRoutes()
+                    .routeTarget(
+                            MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), "published")),
+            List.of(new MessageChannel("published")),
+            List.of(new MessageQueue("probe", "published", "#")));
     private final AtomicInteger reserveStockCalls = new AtomicInteger();
 
     private final ShoppingCartId cartId = ShoppingCartId.of(UUID.randomUUID());
@@ -33,11 +41,6 @@ public class OrderSagaRedeliveryTests {
 
     public OrderSagaRedeliveryTests() {
         messageBus
-                .routes(new MessageRoutes()
-                        .routeTarget(
-                                MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), "published"))
-                .channel("published")
-                .bind("probe", "published", "#")
                 .subscribe("probe", AuthorizePayment.class, command -> {
                     eventStore.append(
                             authorizationsStream,

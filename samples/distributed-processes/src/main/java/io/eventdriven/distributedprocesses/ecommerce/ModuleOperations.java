@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 public class ModuleOperations implements OperationCustomizer {
     public static final String module = "x-module";
 
-    private static final String modulesPackage = ECommerceConfig.class.getPackageName() + ".";
+    private static final String modulesPackage = ECommerceApplicationConfig.class.getPackageName() + ".";
 
     @Override
     public void customize(Operation operation, Method method) {

@@ -1,8 +1,8 @@
 package io.eventdriven.distributedprocesses.core.messaging;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
+import io.eventdriven.testing.MessageCatcher;
 import io.eventdriven.testing.RabbitMQConnection;
 import io.eventdriven.testing.RabbitMQManagement;
 import io.eventdriven.testing.TestDatabases;
@@ -11,7 +11,6 @@ import io.eventdriven.testing.TestRabbitMQ;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +25,7 @@ public class RabbitMQMessageBusRestartTests {
     private final RabbitMQManagement management = new RabbitMQManagement(connection);
     private final String id = UUID.randomUUID().toString().substring(0, 8);
     private final String orders = "orders-" + id;
-    private final List<String> log = new CopyOnWriteArrayList<>();
+    private final MessageCatcher messages = new MessageCatcher();
 
     @Autowired
     private MessageContext messageContext;
@@ -51,24 +50,26 @@ public class RabbitMQMessageBusRestartTests {
         assertThat(management.bindingsOf(orders)).containsExactly(new RabbitMQManagement.Binding(orders, orders, "#"));
 
         var afterRestart = newBus();
-        afterRestart.subscribe(orders, MessageBusTests.OrderPlaced.class, event -> log.add(event.id()));
+        afterRestart.subscribe(orders, MessageBusTests.OrderPlaced.class, messages::catchMessage);
         afterRestart.start();
 
-        await().atMost(Duration.ofSeconds(30))
-                .untilAsserted(() -> assertThat(log).containsExactlyInAnyOrder("order-1", "order-2"));
+        afterRestart.awaitCaughtUp(Duration.ofSeconds(30));
+        assertThat(messages.published)
+                .containsExactlyInAnyOrder(
+                        new MessageBusTests.OrderPlaced("order-1"), new MessageBusTests.OrderPlaced("order-2"));
         afterRestart.close();
     }
 
     private RabbitMQMessageBus newBus() {
         return TestRabbitMQ.busOn(
-                        connection,
-                        messageContext,
-                        applicationContext,
-                        TestMessages.serializer(MessageBusTests.messageMapping()))
-                .routes(new MessageRoutes()
+                connection,
+                messageContext,
+                applicationContext,
+                TestMessages.serializer(MessageBusTests.messageMapping()),
+                List.of(new MessageRoutes()
                         .routeTarget(MessageRoutes.inPackage(MessageBusTests.class.getPackageName()), orders)
-                        .routeKey(MessageBusTests.OrderMessage.class, message -> "ecommerce.order.1"))
-                .channel(orders)
-                .bind(orders, orders, "#");
+                        .routeKey(MessageBusTests.OrderMessage.class, message -> "ecommerce.order.1")),
+                List.of(new MessageChannel(orders)),
+                List.of(new MessageQueue(orders, orders, "#")));
     }
 }

@@ -5,11 +5,12 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
+import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent;
+import io.eventdriven.testing.MessageCatcher;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,11 +21,12 @@ public abstract class MessageBusTests {
 
     protected final String id = UUID.randomUUID().toString().substring(0, 8);
     protected final String orders = "orders-" + id;
-    protected final List<String> log = new CopyOnWriteArrayList<>();
+    protected final MessageCatcher messages = new MessageCatcher();
     protected MessageBus messageBus;
     private final List<MessageBus> buses = new ArrayList<>();
 
-    protected abstract MessageBus createBus();
+    protected abstract MessageBus createBus(
+            List<MessageRoutes> routes, List<MessageChannel> channels, List<MessageQueue> queues);
 
     protected void beforePublish(MessageBus bus) {}
 
@@ -34,16 +36,19 @@ public abstract class MessageBusTests {
         return new MessageMapping()
                 .register("test.OrderPlaced", OrderPlaced.class)
                 .register("test.ConfirmOrder", ConfirmOrder.class)
-                .register("test.OrderCanceled", OrderCanceled.class);
+                .register("test.OrderCanceled", OrderCanceled.class)
+                .register("payments.PaymentAuthorized", PaymentExternalEvent.PaymentAuthorized.class);
+    }
+
+    protected MessageRoutes ordersRoutes() {
+        return new MessageRoutes()
+                .routeTarget(MessageRoutes.inPackage(MessageBusTests.class.getPackageName()), orders)
+                .routeKey(OrderMessage.class, message -> KEY);
     }
 
     @BeforeEach
     void createMessageBus() {
-        messageBus = newBus().routes(new MessageRoutes()
-                        .routeTarget(MessageRoutes.inPackage(MessageBusTests.class.getPackageName()), orders)
-                        .routeKey(OrderMessage.class, message -> KEY))
-                .channel(orders)
-                .bind(orders, orders, "#");
+        messageBus = newBus(List.of(ordersRoutes()), List.of(new MessageChannel(orders)), List.of(ordersQueue()));
     }
 
     @AfterEach
@@ -51,8 +56,12 @@ public abstract class MessageBusTests {
         buses.forEach(this::dispose);
     }
 
-    protected MessageBus newBus() {
-        return track(createBus());
+    protected MessageQueue ordersQueue() {
+        return new MessageQueue(orders, orders, "#");
+    }
+
+    protected MessageBus newBus(List<MessageRoutes> routes, List<MessageChannel> channels, List<MessageQueue> queues) {
+        return track(createBus(routes, channels, queues));
     }
 
     protected <Bus extends MessageBus> Bus track(Bus bus) {
@@ -65,74 +74,71 @@ public abstract class MessageBusTests {
         bus.publish(List.of(messages));
     }
 
-    protected void awaitLog(String... entries) {
-        awaitCaughtUp();
-        assertThat(log).containsExactlyInAnyOrder(entries);
-    }
-
-    protected void awaitLogInOrder(String... entries) {
-        awaitCaughtUp();
-        assertThat(log).containsExactly(entries);
-    }
-
     protected void awaitCaughtUp() {
         buses.forEach(bus -> bus.awaitCaughtUp(CATCH_UP_TIMEOUT));
     }
 
     @Test
     public void deliversToAllSubscribersOfTheTypeInRegistrationOrder() {
-        messageBus.subscribe(orders, OrderPlaced.class, event -> log.add("first:" + event.id()));
-        messageBus.subscribe(orders, OrderPlaced.class, event -> log.add("second:" + event.id()));
+        messageBus.subscribe(orders, OrderPlaced.class, event -> messages.catchMessage(new Handled("first", event)));
+        messageBus.subscribe(orders, OrderPlaced.class, event -> messages.catchMessage(new Handled("second", event)));
 
         publish(messageBus, new OrderPlaced("order-1"));
 
-        awaitLogInOrder("first:order-1", "second:order-1");
+        awaitCaughtUp();
+        messages.shouldReceiveMessages(
+                new Handled("first", new OrderPlaced("order-1")), new Handled("second", new OrderPlaced("order-1")));
     }
 
     @Test
     public void commandReachesTheQueueBoundToItsChannelOnce() {
-        messageBus.subscribe(orders, ConfirmOrder.class, command -> log.add("confirm"));
-        messageBus.subscribe(orders, OrderPlaced.class, event -> log.add("placed"));
+        messageBus.subscribe(orders, ConfirmOrder.class, messages::catchMessage);
+        messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
 
         publish(messageBus, new ConfirmOrder("order-1"), new OrderPlaced("order-1"));
 
-        awaitLogInOrder("confirm", "placed");
+        awaitCaughtUp();
+        messages.shouldReceiveMessages(new ConfirmOrder("order-1"), new OrderPlaced("order-1"));
     }
 
     @Test
     public void messageWithNoSubscriberInTheQueueIsSkippedAndTheNextOneIsHandled() {
-        messageBus.subscribe(orders, OrderPlaced.class, event -> log.add("placed"));
+        messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
 
         assertThatNoException()
                 .isThrownBy(() -> publish(messageBus, new ConfirmOrder("order-1"), new OrderPlaced("order-1")));
 
-        awaitLog("placed");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
     @Test
     public void deliversByExactRuntimeClassNotByAssignability() {
-        messageBus.subscribe(orders, OrderMessage.class, message -> log.add("supertype"));
-        messageBus.subscribe(orders, OrderCanceled.class, event -> log.add("canceled"));
+        var supertypeSubscriber = new MessageCatcher();
+        messageBus.subscribe(orders, OrderMessage.class, supertypeSubscriber::catchMessage);
+        messageBus.subscribe(orders, OrderCanceled.class, messages::catchMessage);
 
         publish(messageBus, new OrderPlaced("order-1"), new OrderCanceled("order-1"));
 
-        awaitLogInOrder("canceled");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new OrderCanceled("order-1"));
+        supertypeSubscriber.shouldNotReceiveAnyEvent();
     }
 
     @Test
     public void runsMiddlewareAlsoForMessagesWithoutSubscribers() {
-        messageBus.use(message -> log.add("middleware"));
+        messageBus.use(messages::catchMessage);
 
         publish(messageBus, new OrderPlaced("order-1"));
 
-        assertThat(log).containsExactly("middleware");
+        messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
     @Test
     public void subscribeReturnsTheSameBusSoWiringChains() {
         var chained = messageBus
-                .subscribe(orders, OrderPlaced.class, event -> log.add("placed"))
-                .subscribe(orders, ConfirmOrder.class, command -> log.add("confirm"));
+                .subscribe(orders, OrderPlaced.class, messages::catchMessage)
+                .subscribe(orders, ConfirmOrder.class, messages::catchMessage);
 
         assertThat(chained).isSameAs(messageBus);
     }
@@ -140,41 +146,55 @@ public abstract class MessageBusTests {
     @Test
     public void everyQueueBoundToTheChannelGetsTheMessage() {
         var billing = "billing-" + id;
-        messageBus.bind(billing, orders, "#");
-        messageBus.subscribe(orders, OrderPlaced.class, event -> log.add("orders"));
-        messageBus.subscribe(billing, OrderPlaced.class, event -> log.add("billing"));
+        var bus = newBus(
+                List.of(ordersRoutes()),
+                List.of(new MessageChannel(orders)),
+                List.of(ordersQueue(), new MessageQueue(billing, orders, "#")));
+        var billingMessages = new MessageCatcher();
+        bus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
+        bus.subscribe(billing, OrderPlaced.class, billingMessages::catchMessage);
 
-        publish(messageBus, new OrderPlaced("order-1"));
+        publish(bus, new OrderPlaced("order-1"));
 
-        awaitLog("orders", "billing");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
+        billingMessages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
     @Test
     public void responseReachesOnlyTheQueueWhosePatternMatches() {
         var responses = "responses-" + id;
-        var bus = newBus().routes(
-                        new MessageRoutes().route(OrderPlaced.class, event -> new RoutingTarget(responses, event.id())))
-                .channel(responses)
-                .bind("orders-responses-" + id, responses, "ecommerce.order.*")
-                .bind("invoices-responses-" + id, responses, "ecommerce.invoice.*")
-                .subscribe("orders-responses-" + id, OrderPlaced.class, event -> log.add("orders:" + event.id()))
-                .subscribe("invoices-responses-" + id, OrderPlaced.class, event -> log.add("invoices:" + event.id()));
+        var invoices = new MessageCatcher();
+        var bus = newBus(
+                List.of(new MessageRoutes()
+                        .route(OrderPlaced.class, event -> new RoutingTarget(responses, event.id()))),
+                List.of(new MessageChannel(responses)),
+                List.of(
+                        new MessageQueue("orders-responses-" + id, responses, "ecommerce.order.*"),
+                        new MessageQueue("invoices-responses-" + id, responses, "ecommerce.invoice.*")));
+        bus.subscribe("orders-responses-" + id, OrderPlaced.class, messages::catchMessage);
+        bus.subscribe("invoices-responses-" + id, OrderPlaced.class, invoices::catchMessage);
 
         publish(bus, new OrderPlaced("ecommerce.order.1"), new OrderPlaced("ecommerce.invoice.7"));
 
-        awaitLog("orders:ecommerce.order.1", "invoices:ecommerce.invoice.7");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new OrderPlaced("ecommerce.order.1"));
+        invoices.shouldReceiveSingleEvent(new OrderPlaced("ecommerce.invoice.7"));
     }
 
     @Test
     public void aStarMatchesOneWordAndAHashMatchesAnyNumberOfWords() {
         var responses = "responses-" + id;
-        var bus = newBus().routes(
-                        new MessageRoutes().route(OrderPlaced.class, event -> new RoutingTarget(responses, event.id())))
-                .channel(responses)
-                .bind("star-" + id, responses, "ecommerce.*")
-                .bind("hash-" + id, responses, "ecommerce.#")
-                .subscribe("star-" + id, OrderPlaced.class, event -> log.add("star:" + event.id()))
-                .subscribe("hash-" + id, OrderPlaced.class, event -> log.add("hash:" + event.id()));
+        var hash = new MessageCatcher();
+        var bus = newBus(
+                List.of(new MessageRoutes()
+                        .route(OrderPlaced.class, event -> new RoutingTarget(responses, event.id()))),
+                List.of(new MessageChannel(responses)),
+                List.of(
+                        new MessageQueue("star-" + id, responses, "ecommerce.*"),
+                        new MessageQueue("hash-" + id, responses, "ecommerce.#")));
+        bus.subscribe("star-" + id, OrderPlaced.class, messages::catchMessage);
+        bus.subscribe("hash-" + id, OrderPlaced.class, hash::catchMessage);
 
         publish(
                 bus,
@@ -182,31 +202,39 @@ public abstract class MessageBusTests {
                 new OrderPlaced("ecommerce.order"),
                 new OrderPlaced("ecommerce.order.1"));
 
-        awaitLog("hash:ecommerce", "star:ecommerce.order", "hash:ecommerce.order", "hash:ecommerce.order.1");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new OrderPlaced("ecommerce.order"));
+        assertThat(hash.published)
+                .containsExactlyInAnyOrder(
+                        new OrderPlaced("ecommerce"),
+                        new OrderPlaced("ecommerce.order"),
+                        new OrderPlaced("ecommerce.order.1"));
     }
 
     @Test
     public void aQueueBoundToAnotherChannelGetsNothing() {
         var payments = "payments-" + id;
-        var bus = newBus().routes(new MessageRoutes()
+        var paymentsMessages = new MessageCatcher();
+        var bus = newBus(
+                List.of(new MessageRoutes()
                         .routeTarget(ConfirmOrder.class, command -> payments)
-                        .routeTarget(OrderPlaced.class, event -> orders))
-                .channel(orders)
-                .channel(payments)
-                .bind(orders, orders, "#")
-                .bind(payments, payments, "#")
-                .subscribe(orders, OrderPlaced.class, event -> log.add("orders"))
-                .subscribe(payments, OrderPlaced.class, event -> log.add("payments:placed"))
-                .subscribe(payments, ConfirmOrder.class, command -> log.add("payments:confirm"));
+                        .routeTarget(OrderPlaced.class, event -> orders)),
+                List.of(new MessageChannel(orders), new MessageChannel(payments)),
+                List.of(ordersQueue(), new MessageQueue(payments, payments, "#")));
+        bus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
+        bus.subscribe(payments, OrderPlaced.class, paymentsMessages::catchMessage);
+        bus.subscribe(payments, ConfirmOrder.class, paymentsMessages::catchMessage);
 
         publish(bus, new OrderPlaced("order-1"), new ConfirmOrder("order-1"));
 
-        awaitLog("orders", "payments:confirm");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
+        paymentsMessages.shouldReceiveSingleEvent(new ConfirmOrder("order-1"));
     }
 
     @Test
     public void publishingAMessageWithoutARouteFailsNamingItsType() {
-        var bus = newBus().channel(orders).bind(orders, orders, "#");
+        var bus = newBus(List.of(), List.of(new MessageChannel(orders)), List.of(ordersQueue()));
 
         assertThatThrownBy(() -> publish(bus, new OrderPlaced("order-1")))
                 .isInstanceOf(IllegalStateException.class)
@@ -215,17 +243,18 @@ public abstract class MessageBusTests {
 
     @Test
     public void middlewareSeesAMessageWithoutARouteBeforeThePublishFails() {
-        var bus = newBus();
-        bus.use(message -> log.add("middleware"));
+        var bus = newBus(List.of(), List.of(), List.of());
+        bus.use(messages::catchMessage);
 
         assertThatThrownBy(() -> publish(bus, new OrderPlaced("order-1"))).isInstanceOf(IllegalStateException.class);
 
-        assertThat(log).containsExactly("middleware");
+        messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
     @Test
     public void publishingToAChannelThatIsNotDeclaredFailsNamingTheChannel() {
-        var bus = newBus().routes(new MessageRoutes().routeTarget(OrderPlaced.class, event -> orders));
+        var bus = newBus(
+                List.of(new MessageRoutes().routeTarget(OrderPlaced.class, event -> orders)), List.of(), List.of());
 
         assertThatThrownBy(() -> publish(bus, new OrderPlaced("order-1")))
                 .isInstanceOf(IllegalStateException.class)
@@ -233,20 +262,23 @@ public abstract class MessageBusTests {
     }
 
     @Test
-    public void routesRegisteredByEachModuleAreAllUsed() {
+    public void routesGivenByEachModuleAreAllUsed() {
         var commands = "commands-" + id;
-        var bus = newBus().routes(new MessageRoutes().routeTarget(OrderPlaced.class, event -> orders))
-                .routes(new MessageRoutes().routeTarget(ConfirmOrder.class, command -> commands))
-                .channel(orders)
-                .channel(commands)
-                .bind(orders, orders, "#")
-                .bind(commands, commands, "#")
-                .subscribe(orders, OrderPlaced.class, event -> log.add("placed"))
-                .subscribe(commands, ConfirmOrder.class, command -> log.add("confirm"));
+        var commandMessages = new MessageCatcher();
+        var bus = newBus(
+                List.of(
+                        new MessageRoutes().routeTarget(OrderPlaced.class, event -> orders),
+                        new MessageRoutes().routeTarget(ConfirmOrder.class, command -> commands)),
+                List.of(new MessageChannel(orders), new MessageChannel(commands)),
+                List.of(ordersQueue(), new MessageQueue(commands, commands, "#")));
+        bus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
+        bus.subscribe(commands, ConfirmOrder.class, commandMessages::catchMessage);
 
         publish(bus, new OrderPlaced("order-1"), new ConfirmOrder("order-1"));
 
-        awaitLog("placed", "confirm");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
+        commandMessages.shouldReceiveSingleEvent(new ConfirmOrder("order-1"));
     }
 
     public sealed interface OrderMessage {}
@@ -256,4 +288,6 @@ public abstract class MessageBusTests {
     public record OrderPlaced(String id) implements OrderMessage {}
 
     public record OrderCanceled(String id) implements OrderMessage {}
+
+    public record Handled(String by, Object message) {}
 }

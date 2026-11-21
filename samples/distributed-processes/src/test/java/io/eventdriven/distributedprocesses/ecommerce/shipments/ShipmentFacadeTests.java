@@ -32,15 +32,24 @@ public class ShipmentFacadeTests {
     private final OffsetDateTime now = OffsetDateTime.now();
 
     private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            TestTracing.untraced(),
+            List.of(ShipmentsConfig.shipmentsRoutes()),
+            List.of(
+                    ShipmentsConfig.shipmentsRequestsChannel(),
+                    ShipmentsConfig.shipmentsResponsesChannel(),
+                    ShipmentsConfig.shipmentsInternalChannel()),
+            List.of(ShipmentsConfig.shipmentsRequestsQueue(), ShipmentsConfig.shipmentsInternalQueue()));
     private final MessageCatcher published = new MessageCatcher();
     private final String carrier = "DHL";
     private final String trackingNumber = "JD014600006281234567";
 
     public ShipmentFacadeTests() {
         eventStore.use(published::catchMessage);
-        ShipmentsConfig.configure(
-                eventStore, messageBus, new SilentFulfillmentService(), isProductAvailable, () -> now);
+        var shipmentsConfig = new ShipmentsConfig();
+        shipmentsConfig.shipmentFacade(eventStore, messageBus, isProductAvailable, () -> now);
+        shipmentsConfig.shipmentExternalEventForwarder(eventStore, messageBus);
+        shipmentsConfig.fulfillmentServiceClient(eventStore, new SilentFulfillmentService());
     }
 
     @Test
