@@ -1,5 +1,6 @@
 package io.eventdriven.distributedprocesses.core.messaging;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -50,4 +51,10 @@ public interface MessageBus {
      * Registers middleware called for every published message before subscribers.
      */
     void use(Consumer<Object> middleware);
+
+    /**
+     * Waits until the queues this bus consumes have handled or dead-lettered every message published before the call.
+     * A bus that isn't running handles nothing, so it returns at once. Fails when the wait takes longer than the timeout.
+     */
+    void awaitCaughtUp(Duration timeout);
 }

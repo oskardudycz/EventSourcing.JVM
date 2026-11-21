@@ -4,10 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
 import io.eventdriven.testing.ApiSpecification;
+import io.micrometer.registry.otlp.OtlpMeterRegistry;
+import io.opentelemetry.sdk.logs.SdkLoggerProvider;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -55,6 +56,12 @@ public class NoOtlpEndpointTests extends ApiSpecification {
     @Autowired
     private SdkTracerProvider tracerProvider;
 
+    @Autowired
+    private SdkLoggerProvider loggerProvider;
+
+    @Autowired
+    private OtlpMeterRegistry meterRegistry;
+
     private final List<String> logged = new CopyOnWriteArrayList<>();
     private Appender capture;
 
@@ -91,14 +98,15 @@ public class NoOtlpEndpointTests extends ApiSpecification {
     }
 
     @Test
-    public void noOtlpEndpointLogsNoConnectionErrors() throws InterruptedException {
+    public void noOtlpEndpointLogsNoConnectionErrors() {
         PurchaseRestBuilder.of(restTestClient, port)
                 .build(purchase -> purchase.withCustomerId(UUID.randomUUID())
                         .withProduct(UUID.randomUUID(), 2)
                         .checkedOut());
 
         tracerProvider.forceFlush().join(5, TimeUnit.SECONDS);
-        Thread.sleep(Duration.ofSeconds(5));
+        loggerProvider.forceFlush().join(5, TimeUnit.SECONDS);
+        meterRegistry.close();
 
         assertThat(logged)
                 .noneMatch(line -> line.contains("io.opentelemetry")

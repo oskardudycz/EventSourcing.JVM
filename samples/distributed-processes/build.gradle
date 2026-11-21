@@ -109,6 +109,7 @@ tasks.named('test') {
 }
 
 test {
+  maxParallelForks = 2
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
 }

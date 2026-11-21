@@ -2,6 +2,7 @@ package io.eventdriven.testing;
 
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -37,4 +38,7 @@ public class RouteRecordingMessageBus implements MessageBus {
 
     @Override
     public void use(Consumer<Object> middleware) {}
+
+    @Override
+    public void awaitCaughtUp(Duration timeout) {}
 }

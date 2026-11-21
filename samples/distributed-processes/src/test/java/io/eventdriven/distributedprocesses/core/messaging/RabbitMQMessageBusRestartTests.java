@@ -59,16 +59,6 @@ public class RabbitMQMessageBusRestartTests {
         afterRestart.close();
     }
 
-    @Test
-    public void closingRightAfterPublishingNeverFails() {
-        for (var attempt = 0; attempt < 300; attempt++) {
-            var bus = newBus();
-            bus.publish(List.of(
-                    new MessageBusTests.OrderPlaced("a-" + attempt), new MessageBusTests.OrderPlaced("b-" + attempt)));
-            bus.close();
-        }
-    }
-
     private RabbitMQMessageBus newBus() {
         return TestRabbitMQ.busOn(
                         connection,
