@@ -21,38 +21,39 @@ public class GuestStayAccountFacade {
     }
 
     public void checkInGuest(CheckInGuest command) {
-        if (collection.get(command.guestStayId()).isPresent()) return;
+        if (collection.get(command.guestStayAccountId()).isPresent()) return;
 
         var checkedIn = decide(command, INITIAL);
 
-        collection.store(command.guestStayId(), reduce(checkedIn, INITIAL, GuestStayAccount::evolve));
+        collection.store(command.guestStayAccountId(), reduce(checkedIn, INITIAL, GuestStayAccount::evolve));
         messageBus.publish(checkedIn);
     }
 
     public void recordCharge(RecordCharge command) {
-        handle(command.guestStayId(), account -> decide(command, account));
+        handle(command.guestStayAccountId(), account -> decide(command, account));
     }
 
     public void recordPayment(RecordPayment command) {
-        handle(command.guestStayId(), account -> decide(command, account));
+        handle(command.guestStayAccountId(), account -> decide(command, account));
     }
 
     public void checkOutGuest(CheckOutGuest command) {
-        var account = collection.get(command.guestStayId()).orElse(null);
+        var account = collection.get(command.guestStayAccountId()).orElse(null);
         if (account == null) return;
 
         var events = decide(command, account);
 
-        collection.store(command.guestStayId(), reduce(events, account, GuestStayAccount::evolve));
+        collection.store(command.guestStayAccountId(), reduce(events, account, GuestStayAccount::evolve));
         messageBus.publish(events);
     }
 
-    private void handle(UUID guestStayId, Function<GuestStayAccount, List<GuestStayAccountEvent>> decide) {
-        var account = collection.get(guestStayId).orElseThrow(() -> new IllegalStateException("Entity not found"));
+    private void handle(UUID guestStayAccountId, Function<GuestStayAccount, List<GuestStayAccountEvent>> decide) {
+        var account =
+                collection.get(guestStayAccountId).orElseThrow(() -> new IllegalStateException("Entity not found"));
 
         var events = decide.apply(account);
 
-        collection.store(guestStayId, reduce(events, account, GuestStayAccount::evolve));
+        collection.store(guestStayAccountId, reduce(events, account, GuestStayAccount::evolve));
         messageBus.publish(events);
     }
 }

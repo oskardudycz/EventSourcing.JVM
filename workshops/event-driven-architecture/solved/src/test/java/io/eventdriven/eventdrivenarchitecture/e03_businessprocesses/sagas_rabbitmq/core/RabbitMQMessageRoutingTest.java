@@ -115,10 +115,10 @@ public class RabbitMQMessageRoutingTest {
 
     @Test
     public void messagesFromAPackage_AreSentToItsRegisteredExchangeRoutedByTheirTypeNames() {
-        var guestStayId = UUID.randomUUID();
+        var guestStayAccountId = UUID.randomUUID();
         var now = OffsetDateTime.now();
-        var command = new CheckOutGuest(guestStayId, now, UUID.randomUUID());
-        var event = new GuestCheckedOut(guestStayId, now, UUID.randomUUID());
+        var command = new CheckOutGuest(guestStayAccountId, now, UUID.randomUUID());
+        var event = new GuestCheckedOut(guestStayAccountId, now, UUID.randomUUID());
         var commands = amqpAdmin.declareQueue();
         var events = amqpAdmin.declareQueue();
         amqpAdmin.declareBinding(BindingBuilder.bind(commands)

@@ -51,13 +51,13 @@ public class GroupCheckoutFacade {
     }
 
     public sealed interface GroupCheckoutCommand {
-        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayIds, OffsetDateTime now)
+        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayAccountIds, OffsetDateTime now)
                 implements GroupCheckoutCommand {}
 
-        record RecordGuestCheckoutCompletion(UUID groupCheckoutId, UUID guestStayId, OffsetDateTime completedAt)
+        record RecordGuestCheckoutCompletion(UUID groupCheckoutId, UUID guestStayAccountId, OffsetDateTime now)
                 implements GroupCheckoutCommand {}
 
-        record RecordGuestCheckoutFailure(UUID groupCheckoutId, UUID guestStayId, OffsetDateTime failedAt)
+        record RecordGuestCheckoutFailure(UUID groupCheckoutId, UUID guestStayAccountId, OffsetDateTime now)
                 implements GroupCheckoutCommand {}
     }
 }

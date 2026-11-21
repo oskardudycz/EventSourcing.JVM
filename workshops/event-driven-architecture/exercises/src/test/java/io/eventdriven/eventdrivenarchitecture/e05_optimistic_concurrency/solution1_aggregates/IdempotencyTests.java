@@ -39,7 +39,8 @@ public class IdempotencyTests {
         configureGuestStayAccounts(messageBus, guestStayFacade);
 
         UUID[] guestStays = new UUID[] {UUID.randomUUID(), UUID.randomUUID()};
-        for (var guestStayId : guestStays) guestStayFacade.checkInGuest(new CheckInGuest(guestStayId, now));
+        for (var guestStayAccountId : guestStays)
+            guestStayFacade.checkInGuest(new CheckInGuest(guestStayAccountId, now));
         publishedMessages.reset();
         // And
         var groupCheckoutId = UUID.randomUUID();

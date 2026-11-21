@@ -21,37 +21,37 @@ public class GuestStayAccountFacade {
     public void checkInGuest(CheckInGuest command) {
         var checkedIn = decide(command, INITIAL);
 
-        database.store(command.guestStayId(), evolve(INITIAL, checkedIn));
+        database.store(command.guestStayAccountId(), evolve(INITIAL, checkedIn));
         messageBus.publish(List.of(checkedIn));
     }
 
     public void recordCharge(RecordCharge command) {
-        var account =
-                database.get(command.guestStayId()).orElseThrow(() -> new IllegalStateException("Entity not found"));
+        var account = database.get(command.guestStayAccountId())
+                .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
         var chargeRecorded = decide(command, account);
 
-        database.store(command.guestStayId(), evolve(account, chargeRecorded));
+        database.store(command.guestStayAccountId(), evolve(account, chargeRecorded));
         messageBus.publish(List.of(chargeRecorded));
     }
 
     public void recordPayment(RecordPayment command) {
-        var account =
-                database.get(command.guestStayId()).orElseThrow(() -> new IllegalStateException("Entity not found"));
+        var account = database.get(command.guestStayAccountId())
+                .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
         var recordPayment = decide(command, account);
 
-        database.store(command.guestStayId(), evolve(account, recordPayment));
+        database.store(command.guestStayAccountId(), evolve(account, recordPayment));
         messageBus.publish(List.of(recordPayment));
     }
 
     public void checkOutGuest(CheckOutGuest command) {
-        var account = database.get(command.guestStayId()).orElse(null);
+        var account = database.get(command.guestStayAccountId()).orElse(null);
         if (account == null) return;
 
         var checkedOut = decide(command, account);
 
-        database.store(command.guestStayId(), evolve(account, checkedOut));
+        database.store(command.guestStayAccountId(), evolve(account, checkedOut));
         messageBus.publish(List.of(checkedOut));
     }
 }

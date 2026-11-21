@@ -20,117 +20,118 @@ public class EntityDefinitionTests {
     @Tag("Exercise")
     public void checkingInGuest_Succeeds() {
         // Given
-        var guestStayId = UUID.randomUUID();
-        var command = new GuestStayAccountCommand.CheckInGuest(guestStayId, now);
+        var guestStayAccountId = UUID.randomUUID();
+        var command = new GuestStayAccountCommand.CheckInGuest(guestStayAccountId, now);
         publishedMessages.reset();
 
         // When
         guestStayFacade.checkInGuest(command);
 
         // Then
-        publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.GuestCheckedIn(guestStayId, now));
+        publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.GuestCheckedIn(guestStayAccountId, now));
     }
 
     @Test
     @Tag("Exercise")
     public void recordingChargeForCheckedInGuest_Succeeds() {
         // Given
-        var guestStayId = UUID.randomUUID();
-        guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
+        var guestStayAccountId = UUID.randomUUID();
+        guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayAccountId, now.minusDays(1)));
         publishedMessages.reset();
         // And
         var amount = faker.number().randomDouble(2, 10, 1000);
         var chargeId = UUID.randomUUID();
-        var command = new GuestStayAccountCommand.RecordCharge(guestStayId, chargeId, amount, now);
+        var command = new GuestStayAccountCommand.RecordCharge(guestStayAccountId, chargeId, amount, now);
 
         // When
         guestStayFacade.recordCharge(command);
 
         // Then
         publishedMessages.shouldReceiveSingleMessage(
-                new GuestStayAccountEvent.ChargeRecorded(guestStayId, chargeId, amount, now));
+                new GuestStayAccountEvent.ChargeRecorded(guestStayAccountId, chargeId, amount, now));
     }
 
     @Test
     @Tag("Exercise")
     public void recordingPaymentForCheckedInGuest_Succeeds() {
         // Given
-        var guestStayId = UUID.randomUUID();
-        guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
+        var guestStayAccountId = UUID.randomUUID();
+        guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayAccountId, now.minusDays(1)));
         publishedMessages.reset();
         // And
         var amount = faker.number().randomDouble(2, 10, 1000);
         var paymentId = UUID.randomUUID();
-        var command = new GuestStayAccountCommand.RecordPayment(guestStayId, paymentId, amount, now);
+        var command = new GuestStayAccountCommand.RecordPayment(guestStayAccountId, paymentId, amount, now);
 
         // When
         guestStayFacade.recordPayment(command);
 
         // Then
         publishedMessages.shouldReceiveSingleMessage(
-                new GuestStayAccountEvent.PaymentRecorded(guestStayId, paymentId, amount, now));
+                new GuestStayAccountEvent.PaymentRecorded(guestStayAccountId, paymentId, amount, now));
     }
 
     @Test
     @Tag("Exercise")
     public void recordingPaymentForCheckedInGuestWithCharge_Succeeds() {
         // Given
-        var guestStayId = UUID.randomUUID();
-        guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
+        var guestStayAccountId = UUID.randomUUID();
+        guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayAccountId, now.minusDays(1)));
         guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(
-                guestStayId, UUID.randomUUID(), faker.number().randomDouble(2, 10, 1000), now.minusHours(1)));
+                guestStayAccountId, UUID.randomUUID(), faker.number().randomDouble(2, 10, 1000), now.minusHours(1)));
         publishedMessages.reset();
         // And
         var amount = faker.number().randomDouble(2, 10, 1000);
         var paymentId = UUID.randomUUID();
-        var command = new GuestStayAccountCommand.RecordPayment(guestStayId, paymentId, amount, now);
+        var command = new GuestStayAccountCommand.RecordPayment(guestStayAccountId, paymentId, amount, now);
 
         // When
         guestStayFacade.recordPayment(command);
 
         // Then
         publishedMessages.shouldReceiveSingleMessage(
-                new GuestStayAccountEvent.PaymentRecorded(guestStayId, paymentId, amount, now));
+                new GuestStayAccountEvent.PaymentRecorded(guestStayAccountId, paymentId, amount, now));
     }
 
     @Test
     @Tag("Exercise")
     public void checkingOutGuestWithSettledBalance_Succeeds() {
         // Given
-        var guestStayId = UUID.randomUUID();
+        var guestStayAccountId = UUID.randomUUID();
 
         var amount = faker.number().randomDouble(2, 10, 1000);
-        guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
-        guestStayFacade.recordCharge(
-                new GuestStayAccountCommand.RecordCharge(guestStayId, UUID.randomUUID(), amount, now.minusHours(2)));
-        guestStayFacade.recordPayment(
-                new GuestStayAccountCommand.RecordPayment(guestStayId, UUID.randomUUID(), amount, now.minusHours(1)));
+        guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayAccountId, now.minusDays(1)));
+        guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(
+                guestStayAccountId, UUID.randomUUID(), amount, now.minusHours(2)));
+        guestStayFacade.recordPayment(new GuestStayAccountCommand.RecordPayment(
+                guestStayAccountId, UUID.randomUUID(), amount, now.minusHours(1)));
         publishedMessages.reset();
         // And
-        var command = new GuestStayAccountCommand.CheckOutGuest(guestStayId, now);
+        var command = new GuestStayAccountCommand.CheckOutGuest(guestStayAccountId, now);
 
         // When
         guestStayFacade.checkOutGuest(command);
 
         // Then
-        publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, null));
+        publishedMessages.shouldReceiveSingleMessage(
+                new GuestStayAccountEvent.GuestCheckedOut(guestStayAccountId, now, null));
     }
 
     @Test
     @Tag("Exercise")
     public void checkingOutGuestWithUnsettledBalance_FailsWithGuestCheckoutFailed() {
         // Given
-        var guestStayId = UUID.randomUUID();
+        var guestStayAccountId = UUID.randomUUID();
 
         var amount = faker.number().randomDouble(2, 10, 1000);
-        guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayId, now.minusDays(1)));
+        guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(guestStayAccountId, now.minusDays(1)));
         guestStayFacade.recordCharge(new GuestStayAccountCommand.RecordCharge(
-                guestStayId, UUID.randomUUID(), amount + 10, now.minusHours(2)));
-        guestStayFacade.recordPayment(
-                new GuestStayAccountCommand.RecordPayment(guestStayId, UUID.randomUUID(), amount, now.minusHours(1)));
+                guestStayAccountId, UUID.randomUUID(), amount + 10, now.minusHours(2)));
+        guestStayFacade.recordPayment(new GuestStayAccountCommand.RecordPayment(
+                guestStayAccountId, UUID.randomUUID(), amount, now.minusHours(1)));
         publishedMessages.reset();
         // And
-        var command = new GuestStayAccountCommand.CheckOutGuest(guestStayId, now);
+        var command = new GuestStayAccountCommand.CheckOutGuest(guestStayAccountId, now);
 
         // When
         try {
@@ -141,7 +142,10 @@ public class EntityDefinitionTests {
 
         // Then
         publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.GuestCheckoutFailed(
-                guestStayId, GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, null));
+                guestStayAccountId,
+                GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
+                now,
+                null));
     }
 
     @Test

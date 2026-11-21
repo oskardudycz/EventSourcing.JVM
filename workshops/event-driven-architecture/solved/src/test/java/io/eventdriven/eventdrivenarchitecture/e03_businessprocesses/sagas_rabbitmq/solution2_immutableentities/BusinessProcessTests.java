@@ -185,7 +185,7 @@ public class BusinessProcessTests {
                 new CheckOutGuest(guestStays[1], now, groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[1],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new RecordGuestCheckoutFailure(groupCheckoutId, guestStays[1], now),
@@ -193,7 +193,7 @@ public class BusinessProcessTests {
                 new CheckOutGuest(guestStays[2], now, groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[2],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new RecordGuestCheckoutFailure(groupCheckoutId, guestStays[2], now),
@@ -239,7 +239,7 @@ public class BusinessProcessTests {
                 new CheckOutGuest(guestStays[0], now, groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[0],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new RecordGuestCheckoutFailure(groupCheckoutId, guestStays[0], now),
@@ -247,7 +247,7 @@ public class BusinessProcessTests {
                 new CheckOutGuest(guestStays[1], now, groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[1],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new RecordGuestCheckoutFailure(groupCheckoutId, guestStays[1], now),
@@ -255,7 +255,7 @@ public class BusinessProcessTests {
                 new CheckOutGuest(guestStays[2], now, groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[2],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new RecordGuestCheckoutFailure(groupCheckoutId, guestStays[2], now),

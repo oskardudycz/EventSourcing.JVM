@@ -24,47 +24,50 @@ public class GuestStayFacade {
     public void checkInGuest(GuestStayAccountCommand.CheckInGuest command) {
         var checkedIn = decide(command, INITIAL);
 
-        collection.store(command.guestStayId(), evolve(INITIAL, checkedIn));
+        collection.store(command.guestStayAccountId(), evolve(INITIAL, checkedIn));
         messageBus.publish(List.of(checkedIn));
     }
 
     public void recordCharge(GuestStayAccountCommand.RecordCharge command) {
-        var account =
-                collection.get(command.guestStayId()).orElseThrow(() -> new IllegalStateException("Entity not found"));
+        var account = collection
+                .get(command.guestStayAccountId())
+                .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
         var chargeRecorded = decide(command, account);
 
-        collection.store(command.guestStayId(), evolve(account, chargeRecorded));
+        collection.store(command.guestStayAccountId(), evolve(account, chargeRecorded));
         messageBus.publish(List.of(chargeRecorded));
     }
 
     public void recordPayment(GuestStayAccountCommand.RecordPayment command) {
-        var account =
-                collection.get(command.guestStayId()).orElseThrow(() -> new IllegalStateException("Entity not found"));
+        var account = collection
+                .get(command.guestStayAccountId())
+                .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
         var recordPayment = decide(command, account);
 
-        collection.store(command.guestStayId(), evolve(account, recordPayment));
+        collection.store(command.guestStayAccountId(), evolve(account, recordPayment));
         messageBus.publish(List.of(recordPayment));
     }
 
     public void checkOutGuest(GuestStayAccountCommand.CheckOutGuest command) {
-        var account =
-                collection.get(command.guestStayId()).orElseThrow(() -> new IllegalStateException("Entity not found"));
+        var account = collection
+                .get(command.guestStayAccountId())
+                .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
         var checkedOut = decide(command, account);
 
-        collection.store(command.guestStayId(), evolve(account, checkedOut));
+        collection.store(command.guestStayAccountId(), evolve(account, checkedOut));
         messageBus.publish(List.of(checkedOut));
     }
 
     public void initiateGroupCheckout(GroupCheckoutCommand.InitiateGroupCheckout command) {
         messageBus.publish(List.of(new GroupCheckoutEvent.GroupCheckoutInitiated(
-                command.groupCheckoutId(), command.clerkId(), command.guestStayIds(), command.now())));
+                command.groupCheckoutId(), command.clerkId(), command.guestStayAccountIds(), command.now())));
     }
 
     public sealed interface GroupCheckoutCommand {
-        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayIds, OffsetDateTime now)
+        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayAccountIds, OffsetDateTime now)
                 implements GroupCheckoutCommand {}
     }
 }

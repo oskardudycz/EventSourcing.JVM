@@ -24,37 +24,40 @@ public class GuestStayAccountFacade {
     public void checkInGuest(CheckInGuest command) {
         var checkedIn = decide(command, INITIAL);
 
-        collection.store(command.guestStayId(), evolve(INITIAL, checkedIn));
+        collection.store(command.guestStayAccountId(), evolve(INITIAL, checkedIn));
         messageBus.publish(List.of(checkedIn));
     }
 
     public void recordCharge(RecordCharge command) {
-        var account =
-                collection.get(command.guestStayId()).orElseThrow(() -> new IllegalStateException("Entity not found"));
+        var account = collection
+                .get(command.guestStayAccountId())
+                .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
         var chargeRecorded = decide(command, account);
 
-        collection.store(command.guestStayId(), evolve(account, chargeRecorded));
+        collection.store(command.guestStayAccountId(), evolve(account, chargeRecorded));
         messageBus.publish(List.of(chargeRecorded));
     }
 
     public void recordPayment(RecordPayment command) {
-        var account =
-                collection.get(command.guestStayId()).orElseThrow(() -> new IllegalStateException("Entity not found"));
+        var account = collection
+                .get(command.guestStayAccountId())
+                .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
         var recordPayment = decide(command, account);
 
-        collection.store(command.guestStayId(), evolve(account, recordPayment));
+        collection.store(command.guestStayAccountId(), evolve(account, recordPayment));
         messageBus.publish(List.of(recordPayment));
     }
 
     public void checkOutGuest(CheckOutGuest command) {
-        var account =
-                collection.get(command.guestStayId()).orElseThrow(() -> new IllegalStateException("Entity not found"));
+        var account = collection
+                .get(command.guestStayAccountId())
+                .orElseThrow(() -> new IllegalStateException("Entity not found"));
 
         var checkedOut = decide(command, account);
 
-        collection.store(command.guestStayId(), evolve(account, checkedOut));
+        collection.store(command.guestStayAccountId(), evolve(account, checkedOut));
         messageBus.publish(List.of(checkedOut));
     }
 }

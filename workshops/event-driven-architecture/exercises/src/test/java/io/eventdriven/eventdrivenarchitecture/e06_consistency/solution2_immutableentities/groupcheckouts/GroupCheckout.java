@@ -46,8 +46,8 @@ public record GroupCheckout(UUID id, Map<UUID, CheckoutStatus> guestStayCheckout
         };
     }
 
-    public boolean recordedAlreadyGuestCheckoutWithStatus(UUID guestStayId, CheckoutStatus status) {
-        return guestStayCheckouts().get(guestStayId) == status;
+    public boolean recordedAlreadyGuestCheckoutWithStatus(UUID guestStayAccountId, CheckoutStatus status) {
+        return guestStayCheckouts().get(guestStayAccountId) == status;
     }
 
     public boolean areAnyOngoingCheckouts() {

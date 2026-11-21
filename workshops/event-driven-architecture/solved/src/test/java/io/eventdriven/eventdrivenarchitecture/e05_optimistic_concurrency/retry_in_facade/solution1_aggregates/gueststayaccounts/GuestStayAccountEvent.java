@@ -20,10 +20,10 @@ public sealed interface GuestStayAccountEvent {
 
     record GuestCheckoutFailed(
             UUID guestStayAccountId,
-            Reason reason,
+            FailureReason reason,
             OffsetDateTime failedAt,
             @Nullable UUID groupCheckoutId) implements GuestStayAccountEvent {
-        public enum Reason {
+        public enum FailureReason {
             INVALID_STATE,
             BALANCE_NOT_SETTLED
         }

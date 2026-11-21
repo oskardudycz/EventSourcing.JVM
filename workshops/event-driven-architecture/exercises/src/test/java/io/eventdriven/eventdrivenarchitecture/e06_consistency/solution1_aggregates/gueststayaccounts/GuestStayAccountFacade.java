@@ -20,32 +20,33 @@ public class GuestStayAccountFacade {
     }
 
     public void checkInGuest(GuestStayAccountCommand.CheckInGuest command) {
-        var account = GuestStayAccount.checkIn(command.guestStayId(), command.now());
+        var account = GuestStayAccount.checkIn(command.guestStayAccountId(), command.now());
 
-        collection.store(command.guestStayId(), account, 0);
+        collection.store(command.guestStayAccountId(), account, 0);
         messageBus.publish(account.dequeueUncommittedEvents());
     }
 
     public void recordCharge(GuestStayAccountCommand.RecordCharge command) {
-        handle(command.guestStayId(), account -> account.recordCharge(command.amount(), command.now()));
+        handle(command.guestStayAccountId(), account -> account.recordCharge(command.amount(), command.now()));
     }
 
     public void recordPayment(GuestStayAccountCommand.RecordPayment command) {
-        handle(command.guestStayId(), account -> account.recordPayment(command.amount(), command.now()));
+        handle(command.guestStayAccountId(), account -> account.recordPayment(command.amount(), command.now()));
     }
 
     public void checkOutGuest(GuestStayAccountCommand.CheckOutGuest command) {
-        handle(command.guestStayId(), account -> account.checkout(command.now(), command.groupCheckOutId()));
+        handle(command.guestStayAccountId(), account -> account.checkout(command.now(), command.groupCheckoutId()));
     }
 
-    private void handle(UUID guestStayId, Consumer<GuestStayAccount> handle) {
+    private void handle(UUID guestStayAccountId, Consumer<GuestStayAccount> handle) {
         var events = Retry.onConflict(() -> {
-            var loaded = collection.get(guestStayId).orElseThrow(() -> new IllegalStateException("Entity not found"));
+            var loaded =
+                    collection.get(guestStayAccountId).orElseThrow(() -> new IllegalStateException("Entity not found"));
             var account = loaded.document();
 
             handle.accept(account);
 
-            collection.store(guestStayId, account, loaded.version());
+            collection.store(guestStayAccountId, account, loaded.version());
 
             return account.dequeueUncommittedEvents();
         });
@@ -54,16 +55,18 @@ public class GuestStayAccountFacade {
     }
 
     public sealed interface GuestStayAccountCommand {
-        record CheckInGuest(UUID guestStayId, OffsetDateTime now) implements GuestStayAccountCommand {}
+        record CheckInGuest(UUID guestStayAccountId, OffsetDateTime now) implements GuestStayAccountCommand {}
 
-        record RecordCharge(UUID guestStayId, double amount, OffsetDateTime now) implements GuestStayAccountCommand {}
+        record RecordCharge(UUID guestStayAccountId, double amount, OffsetDateTime now)
+                implements GuestStayAccountCommand {}
 
-        record RecordPayment(UUID guestStayId, double amount, OffsetDateTime now) implements GuestStayAccountCommand {}
+        record RecordPayment(UUID guestStayAccountId, double amount, OffsetDateTime now)
+                implements GuestStayAccountCommand {}
 
-        record CheckOutGuest(UUID guestStayId, OffsetDateTime now, UUID groupCheckOutId)
+        record CheckOutGuest(UUID guestStayAccountId, OffsetDateTime now, UUID groupCheckoutId)
                 implements GuestStayAccountCommand {
-            public CheckOutGuest(UUID guestStayId, OffsetDateTime now) {
-                this(guestStayId, now, null);
+            public CheckOutGuest(UUID guestStayAccountId, OffsetDateTime now) {
+                this(guestStayAccountId, now, null);
             }
         }
     }

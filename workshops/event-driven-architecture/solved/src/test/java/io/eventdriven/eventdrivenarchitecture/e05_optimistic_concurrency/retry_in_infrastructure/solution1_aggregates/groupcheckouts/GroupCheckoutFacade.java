@@ -23,7 +23,7 @@ public class GroupCheckoutFacade {
             if (groupCheckout.isPresent()) return Optional.empty();
 
             return Optional.of(GroupCheckout.initiate(
-                    command.groupCheckoutId(), command.clerkId(), command.guestStayIds(), command.now()));
+                    command.groupCheckoutId(), command.clerkId(), command.guestStayAccountIds(), command.now()));
         });
 
         if (events.isEmpty()) return;
@@ -35,7 +35,7 @@ public class GroupCheckoutFacade {
         var events = store.handle(
                 command.groupCheckoutId(),
                 groupCheckout -> groupCheckout.map(existing -> {
-                    existing.recordGuestCheckoutCompletion(command.guestStayId(), command.completedAt());
+                    existing.recordGuestCheckoutCompletion(command.guestStayAccountId(), command.now());
 
                     return existing;
                 }));
@@ -49,7 +49,7 @@ public class GroupCheckoutFacade {
         var events = store.handle(
                 command.groupCheckoutId(),
                 groupCheckout -> groupCheckout.map(existing -> {
-                    existing.recordGuestCheckoutFailure(command.guestStayId(), command.failedAt());
+                    existing.recordGuestCheckoutFailure(command.guestStayAccountId(), command.now());
 
                     return existing;
                 }));
@@ -60,13 +60,13 @@ public class GroupCheckoutFacade {
     }
 
     public sealed interface GroupCheckoutCommand {
-        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayIds, OffsetDateTime now)
+        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayAccountIds, OffsetDateTime now)
                 implements GroupCheckoutCommand {}
 
-        record RecordGuestCheckoutCompletion(UUID groupCheckoutId, UUID guestStayId, OffsetDateTime completedAt)
+        record RecordGuestCheckoutCompletion(UUID groupCheckoutId, UUID guestStayAccountId, OffsetDateTime now)
                 implements GroupCheckoutCommand {}
 
-        record RecordGuestCheckoutFailure(UUID groupCheckoutId, UUID guestStayId, OffsetDateTime failedAt)
+        record RecordGuestCheckoutFailure(UUID groupCheckoutId, UUID guestStayAccountId, OffsetDateTime now)
                 implements GroupCheckoutCommand {}
     }
 }

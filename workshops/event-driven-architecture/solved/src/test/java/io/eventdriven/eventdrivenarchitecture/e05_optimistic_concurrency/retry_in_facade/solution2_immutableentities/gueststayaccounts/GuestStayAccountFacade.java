@@ -8,7 +8,7 @@ import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.core.Da
 import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.core.MessageBus;
 import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.core.Retry;
 import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.core.Versioned;
-import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.retry_in_facade.solution2_immutableentities.gueststayaccounts.GuestStayAccount.Status;
+import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.retry_in_facade.solution2_immutableentities.gueststayaccounts.GuestStayAccount.GuestStayAccountStatus;
 import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.retry_in_facade.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.*;
 import java.util.List;
 import java.util.UUID;
@@ -24,8 +24,8 @@ public class GuestStayAccountFacade {
     }
 
     public void checkInGuest(CheckInGuest command) {
-        var events = handle(command.guestStayId(), account -> {
-            if (account.status() != Status.NOT_EXISTING) return List.of();
+        var events = handle(command.guestStayAccountId(), account -> {
+            if (account.status() != GuestStayAccountStatus.NOT_EXISTING) return List.of();
 
             return decide(command, account);
         });
@@ -36,8 +36,9 @@ public class GuestStayAccountFacade {
     }
 
     public void recordCharge(RecordCharge command) {
-        var events = handle(command.guestStayId(), account -> {
-            if (account.status() == Status.NOT_EXISTING) throw new IllegalStateException("Entity not found");
+        var events = handle(command.guestStayAccountId(), account -> {
+            if (account.status() == GuestStayAccountStatus.NOT_EXISTING)
+                throw new IllegalStateException("Entity not found");
 
             return decide(command, account);
         });
@@ -48,8 +49,9 @@ public class GuestStayAccountFacade {
     }
 
     public void recordPayment(RecordPayment command) {
-        var events = handle(command.guestStayId(), account -> {
-            if (account.status() == Status.NOT_EXISTING) throw new IllegalStateException("Entity not found");
+        var events = handle(command.guestStayAccountId(), account -> {
+            if (account.status() == GuestStayAccountStatus.NOT_EXISTING)
+                throw new IllegalStateException("Entity not found");
 
             return decide(command, account);
         });
@@ -60,8 +62,8 @@ public class GuestStayAccountFacade {
     }
 
     public void checkOutGuest(CheckOutGuest command) {
-        var events = handle(command.guestStayId(), account -> {
-            if (account.status() == Status.NOT_EXISTING) return List.of();
+        var events = handle(command.guestStayAccountId(), account -> {
+            if (account.status() == GuestStayAccountStatus.NOT_EXISTING) return List.of();
 
             return decide(command, account);
         });
@@ -72,16 +74,16 @@ public class GuestStayAccountFacade {
     }
 
     private List<GuestStayAccountEvent> handle(
-            UUID guestStayId, Function<GuestStayAccount, List<GuestStayAccountEvent>> handle) {
+            UUID guestStayAccountId, Function<GuestStayAccount, List<GuestStayAccountEvent>> handle) {
         return Retry.onConflict(() -> {
-            var loaded = collection.get(guestStayId);
+            var loaded = collection.get(guestStayAccountId);
             var account = loaded.map(Versioned::document).orElse(INITIAL);
 
             var events = handle.apply(account);
             if (events.isEmpty()) return events;
 
             collection.store(
-                    guestStayId,
+                    guestStayAccountId,
                     reduce(events, account, GuestStayAccount::evolve),
                     loaded.map(Versioned::version).orElse(0));
 

@@ -172,13 +172,13 @@ public class BusinessProcessTests {
                 new CheckOutGuest(guestStays[1], now, groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[1],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new CheckOutGuest(guestStays[2], now, groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[2],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new GroupCheckoutEvent.GroupCheckoutFailed(
@@ -225,19 +225,19 @@ public class BusinessProcessTests {
                 new CheckOutGuest(guestStays[0], now, groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[0],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new CheckOutGuest(guestStays[1], now, groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[1],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new CheckOutGuest(guestStays[2], now, groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[2],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new GroupCheckoutEvent.GroupCheckoutFailed(

@@ -29,14 +29,14 @@ public class GroupCheckout extends AbstractProcessManager<GroupCheckoutEvent, UU
     public static GroupCheckout handle(GroupCheckoutCommand.InitiateGroupCheckout command) {
         var groupCheckoutId = command.groupCheckoutId();
         var clerkId = command.clerkId();
-        var guestStayIds = command.guestStayIds();
+        var guestStayAccountIds = command.guestStayAccountIds();
         var initiatedAt = command.now();
 
         var state = new GroupCheckout();
 
-        state.enqueue(new GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStayIds, initiatedAt));
+        state.enqueue(new GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStayAccountIds, initiatedAt));
 
-        Arrays.stream(guestStayIds)
+        Arrays.stream(guestStayAccountIds)
                 .map(guestAccountId ->
                         new GuestStayAccountCommand.CheckOutGuest(guestAccountId, initiatedAt, groupCheckoutId))
                 .forEach(state::schedule);
@@ -45,32 +45,32 @@ public class GroupCheckout extends AbstractProcessManager<GroupCheckoutEvent, UU
     }
 
     public void on(GuestStayAccountEvent.GuestCheckedOut event) {
-        var guestStayId = event.guestStayAccountId();
+        var guestStayAccountId = event.guestStayAccountId();
         var now = event.completedAt();
 
         if (status != CheckoutStatus.INITIATED) return;
 
-        var guestCheckoutCompleted = new GuestCheckoutCompletionRecorded(id(), guestStayId, now);
+        var guestCheckoutCompleted = new GuestCheckoutCompletionRecorded(id(), guestStayAccountId, now);
 
         enqueue(guestCheckoutCompleted);
 
-        if (!areAnyOngoingCheckouts()) enqueue(finalize(now));
+        if (!areAnyOngoingCheckouts()) enqueue(finish(now));
     }
 
     public void on(GuestStayAccountEvent.GuestCheckoutFailed event) {
-        var guestStayId = event.guestStayAccountId();
+        var guestStayAccountId = event.guestStayAccountId();
         var now = event.failedAt();
 
         if (status != CheckoutStatus.INITIATED) return;
 
-        var guestCheckoutFailed = new GuestCheckoutFailureRecorded(id(), guestStayId, now);
+        var guestCheckoutFailed = new GuestCheckoutFailureRecorded(id(), guestStayAccountId, now);
 
         enqueue(guestCheckoutFailed);
 
-        if (!areAnyOngoingCheckouts()) enqueue(finalize(now));
+        if (!areAnyOngoingCheckouts()) enqueue(finish(now));
     }
 
-    private GroupCheckoutEvent finalize(OffsetDateTime now) {
+    private GroupCheckoutEvent finish(OffsetDateTime now) {
         return !areAnyFailedCheckouts()
                 ? new GroupCheckoutCompleted(id(), checkoutsWith(CheckoutStatus.COMPLETED), now)
                 : new GroupCheckoutFailed(

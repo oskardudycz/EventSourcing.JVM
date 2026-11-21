@@ -171,22 +171,23 @@ public class MessageMetadataPropagationTest {
             checkedOutSpanId.set(currentSpan.context().spanId());
         });
 
-        UUID guestStayId = UUID.randomUUID();
-        guestStayFacade.checkInGuest(new CheckInGuest(guestStayId, now.minusDays(1)));
+        UUID guestStayAccountId = UUID.randomUUID();
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStayAccountId, now.minusDays(1)));
         publishedMessages.reset();
 
         UUID groupCheckoutId = UUID.randomUUID();
         UUID clerkId = UUID.randomUUID();
         groupCheckoutFacade.initiateGroupCheckout(
-                new InitiateGroupCheckout(groupCheckoutId, clerkId, new UUID[] {guestStayId}, now));
+                new InitiateGroupCheckout(groupCheckoutId, clerkId, new UUID[] {guestStayAccountId}, now));
 
         publishedMessages.shouldReceiveMessages(List.of(
-                new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, new UUID[] {guestStayId}, now),
-                new CheckOutGuest(guestStayId, now, groupCheckoutId),
-                new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, groupCheckoutId),
-                new RecordGuestCheckoutCompletion(groupCheckoutId, guestStayId, now),
-                new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayId, now),
-                new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, new UUID[] {guestStayId}, now)));
+                new GroupCheckoutEvent.GroupCheckoutInitiated(
+                        groupCheckoutId, clerkId, new UUID[] {guestStayAccountId}, now),
+                new CheckOutGuest(guestStayAccountId, now, groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckedOut(guestStayAccountId, now, groupCheckoutId),
+                new RecordGuestCheckoutCompletion(groupCheckoutId, guestStayAccountId, now),
+                new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayAccountId, now),
+                new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, new UUID[] {guestStayAccountId}, now)));
 
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
             assertThat(initiatedMessageId.get())

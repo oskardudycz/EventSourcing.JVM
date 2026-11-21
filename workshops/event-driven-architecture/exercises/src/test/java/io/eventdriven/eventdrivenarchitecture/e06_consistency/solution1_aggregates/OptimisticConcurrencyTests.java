@@ -76,12 +76,13 @@ public class OptimisticConcurrencyTests {
         var groupCheckoutId = initiateGroupCheckout(guestStays);
 
         inParallel(Arrays.stream(guestStays)
-                .<Runnable>map(guestStayId -> () -> groupCheckoutFacade.recordGuestCheckoutCompletion(
-                        new RecordGuestCheckoutCompletion(groupCheckoutId, guestStayId, now)))
+                .<Runnable>map(guestStayAccountId -> () -> groupCheckoutFacade.recordGuestCheckoutCompletion(
+                        new RecordGuestCheckoutCompletion(groupCheckoutId, guestStayAccountId, now)))
                 .toList());
 
         var expected = new ArrayList<Object>(Arrays.stream(guestStays)
-                .map(guestStayId -> new GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayId, now))
+                .map(guestStayAccountId ->
+                        new GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayAccountId, now))
                 .toList());
         expected.add(new GroupCheckoutCompleted(groupCheckoutId, guestStays, now));
 
@@ -101,14 +102,17 @@ public class OptimisticConcurrencyTests {
                         Stream.<Runnable>of(() -> groupCheckoutFacade.recordGuestCheckoutFailure(
                                 new RecordGuestCheckoutFailure(groupCheckoutId, failedGuestStay, now))),
                         Arrays.stream(completedGuestStays)
-                                .<Runnable>map(guestStayId -> () -> groupCheckoutFacade.recordGuestCheckoutCompletion(
-                                        new RecordGuestCheckoutCompletion(groupCheckoutId, guestStayId, now))))
+                                .<Runnable>map(
+                                        guestStayAccountId -> () -> groupCheckoutFacade.recordGuestCheckoutCompletion(
+                                                new RecordGuestCheckoutCompletion(
+                                                        groupCheckoutId, guestStayAccountId, now))))
                 .toList());
 
         var expected = new ArrayList<Object>();
         expected.add(new GuestCheckoutFailureRecorded(groupCheckoutId, failedGuestStay, now));
         Arrays.stream(completedGuestStays)
-                .map(guestStayId -> new GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayId, now))
+                .map(guestStayAccountId ->
+                        new GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayAccountId, now))
                 .forEach(expected::add);
         expected.add(new GroupCheckoutFailed(groupCheckoutId, completedGuestStays, new UUID[] {failedGuestStay}, now));
 
@@ -119,32 +123,35 @@ public class OptimisticConcurrencyTests {
     @Test
     @Tag("Exercise")
     public void chargesRecordedConcurrently_AllCountTowardsBalance() {
-        var guestStayId = checkInGuest();
+        var guestStayAccountId = checkInGuest();
         var amounts = List.of(10.0, 20.0, 30.0, 40.0, 50.0);
 
         inParallel(amounts.stream()
-                .<Runnable>map(amount -> () -> guestStayFacade.recordCharge(new RecordCharge(guestStayId, amount, now)))
+                .<Runnable>map(
+                        amount -> () -> guestStayFacade.recordCharge(new RecordCharge(guestStayAccountId, amount, now)))
                 .toList());
         guestStayFacade.recordPayment(new RecordPayment(
-                guestStayId, amounts.stream().mapToDouble(Double::doubleValue).sum(), now));
+                guestStayAccountId,
+                amounts.stream().mapToDouble(Double::doubleValue).sum(),
+                now));
         backgroundJobs.runUntilIdle(publishedMessages);
         publishedMessages.reset();
 
-        guestStayFacade.checkOutGuest(new CheckOutGuest(guestStayId, now));
+        guestStayFacade.checkOutGuest(new CheckOutGuest(guestStayAccountId, now));
 
         backgroundJobs.runUntilIdle(publishedMessages);
-        publishedMessages.shouldReceiveSingleMessage(new GuestCheckedOut(guestStayId, now, null));
+        publishedMessages.shouldReceiveSingleMessage(new GuestCheckedOut(guestStayAccountId, now, null));
     }
 
     @Test
     @Tag("Exercise")
     public void chargeRecordedConcurrentlyWithCheckout_DoesNotLetGuestCheckOutWithUnsettledBalance() {
-        var guestStayId = checkInGuest();
+        var guestStayAccountId = checkInGuest();
 
         inParallel(
                 List.of(
-                        () -> guestStayFacade.checkOutGuest(new CheckOutGuest(guestStayId, now)),
-                        () -> guestStayFacade.recordCharge(new RecordCharge(guestStayId, 100, now))),
+                        () -> guestStayFacade.checkOutGuest(new CheckOutGuest(guestStayAccountId, now)),
+                        () -> guestStayFacade.recordCharge(new RecordCharge(guestStayAccountId, 100, now))),
                 RuntimeException.class);
 
         backgroundJobs.runUntilIdle(publishedMessages);
@@ -172,12 +179,12 @@ public class OptimisticConcurrencyTests {
     }
 
     private UUID checkInGuest() {
-        var guestStayId = UUID.randomUUID();
-        guestStayFacade.checkInGuest(new CheckInGuest(guestStayId, now.minusDays(1)));
+        var guestStayAccountId = UUID.randomUUID();
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStayAccountId, now.minusDays(1)));
         backgroundJobs.runUntilIdle(publishedMessages);
         publishedMessages.reset();
 
-        return guestStayId;
+        return guestStayAccountId;
     }
 
     private static UUID[] randomIds(int count) {

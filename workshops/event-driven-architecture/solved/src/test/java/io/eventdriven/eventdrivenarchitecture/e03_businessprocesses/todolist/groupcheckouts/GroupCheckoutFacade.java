@@ -19,15 +19,18 @@ public class GroupCheckoutFacade {
     public void initiateGroupCheckout(GroupCheckoutCommand.InitiateGroupCheckout command) {
         messageBus.publish(Stream.concat(
                         Stream.of(new GroupCheckoutInitiated(
-                                command.groupCheckoutId(), command.clerkId(), command.guestStayIds(), command.now())),
-                        Arrays.stream(command.guestStayIds())
-                                .map(guestStayId ->
-                                        new CheckOutGuest(guestStayId, command.now(), command.groupCheckoutId())))
+                                command.groupCheckoutId(),
+                                command.clerkId(),
+                                command.guestStayAccountIds(),
+                                command.now())),
+                        Arrays.stream(command.guestStayAccountIds())
+                                .map(guestStayAccountId -> new CheckOutGuest(
+                                        guestStayAccountId, command.now(), command.groupCheckoutId())))
                 .toList());
     }
 
     public sealed interface GroupCheckoutCommand {
-        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayIds, OffsetDateTime now)
+        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayAccountIds, OffsetDateTime now)
                 implements GroupCheckoutCommand {}
     }
 }

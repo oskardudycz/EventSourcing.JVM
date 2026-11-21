@@ -147,12 +147,12 @@ public class BusinessProcessTests {
                 new GuestStayAccountEvent.GuestCheckedOut(guestStays[0], now, groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[1],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[2],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new GroupCheckoutEvent.GroupCheckoutFailed(
@@ -194,17 +194,17 @@ public class BusinessProcessTests {
         publishedMessages.shouldReceiveMessages(List.of(
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[0],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[1],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
                         guestStays[2],
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                         now,
                         groupCheckoutId),
                 new GroupCheckoutEvent.GroupCheckoutFailed(

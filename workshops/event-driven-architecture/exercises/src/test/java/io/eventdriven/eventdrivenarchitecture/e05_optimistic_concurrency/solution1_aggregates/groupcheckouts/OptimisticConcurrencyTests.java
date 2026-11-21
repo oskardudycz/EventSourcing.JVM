@@ -54,13 +54,14 @@ public class OptimisticConcurrencyTests {
 
         // When
         inParallel(Arrays.stream(guestStays)
-                .<Runnable>map(guestStayId -> () -> groupCheckoutFacade.recordGuestCheckoutCompletion(
-                        new RecordGuestCheckoutCompletion(groupCheckoutId, guestStayId, now)))
+                .<Runnable>map(guestStayAccountId -> () -> groupCheckoutFacade.recordGuestCheckoutCompletion(
+                        new RecordGuestCheckoutCompletion(groupCheckoutId, guestStayAccountId, now)))
                 .toList());
 
         // Then
         var expected = new ArrayList<Object>(Arrays.stream(guestStays)
-                .map(guestStayId -> new GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayId, now))
+                .map(guestStayAccountId ->
+                        new GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayAccountId, now))
                 .toList());
         expected.add(new GroupCheckoutCompleted(groupCheckoutId, guestStays, now));
 
@@ -81,15 +82,18 @@ public class OptimisticConcurrencyTests {
                         Stream.<Runnable>of(() -> groupCheckoutFacade.recordGuestCheckoutFailure(
                                 new RecordGuestCheckoutFailure(groupCheckoutId, failedGuestStay, now))),
                         Arrays.stream(completedGuestStays)
-                                .<Runnable>map(guestStayId -> () -> groupCheckoutFacade.recordGuestCheckoutCompletion(
-                                        new RecordGuestCheckoutCompletion(groupCheckoutId, guestStayId, now))))
+                                .<Runnable>map(
+                                        guestStayAccountId -> () -> groupCheckoutFacade.recordGuestCheckoutCompletion(
+                                                new RecordGuestCheckoutCompletion(
+                                                        groupCheckoutId, guestStayAccountId, now))))
                 .toList());
 
         // Then
         var expected = new ArrayList<Object>();
         expected.add(new GuestCheckoutFailureRecorded(groupCheckoutId, failedGuestStay, now));
         Arrays.stream(completedGuestStays)
-                .map(guestStayId -> new GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayId, now))
+                .map(guestStayAccountId ->
+                        new GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayAccountId, now))
                 .forEach(expected::add);
         expected.add(new GroupCheckoutFailed(groupCheckoutId, completedGuestStays, new UUID[] {failedGuestStay}, now));
 

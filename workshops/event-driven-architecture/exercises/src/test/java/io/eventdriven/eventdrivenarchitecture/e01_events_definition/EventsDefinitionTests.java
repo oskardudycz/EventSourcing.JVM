@@ -14,7 +14,7 @@ public class EventsDefinitionTests {
     @Tag("Exercise")
     public void guestStayAccountEventTypes_AreDefined() {
         // Given
-        var guestStayId = UUID.randomUUID();
+        var guestStayAccountId = UUID.randomUUID();
         var groupCheckoutId = UUID.randomUUID();
 
         // When
@@ -36,7 +36,7 @@ public class EventsDefinitionTests {
     public void groupCheckoutEventTypes_AreDefined() {
         // Given
         var groupCheckoutId = UUID.randomUUID();
-        var guestStayIds = new UUID[] {UUID.randomUUID(), UUID.randomUUID()};
+        var guestStayAccountIds = new UUID[] {UUID.randomUUID(), UUID.randomUUID()};
         var clerkId = UUID.randomUUID();
 
         // When

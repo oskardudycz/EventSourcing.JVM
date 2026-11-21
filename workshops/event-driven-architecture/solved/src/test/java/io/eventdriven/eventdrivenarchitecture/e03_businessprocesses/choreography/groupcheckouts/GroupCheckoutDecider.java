@@ -13,40 +13,40 @@ public final class GroupCheckoutDecider {
 
     public static GroupCheckoutInitiated handle(InitiateGroupCheckout command) {
         return new GroupCheckoutInitiated(
-                command.groupCheckoutId(), command.clerkId(), command.guestStayIds(), command.now());
+                command.groupCheckoutId(), command.clerkId(), command.guestStayAccountIds(), command.now());
     }
 
     public static List<GroupCheckoutEvent> handle(RecordGuestCheckoutCompletion command, GroupCheckout state) {
-        var guestStayId = command.guestStayId();
+        var guestStayAccountId = command.guestStayAccountId();
         var now = command.now();
 
         if (state.status() != CheckoutStatus.INITIATED) return List.of();
 
-        var guestCheckoutCompleted = new GuestCheckoutCompletionRecorded(state.id(), guestStayId, now);
+        var guestCheckoutCompleted = new GuestCheckoutCompletionRecorded(state.id(), guestStayAccountId, now);
 
         state = evolve(state, guestCheckoutCompleted);
 
         return state.areAnyOngoingCheckouts()
                 ? List.of(guestCheckoutCompleted)
-                : List.of(guestCheckoutCompleted, finalize(state, now));
+                : List.of(guestCheckoutCompleted, finish(state, now));
     }
 
     public static List<GroupCheckoutEvent> handle(RecordGuestCheckoutFailure command, GroupCheckout state) {
-        var guestStayId = command.guestStayId();
+        var guestStayAccountId = command.guestStayAccountId();
         var now = command.now();
 
         if (state.status() != CheckoutStatus.INITIATED) return List.of();
 
-        var guestCheckoutFailed = new GuestCheckoutFailureRecorded(state.id(), guestStayId, now);
+        var guestCheckoutFailed = new GuestCheckoutFailureRecorded(state.id(), guestStayAccountId, now);
 
         state = evolve(state, guestCheckoutFailed);
 
         return state.areAnyOngoingCheckouts()
                 ? List.of(guestCheckoutFailed)
-                : List.of(guestCheckoutFailed, finalize(state, now));
+                : List.of(guestCheckoutFailed, finish(state, now));
     }
 
-    private static GroupCheckoutEvent finalize(GroupCheckout state, OffsetDateTime now) {
+    private static GroupCheckoutEvent finish(GroupCheckout state, OffsetDateTime now) {
         return !state.areAnyFailedCheckouts()
                 ? new GroupCheckoutCompleted(state.id(), state.checkoutsWith(CheckoutStatus.COMPLETED), now)
                 : new GroupCheckoutFailed(
@@ -66,13 +66,13 @@ public final class GroupCheckoutDecider {
     }
 
     public sealed interface GroupCheckoutCommand {
-        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayIds, OffsetDateTime now)
+        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayAccountIds, OffsetDateTime now)
                 implements GroupCheckoutCommand {}
 
-        record RecordGuestCheckoutCompletion(UUID groupCheckoutId, UUID guestStayId, OffsetDateTime now)
+        record RecordGuestCheckoutCompletion(UUID groupCheckoutId, UUID guestStayAccountId, OffsetDateTime now)
                 implements GroupCheckoutCommand {}
 
-        record RecordGuestCheckoutFailure(UUID groupCheckoutId, UUID guestStayId, OffsetDateTime now)
+        record RecordGuestCheckoutFailure(UUID groupCheckoutId, UUID guestStayAccountId, OffsetDateTime now)
                 implements GroupCheckoutCommand {}
     }
 }

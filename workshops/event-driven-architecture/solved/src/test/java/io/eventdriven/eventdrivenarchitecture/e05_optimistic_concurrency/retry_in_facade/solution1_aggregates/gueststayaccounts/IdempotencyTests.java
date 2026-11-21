@@ -19,8 +19,8 @@ public class IdempotencyTests {
     @Test
     public void guestIsCheckedInOnceForTheSameGuestStayAccount() {
         // Given
-        var guestStayId = UUID.randomUUID();
-        var command = new CheckInGuest(guestStayId, now);
+        var guestStayAccountId = UUID.randomUUID();
+        var command = new CheckInGuest(guestStayAccountId, now);
         // And
         guestStayFacade.checkInGuest(command);
 
@@ -28,15 +28,15 @@ public class IdempotencyTests {
         guestStayFacade.checkInGuest(command);
 
         // Then
-        publishedMessages.shouldReceiveSingleMessage(new GuestCheckedIn(guestStayId, now));
+        publishedMessages.shouldReceiveSingleMessage(new GuestCheckedIn(guestStayAccountId, now));
     }
 
     @Test
     public void chargeIsRecordedOnceForTheSameChargeId() {
         // Given
-        var guestStayId = checkInGuest();
+        var guestStayAccountId = checkInGuest();
         var chargeId = UUID.randomUUID();
-        var command = new RecordCharge(guestStayId, chargeId, 100, now);
+        var command = new RecordCharge(guestStayAccountId, chargeId, 100, now);
         // And
         guestStayFacade.recordCharge(command);
 
@@ -44,15 +44,15 @@ public class IdempotencyTests {
         guestStayFacade.recordCharge(command);
 
         // Then
-        publishedMessages.shouldReceiveSingleMessage(new ChargeRecorded(guestStayId, chargeId, 100, now));
+        publishedMessages.shouldReceiveSingleMessage(new ChargeRecorded(guestStayAccountId, chargeId, 100, now));
     }
 
     @Test
     public void paymentIsRecordedOnceForTheSamePaymentId() {
         // Given
-        var guestStayId = checkInGuest();
+        var guestStayAccountId = checkInGuest();
         var paymentId = UUID.randomUUID();
-        var command = new RecordPayment(guestStayId, paymentId, 100, now);
+        var command = new RecordPayment(guestStayAccountId, paymentId, 100, now);
         // And
         guestStayFacade.recordPayment(command);
 
@@ -60,15 +60,15 @@ public class IdempotencyTests {
         guestStayFacade.recordPayment(command);
 
         // Then
-        publishedMessages.shouldReceiveSingleMessage(new PaymentRecorded(guestStayId, paymentId, 100, now));
+        publishedMessages.shouldReceiveSingleMessage(new PaymentRecorded(guestStayAccountId, paymentId, 100, now));
     }
 
     @Test
     public void guestIsCheckedOutOnceForTheSameGroupCheckout() {
         // Given
-        var guestStayId = checkInGuest();
+        var guestStayAccountId = checkInGuest();
         var groupCheckoutId = UUID.randomUUID();
-        var command = new CheckOutGuest(guestStayId, now, groupCheckoutId);
+        var command = new CheckOutGuest(guestStayAccountId, now, groupCheckoutId);
         // And
         guestStayFacade.checkOutGuest(command);
 
@@ -76,7 +76,7 @@ public class IdempotencyTests {
         guestStayFacade.checkOutGuest(command);
 
         // Then
-        publishedMessages.shouldReceiveSingleMessage(new GuestCheckedOut(guestStayId, now, groupCheckoutId));
+        publishedMessages.shouldReceiveSingleMessage(new GuestCheckedOut(guestStayAccountId, now, groupCheckoutId));
     }
 
     private MessageCatcher publishedMessages;
@@ -95,9 +95,9 @@ public class IdempotencyTests {
     }
 
     private UUID checkInGuest() {
-        var guestStayId = UUID.randomUUID();
-        guestStayFacade.checkInGuest(new CheckInGuest(guestStayId, now));
+        var guestStayAccountId = UUID.randomUUID();
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStayAccountId, now));
         publishedMessages.reset();
-        return guestStayId;
+        return guestStayAccountId;
     }
 }

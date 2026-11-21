@@ -1,6 +1,6 @@
 package io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.retry_in_infrastructure.solution2_immutableentities.gueststayaccounts;
 
-import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.retry_in_infrastructure.solution2_immutableentities.gueststayaccounts.GuestStayAccount.Status;
+import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.retry_in_infrastructure.solution2_immutableentities.gueststayaccounts.GuestStayAccount.GuestStayAccountStatus;
 import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.retry_in_infrastructure.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.CheckInGuest;
 import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.retry_in_infrastructure.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.CheckOutGuest;
 import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.retry_in_infrastructure.solution2_immutableentities.gueststayaccounts.GuestStayAccountDecider.GuestStayAccountCommand.RecordCharge;
@@ -13,11 +13,11 @@ import java.util.UUID;
 
 public final class GuestStayAccountDecider {
     public static List<GuestStayAccountEvent> handle(CheckInGuest command) {
-        return List.of(new GuestCheckedIn(command.guestStayId(), command.now()));
+        return List.of(new GuestCheckedIn(command.guestStayAccountId(), command.now()));
     }
 
     public static List<GuestStayAccountEvent> handle(RecordCharge command, GuestStayAccount state) {
-        if (state.status() != Status.OPEN)
+        if (state.status() != GuestStayAccountStatus.OPEN)
             throw new RuntimeException("Cannot record charge if status is other than Open");
 
         if (state.recordedChargeIds().contains(command.chargeId())) return List.of();
@@ -26,7 +26,7 @@ public final class GuestStayAccountDecider {
     }
 
     public static List<GuestStayAccountEvent> handle(RecordPayment command, GuestStayAccount state) {
-        if (state.status() != Status.OPEN)
+        if (state.status() != GuestStayAccountStatus.OPEN)
             throw new RuntimeException("Cannot record payment if status is other than Open");
 
         if (state.recordedPaymentIds().contains(command.paymentId())) return List.of();
@@ -35,19 +35,19 @@ public final class GuestStayAccountDecider {
     }
 
     public static List<GuestStayAccountEvent> handle(CheckOutGuest command, GuestStayAccount state) {
-        if (state.status() == Status.CHECKED_OUT && Objects.equals(state.groupCheckoutId(), command.groupCheckOutId()))
-            return List.of();
+        if (state.status() == GuestStayAccountStatus.CHECKED_OUT
+                && Objects.equals(state.groupCheckoutId(), command.groupCheckoutId())) return List.of();
 
-        if (state.status() != Status.OPEN || !state.isSettled()) {
+        if (state.status() != GuestStayAccountStatus.OPEN || !state.isSettled()) {
             return List.of(new GuestCheckoutFailed(
                     state.id(),
                     !state.isSettled()
-                            ? GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED
-                            : GuestCheckoutFailed.Reason.INVALID_STATE,
+                            ? GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED
+                            : GuestCheckoutFailed.FailureReason.INVALID_STATE,
                     command.now(),
-                    command.groupCheckOutId()));
+                    command.groupCheckoutId()));
         }
-        return List.of(new GuestCheckedOut(state.id(), command.now(), command.groupCheckOutId()));
+        return List.of(new GuestCheckedOut(state.id(), command.now(), command.groupCheckoutId()));
     }
 
     public static List<GuestStayAccountEvent> decide(GuestStayAccountCommand command, GuestStayAccount state) {
@@ -60,18 +60,18 @@ public final class GuestStayAccountDecider {
     }
 
     public sealed interface GuestStayAccountCommand {
-        record CheckInGuest(UUID guestStayId, OffsetDateTime now) implements GuestStayAccountCommand {}
+        record CheckInGuest(UUID guestStayAccountId, OffsetDateTime now) implements GuestStayAccountCommand {}
 
-        record RecordCharge(UUID guestStayId, UUID chargeId, double amount, OffsetDateTime now)
+        record RecordCharge(UUID guestStayAccountId, UUID chargeId, double amount, OffsetDateTime now)
                 implements GuestStayAccountCommand {}
 
-        record RecordPayment(UUID guestStayId, UUID paymentId, double amount, OffsetDateTime now)
+        record RecordPayment(UUID guestStayAccountId, UUID paymentId, double amount, OffsetDateTime now)
                 implements GuestStayAccountCommand {}
 
-        record CheckOutGuest(UUID guestStayId, OffsetDateTime now, UUID groupCheckOutId)
+        record CheckOutGuest(UUID guestStayAccountId, OffsetDateTime now, UUID groupCheckoutId)
                 implements GuestStayAccountCommand {
-            public CheckOutGuest(UUID guestStayId, OffsetDateTime now) {
-                this(guestStayId, now, null);
+            public CheckOutGuest(UUID guestStayAccountId, OffsetDateTime now) {
+                this(guestStayAccountId, now, null);
             }
         }
     }

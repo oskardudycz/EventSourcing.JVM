@@ -121,19 +121,19 @@ public class KafkaMessageRoutingTest {
 
     @Test
     public void messagesFromAPackage_AreSentToItsRegisteredTopicKeyedByTheirFirstComponent() {
-        var guestStayId = UUID.randomUUID();
+        var guestStayAccountId = UUID.randomUUID();
         var now = OffsetDateTime.now();
-        var command = new CheckOutGuest(guestStayId, now, UUID.randomUUID());
-        var event = new GuestCheckedOut(guestStayId, now, UUID.randomUUID());
+        var command = new CheckOutGuest(guestStayAccountId, now, UUID.randomUUID());
+        var event = new GuestCheckedOut(guestStayAccountId, now, UUID.randomUUID());
 
         messageBus.publish(List.of(command, event));
 
-        assertThat(publishedRecord(GUEST_STAYS_TOPIC, command.groupCheckOutId().toString())
+        assertThat(publishedRecord(GUEST_STAYS_TOPIC, command.groupCheckoutId().toString())
                         .key())
-                .isEqualTo(guestStayId.toString());
+                .isEqualTo(guestStayAccountId.toString());
         assertThat(publishedRecord(GUEST_STAYS_TOPIC, event.groupCheckoutId().toString())
                         .key())
-                .isEqualTo(guestStayId.toString());
+                .isEqualTo(guestStayAccountId.toString());
     }
 
     private ConsumerRecord<String, String> publishedRecord(String topic, String containing) {

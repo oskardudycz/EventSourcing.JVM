@@ -25,7 +25,7 @@ public class GroupCheckoutFacade {
             var events = new ArrayList<>();
             var guestStayAccounts = db.collection(GuestStayAccount.class);
 
-            for (var guestStayAccountId : command.guestStayIds()) {
+            for (var guestStayAccountId : command.guestStayAccountIds()) {
                 var account = guestStayAccounts
                         .get(guestStayAccountId)
                         .orElseThrow(() -> new IllegalStateException("Entity not found"));
@@ -64,7 +64,7 @@ public class GroupCheckoutFacade {
     }
 
     public sealed interface GroupCheckoutCommand {
-        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayIds, OffsetDateTime now)
+        record InitiateGroupCheckout(UUID groupCheckoutId, UUID clerkId, UUID[] guestStayAccountIds, OffsetDateTime now)
                 implements GroupCheckoutCommand {}
     }
 }

@@ -32,30 +32,31 @@ public class GuestStayAccountFacade {
     public void checkInGuest(CheckInGuest command) {
         var checkedIn = decide(command, INITIAL);
 
-        Retry.untilSucceeds(() -> collection.store(command.guestStayId(), evolve(INITIAL, checkedIn), 0));
+        Retry.untilSucceeds(() -> collection.store(command.guestStayAccountId(), evolve(INITIAL, checkedIn), 0));
         Outbox.publishOrStoreInOutbox(database, messageBus, OUTBOX_ID, List.of(checkedIn));
     }
 
     public void recordCharge(RecordCharge command) {
-        handle(command.guestStayId(), account -> decide(command, account));
+        handle(command.guestStayAccountId(), account -> decide(command, account));
     }
 
     public void recordPayment(RecordPayment command) {
-        handle(command.guestStayId(), account -> decide(command, account));
+        handle(command.guestStayAccountId(), account -> decide(command, account));
     }
 
     public void checkOutGuest(CheckOutGuest command) {
-        handle(command.guestStayId(), account -> decide(command, account));
+        handle(command.guestStayAccountId(), account -> decide(command, account));
     }
 
-    private void handle(UUID guestStayId, Function<GuestStayAccount, GuestStayAccountEvent> decide) {
+    private void handle(UUID guestStayAccountId, Function<GuestStayAccount, GuestStayAccountEvent> decide) {
         var event = Retry.onConflict(() -> {
-            var loaded = collection.get(guestStayId).orElseThrow(() -> new IllegalStateException("Entity not found"));
+            var loaded =
+                    collection.get(guestStayAccountId).orElseThrow(() -> new IllegalStateException("Entity not found"));
 
             var decided = decide.apply(loaded.document());
 
             Retry.untilSucceeds(
-                    () -> collection.store(guestStayId, evolve(loaded.document(), decided), loaded.version()));
+                    () -> collection.store(guestStayAccountId, evolve(loaded.document(), decided), loaded.version()));
 
             return decided;
         });

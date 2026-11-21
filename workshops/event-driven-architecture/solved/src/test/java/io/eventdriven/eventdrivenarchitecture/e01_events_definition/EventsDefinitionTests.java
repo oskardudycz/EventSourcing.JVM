@@ -12,18 +12,18 @@ public class EventsDefinitionTests {
     @Test
     public void guestStayAccountEventTypes_AreDefined() {
         // Given
-        var guestStayId = UUID.randomUUID();
+        var guestStayAccountId = UUID.randomUUID();
         var groupCheckoutId = UUID.randomUUID();
 
         // When
         var events = List.of(
-                new GuestStayAccountEvent.GuestCheckedIn(guestStayId, OffsetDateTime.now()),
-                new GuestStayAccountEvent.ChargeRecorded(guestStayId, 100, OffsetDateTime.now()),
-                new GuestStayAccountEvent.PaymentRecorded(guestStayId, 100, OffsetDateTime.now()),
-                new GuestStayAccountEvent.GuestCheckedOut(guestStayId, OffsetDateTime.now(), groupCheckoutId),
+                new GuestStayAccountEvent.GuestCheckedIn(guestStayAccountId, OffsetDateTime.now()),
+                new GuestStayAccountEvent.ChargeRecorded(guestStayAccountId, 100, OffsetDateTime.now()),
+                new GuestStayAccountEvent.PaymentRecorded(guestStayAccountId, 100, OffsetDateTime.now()),
+                new GuestStayAccountEvent.GuestCheckedOut(guestStayAccountId, OffsetDateTime.now(), groupCheckoutId),
                 new GuestStayAccountEvent.GuestCheckoutFailed(
-                        guestStayId,
-                        GuestStayAccountEvent.GuestCheckoutFailed.Reason.InvalidState,
+                        guestStayAccountId,
+                        GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.INVALID_STATE,
                         OffsetDateTime.now(),
                         groupCheckoutId));
 
@@ -40,23 +40,24 @@ public class EventsDefinitionTests {
     public void groupCheckoutEventTypes_AreDefined() {
         // Given
         var groupCheckoutId = UUID.randomUUID();
-        var guestStayIds = new UUID[] {UUID.randomUUID(), UUID.randomUUID()};
+        var guestStayAccountIds = new UUID[] {UUID.randomUUID(), UUID.randomUUID()};
         var clerkId = UUID.randomUUID();
 
         // When
         var events = List.of(
                 new GroupCheckoutEvent.GroupCheckoutInitiated(
-                        groupCheckoutId, clerkId, guestStayIds, OffsetDateTime.now()),
+                        groupCheckoutId, clerkId, guestStayAccountIds, OffsetDateTime.now()),
                 new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(
-                        groupCheckoutId, guestStayIds[0], OffsetDateTime.now()),
+                        groupCheckoutId, guestStayAccountIds[0], OffsetDateTime.now()),
                 new GroupCheckoutEvent.GuestCheckoutFailureRecorded(
-                        groupCheckoutId, guestStayIds[1], OffsetDateTime.now()),
+                        groupCheckoutId, guestStayAccountIds[1], OffsetDateTime.now()),
                 new GroupCheckoutEvent.GroupCheckoutFailed(
                         groupCheckoutId,
-                        new UUID[] {guestStayIds[0]},
-                        new UUID[] {guestStayIds[1]},
+                        new UUID[] {guestStayAccountIds[0]},
+                        new UUID[] {guestStayAccountIds[1]},
                         OffsetDateTime.now()),
-                new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, guestStayIds, OffsetDateTime.now()));
+                new GroupCheckoutEvent.GroupCheckoutCompleted(
+                        groupCheckoutId, guestStayAccountIds, OffsetDateTime.now()));
 
         // Then
         final int expectedEventTypesCount = 5;

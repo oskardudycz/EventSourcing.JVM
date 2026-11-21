@@ -21,31 +21,31 @@ public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
     private GroupCheckout() {}
 
     public static GroupCheckout initiate(
-            UUID groupCheckoutId, UUID clerkId, UUID[] guestStayIds, OffsetDateTime initiatedAt) {
+            UUID groupCheckoutId, UUID clerkId, UUID[] guestStayAccountIds, OffsetDateTime initiatedAt) {
         var checkOut = new GroupCheckout();
 
-        checkOut.enqueue(new GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStayIds, initiatedAt));
+        checkOut.enqueue(new GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStayAccountIds, initiatedAt));
 
         return checkOut;
     }
 
-    public void recordGuestCheckoutCompletion(UUID guestStayId, OffsetDateTime now) {
-        var guestCheckoutCompleted = new GuestCheckoutCompletionRecorded(id(), guestStayId, now);
+    public void recordGuestCheckoutCompletion(UUID guestStayAccountId, OffsetDateTime now) {
+        var guestCheckoutCompleted = new GuestCheckoutCompletionRecorded(id(), guestStayAccountId, now);
 
         enqueue(guestCheckoutCompleted);
 
-        if (!areAnyOngoingCheckouts()) enqueue(finalize(now));
+        if (!areAnyOngoingCheckouts()) enqueue(finish(now));
     }
 
-    public void recordGuestCheckoutFailure(UUID guestStayId, OffsetDateTime now) {
-        var guestCheckoutFailed = new GuestCheckoutFailureRecorded(id(), guestStayId, now);
+    public void recordGuestCheckoutFailure(UUID guestStayAccountId, OffsetDateTime now) {
+        var guestCheckoutFailed = new GuestCheckoutFailureRecorded(id(), guestStayAccountId, now);
 
         enqueue(guestCheckoutFailed);
 
-        if (!areAnyOngoingCheckouts()) enqueue(finalize(now));
+        if (!areAnyOngoingCheckouts()) enqueue(finish(now));
     }
 
-    private GroupCheckoutEvent finalize(OffsetDateTime now) {
+    private GroupCheckoutEvent finish(OffsetDateTime now) {
         return !areAnyFailedCheckouts()
                 ? new GroupCheckoutCompleted(id(), checkoutsWith(CheckoutStatus.COMPLETED), now)
                 : new GroupCheckoutFailed(

@@ -36,45 +36,46 @@ public class EntityDefinitionTests {
         // Given
         var groupCheckoutId = UUID.randomUUID();
         var clerkId = UUID.randomUUID();
-        UUID[] guestStayIds = new UUID[] {UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()};
-        var command = new GroupCheckoutCommand.InitiateGroupCheckout(groupCheckoutId, clerkId, guestStayIds, now);
+        UUID[] guestStayAccountIds = new UUID[] {UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()};
+        var command =
+                new GroupCheckoutCommand.InitiateGroupCheckout(groupCheckoutId, clerkId, guestStayAccountIds, now);
 
         // When
         groupCheckoutFacade.initiateGroupCheckout(command);
 
         // Then
         publishedMessages.shouldReceiveMessages(List.of(
-                new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStayIds, now),
-                new GuestStayAccountCommand.CheckOutGuest(guestStayIds[0], now, groupCheckoutId),
-                new GuestStayAccountCommand.CheckOutGuest(guestStayIds[1], now, groupCheckoutId),
-                new GuestStayAccountCommand.CheckOutGuest(guestStayIds[2], now, groupCheckoutId)));
+                new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, guestStayAccountIds, now),
+                new GuestStayAccountCommand.CheckOutGuest(guestStayAccountIds[0], now, groupCheckoutId),
+                new GuestStayAccountCommand.CheckOutGuest(guestStayAccountIds[1], now, groupCheckoutId),
+                new GuestStayAccountCommand.CheckOutGuest(guestStayAccountIds[2], now, groupCheckoutId)));
     }
 
     @Test
     public void recordingGuestCheckoutCompletion_Succeeds() {
         // Given
-        var guestStayId = UUID.randomUUID();
-        var groupCheckoutId = initiateGroupCheckout(guestStayId, UUID.randomUUID(), UUID.randomUUID());
+        var guestStayAccountId = UUID.randomUUID();
+        var groupCheckoutId = initiateGroupCheckout(guestStayAccountId, UUID.randomUUID(), UUID.randomUUID());
         // And
-        var event = new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, groupCheckoutId);
+        var event = new GuestStayAccountEvent.GuestCheckedOut(guestStayAccountId, now, groupCheckoutId);
 
         // When
         groupCheckoutFacade.recordGuestCheckoutCompletion(event);
 
         // Then
-        publishedMessages.shouldReceiveMessages(
-                List.of(new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayId, now)));
+        publishedMessages.shouldReceiveMessages(List.of(
+                new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayAccountId, now)));
     }
 
     @Test
     public void recordingGuestCheckoutFailure_Succeeds() {
         // Given
-        var guestStayId = UUID.randomUUID();
-        var groupCheckoutId = initiateGroupCheckout(guestStayId, UUID.randomUUID(), UUID.randomUUID());
+        var guestStayAccountId = UUID.randomUUID();
+        var groupCheckoutId = initiateGroupCheckout(guestStayAccountId, UUID.randomUUID(), UUID.randomUUID());
         // And
         var event = new GuestStayAccountEvent.GuestCheckoutFailed(
-                guestStayId,
-                GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                guestStayAccountId,
+                GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                 now,
                 groupCheckoutId);
 
@@ -83,60 +84,63 @@ public class EntityDefinitionTests {
 
         // Then
         publishedMessages.shouldReceiveMessages(
-                List.of(new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStayId, now)));
+                List.of(new GroupCheckoutEvent.GuestCheckoutFailureRecorded(groupCheckoutId, guestStayAccountId, now)));
     }
 
     @Test
     public void recordingLastGuestCheckoutCompletion_CompletesGroupCheckout() {
         // Given
-        var completedGuestStayId = UUID.randomUUID();
-        var lastGuestStayId = UUID.randomUUID();
-        var groupCheckoutId = initiateGroupCheckout(completedGuestStayId, lastGuestStayId);
+        var completedGuestStayAccountId = UUID.randomUUID();
+        var lastGuestStayAccountId = UUID.randomUUID();
+        var groupCheckoutId = initiateGroupCheckout(completedGuestStayAccountId, lastGuestStayAccountId);
         groupCheckoutFacade.recordGuestCheckoutCompletion(
-                new GuestStayAccountEvent.GuestCheckedOut(completedGuestStayId, now, groupCheckoutId));
+                new GuestStayAccountEvent.GuestCheckedOut(completedGuestStayAccountId, now, groupCheckoutId));
         publishedMessages.reset();
         // And
-        var event = new GuestStayAccountEvent.GuestCheckedOut(lastGuestStayId, now, groupCheckoutId);
+        var event = new GuestStayAccountEvent.GuestCheckedOut(lastGuestStayAccountId, now, groupCheckoutId);
 
         // When
         groupCheckoutFacade.recordGuestCheckoutCompletion(event);
 
         // Then
         publishedMessages.shouldReceiveMessages(List.of(
-                new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, lastGuestStayId, now),
+                new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, lastGuestStayAccountId, now),
                 new GroupCheckoutEvent.GroupCheckoutCompleted(
-                        groupCheckoutId, new UUID[] {completedGuestStayId, lastGuestStayId}, now)));
+                        groupCheckoutId, new UUID[] {completedGuestStayAccountId, lastGuestStayAccountId}, now)));
     }
 
     @Test
     public void recordingLastGuestCheckoutAfterFailure_FailsGroupCheckout() {
         // Given
-        var failedGuestStayId = UUID.randomUUID();
-        var lastGuestStayId = UUID.randomUUID();
-        var groupCheckoutId = initiateGroupCheckout(failedGuestStayId, lastGuestStayId);
+        var failedGuestStayAccountId = UUID.randomUUID();
+        var lastGuestStayAccountId = UUID.randomUUID();
+        var groupCheckoutId = initiateGroupCheckout(failedGuestStayAccountId, lastGuestStayAccountId);
         groupCheckoutFacade.recordGuestCheckoutFailure(new GuestStayAccountEvent.GuestCheckoutFailed(
-                failedGuestStayId,
-                GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED,
+                failedGuestStayAccountId,
+                GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED,
                 now,
                 groupCheckoutId));
         publishedMessages.reset();
         // And
-        var event = new GuestStayAccountEvent.GuestCheckedOut(lastGuestStayId, now, groupCheckoutId);
+        var event = new GuestStayAccountEvent.GuestCheckedOut(lastGuestStayAccountId, now, groupCheckoutId);
 
         // When
         groupCheckoutFacade.recordGuestCheckoutCompletion(event);
 
         // Then
         publishedMessages.shouldReceiveMessages(List.of(
-                new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, lastGuestStayId, now),
+                new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, lastGuestStayAccountId, now),
                 new GroupCheckoutEvent.GroupCheckoutFailed(
-                        groupCheckoutId, new UUID[] {lastGuestStayId}, new UUID[] {failedGuestStayId}, now)));
+                        groupCheckoutId,
+                        new UUID[] {lastGuestStayAccountId},
+                        new UUID[] {failedGuestStayAccountId},
+                        now)));
     }
 
-    private UUID initiateGroupCheckout(UUID... guestStayIds) {
+    private UUID initiateGroupCheckout(UUID... guestStayAccountIds) {
         var groupCheckoutId = UUID.randomUUID();
         groupCheckoutFacade.initiateGroupCheckout(new GroupCheckoutCommand.InitiateGroupCheckout(
-                groupCheckoutId, UUID.randomUUID(), guestStayIds, now.minusDays(1)));
+                groupCheckoutId, UUID.randomUUID(), guestStayAccountIds, now.minusDays(1)));
         publishedMessages.reset();
 
         return groupCheckoutId;

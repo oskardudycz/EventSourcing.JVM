@@ -38,14 +38,14 @@ public class VersionedMessageConverterTest {
 
     @Test
     public void messageOfAnUnregisteredType_IsReadByItsClassName() {
-        var guestStayId = UUID.randomUUID();
+        var guestStayAccountId = UUID.randomUUID();
         var openedAt = OffsetDateTime.parse("2026-11-07T10:15:30+01:00");
 
         var message = deserialize(
                 GuestCheckedIn.class.getName(),
-                "{\"guestStayAccountId\":\"" + guestStayId + "\",\"openedAt\":\"2026-11-07T10:15:30+01:00\"}");
+                "{\"guestStayAccountId\":\"" + guestStayAccountId + "\",\"openedAt\":\"2026-11-07T10:15:30+01:00\"}");
 
-        assertThat(message).isEqualTo(new GuestCheckedIn(guestStayId, openedAt));
+        assertThat(message).isEqualTo(new GuestCheckedIn(guestStayAccountId, openedAt));
     }
 
     @Test

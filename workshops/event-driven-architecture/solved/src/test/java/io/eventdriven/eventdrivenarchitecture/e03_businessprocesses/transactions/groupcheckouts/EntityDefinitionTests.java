@@ -21,13 +21,17 @@ public class EntityDefinitionTests {
     @Test
     public void initiatingGroupCheckoutWithMissingGuestStayAccount_FailsWithEntityNotFound() {
         // Given
-        var checkedInGuestStayId = UUID.randomUUID();
-        var missingGuestStayId = UUID.randomUUID();
-        guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(checkedInGuestStayId, now.minusDays(1)));
+        var checkedInGuestStayAccountId = UUID.randomUUID();
+        var missingGuestStayAccountId = UUID.randomUUID();
+        guestStayFacade.checkInGuest(
+                new GuestStayAccountCommand.CheckInGuest(checkedInGuestStayAccountId, now.minusDays(1)));
         publishedMessages.reset();
         // And
         var command = new InitiateGroupCheckout(
-                UUID.randomUUID(), UUID.randomUUID(), new UUID[] {checkedInGuestStayId, missingGuestStayId}, now);
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                new UUID[] {checkedInGuestStayAccountId, missingGuestStayAccountId},
+                now);
 
         // When
         var exception =
@@ -41,22 +45,30 @@ public class EntityDefinitionTests {
     @Test
     public void initiatingGroupCheckout_StoresEachGuestStayAccountUnderItsOwnId() {
         // Given
-        var firstGuestStayId = UUID.randomUUID();
-        var secondGuestStayId = UUID.randomUUID();
-        guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(firstGuestStayId, now.minusDays(1)));
-        guestStayFacade.checkInGuest(new GuestStayAccountCommand.CheckInGuest(secondGuestStayId, now.minusDays(1)));
+        var firstGuestStayAccountId = UUID.randomUUID();
+        var secondGuestStayAccountId = UUID.randomUUID();
+        guestStayFacade.checkInGuest(
+                new GuestStayAccountCommand.CheckInGuest(firstGuestStayAccountId, now.minusDays(1)));
+        guestStayFacade.checkInGuest(
+                new GuestStayAccountCommand.CheckInGuest(secondGuestStayAccountId, now.minusDays(1)));
         // And
         var groupCheckoutId = UUID.randomUUID();
         groupCheckoutFacade.initiateGroupCheckout(new InitiateGroupCheckout(
-                groupCheckoutId, UUID.randomUUID(), new UUID[] {firstGuestStayId, secondGuestStayId}, now));
+                groupCheckoutId,
+                UUID.randomUUID(),
+                new UUID[] {firstGuestStayAccountId, secondGuestStayAccountId},
+                now));
         publishedMessages.reset();
 
         // When
-        guestStayFacade.checkOutGuest(new GuestStayAccountCommand.CheckOutGuest(firstGuestStayId, now));
+        guestStayFacade.checkOutGuest(new GuestStayAccountCommand.CheckOutGuest(firstGuestStayAccountId, now));
 
         // Then
         publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.GuestCheckoutFailed(
-                firstGuestStayId, GuestStayAccountEvent.GuestCheckoutFailed.Reason.INVALID_STATE, now, null));
+                firstGuestStayAccountId,
+                GuestStayAccountEvent.GuestCheckoutFailed.FailureReason.INVALID_STATE,
+                now,
+                null));
     }
 
     private Database database;

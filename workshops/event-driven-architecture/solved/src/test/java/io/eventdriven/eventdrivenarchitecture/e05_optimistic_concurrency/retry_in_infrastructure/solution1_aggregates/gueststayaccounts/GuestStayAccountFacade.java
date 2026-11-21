@@ -17,10 +17,10 @@ public class GuestStayAccountFacade {
     }
 
     public void checkInGuest(GuestStayAccountCommand.CheckInGuest command) {
-        var events = store.handle(command.guestStayId(), account -> {
+        var events = store.handle(command.guestStayAccountId(), account -> {
             if (account.isPresent()) return Optional.empty();
 
-            return Optional.of(GuestStayAccount.checkIn(command.guestStayId(), command.now()));
+            return Optional.of(GuestStayAccount.checkIn(command.guestStayAccountId(), command.now()));
         });
 
         if (events.isEmpty()) return;
@@ -29,7 +29,7 @@ public class GuestStayAccountFacade {
     }
 
     public void recordCharge(GuestStayAccountCommand.RecordCharge command) {
-        var events = store.handle(command.guestStayId(), account -> {
+        var events = store.handle(command.guestStayAccountId(), account -> {
             var existing = account.orElseThrow(() -> new IllegalStateException("Entity not found"));
 
             existing.recordCharge(command.chargeId(), command.amount(), command.now());
@@ -43,7 +43,7 @@ public class GuestStayAccountFacade {
     }
 
     public void recordPayment(GuestStayAccountCommand.RecordPayment command) {
-        var events = store.handle(command.guestStayId(), account -> {
+        var events = store.handle(command.guestStayAccountId(), account -> {
             var existing = account.orElseThrow(() -> new IllegalStateException("Entity not found"));
 
             existing.recordPayment(command.paymentId(), command.amount(), command.now());
@@ -58,9 +58,9 @@ public class GuestStayAccountFacade {
 
     public void checkOutGuest(GuestStayAccountCommand.CheckOutGuest command) {
         var events = store.handle(
-                command.guestStayId(),
+                command.guestStayAccountId(),
                 account -> account.map(existing -> {
-                    existing.checkout(command.now(), command.groupCheckOutId());
+                    existing.checkout(command.now(), command.groupCheckoutId());
 
                     return existing;
                 }));
@@ -71,18 +71,18 @@ public class GuestStayAccountFacade {
     }
 
     public sealed interface GuestStayAccountCommand {
-        record CheckInGuest(UUID guestStayId, OffsetDateTime now) implements GuestStayAccountCommand {}
+        record CheckInGuest(UUID guestStayAccountId, OffsetDateTime now) implements GuestStayAccountCommand {}
 
-        record RecordCharge(UUID guestStayId, UUID chargeId, double amount, OffsetDateTime now)
+        record RecordCharge(UUID guestStayAccountId, UUID chargeId, double amount, OffsetDateTime now)
                 implements GuestStayAccountCommand {}
 
-        record RecordPayment(UUID guestStayId, UUID paymentId, double amount, OffsetDateTime now)
+        record RecordPayment(UUID guestStayAccountId, UUID paymentId, double amount, OffsetDateTime now)
                 implements GuestStayAccountCommand {}
 
-        record CheckOutGuest(UUID guestStayId, OffsetDateTime now, UUID groupCheckOutId)
+        record CheckOutGuest(UUID guestStayAccountId, OffsetDateTime now, UUID groupCheckoutId)
                 implements GuestStayAccountCommand {
-            public CheckOutGuest(UUID guestStayId, OffsetDateTime now) {
-                this(guestStayId, now, null);
+            public CheckOutGuest(UUID guestStayAccountId, OffsetDateTime now) {
+                this(guestStayAccountId, now, null);
             }
         }
     }

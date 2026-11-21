@@ -9,11 +9,11 @@ import org.jspecify.annotations.Nullable;
 public record GuestStayAccount(
         UUID id,
         double balance,
-        Status status,
+        GuestStayAccountStatus status,
         List<UUID> recordedChargeIds,
         List<UUID> recordedPaymentIds,
         @Nullable UUID groupCheckoutId) {
-    public enum Status {
+    public enum GuestStayAccountStatus {
         NOT_EXISTING,
         OPEN,
         CHECKED_OUT
@@ -26,7 +26,8 @@ public record GuestStayAccount(
     public static GuestStayAccount evolve(GuestStayAccount state, GuestStayAccountEvent event) {
         return switch (event) {
             case GuestCheckedIn opened ->
-                new GuestStayAccount(opened.guestStayAccountId(), 0, Status.OPEN, List.of(), List.of(), null);
+                new GuestStayAccount(
+                        opened.guestStayAccountId(), 0, GuestStayAccountStatus.OPEN, List.of(), List.of(), null);
             case ChargeRecorded chargeRecorded ->
                 new GuestStayAccount(
                         state.id(),
@@ -49,7 +50,7 @@ public record GuestStayAccount(
                 new GuestStayAccount(
                         state.id(),
                         state.balance(),
-                        Status.CHECKED_OUT,
+                        GuestStayAccountStatus.CHECKED_OUT,
                         state.recordedChargeIds(),
                         state.recordedPaymentIds(),
                         checkedOut.groupCheckoutId());
@@ -57,6 +58,6 @@ public record GuestStayAccount(
         };
     }
 
-    public static final GuestStayAccount INITIAL =
-            new GuestStayAccount(null, Double.MIN_VALUE, Status.NOT_EXISTING, List.of(), List.of(), null);
+    public static final GuestStayAccount INITIAL = new GuestStayAccount(
+            null, Double.MIN_VALUE, GuestStayAccountStatus.NOT_EXISTING, List.of(), List.of(), null);
 }

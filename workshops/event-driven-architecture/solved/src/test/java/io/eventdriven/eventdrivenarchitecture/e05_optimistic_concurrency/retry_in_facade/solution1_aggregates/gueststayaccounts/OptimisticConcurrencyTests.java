@@ -26,8 +26,8 @@ public class OptimisticConcurrencyTests {
     @Test
     public void guestCheckedInConcurrently_IsCheckedInOnce() {
         // Given
-        var guestStayId = UUID.randomUUID();
-        var command = new CheckInGuest(guestStayId, now);
+        var guestStayAccountId = UUID.randomUUID();
+        var command = new CheckInGuest(guestStayAccountId, now);
 
         // When
         inParallel(IntStream.range(0, 10)
@@ -35,71 +35,72 @@ public class OptimisticConcurrencyTests {
                 .toList());
 
         // Then
-        publishedMessages.shouldReceiveSingleMessage(new GuestCheckedIn(guestStayId, now));
+        publishedMessages.shouldReceiveSingleMessage(new GuestCheckedIn(guestStayAccountId, now));
     }
 
     @Test
     public void chargesRecordedConcurrently_AllCountTowardsBalance() {
         // Given
-        var guestStayId = checkInGuest();
+        var guestStayAccountId = checkInGuest();
         var amounts = List.of(10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0);
 
         // When
         inParallel(amounts.stream()
-                .<Runnable>map(amount -> () ->
-                        guestStayFacade.recordCharge(new RecordCharge(guestStayId, UUID.randomUUID(), amount, now)))
+                .<Runnable>map(amount -> () -> guestStayFacade.recordCharge(
+                        new RecordCharge(guestStayAccountId, UUID.randomUUID(), amount, now)))
                 .toList());
 
         // Then
         guestStayFacade.recordPayment(new RecordPayment(
-                guestStayId,
+                guestStayAccountId,
                 UUID.randomUUID(),
                 amounts.stream().mapToDouble(Double::doubleValue).sum(),
                 now));
         publishedMessages.reset();
 
-        guestStayFacade.checkOutGuest(new CheckOutGuest(guestStayId, now));
+        guestStayFacade.checkOutGuest(new CheckOutGuest(guestStayAccountId, now));
 
-        publishedMessages.shouldReceiveSingleMessage(new GuestCheckedOut(guestStayId, now, null));
+        publishedMessages.shouldReceiveSingleMessage(new GuestCheckedOut(guestStayAccountId, now, null));
     }
 
     @Test
     public void paymentsRecordedConcurrently_AllCountTowardsBalance() {
         // Given
-        var guestStayId = checkInGuest();
+        var guestStayAccountId = checkInGuest();
         var amounts = List.of(10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0);
         guestStayFacade.recordCharge(new RecordCharge(
-                guestStayId,
+                guestStayAccountId,
                 UUID.randomUUID(),
                 amounts.stream().mapToDouble(Double::doubleValue).sum(),
                 now));
 
         // When
         inParallel(amounts.stream()
-                .<Runnable>map(amount -> () ->
-                        guestStayFacade.recordPayment(new RecordPayment(guestStayId, UUID.randomUUID(), amount, now)))
+                .<Runnable>map(amount -> () -> guestStayFacade.recordPayment(
+                        new RecordPayment(guestStayAccountId, UUID.randomUUID(), amount, now)))
                 .toList());
 
         // Then
         publishedMessages.reset();
 
-        guestStayFacade.checkOutGuest(new CheckOutGuest(guestStayId, now));
+        guestStayFacade.checkOutGuest(new CheckOutGuest(guestStayAccountId, now));
 
-        publishedMessages.shouldReceiveSingleMessage(new GuestCheckedOut(guestStayId, now, null));
+        publishedMessages.shouldReceiveSingleMessage(new GuestCheckedOut(guestStayAccountId, now, null));
     }
 
     @Test
     public void chargeRecordedConcurrentlyWithCheckout_DoesNotLetGuestCheckOutWithUnsettledBalance() {
         // Given
-        var guestStayIds = IntStream.range(0, 10).mapToObj(i -> checkInGuest()).toList();
+        var guestStayAccountIds =
+                IntStream.range(0, 10).mapToObj(i -> checkInGuest()).toList();
 
         // When
         inParallel(
-                guestStayIds.stream()
-                        .flatMap(guestStayId -> Stream.<Runnable>of(
-                                () -> guestStayFacade.checkOutGuest(new CheckOutGuest(guestStayId, now)),
+                guestStayAccountIds.stream()
+                        .flatMap(guestStayAccountId -> Stream.<Runnable>of(
+                                () -> guestStayFacade.checkOutGuest(new CheckOutGuest(guestStayAccountId, now)),
                                 () -> guestStayFacade.recordCharge(
-                                        new RecordCharge(guestStayId, UUID.randomUUID(), 100, now))))
+                                        new RecordCharge(guestStayAccountId, UUID.randomUUID(), 100, now))))
                         .toList(),
                 RuntimeException.class);
 
@@ -109,9 +110,9 @@ public class OptimisticConcurrencyTests {
                 .map(Class::getSimpleName)
                 .sorted()
                 .toList();
-        for (var guestStayId : guestStayIds) {
+        for (var guestStayAccountId : guestStayAccountIds) {
             var publishedTypes = publishedMessages.published.stream()
-                    .filter(message -> guestStayIdOf(message).equals(guestStayId))
+                    .filter(message -> guestStayAccountIdOf(message).equals(guestStayAccountId))
                     .map(message -> message.getClass().getSimpleName())
                     .sorted()
                     .toList();
@@ -136,14 +137,14 @@ public class OptimisticConcurrencyTests {
     }
 
     private UUID checkInGuest() {
-        var guestStayId = UUID.randomUUID();
-        guestStayFacade.checkInGuest(new CheckInGuest(guestStayId, now.minusDays(1)));
+        var guestStayAccountId = UUID.randomUUID();
+        guestStayFacade.checkInGuest(new CheckInGuest(guestStayAccountId, now.minusDays(1)));
         publishedMessages.reset();
 
-        return guestStayId;
+        return guestStayAccountId;
     }
 
-    private static UUID guestStayIdOf(Object message) {
+    private static UUID guestStayAccountIdOf(Object message) {
         return switch ((GuestStayAccountEvent) message) {
             case ChargeRecorded event -> event.guestStayAccountId();
             case GuestCheckedOut event -> event.guestStayAccountId();

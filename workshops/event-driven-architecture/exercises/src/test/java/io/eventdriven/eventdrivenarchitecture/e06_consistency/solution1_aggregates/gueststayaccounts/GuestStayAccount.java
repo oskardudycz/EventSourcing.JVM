@@ -8,12 +8,12 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, UUID> {
-    private enum Status {
+    private enum GuestStayAccountStatus {
         OPEN,
         CHECKED_OUT
     }
 
-    private Status status;
+    private GuestStayAccountStatus status;
     private double balance;
 
     public static GuestStayAccount checkIn(UUID guestStayAccountId, OffsetDateTime openedAt) {
@@ -28,24 +28,26 @@ public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, U
     }
 
     public void recordCharge(double amount, OffsetDateTime now) {
-        if (status != Status.OPEN) throw new RuntimeException("Cannot record charge if status is other than Open");
+        if (status != GuestStayAccountStatus.OPEN)
+            throw new RuntimeException("Cannot record charge if status is other than Open");
 
         enqueue(new ChargeRecorded(id(), amount, now));
     }
 
     public void recordPayment(double amount, OffsetDateTime now) {
-        if (status != Status.OPEN) throw new RuntimeException("Cannot record payment if status is other than Open");
+        if (status != GuestStayAccountStatus.OPEN)
+            throw new RuntimeException("Cannot record payment if status is other than Open");
 
         enqueue(new PaymentRecorded(id(), amount, now));
     }
 
     public void checkout(OffsetDateTime now, @Nullable UUID groupCheckoutId) {
-        if (status != Status.OPEN || balance != 0) {
+        if (status != GuestStayAccountStatus.OPEN || balance != 0) {
             enqueue(new GuestCheckoutFailed(
                     id(),
                     balance != 0
-                            ? GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED
-                            : GuestCheckoutFailed.Reason.INVALID_STATE,
+                            ? GuestCheckoutFailed.FailureReason.BALANCE_NOT_SETTLED
+                            : GuestCheckoutFailed.FailureReason.INVALID_STATE,
                     now,
                     groupCheckoutId));
             return;
@@ -59,11 +61,11 @@ public class GuestStayAccount extends AbstractAggregate<GuestStayAccountEvent, U
             case GuestCheckedIn opened -> {
                 id = opened.guestStayAccountId();
                 balance = 0;
-                status = Status.OPEN;
+                status = GuestStayAccountStatus.OPEN;
             }
             case ChargeRecorded chargeRecorded -> balance -= chargeRecorded.amount();
             case PaymentRecorded paymentRecorded -> balance += paymentRecorded.amount();
-            case GuestCheckedOut ignored -> status = Status.CHECKED_OUT;
+            case GuestCheckedOut ignored -> status = GuestStayAccountStatus.CHECKED_OUT;
             case GuestCheckoutFailed ignored -> {}
         }
     }

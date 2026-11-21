@@ -14,10 +14,10 @@ public record GroupCheckout(UUID id, Map<UUID, CheckoutStatus> guestStayCheckout
         FAILED
     }
 
-    public static GroupCheckout initiated(UUID id, UUID[] guestStayIds, OffsetDateTime initiatedAt) {
+    public static GroupCheckout initiated(UUID id, UUID[] guestStayAccountIds, OffsetDateTime initiatedAt) {
         return new GroupCheckout(
                 id,
-                Arrays.stream(guestStayIds)
+                Arrays.stream(guestStayAccountIds)
                         .collect(Collectors.toMap(
                                 key -> key,
                                 _ -> CheckoutStatus.INITIATED,
@@ -26,9 +26,9 @@ public record GroupCheckout(UUID id, Map<UUID, CheckoutStatus> guestStayCheckout
                 initiatedAt);
     }
 
-    public GroupCheckout withCheckout(UUID guestStayId, CheckoutStatus status, OffsetDateTime at) {
+    public GroupCheckout withCheckout(UUID guestStayAccountId, CheckoutStatus status, OffsetDateTime at) {
         var checkouts = new LinkedHashMap<>(guestStayCheckouts);
-        checkouts.put(guestStayId, status);
+        checkouts.put(guestStayAccountId, status);
 
         return new GroupCheckout(id, checkouts, at);
     }
