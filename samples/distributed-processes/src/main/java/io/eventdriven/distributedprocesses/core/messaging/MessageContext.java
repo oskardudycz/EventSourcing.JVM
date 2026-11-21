@@ -5,11 +5,13 @@ import io.micrometer.tracing.Tracer;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
 public class MessageContext {
     public static final String CORRELATION_ID = "correlationId";
     public static final String CAUSATION_ID = "causationId";
+    public static final String HANDLED_MESSAGE_ID = "handledMessageId";
 
     private final Tracer tracer;
 
@@ -30,16 +32,22 @@ public class MessageContext {
                 span != null ? nonBlank(span.context().spanId()) : null);
     }
 
-    public MessageValues inheritForPublished(Class<?> messageType, int position) {
+    public MessageValues inheritForPublished(String typeName, int position) {
         var values = inherit();
 
-        return baggage(CAUSATION_ID)
-                .map(handledMessageId -> values.withMessageId(derivedId(handledMessageId, messageType, position)))
+        return baggage(HANDLED_MESSAGE_ID)
+                .map(handledMessageId -> values.withMessageId(derivedId(handledMessageId, typeName, position)))
                 .orElse(values);
     }
 
     public Scope handling(String messageId, String correlationId) {
-        return baggageScope(correlationId, messageId);
+        var handled = tracer.createBaggageInScope(HANDLED_MESSAGE_ID, messageId);
+        var scope = baggageScope(correlationId, messageId);
+
+        return () -> {
+            scope.close();
+            handled.close();
+        };
     }
 
     public Scope publishing(MessageValues values) {
@@ -53,10 +61,13 @@ public class MessageContext {
     }
 
     public Scope continuing(String stepName, EventMetadata lastEvent) {
-        var handledMessageId = baggage(CAUSATION_ID).orElse(lastEvent.correlationId());
+        var handledMessageId = baggage(HANDLED_MESSAGE_ID);
         var step = startStep(stepName, lastEvent);
 
-        return stepScope(step, handledMessageId, lastEvent.correlationId());
+        return handledMessageId
+                .map(messageId -> stepScope(step, messageId, lastEvent.correlationId()))
+                .orElseGet(() ->
+                        stepScope(step, () -> baggageScope(lastEvent.correlationId(), lastEvent.correlationId())));
     }
 
     public Scope consuming(String stepName, String messageId) {
@@ -66,8 +77,12 @@ public class MessageContext {
     }
 
     private Scope stepScope(Span step, String messageId, String correlationId) {
+        return stepScope(step, () -> handling(messageId, correlationId));
+    }
+
+    private Scope stepScope(Span step, Supplier<Scope> messageScopeFactory) {
         var stepScope = tracer.withSpan(step);
-        var messageScope = handling(messageId, correlationId);
+        var messageScope = messageScopeFactory.get();
 
         return () -> {
             messageScope.close();
@@ -110,8 +125,8 @@ public class MessageContext {
         return baggage != null ? Optional.ofNullable(baggage.get()) : Optional.empty();
     }
 
-    private static String derivedId(String handledMessageId, Class<?> messageType, int position) {
-        var name = "%s:%s:%d".formatted(handledMessageId, messageType.getTypeName(), position);
+    private static String derivedId(String handledMessageId, String typeName, int position) {
+        var name = "%s:%s:%d".formatted(handledMessageId, typeName, position);
 
         return UUID.nameUUIDFromBytes(name.getBytes(StandardCharsets.UTF_8)).toString();
     }

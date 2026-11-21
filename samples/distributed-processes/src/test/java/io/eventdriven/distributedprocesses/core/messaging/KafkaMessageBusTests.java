@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
-import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrdersConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment;
@@ -13,14 +12,10 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent;
 import io.eventdriven.testing.FailingFirstSendKafkaTemplate;
-import io.eventdriven.testing.InMemorySpansConfiguration;
 import io.eventdriven.testing.KafkaTopics;
 import io.eventdriven.testing.TestDatabases;
 import io.eventdriven.testing.TestKafka;
-import io.eventdriven.testing.TestMessages;
 import io.micrometer.observation.ObservationRegistry;
-import io.micrometer.tracing.Tracer;
-import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -29,8 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.function.Supplier;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -40,35 +35,17 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.kafka.KafkaException;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.test.context.ActiveProfiles;
 
-@SpringBootTest
-@ActiveProfiles("in-memory")
-@AutoConfigureTracing
-@Import(InMemorySpansConfiguration.class)
-public class KafkaMessageBusTests extends MessageBusTests {
+public class KafkaMessageBusTests extends BrokerMessageBusTests {
     private static final Duration PUBLISH_TIMEOUT = Duration.ofSeconds(10);
-    private static final String KEY = "ecommerce.order.1";
 
     private final String bootstrapServers = TestDatabases.kafkaBootstrapServers();
 
     @Autowired
-    private MessageContext messageContext;
-
-    @Autowired
     private ObservationRegistry observations;
-
-    @Autowired
-    private Tracer tracer;
-
-    @Autowired
-    private InMemorySpanExporter spans;
 
     @Override
     protected MessageBus createBus(
@@ -83,6 +60,28 @@ public class KafkaMessageBusTests extends MessageBusTests {
                 routes,
                 channels,
                 queues);
+    }
+
+    @Override
+    protected Supplier<PublishedMessage> collectFirstPublishedTo(String channel) {
+        return () -> {
+            var record = recordsOf(channel, 1).getFirst();
+
+            return new PublishedMessage(
+                    KafkaTopics.header(record, KafkaMessageBus.TYPE_ID),
+                    KafkaTopics.header(record, KafkaMessageBus.MESSAGE_ID),
+                    KafkaTopics.header(record, "correlationId"),
+                    KafkaTopics.header(record, "causationId"),
+                    KafkaTopics.header(record, "traceparent"));
+        };
+    }
+
+    @Override
+    protected void sendRaw(String typeId, byte[] body) {
+        var record = new ProducerRecord<String, byte[]>(orders, KEY, body);
+        if (typeId != null) record.headers().add(KafkaMessageBus.TYPE_ID, typeId.getBytes(StandardCharsets.UTF_8));
+
+        publishRaw(record);
     }
 
     @Override
@@ -264,7 +263,9 @@ public class KafkaMessageBusTests extends MessageBusTests {
         var copy = recordsOf(queue, 1).getFirst();
         assertThat(copy.key()).isEqualTo(original.key());
         assertThat(copy.value()).isEqualTo(original.value());
-        assertThat(headersOf(copy)).isEqualTo(headersOf(original)).containsKeys("messageType", "messageId");
+        assertThat(headersOf(copy))
+                .isEqualTo(headersOf(original))
+                .containsKeys(KafkaMessageBus.TYPE_ID, KafkaMessageBus.MESSAGE_ID);
     }
 
     @Test
@@ -280,102 +281,6 @@ public class KafkaMessageBusTests extends MessageBusTests {
         awaitCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("ecommerce.order.9"));
         assertThat(recordsOf(queue, 1)).hasSize(1);
-    }
-
-    @Test
-    public void consumerMapsTheStableTypeNameToTheCurrentClass() {
-        messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
-        var record = new ProducerRecord<String, byte[]>(
-                orders, KEY, "{\"id\":\"order-1\"}".getBytes(StandardCharsets.UTF_8));
-        record.headers().add(KafkaMessageBus.MESSAGE_TYPE, "test.OrderPlaced".getBytes(StandardCharsets.UTF_8));
-
-        publishRaw(record);
-        start((KafkaMessageBus) messageBus);
-
-        awaitCaughtUp();
-        messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
-    }
-
-    @Test
-    public void publishedMessageIsWrittenUnderItsStableTypeName() {
-        publish(messageBus, new OrderPlaced("order-1"));
-
-        var record = recordsOf(orders, 1).getFirst();
-
-        assertThat(KafkaTopics.header(record, KafkaMessageBus.MESSAGE_TYPE)).isEqualTo("test.OrderPlaced");
-    }
-
-    @Test
-    public void messageStartingAProcessCarriesAMessageIdAndAGeneratedCorrelationId() {
-        publish(messageBus, new OrderPlaced("order-1"));
-
-        var record = recordsOf(orders, 1).getFirst();
-
-        var correlationId = KafkaTopics.header(record, "correlationId");
-        assertThat(UUID.fromString(KafkaTopics.header(record, KafkaMessageBus.MESSAGE_ID)))
-                .isNotNull();
-        assertThat(UUID.fromString(correlationId)).isNotNull();
-        assertThat(KafkaTopics.header(record, "causationId")).isEqualTo(correlationId);
-        assertThat(KafkaTopics.header(record, "traceparent")).isNotBlank();
-    }
-
-    @Test
-    public void messagePublishedWhileHandlingAnotherCarriesItsCorrelationAndCausationIds() {
-        try (var _ = messageContext.handling("handled-message-id", "process-correlation-id")) {
-            publish(messageBus, new OrderPlaced("order-1"));
-        }
-
-        var record = recordsOf(orders, 1).getFirst();
-
-        assertThat(KafkaTopics.header(record, "correlationId")).isEqualTo("process-correlation-id");
-        assertThat(KafkaTopics.header(record, "causationId")).isEqualTo("handled-message-id");
-        assertThat(KafkaTopics.header(record, KafkaMessageBus.MESSAGE_ID)).isNotEqualTo("handled-message-id");
-    }
-
-    @Test
-    public void handlerRunsInTheTraceOfThePublishedMessageWithAllItsValues() {
-        var seen = new CopyOnWriteArrayList<String>();
-        messageBus.subscribe(orders, OrderPlaced.class, event -> {
-            var context = tracer.currentSpan().context();
-            seen.add(tracer.getBaggage("correlationId").get());
-            seen.add(tracer.getBaggage("causationId").get());
-            seen.add(context.traceId());
-            seen.add(context.spanId());
-        });
-        var publisherSpan = tracer.nextSpan().name("publisher").start();
-
-        try (var _ = tracer.withSpan(publisherSpan);
-                var _ = messageContext.handling("handled-message-id", "process-correlation-id")) {
-            publish(messageBus, new OrderPlaced("order-1"));
-        } finally {
-            publisherSpan.end();
-        }
-
-        var messageId = KafkaTopics.header(recordsOf(orders, 1).getFirst(), KafkaMessageBus.MESSAGE_ID);
-        awaitCaughtUp();
-        assertThat(seen).hasSize(4);
-        assertThat(seen.subList(0, 3))
-                .containsExactly(
-                        "process-correlation-id",
-                        messageId,
-                        publisherSpan.context().traceId());
-        await().atMost(Duration.ofSeconds(30))
-                .untilAsserted(() -> assertThat(spans.getFinishedSpanItems()).anySatisfy(span -> {
-                    assertThat(span.getName()).isEqualTo("handle OrderPlaced");
-                    assertThat(span.getSpanContext().getSpanId()).isEqualTo(seen.get(3));
-                    assertThat(span.getSpanContext().getTraceId()).isEqualTo(seen.get(2));
-                }));
-    }
-
-    @Test
-    public void recordWithoutATypeHeaderIsSkippedAndTheNextMessageIsHandled() {
-        messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
-        publishRaw(new ProducerRecord<>(orders, KEY, "{}".getBytes(StandardCharsets.UTF_8)));
-
-        publish(messageBus, new OrderPlaced("order-1"));
-
-        awaitCaughtUp();
-        messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
     @Test
@@ -448,11 +353,5 @@ public class KafkaMessageBusTests extends MessageBusTests {
         record.headers()
                 .forEach(header -> headers.put(header.key(), new String(header.value(), StandardCharsets.UTF_8)));
         return headers;
-    }
-
-    private static MessageSerializer serializer() {
-        return TestMessages.serializer(messageMapping()
-                .register("payments.CapturePayment", CapturePayment.class)
-                .register("payments.CancelPayment", CancelPayment.class));
     }
 }

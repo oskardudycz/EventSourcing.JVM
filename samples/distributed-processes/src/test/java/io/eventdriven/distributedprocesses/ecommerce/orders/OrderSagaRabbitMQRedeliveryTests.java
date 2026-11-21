@@ -7,7 +7,6 @@ import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RabbitMQMessageBus;
-import io.eventdriven.distributedprocesses.ecommerce.ECommerceMessages;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock;
@@ -61,12 +60,12 @@ public class OrderSagaRabbitMQRedeliveryTests {
 
     @Test
     public void sagaRepublishesBothCommandsWithTheSameIdsOnRedelivery() {
-        var eventStore = new InMemoryEventStore(messageContext);
+        var eventStore = new InMemoryEventStore(messageContext, TestMessages.serializer());
         messageBus = TestRabbitMQ.busOn(
                 connection,
                 messageContext,
                 applicationContext,
-                TestMessages.serializer(ECommerceMessages.mapping()),
+                TestMessages.serializer(),
                 List.of(new MessageRoutes()
                         .routeTarget(
                                 MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), published)),
@@ -104,11 +103,11 @@ public class OrderSagaRabbitMQRedeliveryTests {
     record Trigger() {}
 
     private List<String> messageIdsOf(List<Message> messages, Class<?> messageClass) {
-        var typeName = ECommerceMessages.mapping().typeNameOf(messageClass).orElseThrow();
+        var typeName = messageClass.getName();
 
         return messages.stream()
                 .map(Message::getMessageProperties)
-                .filter(properties -> typeName.equals(properties.getHeader(RabbitMQMessageBus.MESSAGE_TYPE)))
+                .filter(properties -> typeName.equals(properties.getHeader(RabbitMQMessageBus.TYPE_ID)))
                 .map(properties -> properties.getMessageId())
                 .toList();
     }

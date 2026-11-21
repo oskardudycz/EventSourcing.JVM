@@ -2,7 +2,8 @@ package io.eventdriven.distributedprocesses.core.entities;
 
 import io.eventdriven.distributedprocesses.core.entities.EntityStore.GetEntityResult.Success;
 import io.eventdriven.distributedprocesses.core.http.ETag;
-import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
+import io.eventdriven.distributedprocesses.core.messaging.UnreadableMessageException;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
 import io.kurrent.dbclient.*;
 import java.util.Arrays;
 import java.util.List;
@@ -15,17 +16,20 @@ import org.springframework.data.util.Pair;
 
 public class EntityStore<Entity, Event> {
     private final KurrentDBClient eventStore;
+    private final MessageSerializer serializer;
     private final Function<UUID, String> mapToStreamId;
     private final BiFunction<Entity, Event, Entity> evolve;
     private final Supplier<Entity> getEmpty;
 
     public EntityStore(
             KurrentDBClient eventStore,
+            MessageSerializer serializer,
             Function<UUID, String> mapToStreamId,
             BiFunction<Entity, Event, Entity> evolve,
             Supplier<Entity> getEmpty) {
 
         this.eventStore = eventStore;
+        this.serializer = serializer;
         this.mapToStreamId = mapToStreamId;
         this.evolve = evolve;
         this.getEmpty = getEmpty;
@@ -86,7 +90,7 @@ public class EntityStore<Entity, Event> {
         var resultEvents = result.getEvents().stream();
 
         var events = resultEvents
-                .map(EventSerializer::<Event>deserialize)
+                .map(this::deserialize)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .toList();
@@ -98,8 +102,24 @@ public class EntityStore<Entity, Event> {
         return Pair.of(Optional.of(events), lastEventRevision);
     }
 
+    private Optional<Event> deserialize(ResolvedEvent resolvedEvent) {
+        var recorded = resolvedEvent.getEvent();
+
+        try {
+            return Optional.of((Event) serializer.read(recorded.getEventType(), recorded.getEventData()));
+        } catch (UnreadableMessageException e) {
+            return Optional.empty();
+        }
+    }
+
+    private EventData serialize(Event event) {
+        return EventDataBuilder.json(
+                        UUID.randomUUID(), serializer.typeNameOf(event.getClass()), serializer.write(event))
+                .build();
+    }
+
     public ETag appendEvents(String streamId, Event[] events, StreamState expectedRevision) {
-        var eventsToAppend = Arrays.stream(events).map(EventSerializer::serialize);
+        var eventsToAppend = Arrays.stream(events).map(this::serialize);
 
         try {
             var result = eventStore

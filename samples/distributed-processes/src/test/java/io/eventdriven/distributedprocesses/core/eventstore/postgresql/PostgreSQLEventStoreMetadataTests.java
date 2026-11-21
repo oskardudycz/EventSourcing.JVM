@@ -16,6 +16,7 @@ public class PostgreSQLEventStoreMetadataTests extends EventStoreMetadataTests {
     private final PostgreSQLEventStore eventStore = new PostgreSQLEventStore(
             dataSource,
             context,
+            serializer(),
             ProjectionsDatabase.H2.bean(SubscriptionCheckpoints.class),
             RetryBackOff.exponential(Duration.ofMillis(100)),
             Duration.ofMillis(50));

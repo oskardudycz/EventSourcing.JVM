@@ -6,6 +6,7 @@ import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestTracing;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
@@ -15,7 +16,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 public class AggregateStoreTests {
-    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryEventStore eventStore = new InMemoryEventStore(
+            TestTracing.untraced(), TestMessages.serializerTrustingPackageOf(AggregateStoreTests.class));
     private final AggregateStore<Counter, CounterEvent, UUID> store =
             new AggregateStore<>(eventStore, AggregateStoreTests::mapToStreamId, Counter::new);
     private final ArrayList<String> log = new ArrayList<>();

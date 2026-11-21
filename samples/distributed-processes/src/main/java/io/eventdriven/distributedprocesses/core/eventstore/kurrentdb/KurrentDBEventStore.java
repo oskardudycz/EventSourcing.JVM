@@ -8,15 +8,16 @@ import io.eventdriven.distributedprocesses.core.eventstore.SubscriptionProgress;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
-import io.eventdriven.distributedprocesses.core.messaging.UnreadableMessageException;
-import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
-import io.eventdriven.distributedprocesses.core.serialization.EventTypeMapper;
+import io.eventdriven.distributedprocesses.core.messaging.MessageValues;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.distributedprocesses.core.subscriptions.SubscriptionCheckpoints;
 import io.kurrent.dbclient.*;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,8 +29,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.springframework.util.backoff.BackOff;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
 
 public class KurrentDBEventStore implements EventStore, AutoCloseable {
+    private static final String CORRELATION_ID = "$correlationId";
+    private static final String CAUSATION_ID = "$causationId";
+    private static final String TRACE_ID = "$traceId";
+    private static final String SPAN_ID = "$spanId";
+    private static final TypeReference<Map<String, Object>> METADATA_TYPE = new TypeReference<>() {};
+
     @Override
     public ReadResult read(String streamId) {
         try {
@@ -102,7 +111,10 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
         if (!subscriptionNames.add(name))
             throw new IllegalArgumentException("Subscription name '%s' is already in use".formatted(name));
 
-        var typeNames = types.stream().map(EventTypeMapper::toName).collect(Collectors.joining("|"));
+        var typeNames = types.stream()
+                .flatMap(type -> serializer.typeNamesOf(type).stream())
+                .map(KurrentDBEventStore::escapedForRegularExpression)
+                .collect(Collectors.joining("|"));
 
         var filter = SubscriptionFilter.newBuilder()
                 .withEventTypeRegularExpression("^(%s)$".formatted(typeNames))
@@ -114,7 +126,8 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
                 eventStore,
                 name,
                 () -> optionsAfterCheckpointOf(name).filter(filter),
-                resolvedEvent -> EventSerializer.deserialize(resolvedEvent).ifPresent(event -> {
+                resolvedEvent -> {
+                    var event = deserialize(resolvedEvent);
                     var metadata = metadataOf(resolvedEvent);
 
                     try (var _ = context.handling(
@@ -126,7 +139,7 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
                     }
 
                     progress.handled(metadata.checkpoint());
-                }),
+                },
                 backOff,
                 scheduler);
         subscriptions.add(subscription);
@@ -164,9 +177,28 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
         var values = context.inherit();
 
         return Arrays.stream(events)
-                .map(event -> EventSerializer.serialize(
-                        event, values.withMessageId(UUID.randomUUID().toString())))
+                .map(event ->
+                        serialize(event, values.withMessageId(UUID.randomUUID().toString())))
                 .toList();
+    }
+
+    private EventData serialize(Object event, MessageValues values) {
+        var metadata = new LinkedHashMap<String, String>();
+        metadata.put(CORRELATION_ID, values.correlationId());
+        metadata.put(CAUSATION_ID, values.causationId());
+        if (values.traceId() != null) metadata.put(TRACE_ID, values.traceId());
+        if (values.spanId() != null) metadata.put(SPAN_ID, values.spanId());
+
+        return EventDataBuilder.json(
+                        UUID.fromString(values.messageId()),
+                        serializer.typeNameOf(event.getClass()),
+                        serializer.write(event))
+                .metadataAsBytes(serializer.jsonMapper().writeValueAsBytes(metadata))
+                .build();
+    }
+
+    private static String escapedForRegularExpression(String typeName) {
+        return typeName.replaceAll("[\\\\^$.|?*+()\\[\\]{}]", "\\\\$0");
     }
 
     private static StreamState toStreamState(ExpectedStreamVersion expectedVersion) {
@@ -182,18 +214,38 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
         return new Checkpoint(0, position.getCommitUnsigned());
     }
 
-    private static Object deserialize(ResolvedEvent resolvedEvent) {
-        return EventSerializer.deserialize(resolvedEvent)
-                .orElseThrow(() -> new UnreadableMessageException(
-                        resolvedEvent.getEvent().getEventType(),
-                        "no class is mapped to this type name, or its data can't be read"));
+    private Object deserialize(ResolvedEvent resolvedEvent) {
+        var recorded = resolvedEvent.getEvent();
+
+        return serializer.read(recorded.getEventType(), recorded.getEventData());
     }
 
-    private static EventMetadata metadataOf(ResolvedEvent resolvedEvent) {
+    private Map<String, String> userMetadataOf(ResolvedEvent resolvedEvent) {
+        var raw = resolvedEvent.getEvent().getUserMetadata();
+
+        if (raw == null || raw.length == 0) return Map.of();
+
+        var values = new LinkedHashMap<String, String>();
+        try {
+            var parsed = serializer.jsonMapper().readValue(raw, METADATA_TYPE);
+
+            if (parsed == null) return Map.of();
+
+            parsed.forEach((key, value) -> {
+                if (value instanceof String || value instanceof Number || value instanceof Boolean)
+                    values.put(key, value.toString());
+            });
+        } catch (JacksonException e) {
+            return Map.of();
+        }
+        return values;
+    }
+
+    private EventMetadata metadataOf(ResolvedEvent resolvedEvent) {
         var recorded = resolvedEvent.getEvent();
-        var userMetadata = EventSerializer.userMetadataOf(resolvedEvent);
+        var userMetadata = userMetadataOf(resolvedEvent);
         var messageId = recorded.getEventId().toString();
-        var correlationId = userMetadata.getOrDefault(EventSerializer.CORRELATION_ID, messageId);
+        var correlationId = userMetadata.getOrDefault(CORRELATION_ID, messageId);
 
         return new EventMetadata(
                 recorded.getStreamId(),
@@ -202,13 +254,14 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
                 0,
                 messageId,
                 correlationId,
-                userMetadata.getOrDefault(EventSerializer.CAUSATION_ID, correlationId),
-                userMetadata.get(EventSerializer.TRACE_ID),
-                userMetadata.get(EventSerializer.SPAN_ID));
+                userMetadata.getOrDefault(CAUSATION_ID, correlationId),
+                userMetadata.get(TRACE_ID),
+                userMetadata.get(SPAN_ID));
     }
 
     private final KurrentDBClient eventStore;
     private final MessageContext context;
+    private final MessageSerializer serializer;
     private final ObservationRegistry observations;
     private final SubscriptionCheckpoints checkpoints;
     private final BackOff backOff;
@@ -225,15 +278,17 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
     public KurrentDBEventStore(
             KurrentDBClient kurrentDBClient,
             MessageContext context,
+            MessageSerializer serializer,
             ObservationRegistry observations,
             SubscriptionCheckpoints checkpoints,
             BackOff backOff) {
-        this(kurrentDBClient, false, context, observations, checkpoints, backOff);
+        this(kurrentDBClient, false, context, serializer, observations, checkpoints, backOff);
     }
 
     public static KurrentDBEventStore connectingTo(
             String connectionString,
             MessageContext context,
+            MessageSerializer serializer,
             ObservationRegistry observations,
             SubscriptionCheckpoints checkpoints,
             BackOff backOff) {
@@ -241,6 +296,7 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
                 KurrentDBClient.create(KurrentDBConnectionString.parseOrThrow(connectionString)),
                 true,
                 context,
+                serializer,
                 observations,
                 checkpoints,
                 backOff);
@@ -250,12 +306,14 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
             KurrentDBClient kurrentDBClient,
             boolean ownsClient,
             MessageContext context,
+            MessageSerializer serializer,
             ObservationRegistry observations,
             SubscriptionCheckpoints checkpoints,
             BackOff backOff) {
         this.eventStore = kurrentDBClient;
         this.ownsClient = ownsClient;
         this.context = context;
+        this.serializer = serializer;
         this.observations = observations;
         this.checkpoints = checkpoints;
         this.backOff = backOff;

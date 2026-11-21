@@ -56,6 +56,7 @@ import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.Shop
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestTracing;
 import java.net.URI;
 import java.time.Duration;
@@ -97,7 +98,8 @@ public class ECommerceTests {
         new io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem(shoes.productId(), shoes.quantity())
     };
 
-    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryEventStore eventStore =
+            new InMemoryEventStore(TestTracing.untraced(), TestMessages.serializer());
     private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
             TestTracing.untraced(),
             List.of(

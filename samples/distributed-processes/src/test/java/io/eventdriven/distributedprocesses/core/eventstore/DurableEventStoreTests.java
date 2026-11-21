@@ -8,6 +8,8 @@ import static org.awaitility.Awaitility.await;
 
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.UnreadableMessageException;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.distributedprocesses.core.subscriptions.SubscriptionCheckpoints;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 import io.eventdriven.distributedprocesses.ecommerce.orders.api.OrderStatusRepository;
@@ -15,6 +17,7 @@ import io.eventdriven.distributedprocesses.ecommerce.orders.api.OrderStatuses;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 import io.eventdriven.testing.ProjectionsDatabase;
+import io.eventdriven.testing.TestMessages;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -25,16 +28,23 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 public abstract class DurableEventStoreTests extends EventStoreTests {
-    protected abstract EventStore newStore(ProjectionsDatabase projections);
+    protected abstract EventStore newStore(ProjectionsDatabase projections, MessageSerializer serializer);
 
     protected abstract void close(EventStore store);
 
-    protected abstract void appendEventOfUnknownType(String streamId, String typeName);
+    protected abstract void appendRawEvent(String streamId, String typeName, String json);
+
+    protected abstract List<String> storedTypeNamesOf(String streamId);
+
+    protected EventStore newStore(ProjectionsDatabase projections) {
+        return newStore(projections, serializer());
+    }
 
     protected void storeCheckpointAfter(
             ProjectionsDatabase projections, String name, EventStore.AppendResult appended) {
@@ -48,11 +58,105 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
     @Test
     public void readingAStreamWithAnUnknownTypeFailsNamingTheType() {
         var typeName = "unknown_type_%s".formatted(UUID.randomUUID().toString().replace("-", ""));
-        appendEventOfUnknownType(streamId, typeName);
+        appendRawEvent(streamId, typeName, "{}");
 
         assertThatThrownBy(() -> eventStore().read(streamId))
                 .isInstanceOf(UnreadableMessageException.class)
                 .hasMessageContaining(typeName);
+    }
+
+    @Test
+    public void readingAStreamWithATrustedPackageButNoClassFailsNamingTheType() {
+        var typeName = "%s.RemovedEvent".formatted(EventStoreTests.class.getPackageName());
+        appendRawEvent(streamId, typeName, "{}");
+
+        assertThatThrownBy(() -> eventStore().read(streamId))
+                .isInstanceOf(UnreadableMessageException.class)
+                .hasMessageContaining(typeName);
+    }
+
+    @Test
+    public void aStoredEventCarriesItsTypeName() {
+        eventStore().append(streamId, new CartOpened(cartId), new ItemAdded(cartId, "t-shirt"));
+
+        assertThat(storedTypeNamesOf(streamId)).containsExactly(CartOpened.class.getName(), ItemAdded.class.getName());
+    }
+
+    @Test
+    public void aStoredEventWithAnOldNameIsReadAsTheCurrentClass() {
+        var oldName = anOldNameOfItemAdded();
+        var store = newStore(ProjectionsDatabase.H2, serializerWithOldNameOfItemAdded(oldName));
+        appendRawEvent(streamId, oldName, "{\"cart\":\"%s\",\"item\":\"t-shirt\"}".formatted(cartId));
+
+        var result = store.read(streamId);
+
+        assertThat(result).isInstanceOf(EventStore.ReadResult.Success.class);
+        assertThat(((EventStore.ReadResult.Success) result).events())
+                .extracting(EventEnvelope::data)
+                .containsExactly(new ItemAdded(cartId, "t-shirt"));
+    }
+
+    @Test
+    public void aSubscriptionHandlesAnEventStoredUnderAnOldName() {
+        var oldName = anOldNameOfItemAdded();
+        var store = newStore(ProjectionsDatabase.H2, serializerWithOldNameOfItemAdded(oldName));
+        var received = new CopyOnWriteArrayList<Object>();
+        var subscription = store.subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
+            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+        });
+        appendRawEvent(streamId, oldName, "{\"cart\":\"%s\",\"item\":\"t-shirt\"}".formatted(cartId));
+
+        var appended = store.append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "hoodie"));
+
+        subscription.awaitProcessed(((EventStore.AppendResult.Success) appended).lastEvent(), PROCESSING_TIMEOUT);
+        assertThat(received).containsExactly(new ItemAdded(cartId, "t-shirt"), new ItemAdded(cartId, "hoodie"));
+    }
+
+    @Test
+    public void aSubscriptionPassesOverAnEventWithAnUnknownName() {
+        var received = new CopyOnWriteArrayList<Object>();
+        var subscription = eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
+            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+        });
+        appendRawEvent(
+                streamId,
+                "unknown_type_%s".formatted(UUID.randomUUID().toString().replace("-", "")),
+                "{}");
+
+        var appended = eventStore().append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "t-shirt"));
+
+        subscription.awaitProcessed(((EventStore.AppendResult.Success) appended).lastEvent(), PROCESSING_TIMEOUT);
+        assertThat(received).containsExactly(new ItemAdded(cartId, "t-shirt"));
+    }
+
+    public record UnreadableOnPurpose(int count) {}
+
+    @Test
+    public void aSubscribedEventThatCantBeReadIsRetriedAndTheCheckpointStays() {
+        var name = subscriptionName();
+        var reads = new AtomicInteger();
+        var countingSerializer =
+                new MessageSerializer(serializer().typeMapper(), serializer().jsonMapper()) {
+                    @Override
+                    public Object read(String typeName, byte[] body) {
+                        if (typeName.equals(UnreadableOnPurpose.class.getName())) reads.incrementAndGet();
+                        return super.read(typeName, body);
+                    }
+                };
+        var store = newStore(ProjectionsDatabase.H2, countingSerializer);
+        var received = new CopyOnWriteArrayList<Object>();
+        var readable = store.append(streamId, new ItemAdded(cartId, "t-shirt"));
+        appendRawEvent(streamId, UnreadableOnPurpose.class.getName(), "{\"count\":\"not a number\"}");
+
+        var subscription = store.subscribe(name, List.of(ItemAdded.class, UnreadableOnPurpose.class), envelope -> {
+            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+        });
+
+        subscription.awaitProcessed(((EventStore.AppendResult.Success) readable).lastEvent(), PROCESSING_TIMEOUT);
+        await().atMost(Duration.ofSeconds(30)).until(() -> reads.get() > 1);
+        assertThat(received).containsExactly(new ItemAdded(cartId, "t-shirt"));
+        assertThat(ProjectionsDatabase.H2.bean(SubscriptionCheckpoints.class).lastProcessed(name))
+                .hasValue(((EventStore.AppendResult.Success) readable).lastEvent());
     }
 
     @Test
@@ -263,6 +367,22 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         subscription.awaitProcessed(((EventStore.AppendResult.Success) appended).lastEvent(), PROCESSING_TIMEOUT);
         assertThat(repository.findById(orderId)).isEmpty();
         assertThat(checkpoints.lastProcessedPosition(name)).hasValue(Long.MAX_VALUE);
+    }
+
+    private static String anOldNameOfItemAdded() {
+        return "old.ItemAdded.%s".formatted(UUID.randomUUID().toString().replace("-", ""));
+    }
+
+    private static MessageSerializer serializerWithOldNameOfItemAdded(String oldName) {
+        var oldNameMapping = new MessageMapping()
+                .register(
+                        oldName,
+                        ItemAdded.class,
+                        json -> new ItemAdded(
+                                json.get("cart").asString(), json.get("item").asString()));
+
+        return TestMessages.serializer(
+                Stream.concat(mappings().stream(), Stream.of(oldNameMapping)).toList());
     }
 
     private static OrderId anOrderId() {

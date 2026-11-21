@@ -12,7 +12,6 @@ import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
-import io.eventdriven.distributedprocesses.ecommerce.ECommerceMessages;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.testing.InMemorySpansConfiguration;
@@ -62,12 +61,12 @@ public class PaymentExternalEventKafkaRedeliveryTests {
 
     @Test
     public void forwarderRepublishesARedeliveredEventWithTheSameMessageId() {
-        var eventStore = new InMemoryEventStore(messageContext);
+        var eventStore = new InMemoryEventStore(messageContext, TestMessages.serializer());
         messageBus = KafkaMessageBus.connectingTo(
                 bootstrapServers,
                 messageContext,
                 observations,
-                TestMessages.serializer(ECommerceMessages.mapping()),
+                TestMessages.serializer(),
                 Duration.ofSeconds(10),
                 TestKafka.failureHandling(bootstrapServers, observations),
                 List.of(new MessageRoutes()

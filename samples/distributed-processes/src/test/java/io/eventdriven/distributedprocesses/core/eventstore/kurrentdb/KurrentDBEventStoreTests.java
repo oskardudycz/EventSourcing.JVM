@@ -7,6 +7,7 @@ import static org.awaitility.Awaitility.await;
 import io.eventdriven.distributedprocesses.core.eventstore.DurableEventStoreTests;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.distributedprocesses.core.processing.RetryBackOff;
 import io.eventdriven.distributedprocesses.core.subscriptions.SubscriptionCheckpoints;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
@@ -23,6 +24,7 @@ import io.kurrent.dbclient.AppendToStreamOptions;
 import io.kurrent.dbclient.EventDataBuilder;
 import io.kurrent.dbclient.KurrentDBClient;
 import io.kurrent.dbclient.KurrentDBConnectionString;
+import io.kurrent.dbclient.ReadStreamOptions;
 import io.kurrent.dbclient.StreamState;
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
@@ -47,10 +49,11 @@ public class KurrentDBEventStoreTests extends DurableEventStoreTests {
     }
 
     @Override
-    protected EventStore newStore(ProjectionsDatabase projections) {
+    protected EventStore newStore(ProjectionsDatabase projections, MessageSerializer serializer) {
         var store = new KurrentDBEventStore(
                 client,
                 TestTracing.untraced(),
+                serializer,
                 ObservationRegistry.NOOP,
                 projections.bean(SubscriptionCheckpoints.class),
                 RetryBackOff.exponential(Duration.ofMillis(100)));
@@ -65,13 +68,24 @@ public class KurrentDBEventStoreTests extends DurableEventStoreTests {
     }
 
     @Override
-    protected void appendEventOfUnknownType(String streamId, String typeName) {
+    protected void appendRawEvent(String streamId, String typeName, String json) {
         try {
             client.appendToStream(
                             streamId,
-                            AppendToStreamOptions.get().streamState(StreamState.noStream()),
-                            EventDataBuilder.json(typeName, "{}".getBytes()).build())
+                            AppendToStreamOptions.get().streamState(StreamState.any()),
+                            EventDataBuilder.json(typeName, json.getBytes()).build())
                     .get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    protected List<String> storedTypeNamesOf(String streamId) {
+        try {
+            return client.readStream(streamId, ReadStreamOptions.get()).get().getEvents().stream()
+                    .map(event -> event.getEvent().getEventType())
+                    .toList();
         } catch (InterruptedException | ExecutionException e) {
             throw new IllegalStateException(e);
         }
@@ -108,6 +122,7 @@ public class KurrentDBEventStoreTests extends DurableEventStoreTests {
         var store = KurrentDBEventStore.connectingTo(
                 TestDatabases.kurrentDBConnectionString(),
                 TestTracing.untraced(),
+                serializer(),
                 ObservationRegistry.NOOP,
                 ProjectionsDatabase.H2.bean(SubscriptionCheckpoints.class),
                 RetryBackOff.exponential(Duration.ofMillis(100)));

@@ -11,7 +11,6 @@ import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RabbitMQMessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
-import io.eventdriven.distributedprocesses.ecommerce.ECommerceMessages;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.testing.InMemorySpansConfiguration;
@@ -65,12 +64,12 @@ public class PaymentExternalEventRabbitMQRedeliveryTests {
 
     @Test
     public void forwarderRepublishesARedeliveredEventWithTheSameMessageId() {
-        var eventStore = new InMemoryEventStore(messageContext);
+        var eventStore = new InMemoryEventStore(messageContext, TestMessages.serializer());
         messageBus = TestRabbitMQ.busOn(
                 connection,
                 messageContext,
                 applicationContext,
-                TestMessages.serializer(ECommerceMessages.mapping()),
+                TestMessages.serializer(),
                 List.of(new MessageRoutes()
                         .route(
                                 PaymentExternalEvent.class,

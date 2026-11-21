@@ -1,6 +1,5 @@
 package io.eventdriven.distributedprocesses.ecommerce;
 
-import io.eventdriven.distributedprocesses.Application;
 import io.eventdriven.distributedprocesses.core.configuration.Settings;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
@@ -15,9 +14,10 @@ import io.eventdriven.distributedprocesses.core.messaging.MessageFailureStrategy
 import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RabbitMQMessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageTypeMapper;
 import io.eventdriven.distributedprocesses.core.processing.RetryBackOff;
-import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
 import io.eventdriven.distributedprocesses.core.subscriptions.SubscriptionCheckpoints;
 import io.eventdriven.distributedprocesses.ecommerce.payments.sandbox.SandboxPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.sandbox.SandboxFulfillmentService;
@@ -43,6 +43,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.bind.annotation.GetMapping;
+import tools.jackson.databind.json.JsonMapper;
 
 @Configuration
 @EnableScheduling
@@ -78,6 +79,21 @@ public class ECommerceApplicationConfig {
     }
 
     @Bean
+    JsonMapper jsonMapper() {
+        return MessageSerializer.newJsonMapper();
+    }
+
+    @Bean
+    MessageTypeMapper messageTypeMapper(List<MessageMapping> mappings) {
+        return new MessageTypeMapper(mappings);
+    }
+
+    @Bean
+    MessageSerializer messageSerializer(MessageTypeMapper typeMapper, JsonMapper jsonMapper) {
+        return new MessageSerializer(typeMapper, jsonMapper);
+    }
+
+    @Bean
     EventStore eventStore(
             @Value("${eventstore.type}") String type,
             @Value("${kurrentdb.connectionstring}") String kurrentDBConnectionString,
@@ -85,14 +101,16 @@ public class ECommerceApplicationConfig {
             @Value("${eventstore.postgresql.username}") String postgreSQLUsername,
             @Value("${eventstore.postgresql.password}") String postgreSQLPassword,
             MessageContext messageContext,
+            MessageSerializer serializer,
             ObjectProvider<ObservationRegistry> observations,
             SubscriptionCheckpoints checkpoints) {
         return switch (type) {
-            case "in-memory" -> new InMemoryEventStore(messageContext);
+            case "in-memory" -> new InMemoryEventStore(messageContext, serializer);
             case "kurrentdb" ->
                 KurrentDBEventStore.connectingTo(
                         kurrentDBConnectionString,
                         messageContext,
+                        serializer,
                         observations.getObject(),
                         checkpoints,
                         RetryBackOff.exponential(Duration.ofSeconds(1)));
@@ -102,6 +120,7 @@ public class ECommerceApplicationConfig {
                         postgreSQLUsername,
                         postgreSQLPassword,
                         messageContext,
+                        serializer,
                         checkpoints,
                         RetryBackOff.exponential(Duration.ofSeconds(1)),
                         Duration.ofMillis(100));
@@ -132,6 +151,7 @@ public class ECommerceApplicationConfig {
             @Value("${messaging.rabbitmq.publish-timeout}") Duration rabbitMQPublishTimeout,
             ApplicationContext applicationContext,
             MessageContext messageContext,
+            MessageSerializer serializer,
             ObjectProvider<ObservationRegistry> observations,
             ObjectProvider<MeterRegistry> meters,
             ObjectProvider<KafkaTemplate<String, byte[]>> deadLetterTemplate,
@@ -145,10 +165,7 @@ public class ECommerceApplicationConfig {
                         kafkaBootstrapServers,
                         messageContext,
                         observations.getObject(),
-                        new MessageSerializer(
-                                ECommerceMessages.mapping(),
-                                EventSerializer.mapper,
-                                Application.class.getPackageName()),
+                        serializer,
                         kafkaPublishTimeout,
                         new KafkaMessageBus.FailureHandling(
                                 MessageFailureStrategy.retryUnlessUnreadable(),
@@ -166,10 +183,7 @@ public class ECommerceApplicationConfig {
                         rabbitMQPassword,
                         messageContext,
                         applicationContext,
-                        new MessageSerializer(
-                                ECommerceMessages.mapping(),
-                                EventSerializer.mapper,
-                                Application.class.getPackageName()),
+                        serializer,
                         rabbitMQPublishTimeout,
                         new RabbitMQMessageBus.FailureHandling(
                                 MessageFailureStrategy.retryUnlessUnreadable(),

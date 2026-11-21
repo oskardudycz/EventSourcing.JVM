@@ -30,6 +30,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.InterruptException;
+import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -51,6 +52,10 @@ import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.MessageListener;
+import org.springframework.kafka.support.mapping.DefaultJacksonJavaTypeMapper;
+import org.springframework.kafka.support.mapping.JacksonJavaTypeMapper;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 import org.springframework.util.backoff.BackOff;
 import org.springframework.util.backoff.FixedBackOff;
 
@@ -58,7 +63,7 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     private static final Logger logger = LoggerFactory.getLogger(KafkaMessageBus.class);
 
     public static final String MESSAGE_ID = "messageId";
-    public static final String MESSAGE_TYPE = "messageType";
+    public static final String TYPE_ID = DefaultJacksonJavaTypeMapper.DEFAULT_CLASSID_FIELD_NAME;
 
     public static final String DEAD_LETTERED = "messaging.dead_lettered";
 
@@ -66,7 +71,6 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     private static final int REPLICAS = 1;
     private static final String ALL_MESSAGES = "#";
     private static final long ROUTING_RETRY_INTERVAL_MILLIS = 1000;
-    private static final String UNKNOWN_TYPE = "unknown";
     private static final Duration CATCH_UP_CHECK_INTERVAL = Duration.ofMillis(50);
 
     public record FailureHandling(
@@ -78,6 +82,8 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     private final MessageContext context;
     private final ObservationRegistry observations;
     private final MessageSerializer serializer;
+    private final JacksonJsonSerializer<Object> jsonSerializer;
+    private final KafkaVersionedMessageConverter messageConverter;
     private final Duration publishTimeout;
     private final FailureHandling failures;
     private final KafkaAdmin admin;
@@ -109,6 +115,9 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
         this.context = context;
         this.observations = observations;
         this.serializer = serializer;
+        var typeMapper = typeMapperOf(serializer);
+        this.jsonSerializer = jsonSerializerOf(serializer, typeMapper);
+        this.messageConverter = new KafkaVersionedMessageConverter(deserializerOf(serializer, typeMapper), serializer);
         this.publishTimeout = publishTimeout;
         this.failures = failures;
         this.admin = new KafkaAdmin(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers));
@@ -180,10 +189,11 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
             for (var middleware : middlewares) middleware.accept(message);
 
             var route = router.declaredRouteFor(message, channels);
-            var values = context.inheritForPublished(message.getClass(), position);
+            var values = context.inheritForPublished(serializer.typeNameOf(message.getClass()), position);
 
-            var record = new ProducerRecord<String, byte[]>(route.target(), route.key(), serializer.write(message));
-            record.headers().add(MESSAGE_TYPE, bytesOf(serializer.typeNameOf(message.getClass())));
+            var headers = new RecordHeaders();
+            var body = jsonSerializer.serialize(route.target(), headers, message);
+            var record = new ProducerRecord<String, byte[]>(route.target(), null, route.key(), body, headers);
             record.headers().add(MESSAGE_ID, bytesOf(values.messageId()));
             prepared.add(new Prepared(record, values));
         }
@@ -267,10 +277,7 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
 
     private MessageListener<String, byte[]> queueListener(String queue) {
         return record -> {
-            var typeName = header(record, MESSAGE_TYPE);
-            if (typeName == null) throw new UnreadableMessageException(UNKNOWN_TYPE, "the record has no type header");
-
-            var message = serializer.read(typeName, record.value());
+            var message = messageConverter.read(record);
             var handlers = queues.getOrDefault(queue, Map.of()).get(message.getClass());
 
             if (handlers == null) return;
@@ -330,7 +337,7 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
                             .counter(
                                     DEAD_LETTERED,
                                     "message.type",
-                                    registeredTypeNameOf(record),
+                                    knownTypeNameOf(record),
                                     "messaging.destination.name",
                                     record.topic())
                             .increment();
@@ -346,24 +353,47 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     }
 
     private Optional<Object> readMessage(ConsumerRecord<?, ?> record) {
-        var typeName = header(record, MESSAGE_TYPE);
-        if (typeName == null || !(record.value() instanceof byte[] body)) return Optional.empty();
-
         try {
-            return Optional.of(serializer.read(typeName, body));
+            return Optional.of(messageConverter.read(record));
         } catch (UnreadableMessageException e) {
             return Optional.empty();
         }
     }
 
-    private String registeredTypeNameOf(ConsumerRecord<?, ?> record) {
-        var typeName = header(record, MESSAGE_TYPE);
+    private String knownTypeNameOf(ConsumerRecord<?, ?> record) {
+        var typeName = header(record, TYPE_ID);
 
-        return typeName != null && serializer.isRegistered(typeName) ? typeName : UNKNOWN_TYPE;
+        return typeName != null && serializer.isKnown(typeName) ? typeName : UnreadableMessageException.UNKNOWN_TYPE;
     }
 
     private static String typeNameOf(ConsumerRecord<?, ?> record) {
-        return Objects.requireNonNullElse(header(record, MESSAGE_TYPE), UNKNOWN_TYPE);
+        return Objects.requireNonNullElse(header(record, TYPE_ID), UnreadableMessageException.UNKNOWN_TYPE);
+    }
+
+    private static DefaultJacksonJavaTypeMapper typeMapperOf(MessageSerializer serializer) {
+        var typeMapper = new DefaultJacksonJavaTypeMapper();
+        typeMapper.setTypePrecedence(JacksonJavaTypeMapper.TypePrecedence.TYPE_ID);
+        typeMapper.setIdClassMapping(serializer.typeMapper().explicitNames());
+        typeMapper.addTrustedPackages(serializer.typeMapper().trustedPackages());
+
+        return typeMapper;
+    }
+
+    private static JacksonJsonSerializer<Object> jsonSerializerOf(
+            MessageSerializer serializer, DefaultJacksonJavaTypeMapper typeMapper) {
+        var jsonSerializer = new JacksonJsonSerializer<>(serializer.jsonMapper());
+        jsonSerializer.setTypeMapper(typeMapper);
+
+        return jsonSerializer;
+    }
+
+    private static JacksonJsonDeserializer<Object> deserializerOf(
+            MessageSerializer serializer, DefaultJacksonJavaTypeMapper typeMapper) {
+        var deserializer = new JacksonJsonDeserializer<>(serializer.jsonMapper());
+        deserializer.setTypeMapper(typeMapper);
+        deserializer.setRemoveTypeHeaders(false);
+
+        return deserializer;
     }
 
     private static String deadLetterTopicOf(String queue) {

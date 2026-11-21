@@ -6,6 +6,8 @@ import static org.awaitility.Awaitility.await;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
+import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestTracing;
 import java.time.Duration;
 import java.util.List;
@@ -21,6 +23,10 @@ public abstract class EventStoreMetadataTests {
     protected final String otherStreamId = "ShoppingCart-%s".formatted(UUID.randomUUID());
 
     protected abstract EventStore eventStore();
+
+    protected static MessageSerializer serializer() {
+        return TestMessages.serializerTrustingPackageOf(EventStoreMetadataTests.class);
+    }
 
     @Test
     public void appendedEventKeepsItsFiveValues() {

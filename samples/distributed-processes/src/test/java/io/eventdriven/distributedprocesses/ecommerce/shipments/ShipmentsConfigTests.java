@@ -9,6 +9,7 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.external.Shipment
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.CallingBackFulfillmentService;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.FulfillmentService;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestTracing;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -26,7 +27,8 @@ public class ShipmentsConfigTests {
             item -> Set.of(availableItem).contains(item);
     private final OffsetDateTime now = OffsetDateTime.now();
 
-    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryEventStore eventStore =
+            new InMemoryEventStore(TestTracing.untraced(), TestMessages.serializer());
     private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
             TestTracing.untraced(),
             List.of(ShipmentsConfig.shipmentsRoutes()),

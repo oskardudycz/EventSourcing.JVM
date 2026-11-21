@@ -7,8 +7,11 @@ import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
+import io.eventdriven.distributedprocesses.core.messaging.KafkaMessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.OrderCanceled;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.OrderPaymentFailed;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderFacade;
@@ -36,10 +39,12 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.sandbox.SandboxFu
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartFacade;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartsConfig;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent;
 import io.eventdriven.testing.ApiSpecification;
 import io.eventdriven.testing.InMemorySpansConfiguration;
 import io.eventdriven.testing.KafkaTopics;
 import io.eventdriven.testing.TestDatabases;
+import io.eventdriven.testing.TestMessages;
 import io.micrometer.tracing.Tracer;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.data.SpanData;
@@ -150,9 +155,11 @@ public class PurchaseOnKafkaTraceTests extends ApiSpecification {
     public void placeOrderHasTheCheckedOutMessageAsItsCause() {
         var order = checkedOutOrder();
 
-        var placeOrder = awaitRecord(OrdersConfig.internal, order.orderId(), "orders.PlaceOrder");
-        var checkedOut =
-                awaitRecord(ShoppingCartsConfig.external, order.orderId(), "shopping_carts.ShoppingCartCheckedOut");
+        var placeOrder = awaitRecord(OrdersConfig.internal, order.orderId(), OrderCommand.PlaceOrder.class.getName());
+        var checkedOut = awaitRecord(
+                ShoppingCartsConfig.external,
+                order.orderId(),
+                ShoppingCartExternalEvent.ShoppingCartCheckedOut.class.getName());
 
         assertThat(header(placeOrder, "causationId")).isEqualTo(header(checkedOut, "messageId"));
         assertThat(header(placeOrder, "correlationId")).isEqualTo(header(checkedOut, "correlationId"));
@@ -164,8 +171,10 @@ public class PurchaseOnKafkaTraceTests extends ApiSpecification {
         var order = checkedOutOrder();
 
         var stored = lastOf(cartStreamOf(order));
-        var published =
-                awaitRecord(ShoppingCartsConfig.external, order.orderId(), "shopping_carts.ShoppingCartCheckedOut");
+        var published = awaitRecord(
+                ShoppingCartsConfig.external,
+                order.orderId(),
+                ShoppingCartExternalEvent.ShoppingCartCheckedOut.class.getName());
 
         assertThat(header(published, "causationId")).isEqualTo(stored.messageId());
         await().atMost(TIMEOUT)
@@ -233,6 +242,14 @@ public class PurchaseOnKafkaTraceTests extends ApiSpecification {
     }
 
     record Opened(String cartId) {}
+
+    @TestConfiguration
+    static class OpenedMapping {
+        @Bean
+        static MessageMapping openedMapping() {
+            return TestMessages.trustingPackageOf(PurchaseOnKafkaTraceTests.class);
+        }
+    }
 
     @Test
     public void workerCommandContinuesThePurchasesTrace() {
@@ -419,8 +436,8 @@ public class PurchaseOnKafkaTraceTests extends ApiSpecification {
 
     private ConsumerRecord<String, byte[]> recordOf(String topic, String text, String messageType) {
         return KafkaTopics.recordsOf(KAFKA, topic).stream()
-                .filter(record ->
-                        new String(record.value()).contains(text) && messageType.equals(header(record, "messageType")))
+                .filter(record -> new String(record.value()).contains(text)
+                        && messageType.equals(header(record, KafkaMessageBus.TYPE_ID)))
                 .findFirst()
                 .orElse(null);
     }

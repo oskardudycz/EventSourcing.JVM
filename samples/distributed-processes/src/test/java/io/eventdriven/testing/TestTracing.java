@@ -34,7 +34,10 @@ public final class TestTracing {
                 event -> {},
                 new OtelBaggageManager(
                         currentTraceContext,
-                        List.of(MessageContext.CORRELATION_ID, MessageContext.CAUSATION_ID),
+                        List.of(
+                                MessageContext.CORRELATION_ID,
+                                MessageContext.CAUSATION_ID,
+                                MessageContext.HANDLED_MESSAGE_ID),
                         Collections.emptyList()));
     }
 

@@ -6,7 +6,9 @@ import static org.awaitility.Awaitility.await;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
 import io.eventdriven.testing.InMemorySpansConfiguration;
+import io.eventdriven.testing.TestMessages;
 import io.micrometer.tracing.Tracer;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import java.time.Duration;
@@ -16,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -25,6 +29,14 @@ import org.springframework.test.context.ActiveProfiles;
 @Import(InMemorySpansConfiguration.class)
 public class ECommerceTracingTests {
     record Opened(String cartId) {}
+
+    @TestConfiguration
+    static class OpenedMapping {
+        @Bean
+        static MessageMapping openedMapping() {
+            return TestMessages.trustingPackageOf(ECommerceTracingTests.class);
+        }
+    }
 
     @Autowired
     private EventStore eventStore;

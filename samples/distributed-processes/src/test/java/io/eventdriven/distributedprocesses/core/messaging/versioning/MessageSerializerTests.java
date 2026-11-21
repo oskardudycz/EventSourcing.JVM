@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.eventdriven.distributedprocesses.core.messaging.UnreadableMessageException;
-import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
+import io.eventdriven.testing.TestMessages;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 
@@ -13,53 +13,62 @@ public class MessageSerializerTests {
 
     record RoomInspectedV1(String room) {}
 
-    private final MessageSerializer serializer = new MessageSerializer(
-            new MessageMapping()
-                    .register("rooms.RoomInspected", RoomInspected.class)
-                    .register("rooms.RoomInspected.v1", RoomInspectedV1.class, old -> new RoomInspected(old.room()))
-                    .register(
-                            "rooms.RoomInspected.v0",
-                            json -> new RoomInspected(json.get("r").asString())),
-            EventSerializer.mapper,
-            "io.eventdriven.distributedprocesses.core.messaging");
+    private final MessageSerializer serializer = TestMessages.serializer(new MessageMapping()
+            .trust(MessageSerializerTests.class.getPackageName())
+            .register("rooms.RoomInspected", RoomInspected.class)
+            .register(
+                    "rooms.RoomInspected.v1",
+                    RoomInspectedV1.class,
+                    RoomInspected.class,
+                    old -> new RoomInspected(old.room()))
+            .register(
+                    "rooms.RoomInspected.v0",
+                    RoomInspected.class,
+                    json -> new RoomInspected(json.get("r").asString())));
 
     @Test
-    public void aMessageIsWrittenUnderItsStableTypeName() {
+    public void aMessageWithAnExplicitNameIsWrittenUnderIt() {
         assertThat(serializer.typeNameOf(RoomInspected.class)).isEqualTo("rooms.RoomInspected");
     }
 
     @Test
-    public void aMessageWithoutAStableTypeNameCannotBeNamed() {
+    public void aMessageWithoutAnExplicitNameIsWrittenUnderItsClassName() {
         record Unmapped(String id) {}
 
-        assertThatThrownBy(() -> serializer.typeNameOf(Unmapped.class))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining(Unmapped.class.getName());
+        assertThat(serializer.typeNameOf(Unmapped.class)).isEqualTo(Unmapped.class.getName());
     }
 
     @Test
-    public void currentAndOldTypeNamesAreRegisteredAndOthersAreNot() {
-        assertThat(serializer.isRegistered("rooms.RoomInspected")).isTrue();
-        assertThat(serializer.isRegistered("rooms.RoomInspected.v0")).isTrue();
-        assertThat(serializer.isRegistered("rooms.Unknown")).isFalse();
+    public void aTypeNameIsKnownWhenAModuleMapsItOrTrustsItsPackage() {
+        assertThat(serializer.isKnown("rooms.RoomInspected")).isTrue();
+        assertThat(serializer.isKnown("rooms.RoomInspected.v0")).isTrue();
+        assertThat(serializer.isKnown(RoomInspectedV1.class.getName())).isTrue();
+        assertThat(serializer.isKnown("rooms.Unknown")).isFalse();
+        assertThat(serializer.isKnown("java.lang.ProcessBuilder")).isFalse();
     }
 
     @Test
-    public void consumerMapsTheStableTypeNameToTheCurrentClass() {
+    public void aMessageIsKnownUnderItsCurrentAndOldNames() {
+        assertThat(serializer.typeNamesOf(RoomInspected.class))
+                .containsExactlyInAnyOrder("rooms.RoomInspected", "rooms.RoomInspected.v1", "rooms.RoomInspected.v0");
+    }
+
+    @Test
+    public void consumerMapsTheExplicitTypeNameToTheCurrentClass() {
         var body = "{\"roomId\":\"room-1\"}".getBytes(StandardCharsets.UTF_8);
 
         assertThat(serializer.read("rooms.RoomInspected", body)).isEqualTo(new RoomInspected("room-1"));
     }
 
     @Test
-    public void aClassNameInsideTheTrustedPackageIsRead() {
+    public void aClassNameInsideATrustedPackageIsRead() {
         var body = "{\"roomId\":\"room-1\"}".getBytes(StandardCharsets.UTF_8);
 
         assertThat(serializer.read(RoomInspected.class.getName(), body)).isEqualTo(new RoomInspected("room-1"));
     }
 
     @Test
-    public void aClassNameOutsideTheTrustedPackageIsNotRead() {
+    public void aClassNameOutsideTheTrustedPackagesIsNotRead() {
         assertThatThrownBy(() -> serializer.read("java.lang.ProcessBuilder", "{}".getBytes(StandardCharsets.UTF_8)))
                 .isInstanceOf(UnreadableMessageException.class)
                 .hasMessageContaining("java.lang.ProcessBuilder");

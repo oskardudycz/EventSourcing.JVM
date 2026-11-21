@@ -10,9 +10,9 @@ import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageValues;
 import io.eventdriven.distributedprocesses.core.messaging.UnreadableMessageException;
-import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
-import io.eventdriven.distributedprocesses.core.serialization.EventTypeMapper;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.distributedprocesses.core.subscriptions.SubscriptionCheckpoints;
+import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -175,7 +175,7 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
 
             var events = new ArrayList<EventEnvelope<Object>>();
             try (var rows = statement.executeQuery()) {
-                while (rows.next()) events.add(eventOf(rows));
+                while (rows.next()) events.add(eventOf(StoredMessage.of(rows), serializer));
             }
 
             return events.isEmpty() ? new ReadResult.StreamDoesNotExist() : new ReadResult.Success(events);
@@ -211,7 +211,8 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
         if (!subscriptionNames.add(name))
             throw new IllegalArgumentException("Subscription name '%s' is already in use".formatted(name));
 
-        var subscription = new PostgreSQLSubscription(dataSource, name, types, handler, context, checkpoints, backOff);
+        var subscription =
+                new PostgreSQLSubscription(dataSource, name, types, handler, context, serializer, checkpoints, backOff);
         subscriptions.add(subscription);
 
         return subscription.progress();
@@ -241,18 +242,21 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
         try (var statement = connection.prepareStatement(APPEND)) {
             statement.setArray(
                     1, textArray(connection, events, event -> UUID.randomUUID().toString()));
-            statement.setArray(2, textArray(connection, events, EventSerializer.mapper::writeValueAsString));
+            statement.setArray(
+                    2,
+                    textArray(
+                            connection, events, event -> new String(serializer.write(event), StandardCharsets.UTF_8)));
             statement.setArray(
                     3,
                     textArray(
                             connection,
                             events,
-                            event -> EventSerializer.mapper.writeValueAsString(metadataOf(values))));
+                            event -> serializer.jsonMapper().writeValueAsString(metadataOf(values))));
             statement.setArray(
                     4,
                     connection.createArrayOf(
                             "int4", Arrays.stream(events).map(event -> 1).toArray()));
-            statement.setArray(5, textArray(connection, events, event -> EventTypeMapper.toName(event.getClass())));
+            statement.setArray(5, textArray(connection, events, event -> serializer.typeNameOf(event.getClass())));
             statement.setArray(6, textArray(connection, events, event -> "E"));
             statement.setString(7, streamId);
             statement.setString(8, streamTypeOf(streamId));
@@ -316,33 +320,55 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
         return metadata;
     }
 
-    static EventEnvelope<Object> eventOf(ResultSet row) throws SQLException {
-        var type = row.getString("message_type");
-        var eventClass = EventTypeMapper.toClass(type)
-                .orElseThrow(() -> new UnreadableMessageException(type, "no class is mapped to this type name"));
-
-        try {
-            var messageId = row.getString("message_id");
-            var metadata = EventSerializer.mapper.readValue(row.getString("message_metadata"), METADATA_TYPE);
-            var correlationId = metadata.getOrDefault(MessageContext.CORRELATION_ID, messageId);
-
-            Object event = EventSerializer.mapper.readValue(row.getString("message_data"), eventClass);
-
-            return new EventEnvelope<>(
-                    event,
-                    new EventMetadata(
-                            row.getString("stream_id"),
-                            row.getLong("stream_position"),
-                            row.getLong("global_position"),
-                            row.getLong("transaction_id"),
-                            messageId,
-                            correlationId,
-                            metadata.getOrDefault(MessageContext.CAUSATION_ID, correlationId),
-                            metadata.get(TRACE_ID),
-                            metadata.get(SPAN_ID)));
-        } catch (JacksonException e) {
-            throw new UnreadableMessageException(type, e);
+    record StoredMessage(
+            String streamId,
+            long streamPosition,
+            long globalPosition,
+            long transactionId,
+            String messageId,
+            String type,
+            String data,
+            String metadata) {
+        static StoredMessage of(ResultSet row) throws SQLException {
+            return new StoredMessage(
+                    row.getString("stream_id"),
+                    row.getLong("stream_position"),
+                    row.getLong("global_position"),
+                    row.getLong("transaction_id"),
+                    row.getString("message_id"),
+                    row.getString("message_type"),
+                    row.getString("message_data"),
+                    row.getString("message_metadata"));
         }
+
+        Checkpoint checkpoint() {
+            return new Checkpoint(transactionId, globalPosition);
+        }
+    }
+
+    static EventEnvelope<Object> eventOf(StoredMessage message, MessageSerializer serializer) {
+        Map<String, String> metadata;
+        try {
+            metadata = serializer.jsonMapper().readValue(message.metadata(), METADATA_TYPE);
+        } catch (JacksonException e) {
+            throw new UnreadableMessageException(message.type(), e);
+        }
+
+        var correlationId = metadata.getOrDefault(MessageContext.CORRELATION_ID, message.messageId());
+        var event = serializer.read(message.type(), message.data().getBytes(StandardCharsets.UTF_8));
+
+        return new EventEnvelope<>(
+                event,
+                new EventMetadata(
+                        message.streamId(),
+                        message.streamPosition(),
+                        message.globalPosition(),
+                        message.transactionId(),
+                        message.messageId(),
+                        correlationId,
+                        metadata.getOrDefault(MessageContext.CAUSATION_ID, correlationId),
+                        metadata.get(TRACE_ID),
+                        metadata.get(SPAN_ID)));
     }
 
     private static final String TRACE_ID = "traceId";
@@ -352,6 +378,7 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
     private final DataSource dataSource;
     private final HikariDataSource ownedDataSource;
     private final MessageContext context;
+    private final MessageSerializer serializer;
     private final SubscriptionCheckpoints checkpoints;
     private final BackOff backOff;
     private final Set<String> subscriptionNames = ConcurrentHashMap.newKeySet();
@@ -365,10 +392,11 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
     public PostgreSQLEventStore(
             DataSource dataSource,
             MessageContext context,
+            MessageSerializer serializer,
             SubscriptionCheckpoints checkpoints,
             BackOff backOff,
             Duration pollInterval) {
-        this(dataSource, null, context, checkpoints, backOff, pollInterval);
+        this(dataSource, null, context, serializer, checkpoints, backOff, pollInterval);
     }
 
     public static PostgreSQLEventStore connectingTo(
@@ -376,6 +404,7 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
             String username,
             String password,
             MessageContext context,
+            MessageSerializer serializer,
             SubscriptionCheckpoints checkpoints,
             BackOff backOff,
             Duration pollInterval) {
@@ -384,19 +413,22 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
         dataSource.setUsername(username);
         dataSource.setPassword(password);
 
-        return new PostgreSQLEventStore(dataSource, dataSource, context, checkpoints, backOff, pollInterval);
+        return new PostgreSQLEventStore(
+                dataSource, dataSource, context, serializer, checkpoints, backOff, pollInterval);
     }
 
     private PostgreSQLEventStore(
             DataSource dataSource,
             HikariDataSource ownedDataSource,
             MessageContext context,
+            MessageSerializer serializer,
             SubscriptionCheckpoints checkpoints,
             BackOff backOff,
             Duration pollInterval) {
         this.dataSource = dataSource;
         this.ownedDataSource = ownedDataSource;
         this.context = context;
+        this.serializer = serializer;
         this.checkpoints = checkpoints;
         this.backOff = backOff;
 

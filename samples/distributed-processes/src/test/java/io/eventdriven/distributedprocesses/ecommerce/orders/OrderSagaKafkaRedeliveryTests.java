@@ -8,7 +8,6 @@ import io.eventdriven.distributedprocesses.core.messaging.KafkaMessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
-import io.eventdriven.distributedprocesses.ecommerce.ECommerceMessages;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock;
@@ -59,12 +58,12 @@ public class OrderSagaKafkaRedeliveryTests {
 
     @Test
     public void sagaRepublishesBothCommandsWithTheSameIdsOnRedelivery() {
-        var eventStore = new InMemoryEventStore(messageContext);
+        var eventStore = new InMemoryEventStore(messageContext, TestMessages.serializer());
         messageBus = KafkaMessageBus.connectingTo(
                 bootstrapServers,
                 messageContext,
                 observations,
-                TestMessages.serializer(ECommerceMessages.mapping()),
+                TestMessages.serializer(),
                 Duration.ofSeconds(10),
                 TestKafka.failureHandling(bootstrapServers, observations),
                 List.of(new MessageRoutes()
@@ -109,10 +108,10 @@ public class OrderSagaKafkaRedeliveryTests {
     }
 
     private List<String> messageIdsOf(List<ConsumerRecord<String, byte[]>> records, Class<?> messageClass) {
-        var typeName = ECommerceMessages.mapping().typeNameOf(messageClass).orElseThrow();
+        var typeName = messageClass.getName();
 
         return records.stream()
-                .filter(record -> typeName.equals(KafkaTopics.header(record, KafkaMessageBus.MESSAGE_TYPE)))
+                .filter(record -> typeName.equals(KafkaTopics.header(record, KafkaMessageBus.TYPE_ID)))
                 .map(record -> KafkaTopics.header(record, KafkaMessageBus.MESSAGE_ID))
                 .toList();
     }
