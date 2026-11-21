@@ -119,11 +119,7 @@ public class ECommerceSettingsTests {
     public static class RabbitMQMessageBusSetting {
         @DynamicPropertySource
         static void rabbitMQ(DynamicPropertyRegistry registry) {
-            var connection = TestDatabases.rabbitMQ();
-            registry.add("spring.rabbitmq.host", connection::host);
-            registry.add("spring.rabbitmq.port", connection::port);
-            registry.add("spring.rabbitmq.username", connection::username);
-            registry.add("spring.rabbitmq.password", connection::password);
+            TestDatabases.addRabbitMQ(registry, TestDatabases.rabbitMQ());
         }
 
         @Autowired
@@ -154,11 +150,7 @@ public class ECommerceSettingsTests {
 
         @DynamicPropertySource
         static void rabbitMQ(DynamicPropertyRegistry registry) {
-            var connection = TestDatabases.rabbitMQ();
-            registry.add("spring.rabbitmq.host", connection::host);
-            registry.add("spring.rabbitmq.port", connection::port);
-            registry.add("spring.rabbitmq.username", connection::username);
-            registry.add("spring.rabbitmq.password", connection::password);
+            TestDatabases.addRabbitMQ(registry, TestDatabases.rabbitMQ());
         }
 
         @Autowired
@@ -271,9 +263,7 @@ public class ECommerceSettingsTests {
         static void postgreSQL(DynamicPropertyRegistry registry) {
             var postgreSQL = TestDatabases.newPostgreSQLDatabase();
 
-            registry.add("eventstore.postgresql.url", postgreSQL::url);
-            registry.add("eventstore.postgresql.username", postgreSQL::username);
-            registry.add("eventstore.postgresql.password", postgreSQL::password);
+            TestDatabases.addPostgreSQLEventStore(registry, postgreSQL);
         }
 
         @Autowired
@@ -345,9 +335,7 @@ public class ECommerceSettingsTests {
 
             registry.add("spring.kafka.bootstrap-servers", TestDatabases::kafkaBootstrapServers);
             registry.add("kurrentdb.connectionstring", TestDatabases::kurrentDBConnectionString);
-            registry.add("spring.datasource.url", postgreSQL::url);
-            registry.add("spring.datasource.username", postgreSQL::username);
-            registry.add("spring.datasource.password", postgreSQL::password);
+            TestDatabases.addProjectionsDatabase(registry, postgreSQL);
         }
 
         @Autowired

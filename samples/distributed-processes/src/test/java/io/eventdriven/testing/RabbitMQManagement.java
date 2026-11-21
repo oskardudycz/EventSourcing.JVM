@@ -59,12 +59,6 @@ public final class RabbitMQManagement {
                 .body(MAP);
     }
 
-    public int messagesIn(String queue) {
-        if (queue(queue).get("messages") instanceof Number messages) return messages.intValue();
-
-        throw new AssertionError("The management API has no message count for queue '%s' yet".formatted(queue));
-    }
-
     public List<Binding> bindingsOf(String queue) {
         return client.get().uri("/queues/{vhost}/{queue}/bindings", VHOST, queue).retrieve().body(LIST_OF_MAPS).stream()
                 .filter(binding -> !"".equals(binding.get("source")))

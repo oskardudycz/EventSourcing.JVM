@@ -191,6 +191,9 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
 
     @Override
     public AppendResult append(String streamId, ExpectedStreamVersion expectedVersion, Object... events) {
+        if (events.length == 0)
+            throw new IllegalArgumentException("Cannot append no events to stream %s".formatted(streamId));
+
         try (var connection = dataSource.getConnection()) {
             return appendIn(connection, streamId, expectedVersion, events);
         } catch (SQLException e) {

@@ -40,7 +40,6 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 
 public class KafkaMessageBusTests extends BrokerMessageBusTests {
-    private static final Duration PUBLISH_TIMEOUT = Duration.ofSeconds(10);
 
     private final String bootstrapServers = TestDatabases.kafkaBootstrapServers();
 
@@ -55,7 +54,7 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
                 messageContext,
                 observations,
                 serializer(),
-                PUBLISH_TIMEOUT,
+                TestKafka.PUBLISH_TIMEOUT,
                 TestKafka.failureHandling(bootstrapServers, observations),
                 routes,
                 channels,
@@ -114,12 +113,12 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
 
     @Test
     public void producerTimeoutsFitInsideThePublishTimeout() {
-        var properties = KafkaMessageBus.producerFactory(bootstrapServers, PUBLISH_TIMEOUT)
+        var properties = KafkaMessageBus.producerFactory(bootstrapServers, TestKafka.PUBLISH_TIMEOUT)
                 .getConfigurationProperties();
 
         var blockAndDeliver = Duration.ofMillis((long) properties.get(ProducerConfig.MAX_BLOCK_MS_CONFIG))
                 .plusMillis((int) properties.get(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG));
-        assertThat(blockAndDeliver).isLessThan(PUBLISH_TIMEOUT);
+        assertThat(blockAndDeliver).isLessThan(TestKafka.PUBLISH_TIMEOUT);
         assertThat((int) properties.get(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG))
                 .isGreaterThanOrEqualTo((int) properties.get(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG));
     }
@@ -272,8 +271,8 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
     public void routingConsumerWritesAResponseAfterAFailedSendBeforeTheCommit() {
         var responses = "responses-" + id;
         var queue = "orders-responses-" + id;
-        var failingFirstSend =
-                new FailingFirstSendKafkaTemplate(KafkaMessageBus.producerFactory(bootstrapServers, PUBLISH_TIMEOUT));
+        var failingFirstSend = new FailingFirstSendKafkaTemplate(
+                KafkaMessageBus.producerFactory(bootstrapServers, TestKafka.PUBLISH_TIMEOUT));
         var bus = routedBus(responses, queue, failingFirstSend);
 
         publish(bus, new OrderPlaced("ecommerce.order.9"));
@@ -308,7 +307,7 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
                         messageContext,
                         observations,
                         serializer(),
-                        PUBLISH_TIMEOUT,
+                        TestKafka.PUBLISH_TIMEOUT,
                         TestKafka.failureHandling(bootstrapServers, observations),
                         routingTemplate,
                         routes,
@@ -323,7 +322,8 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
     }
 
     private void publishRaw(ProducerRecord<String, byte[]> record) {
-        var template = new KafkaTemplate<>(KafkaMessageBus.producerFactory(bootstrapServers, PUBLISH_TIMEOUT));
+        var template =
+                new KafkaTemplate<>(KafkaMessageBus.producerFactory(bootstrapServers, TestKafka.PUBLISH_TIMEOUT));
         template.send(record).join();
         template.destroy();
     }

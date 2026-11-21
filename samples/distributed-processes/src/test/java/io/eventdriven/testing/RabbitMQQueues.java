@@ -1,5 +1,7 @@
 package io.eventdriven.testing;
 
+import static org.awaitility.Awaitility.await;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,12 +41,13 @@ public final class RabbitMQQueues implements AutoCloseable {
 
     public List<Message> receiveAll(String queue, int expectedCount) {
         var messages = new ArrayList<Message>();
-        var deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
 
-        while (messages.size() < expectedCount && System.nanoTime() < deadline) {
+        await().atMost(Duration.ofSeconds(30)).until(() -> {
             var message = template.receive(queue, 500);
             if (message != null) messages.add(message);
-        }
+
+            return messages.size() >= expectedCount;
+        });
 
         return messages;
     }

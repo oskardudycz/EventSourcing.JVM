@@ -184,7 +184,7 @@ public class PaymentFacadeTests {
         published.shouldReceiveMessages(requested);
         assertThat(storedEvents()).usingRecursiveComparison().isEqualTo(List.of(requested));
 
-        // Only a pending authorisation can still be confirmed
+        // Only a pending authorization can still be confirmed
         messageBus.publish(List.of(new ConfirmPaymentAuthorization(paymentId, captureBefore)));
 
         assertThat(storedEvents()).hasSize(2);

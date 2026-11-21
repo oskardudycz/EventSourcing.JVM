@@ -141,7 +141,7 @@ public class ShopPagesTests {
 
         mvc.perform(get(shop + "/orders/" + orderTail))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Order status")))
+                .andExpect(content().string(containsString(shoes.name())))
                 .andExpect(content().string(matchesPattern("(?s)(?!.*Your order is being placed).*")));
     }
 

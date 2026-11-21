@@ -63,7 +63,7 @@ public class ShoppingCartExternalEventKafkaTests {
                 messageContext,
                 observations,
                 TestMessages.serializer(),
-                Duration.ofSeconds(10),
+                TestKafka.PUBLISH_TIMEOUT,
                 TestKafka.failureHandling(bootstrapServers, observations),
                 List.of(ShoppingCartsConfig.shoppingCartsRoutes()),
                 List.of(ShoppingCartsConfig.shoppingCartsExternalChannel()),

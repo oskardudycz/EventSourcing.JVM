@@ -65,6 +65,9 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
 
     @Override
     public AppendResult append(String streamId, ExpectedStreamVersion expectedVersion, Object... events) {
+        if (events.length == 0)
+            throw new IllegalArgumentException("Cannot append no events to stream %s".formatted(streamId));
+
         var eventsToAppend = serialize(events);
         var observation = Observation.createNotStarted("streams.append", observations)
                 .lowCardinalityKeyValue("db.system", "kurrentdb")

@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.test.context.DynamicPropertyRegistry;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -18,7 +19,7 @@ public final class TestDatabases {
     private static final String DOCKER_COMPOSE_PROJECT = "eventsourcing";
     private static final String POSTGRESQL_IMAGE = "postgres:18.7-alpine";
     private static final String KAFKA_IMAGE = "confluentinc/cp-kafka:8.4.1";
-    static final String RABBITMQ_IMAGE = "rabbitmq:4.4.0-management";
+    private static final String RABBITMQ_IMAGE = "rabbitmq:4.4.0-management";
 
     public static String kurrentDBConnectionString() {
         return kurrentDBConnectionString(DOCKER_COMPOSE_PROJECT);
@@ -59,6 +60,25 @@ public final class TestDatabases {
 
         return new PostgreSQLConnection(
                 server.url().replaceFirst("/[^/?]+(\\?|$)", "/" + name + "$1"), server.username(), server.password());
+    }
+
+    public static void addProjectionsDatabase(DynamicPropertyRegistry registry, PostgreSQLConnection postgreSQL) {
+        registry.add("spring.datasource.url", postgreSQL::url);
+        registry.add("spring.datasource.username", postgreSQL::username);
+        registry.add("spring.datasource.password", postgreSQL::password);
+    }
+
+    public static void addPostgreSQLEventStore(DynamicPropertyRegistry registry, PostgreSQLConnection postgreSQL) {
+        registry.add("eventstore.postgresql.url", postgreSQL::url);
+        registry.add("eventstore.postgresql.username", postgreSQL::username);
+        registry.add("eventstore.postgresql.password", postgreSQL::password);
+    }
+
+    public static void addRabbitMQ(DynamicPropertyRegistry registry, RabbitMQConnection rabbitMQ) {
+        registry.add("spring.rabbitmq.host", rabbitMQ::host);
+        registry.add("spring.rabbitmq.port", rabbitMQ::port);
+        registry.add("spring.rabbitmq.username", rabbitMQ::username);
+        registry.add("spring.rabbitmq.password", rabbitMQ::password);
     }
 
     public static String kafkaBootstrapServers() {

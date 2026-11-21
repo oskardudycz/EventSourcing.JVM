@@ -33,7 +33,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 
 public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
-    private static final Duration PUBLISH_TIMEOUT = Duration.ofSeconds(10);
 
     private final RabbitMQConnection connection = TestDatabases.rabbitMQ();
     private final RabbitMQManagement management = new RabbitMQManagement(connection);
@@ -170,7 +169,7 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
 
         assertThatThrownBy(() -> publish(bus, new OrderPlaced("order-2"))).isInstanceOf(AmqpException.class);
 
-        assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(PUBLISH_TIMEOUT);
+        assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(TestRabbitMQ.PUBLISH_TIMEOUT);
     }
 
     @Test

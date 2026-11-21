@@ -65,9 +65,7 @@ public enum ProjectionsDatabase {
         static void postgreSQL(DynamicPropertyRegistry registry) {
             var postgreSQL = TestDatabases.postgreSQL();
 
-            registry.add("spring.datasource.url", postgreSQL::url);
-            registry.add("spring.datasource.username", postgreSQL::username);
-            registry.add("spring.datasource.password", postgreSQL::password);
+            TestDatabases.addProjectionsDatabase(registry, postgreSQL);
         }
     }
 }

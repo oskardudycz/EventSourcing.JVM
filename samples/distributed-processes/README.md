@@ -103,7 +103,7 @@ private static GuestStayAccountEvent handle(CheckOutGuest command, CheckedIn sta
 }
 ```
 
-See more in [GuestStayAccountDecider](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/saga/gueststayaccount/GuestStayAccountDecider.java#L74).
+See more in [GuestStayAccountDecider](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/saga/gueststayaccount/GuestStayAccountDecider.java#L51).
 
 The command handler (the application service) should use a retry policy, so that a transient error does not fail the command.
 
@@ -113,7 +113,7 @@ public Optional<ETag> handle(CheckOutGuest command) {
 }
 ```
 
-See more in [GuestStayAccountService](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/saga/gueststayaccount/GuestStayAccountService.java#L38)
+See more in [GuestStayAccountService](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/saga/gueststayaccount/GuestStayAccountService.java#L35)
 
 As an alternative to the retry policy, the command handler could use [Pokémon exception handling](https://www.dodgycoder.net/2011/11/yoda-conditions-pokemon-exception.html) (catch every exception) and then publish the failure event.
 
@@ -130,7 +130,7 @@ The e-commerce sample shows such a process. One purchase goes through four modul
 
 A message is a command or an event. A *command* asks a module to do something, such as `CapturePayment`. The module decides, and it can ignore the command. An *event* records something that already happened, such as `PaymentCaptured`. Each module takes its commands through its *facade*: one class, such as `PaymentFacade`, with one method for each command.
 
-The modules use Event Sourcing: they store every change as an event, in an *event store*, instead of storing the current state. A module keeps its business rules in *aggregates*, such as `Order` or `Payment`. An aggregate checks a command against its rules and records the outcome as new events. Each aggregate's events form one *stream*, an ordered list, and adding events to it is called *appending*. To handle the next command, the module reads the stream and rebuilds the aggregate's state from its events.
+The modules use Event Sourcing: they store every change as an event, in an *event store*, instead of storing the current state. A module keeps its business rules in a *decider*, such as `OrderDecider` or `PaymentDecider`: a function that takes a command and the current state, checks the rules and returns the new events. The state is an immutable *entity*, such as `Order` or `Payment`, and its `evolve` function applies one event to it. Each entity's events form one *stream*, an ordered list, and adding events to it is called *appending*. To handle the next command, a `CommandHandler` reads the stream, rebuilds the entity's state from its events with `evolve`, calls the decider and appends the events that the decider returns.
 
 To try the purchase yourself, follow [HOWTO.md](./HOWTO.md). It takes you through the shop, the web API, the messages and the catalog, step by step, with screenshots.
 
@@ -415,7 +415,7 @@ Only an authorization that expires between the confirmation and sending the pack
 | `AuthorizationExpiryWorker` | `captureBefore` on an authorized payment | `ExpirePaymentAuthorization` |
 | `UnpaidOrdersWorker` | `dueAt` on an order whose payment failed | `CloseUnpaidOrder` |
 
-The payment workers end at the order as `PaymentFailed`, so the order never waits for a message that isn't coming. Each worker reads a to-do list, as the [event-driven architecture](../../workshops/event-driven-architecture/) workshop calls it: a projection that lists which aggregate to wake up and when. The worker keeps no rules. The aggregate decides, and a wake-up that comes too early, or twice, appends nothing. Each worker has `handle(now)`. Its `Scheduled` variant calls it every minute with the current time, through `handleAll()`. Tests move the clock and call `handleAll()` themselves.
+The payment workers end at the order as `PaymentFailed`, so the order never waits for a message that isn't coming. Each worker reads a to-do list, as the [event-driven architecture](../../workshops/event-driven-architecture/) workshop calls it: a projection that lists which order or payment to wake up and when. The worker keeps no rules. The decider decides, and a wake-up that comes too early, or twice, appends nothing. Each worker has `handle(now)`. Its `Scheduled` variant calls it every minute with the current time, through `handleAll()`. Tests move the clock and call `handleAll()` themselves.
 
 The deadlines come from policies that the facades run, because they are the shop's rules and change more often than the process. `PaymentValidity` gives `PaymentFacade` the `timesOutAt` of a new payment. `PaymentTerms`, Shopify's name for when an order must be paid, gives `OrderFacade` the `dueAt` of a failed payment. The authorization's `captureBefore` comes from the provider, not from the shop, so it has no policy.
 
@@ -451,7 +451,7 @@ Each external event carries only what its reader uses: the `referenceId`, the id
 
 An external event often needs more than the internal event that triggered it. The internal `ShoppingCartCheckedOut` carries the cart id and a timestamp, but the external `ShoppingCartCheckedOut` has to carry the customer, the products and the total, because the orders module can't call back into the cart to ask. The same is true of `PaymentAuthorized`: internally it has no `referenceId`, and the order needs one.
 
-The forwarder could load the aggregate, but then the aggregate would have to expose its state. The aggregate's job is to decide, and it keeps only the state that its decisions need. So each module keeps a projection for its forwarder, called a *summary*, and the forwarder reads it:
+The forwarder could rebuild the entity from its stream, but then the entity would have to hold this data. The entity keeps only the state that the decider's rules need. `ShoppingCart` holds its products and their prices, but not the customer id or the total that the external event needs. So each module keeps a projection for its forwarder, called a *summary*, and the forwarder reads it:
 
 ```java
 public void onCheckedOut(EventEnvelope<ShoppingCartEvent.ShoppingCartCheckedOut> envelope) {
@@ -509,7 +509,7 @@ The base class reads and stores the document through the view's Spring Data repo
 
 The projection and the forwarder are separate subscribers, and each keeps its own *checkpoint*: the position of the last event it handled. If the projection fails on an event and the forwarder does not, the forwarder would read a view that has not seen that event yet. So the forwarder checks that the view has what it needs. If it does not, the forwarder throws: the store keeps its checkpoint and delivers the event again on the next append, after the projection has caught up. The cart's products change with every add, remove and price change, so the cart forwarder also checks that the summary's version has reached the event's stream position.
 
-Besides the summaries, the modules keep views that answer a question that no single aggregate can answer, because the question spans many of them:
+Besides the summaries, the modules keep views that answer a question that no single stream can answer, because the question spans many of them:
 
 | View | Answers |
 |---|---|
@@ -585,14 +585,32 @@ public class PaymentsConfig {
     @Bean
     public PaymentFacade paymentFacade(
             EventStore eventStore,
+            MessageContext messageContext,
             MessageBus messageBus,
             PaymentGateway paymentGateway,
             PaymentValidity paymentValidity,
             Supplier<OffsetDateTime> now) {
-        // ...
+        var decider = new PaymentDecider(paymentValidity, now);
+        var commandHandler = new CommandHandler<PaymentId, Payment, PaymentCommand, PaymentEvent>(
+                eventStore,
+                messageContext,
+                PaymentFacade::mapToStreamId,
+                Payment::initial,
+                Payment::evolve,
+                decider::handle);
+
+        var facade = new PaymentFacade(commandHandler, paymentGateway, now);
+
         messageBus
                 .subscribe(requests, AuthorizePayment.class, facade::authorizePayment)
-                // ...
+                .subscribe(requests, CapturePayment.class, facade::capturePayment)
+                .subscribe(requests, CancelPayment.class, facade::cancelPayment)
+                .subscribe(internal, ConfirmPaymentAuthorization.class, facade::confirmPaymentAuthorization)
+                .subscribe(internal, ConfirmPaymentCapture.class, facade::confirmPaymentCapture)
+                .subscribe(internal, FailPaymentCapture.class, facade::failPaymentCapture)
+                .subscribe(internal, TimeOutPayment.class, facade::timeOutPayment)
+                .subscribe(internal, ExpirePaymentAuthorization.class, facade::expirePaymentAuthorization);
+
         return facade;
     }
 
@@ -721,7 +739,7 @@ public void cancelOrder_succeeds_withAcceptedAndCancelsTheUnpaidOrder() {
 
 The application runs on real infrastructure by default: Kafka, KurrentDB and PostgreSQL. `./gradlew bootRun` starts them with Spring Boot's Docker Compose support, as [the HOWTO](./HOWTO.md#1-start-the-application) describes. The `in-memory` Spring profile switches the application back to the in-memory bus, event store and projections, with no Docker. The business tests and the API tests use that profile. The tests of the Kafka, RabbitMQ, KurrentDB and PostgreSQL implementations, and the application tests that run one purchase on real servers, use the servers of the Docker Compose project when they run, and start them with [Testcontainers](https://testcontainers.com/) when they don't. So running them needs only Docker. A test class that starts the application on shared servers needs `@DirtiesContext` and `TestDatabases.newPostgreSQLDatabase()`, so that its projections and checkpoints don't mix with the ones of another class.
 
-In a dev container, Docker is the host's Docker. Don't run the Kafka tests while the Docker Compose Kafka runs: the tests find it, and it advertises `localhost:9092`, which inside the dev container is the container itself. Stop it, and the tests start their own Kafka.
+In a dev container, stop the Docker Compose Kafka before you run the Kafka tests. [AGENTS.md](../../AGENTS.md#build-environment) tells why.
 
 #### Three settings and the in-memory profile
 
@@ -847,7 +865,7 @@ The catalog is documentation as code: the pages in `domains` are kept in the rep
 
 ### Where the code lives
 
-Each module keeps its aggregate, its events, its commands, its facade and its `Config` at the top of its package, and the orders module keeps `OrderSaga` there too. The `sealed` interfaces have to stay there, since without a `module-info.java` a sealed type's records must share its package. Everything else is grouped by what it does in the business:
+Each module keeps its entity, its decider, its events, its commands, its facade and its `Config` at the top of its package, and the orders module keeps `OrderSaga` there too. The `sealed` interfaces have to stay there, since without a `module-info.java` a sealed type's records must share its package. Everything else is grouped by what it does in the business:
 
 | Module | Packages |
 |---|---|

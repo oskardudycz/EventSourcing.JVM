@@ -33,6 +33,11 @@ repositories {
 
 configurations {
   mockitoAgent
+  all {
+    exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+    exclude group: 'ch.qos.logback'
+    exclude group: 'org.apache.logging.log4j', module: 'log4j-to-slf4j'
+  }
 }
 
 dependencies {
@@ -95,21 +100,13 @@ dependencies {
   mockitoAgent('org.mockito:mockito-core') { transitive = false }
 }
 
-configurations {
-  all {
-    exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
-    exclude group: 'ch.qos.logback'
-    exclude group: 'org.apache.logging.log4j', module: 'log4j-to-slf4j'
-  }
-}
-
 tasks.named('test') {
   useJUnitPlatform()
   jvmArgs += ["-javaagent:${configurations.mockitoAgent.asPath}", "-Xshare:off"]
-}
-
-test {
   maxParallelForks = 2
+  doFirst {
+    delete 'logs/test.log'
+  }
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
 }

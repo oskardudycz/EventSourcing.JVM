@@ -16,16 +16,15 @@ import java.util.Collections;
 import java.util.List;
 
 public final class TestTracing {
-    private static final InMemorySpanExporter spanExporter = InMemorySpanExporter.create();
-    private static final OpenTelemetrySdk openTelemetry = OpenTelemetrySdk.builder()
-            .setTracerProvider(SdkTracerProvider.builder()
-                    .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
-                    .build())
-            .build();
-
+    private final InMemorySpanExporter spanExporter = InMemorySpanExporter.create();
     private final Tracer tracer;
 
     public TestTracing() {
+        var openTelemetry = OpenTelemetrySdk.builder()
+                .setTracerProvider(SdkTracerProvider.builder()
+                        .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
+                        .build())
+                .build();
         var currentTraceContext = new OtelCurrentTraceContext();
 
         tracer = new OtelTracer(

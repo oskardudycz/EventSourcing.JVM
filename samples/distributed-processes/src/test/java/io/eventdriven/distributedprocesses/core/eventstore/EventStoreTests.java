@@ -161,6 +161,14 @@ public abstract class EventStoreTests {
     }
 
     @Test
+    public void appendingNoEventsIsRefusedAndCreatesNoStream() {
+        assertThatThrownBy(() -> eventStore().append(streamId, ExpectedStreamVersion.noStream()))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(eventStore().read(streamId)).isInstanceOf(EventStore.ReadResult.StreamDoesNotExist.class);
+    }
+
+    @Test
     public void readingAnUnknownStreamSaysItDoesNotExist() {
         assertThat(eventStore().read(streamId)).isInstanceOf(EventStore.ReadResult.StreamDoesNotExist.class);
     }

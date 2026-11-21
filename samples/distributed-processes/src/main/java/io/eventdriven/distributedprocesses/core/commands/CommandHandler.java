@@ -55,6 +55,11 @@ public class CommandHandler<Id, State, Command, Event> {
     }
 
     public long handle(Id id, Command command, long expectedVersion) {
+        if (expectedVersion < 0)
+            throw new ConcurrentModificationException(
+                    "Cannot handle %s on stream %s: expected version %s is not a stream version"
+                            .formatted(command.getClass().getSimpleName(), mapToStreamId.apply(id), expectedVersion));
+
         return handleOnce(id, command, expectedVersion, false);
     }
 
