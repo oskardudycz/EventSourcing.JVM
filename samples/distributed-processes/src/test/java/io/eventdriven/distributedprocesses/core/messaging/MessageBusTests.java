@@ -3,12 +3,14 @@ package io.eventdriven.distributedprocesses.core.messaging;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.testing.MessageCatcher;
 import io.eventdriven.testing.TestMessages;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -82,6 +84,21 @@ public abstract class MessageBusTests {
 
     protected void awaitCaughtUp() {
         buses.forEach(bus -> bus.awaitCaughtUp(CATCH_UP_TIMEOUT));
+    }
+
+    protected abstract List<SpanData> finishedSpans();
+
+    @Test
+    public void consumerOpensAStepSpanNamedAfterTheMessageType() {
+        messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
+
+        publish(messageBus, new OrderPlaced("order-1"));
+
+        awaitCaughtUp();
+        await().atMost(CATCH_UP_TIMEOUT)
+                .untilAsserted(() -> assertThat(finishedSpans())
+                        .extracting(SpanData::getName)
+                        .contains("handle OrderPlaced"));
     }
 
     @Test

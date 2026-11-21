@@ -17,7 +17,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.springframework.amqp.AmqpException;
-import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Message;
@@ -27,19 +26,23 @@ import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.MessagePropertiesBuilder;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.listener.ListenerExecutionFailedException;
+import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
+import org.springframework.amqp.rabbit.config.StatelessRetryOperationsInterceptor;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitOperations;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
+import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.rabbit.support.RabbitExceptionTranslator;
 import org.springframework.amqp.support.converter.DefaultClassMapper;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.SmartLifecycle;
+import org.springframework.core.retry.RetryPolicy;
 import org.springframework.util.backoff.BackOff;
-import org.springframework.util.backoff.BackOffExecution;
 
 public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoCloseable {
     public static final String TYPE_ID = DefaultClassMapper.DEFAULT_CLASSID_FIELD_NAME;
@@ -97,7 +100,7 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
 
         this.template = publisher(connectionFactory, applicationContext, false);
         this.mandatoryTemplate = publisher(connectionFactory, applicationContext, true);
-        this.router = routerFor(routes);
+        this.router = new MessageRouter(List.copyOf(routes));
 
         channels.forEach(this::declare);
         queues.forEach(this::declare);
@@ -254,16 +257,11 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
                 return;
             }
 
-            var backOff = failures.backOff().start();
-
-            while (true) {
-                try {
-                    handle(queue, amqpMessage);
-                    return;
-                } catch (RuntimeException error) {
-                    var interval = nextAttemptIn(queue, amqpMessage, backOff, error);
-                    pause(interval, error);
-                }
+            try {
+                handle(queue, amqpMessage);
+            } catch (RuntimeException error) {
+                throw new ListenerExecutionFailedException(
+                        "The handler of queue %s failed".formatted(queue), error, amqpMessage);
             }
         };
     }
@@ -283,18 +281,23 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
         }
     }
 
-    private long nextAttemptIn(String queue, Message amqpMessage, BackOffExecution backOff, RuntimeException error) {
-        var typeName = amqpMessage.getMessageProperties().<String>getHeader(TYPE_ID);
-        var decision = failures.strategy().onFailure(typeNameOf(typeName), readMessage(amqpMessage), error);
-        var interval =
-                decision == MessageFailureStrategy.Decision.RETRY ? backOff.nextBackOff() : BackOffExecution.STOP;
+    private boolean shouldRetry(Throwable error) {
+        var failed = error instanceof ListenerExecutionFailedException failure
+                ? Optional.ofNullable(failure.getFailedMessage())
+                : Optional.<Message>empty();
 
-        if (interval == BackOffExecution.STOP) throw deadLetter(queue, typeName, error);
-
-        return interval;
+        return failures.strategy()
+                        .onFailure(
+                                typeNameOf(
+                                        failed.map(RabbitMQMessageBus::typeIdOf).orElse(null)),
+                                failed.flatMap(this::readMessage),
+                                error)
+                == MessageFailureStrategy.Decision.RETRY;
     }
 
-    private AmqpRejectAndDontRequeueException deadLetter(String queue, String typeName, RuntimeException error) {
+    private void deadLetter(String queue, Message amqpMessage, Throwable error) {
+        var typeName = typeIdOf(amqpMessage);
+
         failures.meters()
                 .counter(
                         DEAD_LETTERED,
@@ -306,7 +309,11 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
                         queue)
                 .increment();
 
-        return new AmqpRejectAndDontRequeueException("The message is dead-lettered from queue " + queue, error);
+        new RejectAndDontRequeueRecoverer().recover(amqpMessage, error);
+    }
+
+    private static String typeIdOf(Message amqpMessage) {
+        return amqpMessage.getMessageProperties().getHeader(TYPE_ID);
     }
 
     private Optional<Object> readMessage(Message amqpMessage) {
@@ -321,25 +328,27 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
         return Objects.requireNonNullElse(typeName, UnreadableMessageException.UNKNOWN_TYPE);
     }
 
-    private static void pause(long interval, RuntimeException error) {
-        try {
-            Thread.sleep(interval);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw error;
-        }
-    }
-
     private SimpleMessageListenerContainer createContainer(String queue) {
         var container = new SimpleMessageListenerContainer(connectionFactory);
         container.setQueueNames(queue);
         container.setMessageListener(queueListener(queue));
+        container.setAdviceChain(retryOf(queue));
         container.setApplicationContext(applicationContext);
         container.setObservationEnabled(true);
         container.setAutoDeclare(false);
         container.setMissingQueuesFatal(false);
         if (running) container.start();
         return container;
+    }
+
+    private StatelessRetryOperationsInterceptor retryOf(String queue) {
+        return RetryInterceptorBuilder.stateless()
+                .retryPolicy(RetryPolicy.builder()
+                        .backOff(failures.backOff())
+                        .predicate(this::shouldRetry)
+                        .build())
+                .recoverer((amqpMessage, error) -> deadLetter(queue, amqpMessage, error))
+                .build();
     }
 
     private Message amqpMessageOf(Object message, MessageValues values) {
@@ -437,9 +446,5 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
 
     private static boolean isMandatory(String channel) {
         return MANDATORY_CHANNEL_SUFFIXES.stream().anyMatch(channel::endsWith);
-    }
-
-    private static MessageRouter routerFor(List<MessageRoutes> routes) {
-        return new MessageRouter(List.copyOf(routes), message -> new RoutingTarget(null, null));
     }
 }

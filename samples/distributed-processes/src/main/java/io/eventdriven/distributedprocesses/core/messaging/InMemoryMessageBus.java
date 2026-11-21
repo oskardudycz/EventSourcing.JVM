@@ -25,7 +25,7 @@ public class InMemoryMessageBus implements MessageBus {
             List<MessageChannel> channels,
             List<MessageQueue> queues) {
         this.context = context;
-        this.router = routerFor(routes);
+        this.router = new MessageRouter(List.copyOf(routes));
         channels.forEach(channel -> this.channels.add(channel.name()));
         queues.forEach(queue -> bindings.computeIfAbsent(queue.channel(), ignored -> new ArrayList<>())
                 .add(new Binding(queue.name(), queue.routingPattern())));
@@ -47,7 +47,9 @@ public class InMemoryMessageBus implements MessageBus {
                         .get(message.getClass().getTypeName());
 
                 if (handlers != null)
-                    try (var _ = context.handling(values.messageId(), values.correlationId())) {
+                    try (var _ = context.publishing(values);
+                            var _ = context.consuming(
+                                    "handle " + message.getClass().getSimpleName(), values.messageId())) {
                         for (var handle : handlers) {
                             handle.accept(message);
                         }
@@ -69,8 +71,4 @@ public class InMemoryMessageBus implements MessageBus {
     }
 
     public void awaitCaughtUp(Duration timeout) {}
-
-    private static MessageRouter routerFor(List<MessageRoutes> routes) {
-        return new MessageRouter(List.copyOf(routes), message -> new RoutingTarget(null, null));
-    }
 }

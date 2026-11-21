@@ -133,7 +133,7 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
         this.template.setObservationEnabled(true);
         this.template.setObservationRegistry(observations);
         this.routingTemplate = routingTemplate;
-        this.router = routerFor(routes);
+        this.router = new MessageRouter(List.copyOf(routes));
 
         channels.forEach(this::declare);
         queues.forEach(this::declare);
@@ -156,7 +156,9 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
                 serializer,
                 publishTimeout,
                 failures,
-                new KafkaTemplate<>(producerFactory(bootstrapServers, publishTimeout)),
+                new KafkaTemplate<>(
+                        producerFactory(bootstrapServers, publishTimeout),
+                        Map.of(ProducerConfig.CLIENT_ID_CONFIG, "routing")),
                 routes,
                 channels,
                 queues);
@@ -255,6 +257,7 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     public void close() {
         stop();
         producerFactory.destroy();
+        routingTemplate.destroy();
     }
 
     private void declare(MessageChannel channel) {
@@ -339,7 +342,7 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
                                     "message.type",
                                     knownTypeNameOf(record),
                                     "messaging.destination.name",
-                                    record.topic())
+                                    queue)
                             .increment();
                 },
                 failures.backOff());
@@ -506,9 +509,5 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
 
     private static byte[] bytesOf(String value) {
         return value.getBytes(StandardCharsets.UTF_8);
-    }
-
-    private static MessageRouter routerFor(List<MessageRoutes> routes) {
-        return new MessageRouter(List.copyOf(routes), message -> new RoutingTarget(null, null));
     }
 }

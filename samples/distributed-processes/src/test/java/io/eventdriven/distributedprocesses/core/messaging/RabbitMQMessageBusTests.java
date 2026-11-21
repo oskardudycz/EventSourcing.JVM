@@ -2,7 +2,6 @@ package io.eventdriven.distributedprocesses.core.messaging;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.awaitility.Awaitility.await;
 
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrdersConfig;
@@ -184,19 +183,6 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
         assertThat(properties.<String>getHeader(RabbitMQMessageBus.TYPE_ID)).isEqualTo("test.OrderPlaced");
         assertThat(properties.getReceivedDeliveryMode()).isEqualTo(MessageDeliveryMode.PERSISTENT);
         assertThat(properties.getContentType()).isEqualTo(MessageProperties.CONTENT_TYPE_JSON);
-    }
-
-    @Test
-    public void consumerOpensAStepSpanNamedAfterTheMessageType() {
-        messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
-
-        publish(messageBus, new OrderPlaced("order-1"));
-
-        awaitCaughtUp();
-        await().atMost(Duration.ofSeconds(30))
-                .untilAsserted(() -> assertThat(spans.getFinishedSpanItems())
-                        .extracting(span -> span.getName())
-                        .contains("handle OrderPlaced"));
     }
 
     @Test
