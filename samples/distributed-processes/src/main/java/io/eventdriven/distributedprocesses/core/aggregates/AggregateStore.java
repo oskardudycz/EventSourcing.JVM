@@ -4,16 +4,22 @@ import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
-import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
+import java.time.Duration;
 import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.springframework.core.retry.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
 
 public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, Id> {
-    private static final int maxAttempts = 3;
+    private static final RetryTemplate retry = new RetryTemplate(RetryPolicy.builder()
+            .includes(ConcurrentModificationException.class)
+            .maxRetries(2)
+            .delay(Duration.ZERO)
+            .build());
 
     private final EventStore eventStore;
     private final Function<Id, String> mapToStreamId;
@@ -33,18 +39,12 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
     }
 
     public ETag getAndUpdate(Id id, Consumer<Entity> handle) {
-        return getAndUpdate(id, handle, ignored -> () -> {});
-    }
+        return retry.invoke(() -> {
+            var events = eventsOf(id);
+            var entity = events.isEmpty() ? getEmpty.get() : replay(events);
 
-    public ETag getAndUpdateContinuingTrace(Id id, Object command, Consumer<Entity> handle) {
-        var stepName = "handle %s".formatted(command.getClass().getSimpleName());
-
-        return getAndUpdate(
-                id,
-                handle,
-                events -> events.isEmpty()
-                        ? () -> {}
-                        : eventStore.continueTraceOf(stepName, events.getLast().metadata()));
+            return update(id, entity, toExpectedVersion(entity.version), handle);
+        });
     }
 
     public ETag getAndUpdate(Id id, ExpectedStreamVersion expectedVersion, Consumer<Entity> handle) {
@@ -76,20 +76,6 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
 
     private static ExpectedStreamVersion toExpectedVersion(long version) {
         return version < 0 ? ExpectedStreamVersion.noStream() : ExpectedStreamVersion.at(version);
-    }
-
-    private ETag getAndUpdate(
-            Id id, Consumer<Entity> handle, Function<List<EventEnvelope<Object>>, MessageContext.Scope> scopeOf) {
-        for (var attempt = 1; ; attempt++) {
-            var events = eventsOf(id);
-            var entity = events.isEmpty() ? getEmpty.get() : replay(events);
-
-            try (var _ = scopeOf.apply(events)) {
-                return update(id, entity, toExpectedVersion(entity.version), handle);
-            } catch (ConcurrentModificationException e) {
-                if (attempt == maxAttempts) throw e;
-            }
-        }
     }
 
     private List<EventEnvelope<Object>> eventsOf(Id id) {

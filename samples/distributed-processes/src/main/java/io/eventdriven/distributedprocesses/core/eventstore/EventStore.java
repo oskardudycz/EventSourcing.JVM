@@ -1,8 +1,6 @@
 package io.eventdriven.distributedprocesses.core.eventstore;
 
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
-import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
-import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -14,8 +12,6 @@ public interface EventStore {
     AppendResult append(String streamId, ExpectedStreamVersion expectedVersion, Object... events);
 
     Subscription subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler);
-
-    MessageContext.Scope continueTraceOf(String stepName, EventMetadata lastEvent);
 
     sealed interface ReadResult {
         record Success(List<EventEnvelope<Object>> events) implements ReadResult {}

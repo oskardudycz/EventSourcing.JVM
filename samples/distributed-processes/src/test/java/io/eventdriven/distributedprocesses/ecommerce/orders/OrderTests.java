@@ -1,17 +1,19 @@
 package io.eventdriven.distributedprocesses.ecommerce.orders;
 
+import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.*;
 
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
-import io.eventdriven.testing.AggregateSpecification;
+import io.eventdriven.testing.EventSourcedSpecification;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
-public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderId> {
+public class OrderTests extends EventSourcedSpecification<Order, OrderEvent> {
     private final OrderId orderId = OrderId.of(UUID.randomUUID());
     private final ShoppingCartId cartId = ShoppingCartId.of(UUID.randomUUID());
     private final UUID customerId = UUID.randomUUID();
@@ -46,8 +48,16 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
     private final OrderPaymentRetried paymentRetried =
             new OrderPaymentRetried(orderId, retriedPaymentId, totalPrice, retriedAt);
 
+    private Function<Order, OrderEvent[]> handling(OrderCommand command) {
+        return handling(command, now);
+    }
+
+    private Function<Order, OrderEvent[]> handling(OrderCommand command, OffsetDateTime at) {
+        return current -> new OrderDecider(failedAt -> dueAt, () -> at).handle(command, current);
+    }
+
     protected OrderTests() {
-        super(Order::empty);
+        super(Order::initial, Order::evolve);
     }
 
     @Test
@@ -55,7 +65,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given()
                 // When
-                .when(current -> current.place(orderId, cartId, customerId, productItems, totalPrice, now))
+                .when(handling(new PlaceOrder(orderId, cartId, customerId, productItems, totalPrice)))
                 // Then
                 .then(placed);
     }
@@ -65,7 +75,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed)
                 // When
-                .when(current -> current.place(orderId, cartId, customerId, productItems, totalPrice, now))
+                .when(handling(new PlaceOrder(orderId, cartId, customerId, productItems, totalPrice)))
                 // Then
                 .thenNothing();
     }
@@ -77,7 +87,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed)
                 // When
-                .when(current -> current.recordPaymentAuthorization(paymentId, authorizedAt))
+                .when(handling(new RecordOrderPaymentAuthorization(orderId, paymentId, authorizedAt)))
                 // Then
                 .then(paymentAuthorized);
     }
@@ -87,7 +97,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized)
                 // When
-                .when(current -> current.recordStockReservation(shipmentId, reservedAt))
+                .when(handling(new RecordOrderStockReservation(orderId, shipmentId, reservedAt)))
                 // Then
                 .then(stockReserved, confirmed);
     }
@@ -97,7 +107,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, stockReserved)
                 // When
-                .when(current -> current.recordPaymentAuthorization(paymentId, authorizedAt))
+                .when(handling(new RecordOrderPaymentAuthorization(orderId, paymentId, authorizedAt)))
                 // Then
                 .then(paymentAuthorized, new OrderConfirmed(orderId, paymentId, shipmentId, authorizedAt));
     }
@@ -107,7 +117,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized)
                 // When
-                .when(current -> current.recordPaymentAuthorization(paymentId, authorizedAt))
+                .when(handling(new RecordOrderPaymentAuthorization(orderId, paymentId, authorizedAt)))
                 // Then
                 .thenNothing();
     }
@@ -117,7 +127,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, stockReserved)
                 // When
-                .when(current -> current.recordStockReservation(shipmentId, reservedAt))
+                .when(handling(new RecordOrderStockReservation(orderId, shipmentId, reservedAt)))
                 // Then
                 .thenNothing();
     }
@@ -129,7 +139,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed)
                 // When
-                .when(current -> current.recordPackageSent(carrier, trackingNumber, sentAt))
+                .when(handling(new RecordOrderPackageSent(orderId, carrier, trackingNumber, sentAt)))
                 // Then
                 .then(packageSent, paymentDue);
     }
@@ -139,7 +149,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized)
                 // When
-                .when(current -> current.recordPackageSent(carrier, trackingNumber, sentAt))
+                .when(handling(new RecordOrderPackageSent(orderId, carrier, trackingNumber, sentAt)))
                 // Then
                 .thenNothing();
     }
@@ -149,7 +159,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed, packageSent)
                 // When
-                .when(current -> current.recordPackageSent(carrier, trackingNumber, sentAt))
+                .when(handling(new RecordOrderPackageSent(orderId, carrier, trackingNumber, sentAt)))
                 // Then
                 .thenNothing();
     }
@@ -159,7 +169,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue)
                 // When
-                .when(current -> current.recordPaymentCapture(capturedAt))
+                .when(handling(new RecordOrderPaymentCapture(orderId, paymentId, capturedAt)))
                 // Then
                 .then(paymentCaptured, new OrderCompleted(orderId, capturedAt));
     }
@@ -169,7 +179,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed)
                 // When
-                .when(current -> current.recordPaymentCapture(capturedAt))
+                .when(handling(new RecordOrderPaymentCapture(orderId, paymentId, capturedAt)))
                 // Then
                 .thenNothing();
     }
@@ -179,7 +189,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized)
                 // When
-                .when(current -> current.recordPaymentCapture(capturedAt))
+                .when(handling(new RecordOrderPaymentCapture(orderId, paymentId, capturedAt)))
                 // Then
                 .thenNothing();
     }
@@ -191,7 +201,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed)
                 // When
-                .when(current -> current.recordPaymentFailure(authorizedAt, dueAt))
+                .when(handling(new RecordOrderPaymentFailure(orderId, paymentId, authorizedAt)))
                 // Then
                 .then(new OrderPaymentFailed(orderId, authorizedAt, dueAt));
     }
@@ -201,7 +211,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, stockReserved)
                 // When
-                .when(current -> current.recordPaymentFailure(authorizedAt, dueAt))
+                .when(handling(new RecordOrderPaymentFailure(orderId, paymentId, authorizedAt)))
                 // Then
                 .then(new OrderPaymentFailed(orderId, authorizedAt, dueAt));
     }
@@ -211,7 +221,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed)
                 // When
-                .when(current -> current.recordPaymentFailure(sentAt, dueAt))
+                .when(handling(new RecordOrderPaymentFailure(orderId, paymentId, sentAt)))
                 // Then
                 .then(
                         new OrderPaymentFailed(orderId, sentAt, dueAt),
@@ -230,8 +240,8 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized)
                 // When
-                .when(current ->
-                        current.recordShipmentFailure(OrderCancellationReason.ProductWasOutOfStock, reservedAt))
+                .when(handling(new RecordOrderShipmentFailure(
+                        orderId, OrderCancellationReason.ProductWasOutOfStock, reservedAt)))
                 // Then
                 .then(
                         new OrderShipmentFailed(orderId, OrderCancellationReason.ProductWasOutOfStock, reservedAt),
@@ -250,14 +260,14 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, new OrderPaymentFailed(orderId, authorizedAt, dueAt))
                 // When
-                .when(current ->
-                        current.recordShipmentFailure(OrderCancellationReason.ProductWasOutOfStock, reservedAt))
+                .when(handling(new RecordOrderShipmentFailure(
+                        orderId, OrderCancellationReason.ProductWasOutOfStock, reservedAt)))
                 // Then
                 .then(
                         new OrderShipmentFailed(orderId, OrderCancellationReason.ProductWasOutOfStock, reservedAt),
                         new OrderCanceled(
                                 orderId,
-                                null,
+                                paymentId,
                                 OrderPaymentStatus.NotAuthorized,
                                 null,
                                 OrderShipmentStatus.NotReserved,
@@ -270,7 +280,8 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed, packageSent)
                 // When
-                .when(current -> current.recordShipmentFailure(OrderCancellationReason.ProductWasOutOfStock, sentAt))
+                .when(handling(
+                        new RecordOrderShipmentFailure(orderId, OrderCancellationReason.ProductWasOutOfStock, sentAt)))
                 // Then
                 .thenNothing();
     }
@@ -280,7 +291,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed, packageSent)
                 // When
-                .when(current -> current.recordPaymentFailure(capturedAt, dueAt))
+                .when(handling(new RecordOrderPaymentFailure(orderId, paymentId, capturedAt)))
                 // Then
                 .then(new OrderPaymentFailed(orderId, capturedAt, dueAt));
     }
@@ -290,7 +301,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, latePaymentFailure)
                 // When
-                .when(current -> current.recordPaymentCapture(capturedAt))
+                .when(handling(new RecordOrderPaymentCapture(orderId, paymentId, capturedAt)))
                 // Then
                 .thenNothing();
     }
@@ -300,7 +311,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentCaptured)
                 // When
-                .when(current -> current.recordPaymentFailure(capturedAt, dueAt))
+                .when(handling(new RecordOrderPaymentFailure(orderId, paymentId, capturedAt)))
                 // Then
                 .thenNothing();
     }
@@ -310,11 +321,11 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed)
                 // When
-                .when(current -> current.cancel(OrderCancellationReason.Requested, now))
+                .when(handling(new CancelOrder(orderId, OrderCancellationReason.Requested), now))
                 // Then
                 .then(new OrderCanceled(
                         orderId,
-                        null,
+                        paymentId,
                         OrderPaymentStatus.NotAuthorized,
                         null,
                         OrderShipmentStatus.NotReserved,
@@ -327,7 +338,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized)
                 // When
-                .when(current -> current.cancel(OrderCancellationReason.Requested, now))
+                .when(handling(new CancelOrder(orderId, OrderCancellationReason.Requested), now))
                 // Then
                 .then(new OrderCanceled(
                         orderId,
@@ -344,7 +355,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed)
                 // When
-                .when(current -> current.cancel(OrderCancellationReason.Requested, now))
+                .when(handling(new CancelOrder(orderId, OrderCancellationReason.Requested), now))
                 // Then
                 .thenNothing();
     }
@@ -354,7 +365,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed, packageSent)
                 // When
-                .when(current -> current.cancel(OrderCancellationReason.Requested, now))
+                .when(handling(new CancelOrder(orderId, OrderCancellationReason.Requested), now))
                 // Then
                 .thenNothing();
     }
@@ -372,7 +383,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         paymentCaptured,
                         new OrderCompleted(orderId, capturedAt))
                 // When
-                .when(current -> current.cancel(OrderCancellationReason.Requested, now))
+                .when(handling(new CancelOrder(orderId, OrderCancellationReason.Requested), now))
                 // Then
                 .thenNothing();
     }
@@ -386,14 +397,14 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         new OrderPaymentFailed(orderId, authorizedAt, dueAt),
                         new OrderCanceled(
                                 orderId,
-                                null,
+                                paymentId,
                                 OrderPaymentStatus.NotAuthorized,
                                 null,
                                 OrderShipmentStatus.NotReserved,
                                 OrderCancellationReason.PaymentFailed,
                                 authorizedAt))
                 // When
-                .when(current -> current.recordPaymentAuthorization(paymentId, authorizedAt))
+                .when(handling(new RecordOrderPaymentAuthorization(orderId, paymentId, authorizedAt)))
                 // Then
                 .thenNothing();
     }
@@ -403,7 +414,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed)
                 // When
-                .when(current -> current.recordShipmentFailure(OrderCancellationReason.CouldNotShip, sentAt))
+                .when(handling(new RecordOrderShipmentFailure(orderId, OrderCancellationReason.CouldNotShip, sentAt)))
                 // Then
                 .then(
                         new OrderShipmentFailed(orderId, OrderCancellationReason.CouldNotShip, sentAt),
@@ -424,7 +435,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, latePaymentFailure)
                 // When
-                .when(current -> current.retryPayment(retriedAt))
+                .when(handling(new RetryOrderPayment(orderId), retriedAt))
                 // Then
                 .then(paymentRetried);
     }
@@ -434,7 +445,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue)
                 // When
-                .when(current -> current.retryPayment(retriedAt))
+                .when(handling(new RetryOrderPayment(orderId), retriedAt))
                 // Then
                 .thenNothing();
     }
@@ -444,7 +455,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, stockReserved, unpaid)
                 // When
-                .when(current -> current.retryPayment(retriedAt))
+                .when(handling(new RetryOrderPayment(orderId), retriedAt))
                 // Then
                 .then(paymentRetried);
     }
@@ -457,14 +468,14 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         unpaid,
                         new OrderCanceled(
                                 orderId,
-                                null,
+                                paymentId,
                                 OrderPaymentStatus.NotAuthorized,
                                 null,
                                 OrderShipmentStatus.NotReserved,
                                 OrderCancellationReason.Requested,
                                 retriedAt))
                 // When
-                .when(current -> current.retryPayment(retriedAt))
+                .when(handling(new RetryOrderPayment(orderId), retriedAt))
                 // Then
                 .thenNothing();
     }
@@ -474,7 +485,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, stockReserved, unpaid, paymentRetried)
                 // When
-                .when(current -> current.recordPaymentAuthorization(retriedPaymentId, retriedAt))
+                .when(handling(new RecordOrderPaymentAuthorization(orderId, retriedPaymentId, retriedAt)))
                 // Then
                 .then(
                         new OrderPaymentAuthorized(orderId, retriedPaymentId, retriedAt),
@@ -486,7 +497,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, stockReserved, unpaid, paymentRetried)
                 // When
-                .when(current -> current.recordPaymentAuthorization(paymentId, retriedAt))
+                .when(handling(new RecordOrderPaymentAuthorization(orderId, paymentId, retriedAt)))
                 // Then
                 .thenNothing();
     }
@@ -496,7 +507,8 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, unpaid, paymentRetried)
                 // When
-                .when(current -> current.recordShipmentFailure(OrderCancellationReason.ProductWasOutOfStock, retriedAt))
+                .when(handling(new RecordOrderShipmentFailure(
+                        orderId, OrderCancellationReason.ProductWasOutOfStock, retriedAt)))
                 // Then
                 .then(new OrderShipmentFailed(orderId, OrderCancellationReason.ProductWasOutOfStock, retriedAt));
     }
@@ -510,7 +522,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         paymentRetried,
                         new OrderShipmentFailed(orderId, OrderCancellationReason.ProductWasOutOfStock, retriedAt))
                 // When
-                .when(current -> current.recordPaymentAuthorization(retriedPaymentId, retriedAt))
+                .when(handling(new RecordOrderPaymentAuthorization(orderId, retriedPaymentId, retriedAt)))
                 // Then
                 .then(
                         new OrderPaymentAuthorized(orderId, retriedPaymentId, retriedAt),
@@ -537,7 +549,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         latePaymentFailure,
                         paymentRetried)
                 // When
-                .when(current -> current.retryPayment(retriedAt))
+                .when(handling(new RetryOrderPayment(orderId), retriedAt))
                 // Then
                 .thenNothing();
     }
@@ -555,7 +567,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         latePaymentFailure,
                         paymentRetried)
                 // When
-                .when(current -> current.recordPaymentAuthorization(retriedPaymentId, retriedAt))
+                .when(handling(new RecordOrderPaymentAuthorization(orderId, retriedPaymentId, retriedAt)))
                 // Then
                 .then(
                         new OrderPaymentAuthorized(orderId, retriedPaymentId, retriedAt),
@@ -575,7 +587,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         latePaymentFailure,
                         paymentRetried)
                 // When
-                .when(current -> current.recordPaymentAuthorization(paymentId, retriedAt))
+                .when(handling(new RecordOrderPaymentAuthorization(orderId, paymentId, retriedAt)))
                 // Then
                 .thenNothing();
     }
@@ -595,7 +607,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         new OrderPaymentAuthorized(orderId, retriedPaymentId, retriedAt),
                         new OrderPaymentDue(orderId, retriedPaymentId, retriedAt))
                 // When
-                .when(current -> current.recordPaymentCapture(retriedAt))
+                .when(handling(new RecordOrderPaymentCapture(orderId, retriedPaymentId, retriedAt)))
                 // Then
                 .then(
                         new OrderPaymentCaptured(orderId, retriedPaymentId, totalPrice, retriedAt),
@@ -615,7 +627,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         latePaymentFailure,
                         paymentRetried)
                 // When
-                .when(current -> current.recordPaymentFailure(retriedAt, dueAt))
+                .when(handling(new RecordOrderPaymentFailure(orderId, retriedPaymentId, retriedAt)))
                 // Then
                 .then(new OrderPaymentFailed(orderId, retriedAt, dueAt));
     }
@@ -633,9 +645,64 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         latePaymentFailure,
                         paymentRetried)
                 // When
-                .when(current -> current.recordPaymentFailure(retriedAt, dueAt.plusDays(14)))
+                .when(current -> new OrderDecider(failedAt -> dueAt.plusDays(14), () -> now)
+                        .handle(new RecordOrderPaymentFailure(orderId, retriedPaymentId, retriedAt), current))
                 // Then
                 .then(new OrderPaymentFailed(orderId, retriedAt, dueAt));
+    }
+
+    @Test
+    public void aRepeatedFailureOfTheFirstPaymentDuringTheRetryRecordsNothing() {
+        // Given
+        given(
+                        placed,
+                        paymentAuthorized,
+                        stockReserved,
+                        confirmed,
+                        packageSent,
+                        paymentDue,
+                        latePaymentFailure,
+                        paymentRetried)
+                // When
+                .when(handling(new RecordOrderPaymentFailure(orderId, paymentId, retriedAt)))
+                // Then
+                .thenNothing();
+    }
+
+    @Test
+    public void aFailureOfTheFirstPaymentAfterTheSecondConfirmedTheOrderRecordsNothing() {
+        // Given
+        given(
+                        placed,
+                        stockReserved,
+                        unpaid,
+                        paymentRetried,
+                        new OrderPaymentAuthorized(orderId, retriedPaymentId, retriedAt),
+                        new OrderConfirmed(orderId, retriedPaymentId, shipmentId, retriedAt))
+                // When
+                .when(handling(new RecordOrderPaymentFailure(orderId, paymentId, retriedAt)))
+                // Then
+                .thenNothing();
+    }
+
+    @Test
+    public void aCaptureOfTheFirstPaymentWhileTheSecondIsCurrentRecordsNothing() {
+        // Given
+        given(
+                        placed,
+                        paymentAuthorized,
+                        stockReserved,
+                        confirmed,
+                        packageSent,
+                        paymentDue,
+                        latePaymentFailure,
+                        paymentRetried,
+                        new OrderPaymentAuthorized(orderId, retriedPaymentId, retriedAt),
+                        new OrderPaymentDue(orderId, retriedPaymentId, retriedAt))
+                // When
+                .when(handling(new RecordOrderPaymentCapture(orderId, paymentId, retriedAt)))
+                // Then
+                .thenNothing();
     }
 
     @Test
@@ -652,7 +719,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         paymentRetried,
                         new OrderPaymentFailed(orderId, retriedAt, dueAt))
                 // When
-                .when(current -> current.retryPayment(retriedAt))
+                .when(handling(new RetryOrderPayment(orderId), retriedAt))
                 // Then
                 .then(new OrderPaymentRetried(
                         orderId, PaymentId.derivedFrom(orderId.value(), 3), totalPrice, retriedAt));
@@ -663,7 +730,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, latePaymentFailure)
                 // When
-                .when(current -> current.closeUnpaid(closedAt))
+                .when(handling(new CloseUnpaidOrder(orderId), closedAt))
                 // Then
                 .then(new OrderClosedUnpaid(orderId, closedAt));
     }
@@ -673,7 +740,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue, latePaymentFailure)
                 // When
-                .when(current -> current.closeUnpaid(dueAt.minusMinutes(1)))
+                .when(handling(new CloseUnpaidOrder(orderId), dueAt.minusMinutes(1)))
                 // Then
                 .thenNothing();
     }
@@ -683,11 +750,11 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, stockReserved, unpaid)
                 // When
-                .when(current -> current.closeUnpaid(dueAt))
+                .when(handling(new CloseUnpaidOrder(orderId), dueAt))
                 // Then
                 .then(new OrderCanceled(
                         orderId,
-                        null,
+                        paymentId,
                         OrderPaymentStatus.NotAuthorized,
                         shipmentId,
                         OrderShipmentStatus.Reserved,
@@ -700,7 +767,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, stockReserved, unpaid)
                 // When
-                .when(current -> current.closeUnpaid(dueAt.minusMinutes(1)))
+                .when(handling(new CloseUnpaidOrder(orderId), dueAt.minusMinutes(1)))
                 // Then
                 .thenNothing();
     }
@@ -710,7 +777,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, stockReserved, unpaid, paymentRetried)
                 // When
-                .when(current -> current.closeUnpaid(dueAt))
+                .when(handling(new CloseUnpaidOrder(orderId), dueAt))
                 // Then
                 .then(new OrderCanceled(
                         orderId,
@@ -727,11 +794,11 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, stockReserved, unpaid)
                 // When
-                .when(current -> current.cancel(OrderCancellationReason.Requested, retriedAt))
+                .when(handling(new CancelOrder(orderId, OrderCancellationReason.Requested), retriedAt))
                 // Then
                 .then(new OrderCanceled(
                         orderId,
-                        null,
+                        paymentId,
                         OrderPaymentStatus.NotAuthorized,
                         shipmentId,
                         OrderShipmentStatus.Reserved,
@@ -752,7 +819,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         latePaymentFailure,
                         paymentRetried)
                 // When
-                .when(current -> current.closeUnpaid(dueAt.minusMinutes(1)))
+                .when(handling(new CloseUnpaidOrder(orderId), dueAt.minusMinutes(1)))
                 // Then
                 .thenNothing();
     }
@@ -770,7 +837,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         latePaymentFailure,
                         paymentRetried)
                 // When
-                .when(current -> current.closeUnpaid(closedAt))
+                .when(handling(new CloseUnpaidOrder(orderId), closedAt))
                 // Then
                 .then(new OrderClosedUnpaid(orderId, closedAt));
     }
@@ -780,7 +847,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
         // Given
         given(placed, paymentAuthorized, stockReserved, confirmed, packageSent, paymentDue)
                 // When
-                .when(current -> current.closeUnpaid(closedAt))
+                .when(handling(new CloseUnpaidOrder(orderId), closedAt))
                 // Then
                 .thenNothing();
     }
@@ -798,7 +865,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         paymentCaptured,
                         new OrderCompleted(orderId, capturedAt))
                 // When
-                .when(current -> current.closeUnpaid(closedAt))
+                .when(handling(new CloseUnpaidOrder(orderId), closedAt))
                 // Then
                 .thenNothing();
     }
@@ -817,7 +884,7 @@ public class OrderTests extends AggregateSpecification<Order, OrderEvent, OrderI
                         paymentRetried,
                         new OrderClosedUnpaid(orderId, closedAt))
                 // When
-                .when(current -> current.recordPaymentAuthorization(retriedPaymentId, closedAt))
+                .when(handling(new RecordOrderPaymentAuthorization(orderId, retriedPaymentId, closedAt)))
                 // Then
                 .thenNothing();
     }

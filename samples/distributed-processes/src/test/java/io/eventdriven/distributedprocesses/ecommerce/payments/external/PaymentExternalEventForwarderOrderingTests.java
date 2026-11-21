@@ -89,7 +89,12 @@ public class PaymentExternalEventForwarderOrderingTests {
         paymentsConfig.captureGatewayClient(eventStore, paymentGateway, messageBus);
         paymentsConfig.authorizationGatewayClient(eventStore, paymentGateway);
         paymentsConfig.paymentFacade(
-                eventStore, messageBus, paymentGateway, PaymentValidity.of(paymentTimeout), () -> now);
+                eventStore,
+                TestTracing.untraced(),
+                messageBus,
+                paymentGateway,
+                PaymentValidity.of(paymentTimeout),
+                () -> now);
     }
 
     // Grants the capture straight away and writes down every call in the shared transcript.

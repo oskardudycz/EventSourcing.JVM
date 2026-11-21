@@ -5,17 +5,17 @@
     "orderId": {
       "title": "OrderId",
       "type": "string",
-      "x-parser-schema-id": "<anonymous-schema-24>"
+      "x-parser-schema-id": "<anonymous-schema-26>"
     },
     "reservedAt": {
       "type": "string",
       "format": "date-time",
-      "x-parser-schema-id": "<anonymous-schema-25>"
+      "x-parser-schema-id": "<anonymous-schema-27>"
     },
     "shipmentId": {
       "title": "ShipmentId",
       "type": "string",
-      "x-parser-schema-id": "<anonymous-schema-26>"
+      "x-parser-schema-id": "<anonymous-schema-28>"
     }
   },
   "description": "Records that the warehouse set aside the order's products.",

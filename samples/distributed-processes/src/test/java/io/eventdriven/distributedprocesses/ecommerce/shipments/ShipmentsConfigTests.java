@@ -1,11 +1,13 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.*;
+import static io.eventdriven.testing.ProjectionsDatabase.H2;
 
 import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentSummaryRepository;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.CallingBackFulfillmentService;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.FulfillmentService;
 import io.eventdriven.testing.MessageCatcher;
@@ -78,8 +80,9 @@ public class ShipmentsConfigTests {
         });
 
         var shipmentsConfig = new ShipmentsConfig();
-        shipmentsConfig.shipmentFacade(eventStore, messageBus, isProductAvailable, () -> now);
-        shipmentsConfig.shipmentExternalEventForwarder(eventStore, messageBus);
+        shipmentsConfig.shipmentFacade(eventStore, TestTracing.untraced(), messageBus, isProductAvailable, () -> now);
+        var shipmentSummaries = shipmentsConfig.shipmentSummaries(eventStore, H2.bean(ShipmentSummaryRepository.class));
+        shipmentsConfig.shipmentExternalEventForwarder(eventStore, shipmentSummaries, messageBus);
         shipmentsConfig.fulfillmentServiceClient(eventStore, fulfillmentService);
     }
 }

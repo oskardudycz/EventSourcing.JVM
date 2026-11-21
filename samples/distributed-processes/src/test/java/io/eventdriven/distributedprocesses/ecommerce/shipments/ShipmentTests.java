@@ -1,18 +1,22 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments;
 
+import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
-import io.eventdriven.testing.AggregateSpecification;
+import io.eventdriven.testing.EventSourcedSpecification;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
-public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEvent, ShipmentId> {
-    private final ShipmentId shipmentId = ShipmentId.of(UUID.randomUUID());
+public class ShipmentTests extends EventSourcedSpecification<Shipment, ShipmentEvent> {
     private final String referenceId = Urns.of("ecommerce", "order", UUID.randomUUID());
+    private final ShipmentId shipmentId = ShipmentId.derivedFrom(referenceId);
     private final ProductItem availableItem = new ProductItem(UUID.randomUUID(), 2);
     private final ProductItem unavailableItem = new ProductItem(UUID.randomUUID(), 1);
     private final ProductItem[] available = new ProductItem[] {availableItem};
@@ -24,13 +28,14 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
     private final String trackingNumber = "JD014600006281234567";
 
     private final StockReserved reserved = new StockReserved(shipmentId, referenceId, available, now);
-    private final FulfillmentRequested fulfillmentRequested =
-            new FulfillmentRequested(shipmentId, referenceId, available, now);
-    private final FulfillmentRejected rejected = new FulfillmentRejected(shipmentId, referenceId, now);
-    private final PackageWasSent sent = new PackageWasSent(shipmentId, referenceId, carrier, trackingNumber, now);
+    private final FulfillmentRequested fulfillmentRequested = new FulfillmentRequested(shipmentId, available, now);
+    private final FulfillmentRejected rejected = new FulfillmentRejected(shipmentId, now);
+    private final PackageWasSent sent = new PackageWasSent(shipmentId, carrier, trackingNumber, now);
+
+    private final ShipmentDecider decider = new ShipmentDecider(isProductAvailable, () -> now);
 
     protected ShipmentTests() {
-        super(Shipment::empty);
+        super(Shipment::initial, Shipment::evolve);
     }
 
     @Test
@@ -38,7 +43,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given()
                 // When
-                .when(reserveStock(available))
+                .when(handling(new ReserveStock(referenceId, available)))
                 // Then
                 .then(reserved);
     }
@@ -48,7 +53,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given()
                 // When
-                .when(reserveStock(partlyAvailable))
+                .when(handling(new ReserveStock(referenceId, partlyAvailable)))
                 // Then
                 .then(new ProductWasOutOfStock(shipmentId, referenceId, partlyAvailable, now));
     }
@@ -58,7 +63,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved)
                 // When
-                .when(reserveStock(available))
+                .when(handling(new ReserveStock(referenceId, available)))
                 // Then
                 .thenNothing();
     }
@@ -68,7 +73,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved)
                 // When
-                .when(current -> current.requestFulfillment(now))
+                .when(handling(new RequestFulfillment(shipmentId)))
                 // Then
                 .then(fulfillmentRequested);
     }
@@ -78,7 +83,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved, fulfillmentRequested)
                 // When
-                .when(current -> current.requestFulfillment(now))
+                .when(handling(new RequestFulfillment(shipmentId)))
                 // Then
                 .thenNothing();
     }
@@ -88,7 +93,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given()
                 // When
-                .when(current -> current.requestFulfillment(now))
+                .when(handling(new RequestFulfillment(shipmentId)))
                 // Then
                 .thenNothing();
     }
@@ -98,7 +103,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved, fulfillmentRequested, sent)
                 // When
-                .when(current -> current.requestFulfillment(now))
+                .when(handling(new RequestFulfillment(shipmentId)))
                 // Then
                 .thenNothing();
     }
@@ -108,7 +113,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved, fulfillmentRequested)
                 // When
-                .when(current -> current.confirmSent(carrier, trackingNumber, now))
+                .when(handling(new ConfirmPackageSent(shipmentId, carrier, trackingNumber)))
                 // Then
                 .then(sent);
     }
@@ -118,7 +123,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved)
                 // When
-                .when(current -> current.confirmSent(carrier, trackingNumber, now))
+                .when(handling(new ConfirmPackageSent(shipmentId, carrier, trackingNumber)))
                 // Then
                 .thenNothing();
     }
@@ -128,7 +133,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved, fulfillmentRequested, sent)
                 // When
-                .when(current -> current.confirmSent(carrier, trackingNumber, now))
+                .when(handling(new ConfirmPackageSent(shipmentId, carrier, trackingNumber)))
                 // Then
                 .thenNothing();
     }
@@ -136,9 +141,9 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
     @Test
     public void confirmingThePackageSentAfterTheStockWasReleasedEmitsNothing() {
         // Given
-        given(reserved, fulfillmentRequested, new StockReleased(shipmentId, referenceId, now))
+        given(reserved, fulfillmentRequested, new StockReleased(shipmentId, now))
                 // When
-                .when(current -> current.confirmSent(carrier, trackingNumber, now))
+                .when(handling(new ConfirmPackageSent(shipmentId, carrier, trackingNumber)))
                 // Then
                 .thenNothing();
     }
@@ -148,9 +153,9 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved, fulfillmentRequested, sent)
                 // When
-                .when(current -> current.deliver(now))
+                .when(handling(new DeliverPackage(shipmentId)))
                 // Then
-                .then(new PackageWasDelivered(shipmentId, referenceId, now));
+                .then(new PackageWasDelivered(shipmentId, now));
     }
 
     @Test
@@ -158,7 +163,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved)
                 // When
-                .when(current -> current.deliver(now))
+                .when(handling(new DeliverPackage(shipmentId)))
                 // Then
                 .thenNothing();
     }
@@ -166,9 +171,9 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
     @Test
     public void deliveringAlreadyDeliveredPackageEmitsNothing() {
         // Given
-        given(reserved, fulfillmentRequested, sent, new PackageWasDelivered(shipmentId, referenceId, now))
+        given(reserved, fulfillmentRequested, sent, new PackageWasDelivered(shipmentId, now))
                 // When
-                .when(current -> current.deliver(now))
+                .when(handling(new DeliverPackage(shipmentId)))
                 // Then
                 .thenNothing();
     }
@@ -178,9 +183,9 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved)
                 // When
-                .when(current -> current.releaseStock(now))
+                .when(handling(new ReleaseStock(shipmentId)))
                 // Then
-                .then(new StockReleased(shipmentId, referenceId, now));
+                .then(new StockReleased(shipmentId, now));
     }
 
     @Test
@@ -188,9 +193,9 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved, fulfillmentRequested)
                 // When
-                .when(current -> current.releaseStock(now))
+                .when(handling(new ReleaseStock(shipmentId)))
                 // Then
-                .then(new StockReleased(shipmentId, referenceId, now));
+                .then(new StockReleased(shipmentId, now));
     }
 
     @Test
@@ -198,7 +203,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved, fulfillmentRequested, sent)
                 // When
-                .when(current -> current.releaseStock(now))
+                .when(handling(new ReleaseStock(shipmentId)))
                 // Then
                 .thenNothing();
     }
@@ -206,9 +211,9 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
     @Test
     public void releasingTwiceEmitsNothing() {
         // Given
-        given(reserved, new StockReleased(shipmentId, referenceId, now))
+        given(reserved, new StockReleased(shipmentId, now))
                 // When
-                .when(current -> current.releaseStock(now))
+                .when(handling(new ReleaseStock(shipmentId)))
                 // Then
                 .thenNothing();
     }
@@ -218,7 +223,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved, fulfillmentRequested)
                 // When
-                .when(current -> current.rejectFulfillment(now))
+                .when(handling(new RejectFulfillment(shipmentId)))
                 // Then
                 .then(rejected);
     }
@@ -228,7 +233,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved)
                 // When
-                .when(current -> current.rejectFulfillment(now))
+                .when(handling(new RejectFulfillment(shipmentId)))
                 // Then
                 .thenNothing();
     }
@@ -238,7 +243,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved, fulfillmentRequested, sent)
                 // When
-                .when(current -> current.rejectFulfillment(now))
+                .when(handling(new RejectFulfillment(shipmentId)))
                 // Then
                 .thenNothing();
     }
@@ -248,7 +253,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved, fulfillmentRequested, rejected)
                 // When
-                .when(current -> current.rejectFulfillment(now))
+                .when(handling(new RejectFulfillment(shipmentId)))
                 // Then
                 .thenNothing();
     }
@@ -258,7 +263,7 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved, fulfillmentRequested, rejected)
                 // When
-                .when(current -> current.confirmSent(carrier, trackingNumber, now))
+                .when(handling(new ConfirmPackageSent(shipmentId, carrier, trackingNumber)))
                 // Then
                 .thenNothing();
     }
@@ -268,12 +273,51 @@ public class ShipmentTests extends AggregateSpecification<Shipment, ShipmentEven
         // Given
         given(reserved, fulfillmentRequested, rejected)
                 // When
-                .when(current -> current.releaseStock(now))
+                .when(handling(new ReleaseStock(shipmentId)))
                 // Then
-                .then(new StockReleased(shipmentId, referenceId, now));
+                .then(new StockReleased(shipmentId, now));
     }
 
-    private java.util.function.Consumer<Shipment> reserveStock(ProductItem[] productItems) {
-        return current -> current.reserveStock(isProductAvailable, shipmentId, referenceId, productItems, now);
+    @Test
+    public void onlyTheReservationEventsStoreTheRequester() {
+        var released = decide(
+                new ReserveStock(referenceId, available),
+                new RequestFulfillment(shipmentId),
+                new RejectFulfillment(shipmentId),
+                new ReleaseStock(shipmentId));
+        var delivered = decide(
+                new ReserveStock(referenceId, available),
+                new RequestFulfillment(shipmentId),
+                new ConfirmPackageSent(shipmentId, carrier, trackingNumber),
+                new DeliverPackage(shipmentId));
+        var outOfStock = decide(new ReserveStock(referenceId, partlyAvailable));
+
+        assertThat(released)
+                .usingRecursiveComparison()
+                .isEqualTo(List.of(reserved, fulfillmentRequested, rejected, new StockReleased(shipmentId, now)));
+        assertThat(delivered)
+                .usingRecursiveComparison()
+                .isEqualTo(List.of(reserved, fulfillmentRequested, sent, new PackageWasDelivered(shipmentId, now)));
+        assertThat(outOfStock)
+                .usingRecursiveComparison()
+                .isEqualTo(List.of(new ProductWasOutOfStock(shipmentId, referenceId, partlyAvailable, now)));
+    }
+
+    private List<ShipmentEvent> decide(ShipmentCommand... commands) {
+        var state = Shipment.initial();
+        var events = new ArrayList<ShipmentEvent>();
+
+        for (var command : commands) {
+            for (var event : decider.handle(command, state)) {
+                events.add(event);
+                state = Shipment.evolve(state, event);
+            }
+        }
+
+        return events;
+    }
+
+    private Function<Shipment, ShipmentEvent[]> handling(ShipmentCommand command) {
+        return current -> decider.handle(command, current);
     }
 }

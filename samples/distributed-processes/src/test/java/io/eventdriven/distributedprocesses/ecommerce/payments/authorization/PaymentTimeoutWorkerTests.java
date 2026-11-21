@@ -64,7 +64,13 @@ public class PaymentTimeoutWorkerTests {
         paymentsConfig.paymentExternalEventForwarder(eventStore, paymentSummaries, messageBus);
         paymentsConfig.captureGatewayClient(eventStore, paymentGateway, messageBus);
         paymentsConfig.authorizationGatewayClient(eventStore, paymentGateway);
-        paymentsConfig.paymentFacade(eventStore, messageBus, paymentGateway, PaymentValidity.of(timeout), clock::get);
+        paymentsConfig.paymentFacade(
+                eventStore,
+                TestTracing.untraced(),
+                messageBus,
+                paymentGateway,
+                PaymentValidity.of(timeout),
+                clock::get);
         worker = paymentsConfig.paymentTimeoutWorker(pendingPayments, messageBus, clock::get);
     }
 

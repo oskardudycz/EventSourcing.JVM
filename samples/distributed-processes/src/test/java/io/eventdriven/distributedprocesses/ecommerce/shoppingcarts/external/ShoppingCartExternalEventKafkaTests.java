@@ -72,7 +72,11 @@ public class ShoppingCartExternalEventKafkaTests {
         var customerShoppingCarts =
                 shoppingCartsConfig.customerShoppingCarts(eventStore, H2.bean(CustomerShoppingCartRepository.class));
         var shoppingCarts = shoppingCartsConfig.shoppingCartFacade(
-                eventStore, customerShoppingCarts, item -> new PricedProductItem(item, 12.5), () -> now);
+                eventStore,
+                messageContext,
+                customerShoppingCarts,
+                item -> new PricedProductItem(item, 12.5),
+                () -> now);
         var shoppingCartSummaries =
                 shoppingCartsConfig.shoppingCartSummaries(eventStore, H2.bean(ShoppingCartSummaryRepository.class));
         shoppingCartsConfig.shoppingCartExternalEventForwarder(eventStore, shoppingCartSummaries, messageBus);
@@ -89,10 +93,8 @@ public class ShoppingCartExternalEventKafkaTests {
     private ShoppingCartId checkOutCartOfNewCustomer(ShoppingCartFacade shoppingCarts) {
         var customerId = UUID.randomUUID();
         var cartId = ShoppingCartId.of(customerId, 1);
-        shoppingCarts.addProductItem(
-                new AddProductItemToShoppingCart(customerId, new ProductItem(UUID.randomUUID(), 2)));
-        shoppingCarts.addProductItem(
-                new AddProductItemToShoppingCart(customerId, new ProductItem(UUID.randomUUID(), 3)));
+        shoppingCarts.addProductItem(customerId, new ProductItem(UUID.randomUUID(), 2));
+        shoppingCarts.addProductItem(customerId, new ProductItem(UUID.randomUUID(), 3));
 
         shoppingCarts.checkOut(new CheckOutShoppingCart(cartId, 1L));
 

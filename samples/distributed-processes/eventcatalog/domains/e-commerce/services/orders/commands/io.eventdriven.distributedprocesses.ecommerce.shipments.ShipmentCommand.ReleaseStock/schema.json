@@ -5,7 +5,7 @@
     "shipmentId": {
       "title": "ShipmentId",
       "type": "string",
-      "x-parser-schema-id": "<anonymous-schema-61>"
+      "x-parser-schema-id": "<anonymous-schema-63>"
     }
   },
   "description": "Puts the products that are set aside back on sale.",

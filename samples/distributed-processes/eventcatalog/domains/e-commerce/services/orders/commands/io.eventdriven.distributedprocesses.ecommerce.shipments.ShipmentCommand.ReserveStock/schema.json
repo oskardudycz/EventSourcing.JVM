@@ -12,12 +12,12 @@
           "productId": {
             "type": "string",
             "format": "uuid",
-            "x-parser-schema-id": "<anonymous-schema-64>"
+            "x-parser-schema-id": "<anonymous-schema-66>"
           },
           "quantity": {
             "type": "integer",
             "format": "int32",
-            "x-parser-schema-id": "<anonymous-schema-65>"
+            "x-parser-schema-id": "<anonymous-schema-67>"
           }
         },
         "examples": [
@@ -28,11 +28,11 @@
         ],
         "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem"
       },
-      "x-parser-schema-id": "<anonymous-schema-63>"
+      "x-parser-schema-id": "<anonymous-schema-65>"
     },
     "referenceId": {
       "type": "string",
-      "x-parser-schema-id": "<anonymous-schema-66>"
+      "x-parser-schema-id": "<anonymous-schema-68>"
     }
   },
   "description": "Asks the warehouse to set aside the products, so that nobody else can buy them.",

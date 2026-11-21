@@ -5,7 +5,7 @@
     "shipmentId": {
       "title": "ShipmentId",
       "type": "string",
-      "x-parser-schema-id": "<anonymous-schema-62>"
+      "x-parser-schema-id": "<anonymous-schema-64>"
     }
   },
   "description": "Asks the fulfillment service to pick, pack and send the products that are set aside.",

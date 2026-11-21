@@ -5,12 +5,12 @@
     "failedAt": {
       "type": "string",
       "format": "date-time",
-      "x-parser-schema-id": "<anonymous-schema-21>"
+      "x-parser-schema-id": "<anonymous-schema-23>"
     },
     "orderId": {
       "title": "OrderId",
       "type": "string",
-      "x-parser-schema-id": "<anonymous-schema-22>"
+      "x-parser-schema-id": "<anonymous-schema-24>"
     },
     "reason": {
       "title": "OrderCancellationReason",
@@ -21,7 +21,7 @@
         "PaymentFailed",
         "Requested"
       ],
-      "x-parser-schema-id": "<anonymous-schema-23>"
+      "x-parser-schema-id": "<anonymous-schema-25>"
     }
   },
   "description": "Records that the order's products cannot ship, and why.",

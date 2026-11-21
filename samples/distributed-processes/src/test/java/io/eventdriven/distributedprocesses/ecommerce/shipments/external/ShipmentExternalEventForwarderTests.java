@@ -1,6 +1,7 @@
 package io.eventdriven.distributedprocesses.ecommerce.shipments.external;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.*;
+import static io.eventdriven.testing.ProjectionsDatabase.H2;
 
 import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
@@ -49,8 +50,9 @@ public class ShipmentExternalEventForwarderTests {
         });
 
         var shipmentsConfig = new ShipmentsConfig();
-        shipmentsConfig.shipmentFacade(eventStore, messageBus, isProductAvailable, () -> now);
-        shipmentsConfig.shipmentExternalEventForwarder(eventStore, messageBus);
+        shipmentsConfig.shipmentFacade(eventStore, TestTracing.untraced(), messageBus, isProductAvailable, () -> now);
+        var shipmentSummaries = shipmentsConfig.shipmentSummaries(eventStore, H2.bean(ShipmentSummaryRepository.class));
+        shipmentsConfig.shipmentExternalEventForwarder(eventStore, shipmentSummaries, messageBus);
         shipmentsConfig.fulfillmentServiceClient(eventStore, new SilentFulfillmentService());
     }
 
@@ -63,6 +65,16 @@ public class ShipmentExternalEventForwarderTests {
 
     @Test
     public void sendingForwardsPackageWasSentWithTheTracking() {
+        requestFulfillment();
+
+        messageBus.publish(List.of(new ConfirmPackageSent(shipmentId, carrier, trackingNumber)));
+
+        externalEvents.shouldReceiveMessages(
+                new ShipmentExternalEvent.PackageWasSent(shipmentId, referenceId, carrier, trackingNumber, now));
+    }
+
+    @Test
+    public void packageWasSentCarriesTheRequesterIdFromTheSummary() {
         requestFulfillment();
 
         messageBus.publish(List.of(new ConfirmPackageSent(shipmentId, carrier, trackingNumber)));

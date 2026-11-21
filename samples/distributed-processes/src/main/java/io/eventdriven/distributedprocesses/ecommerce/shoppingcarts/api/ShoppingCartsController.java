@@ -2,7 +2,6 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.api;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartCommand.*;
 
-import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.CustomerShoppingCarts;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartFacade;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
@@ -12,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.net.URI;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.springframework.http.ETag;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -40,17 +40,17 @@ public class ShoppingCartsController {
     public ResponseEntity<Cart> get(@PathVariable UUID customerId) {
         var cart = carts.get(currentCartOf(customerId)).orElseThrow();
 
-        return ResponseEntity.ok().eTag(ETag.weak(cart.getVersion()).value()).body(cart);
+        return ResponseEntity.ok().eTag(eTagOf(cart.getVersion())).body(cart);
     }
 
     @PostMapping("/product-items")
     @Operation(operationId = "AddProductItemToShoppingCart")
     public ResponseEntity<Void> addProductItem(
             @PathVariable UUID customerId, @RequestBody AddProductItemRequest request) {
-        var eTag = shoppingCarts.addProductItem(
-                new AddProductItemToShoppingCart(customerId, new ProductItem(request.productId(), request.quantity())));
+        var version =
+                shoppingCarts.addProductItem(customerId, new ProductItem(request.productId(), request.quantity()));
 
-        return ResponseEntity.ok().eTag(eTag.value()).build();
+        return ResponseEntity.ok().eTag(eTagOf(version)).build();
     }
 
     @DeleteMapping("/product-items")
@@ -60,10 +60,10 @@ public class ShoppingCartsController {
             @RequestParam UUID productId,
             @RequestParam int quantity,
             @RequestHeader(HttpHeaders.IF_MATCH) String ifMatch) {
-        var eTag = shoppingCarts.removeProductItem(new RemoveProductItemFromShoppingCart(
-                currentCartOf(customerId), new ProductItem(productId, quantity), new ETag(ifMatch).toLong()));
+        var version = shoppingCarts.removeProductItem(new RemoveProductItemFromShoppingCart(
+                currentCartOf(customerId), new ProductItem(productId, quantity), versionOf(ifMatch)));
 
-        return ResponseEntity.ok().eTag(eTag.value()).build();
+        return ResponseEntity.ok().eTag(eTagOf(version)).build();
     }
 
     @PostMapping("/checkout")
@@ -71,17 +71,29 @@ public class ShoppingCartsController {
     public ResponseEntity<?> checkOut(
             @PathVariable UUID customerId, @RequestHeader(HttpHeaders.IF_MATCH) String ifMatch) {
         var cartId = currentCartOf(customerId);
-        var eTag = shoppingCarts.checkOut(new CheckOutShoppingCart(cartId, new ETag(ifMatch).toLong()));
+        var version = shoppingCarts.checkOut(new CheckOutShoppingCart(cartId, versionOf(ifMatch)));
 
         if (!shoppingCarts.isCheckedOut(cartId))
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .eTag(eTag.value())
+                    .eTag(eTagOf(version))
                     .body(ProblemDetail.forStatusAndDetail(
                             HttpStatus.CONFLICT, "Prices changed. Read the cart and check out again."));
 
         return ResponseEntity.accepted()
                 .location(URI.create("/customers/%s/orders/%s".formatted(customerId, cartId.tail())))
                 .build();
+    }
+
+    private static String eTagOf(long version) {
+        return new ETag(String.valueOf(version), true).formattedTag();
+    }
+
+    private static long versionOf(String ifMatch) {
+        var eTags = ETag.parse(ifMatch);
+
+        if (eTags.isEmpty()) throw new IllegalArgumentException("If-Match has no ETag");
+
+        return Long.parseLong(eTags.getFirst().tag());
     }
 
     private ShoppingCartId currentCartOf(UUID customerId) {

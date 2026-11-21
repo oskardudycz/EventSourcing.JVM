@@ -3,12 +3,12 @@ package io.eventdriven.distributedprocesses.ecommerce.api.builders;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import io.eventdriven.distributedprocesses.core.http.ETag;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
+import org.springframework.http.ETag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.client.RestTestClient;
@@ -132,7 +132,7 @@ public class PurchaseRestBuilder {
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
 
-        return new ETag(response.getResponseHeaders().getETag());
+        return ETag.parse(response.getResponseHeaders().getETag()).getFirst();
     }
 
     private String currentCartOf(UUID customerId) {
@@ -152,7 +152,7 @@ public class PurchaseRestBuilder {
         var response = restTestClient
                 .post()
                 .uri(apiUrl("customers/%s/shopping-carts/current/checkout".formatted(customerId)))
-                .header("If-Match", eTag.value())
+                .header("If-Match", eTag.formattedTag())
                 .exchange()
                 .returnResult(Void.class);
 

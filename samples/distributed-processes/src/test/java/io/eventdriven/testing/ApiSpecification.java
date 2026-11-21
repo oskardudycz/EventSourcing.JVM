@@ -2,7 +2,6 @@ package io.eventdriven.testing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.distributedprocesses.core.http.ETag;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -99,7 +98,7 @@ public abstract class ApiSpecification {
     }
 
     HttpHeaders getIfMatchHeader(ETag eTag) {
-        return getHeaders(headers -> headers.setIfMatch(eTag.value()));
+        return getHeaders(headers -> headers.setIfMatch(eTag.formattedTag()));
     }
 
     ///////////////////

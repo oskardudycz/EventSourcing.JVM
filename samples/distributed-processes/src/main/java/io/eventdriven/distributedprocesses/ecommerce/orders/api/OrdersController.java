@@ -2,12 +2,12 @@ package io.eventdriven.distributedprocesses.ecommerce.orders.api;
 
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.CancelOrder;
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RetryOrderPayment;
-import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CreateCheckoutSession;
 
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCancellationReason;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderFacade;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
+import io.eventdriven.distributedprocesses.ecommerce.payments.CreateCheckoutSession;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentFacade;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.swagger.v3.oas.annotations.Operation;

@@ -122,7 +122,7 @@ public class OrderSagaTests {
     public void aCapturedPaymentIsRecordedAgainstTheOrder() {
         saga.onPaymentCaptured(new PaymentExternalEvent.PaymentCaptured(orderId.value(), paymentId, now));
 
-        sent.shouldReceiveMessages(new RecordOrderPaymentCapture(orderId, now));
+        sent.shouldReceiveMessages(new RecordOrderPaymentCapture(orderId, paymentId, now));
     }
 
     // Compensation
@@ -131,7 +131,16 @@ public class OrderSagaTests {
     public void aFailedPaymentIsRecordedRatherThanCancellingTheOrderDirectly() {
         saga.onPaymentFailed(new PaymentExternalEvent.PaymentFailed(orderId.value(), paymentId, now));
 
-        sent.shouldReceiveMessages(new RecordOrderPaymentFailure(orderId, now));
+        sent.shouldReceiveMessages(new RecordOrderPaymentFailure(orderId, paymentId, now));
+    }
+
+    @Test
+    public void aPaymentFailurePassesThePaymentIdOfTheRetriedPayment() {
+        var retriedPaymentId = PaymentId.derivedFrom(orderId.value(), 2);
+
+        saga.onPaymentFailed(new PaymentExternalEvent.PaymentFailed(orderId.value(), retriedPaymentId, now));
+
+        sent.shouldReceiveMessages(new RecordOrderPaymentFailure(orderId, retriedPaymentId, now));
     }
 
     @Test

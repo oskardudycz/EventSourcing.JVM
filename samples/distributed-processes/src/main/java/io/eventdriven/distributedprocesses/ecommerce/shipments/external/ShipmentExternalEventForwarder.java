@@ -6,15 +6,18 @@ import static io.eventdriven.distributedprocesses.ecommerce.shipments.external.S
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
 import io.github.springwolf.core.asyncapi.annotations.AsyncOperation;
 import io.github.springwolf.core.asyncapi.annotations.AsyncPublisher;
 import java.util.List;
 
 public class ShipmentExternalEventForwarder {
+    private final ShipmentSummaries summaries;
     private final MessageBus messageBus;
 
-    public ShipmentExternalEventForwarder(MessageBus messageBus) {
+    public ShipmentExternalEventForwarder(ShipmentSummaries summaries, MessageBus messageBus) {
+        this.summaries = summaries;
         this.messageBus = messageBus;
     }
 
@@ -51,7 +54,11 @@ public class ShipmentExternalEventForwarder {
     public void onPackageWasSent(EventEnvelope<ShipmentEvent.PackageWasSent> envelope) {
         var event = envelope.data();
         messageBus.publish(List.of(new ShipmentExternalEvent.PackageWasSent(
-                event.shipmentId(), event.referenceId(), event.carrier(), event.trackingNumber(), event.sentAt())));
+                event.shipmentId(),
+                referenceIdOf(event.shipmentId()),
+                event.carrier(),
+                event.trackingNumber(),
+                event.sentAt())));
     }
 
     @AsyncPublisher(
@@ -79,8 +86,16 @@ public class ShipmentExternalEventForwarder {
         var event = envelope.data();
         messageBus.publish(List.of(new ShipmentFailed(
                 event.shipmentId(),
-                event.referenceId(),
+                referenceIdOf(event.shipmentId()),
                 ShipmentFailed.Reason.FulfillmentRejected,
                 event.rejectedAt())));
+    }
+
+    private String referenceIdOf(ShipmentId shipmentId) {
+        return summaries
+                .get(shipmentId)
+                .orElseThrow(() ->
+                        new IllegalStateException("Shipment '%s' has no summary yet".formatted(shipmentId.value())))
+                .getReferenceId();
     }
 }

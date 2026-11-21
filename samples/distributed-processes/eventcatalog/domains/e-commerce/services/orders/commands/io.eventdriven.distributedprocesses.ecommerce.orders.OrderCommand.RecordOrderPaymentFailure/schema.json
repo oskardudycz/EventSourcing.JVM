@@ -5,19 +5,25 @@
     "failedAt": {
       "type": "string",
       "format": "date-time",
-      "x-parser-schema-id": "<anonymous-schema-19>"
+      "x-parser-schema-id": "<anonymous-schema-20>"
     },
     "orderId": {
       "title": "OrderId",
       "type": "string",
-      "x-parser-schema-id": "<anonymous-schema-20>"
+      "x-parser-schema-id": "<anonymous-schema-21>"
+    },
+    "paymentId": {
+      "title": "PaymentId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-22>"
     }
   },
   "description": "Records that the order's payment failed.",
   "examples": [
     {
       "failedAt": "2015-07-20T15:49:04-07:00",
-      "orderId": "string"
+      "orderId": "string",
+      "paymentId": "string"
     }
   ],
   "x-parser-schema-id": "io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.RecordOrderPaymentFailure"

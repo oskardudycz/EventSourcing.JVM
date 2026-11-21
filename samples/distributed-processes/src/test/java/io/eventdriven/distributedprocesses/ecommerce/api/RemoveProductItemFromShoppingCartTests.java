@@ -2,13 +2,13 @@ package io.eventdriven.distributedprocesses.ecommerce.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
 import io.eventdriven.testing.ApiSpecification;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.ETag;
 import org.springframework.test.context.ActiveProfiles;
 
 @ActiveProfiles("in-memory")
@@ -70,7 +70,7 @@ public class RemoveProductItemFromShoppingCartTests extends ApiSpecification {
     @Test
     public void removeProductItem_fails_withPreconditionFailed_forWrongETag() {
         given(() -> "productId=%s&quantity=1".formatted(shoes))
-                .when(DELETE(cartItems(customerId), ETag.weak(999)))
+                .when(DELETE(cartItems(customerId), new ETag("999", true)))
                 .then(PRECONDITION_FAILED);
     }
 

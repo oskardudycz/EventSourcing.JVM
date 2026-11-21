@@ -199,11 +199,6 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
     }
 
     @Override
-    public MessageContext.Scope continueTraceOf(String stepName, EventMetadata lastEvent) {
-        return context.continuing(stepName, lastEvent);
-    }
-
-    @Override
     public Subscription subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler) {
         if (types.isEmpty())
             throw new IllegalArgumentException("Subscription '%s' needs at least one event type".formatted(name));

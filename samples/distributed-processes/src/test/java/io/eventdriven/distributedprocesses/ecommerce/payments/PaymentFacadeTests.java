@@ -65,7 +65,12 @@ public class PaymentFacadeTests {
         paymentsConfig.captureGatewayClient(eventStore, gateway, messageBus);
         paymentsConfig.authorizationGatewayClient(eventStore, gateway);
         facade = paymentsConfig.paymentFacade(
-                eventStore, messageBus, gateway, PaymentValidity.of(paymentTimeout), clock::get);
+                eventStore,
+                TestTracing.untraced(),
+                messageBus,
+                gateway,
+                PaymentValidity.of(paymentTimeout),
+                clock::get);
     }
 
     @Test
@@ -157,7 +162,7 @@ public class PaymentFacadeTests {
         paymentsConfig.captureGatewayClient(store, paymentGateway, bus);
         paymentsConfig.authorizationGatewayClient(store, paymentGateway);
         var throwingFacade = paymentsConfig.paymentFacade(
-                store, bus, paymentGateway, PaymentValidity.of(paymentTimeout), clock::get);
+                store, TestTracing.untraced(), bus, paymentGateway, PaymentValidity.of(paymentTimeout), clock::get);
         bus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
 
         assertThatThrownBy(() -> throwingFacade.createCheckoutSession(createCheckoutSession()))

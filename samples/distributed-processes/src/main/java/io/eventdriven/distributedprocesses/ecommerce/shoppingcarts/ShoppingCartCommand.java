@@ -4,7 +4,8 @@ import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.
 import java.util.UUID;
 
 public sealed interface ShoppingCartCommand {
-    record AddProductItemToShoppingCart(UUID customerId, ProductItem productItem) implements ShoppingCartCommand {}
+    record AddProductItemToShoppingCart(ShoppingCartId shoppingCartId, UUID customerId, ProductItem productItem)
+            implements ShoppingCartCommand {}
 
     record RemoveProductItemFromShoppingCart(
             ShoppingCartId shoppingCartId, ProductItem productItem, Long expectedVersion)

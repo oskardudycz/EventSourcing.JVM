@@ -5,6 +5,7 @@ import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.CaptureFailureReason;
+import io.eventdriven.distributedprocesses.ecommerce.payments.CheckoutSession;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent;
@@ -35,11 +36,8 @@ public final class PublishedMessages {
 
         return List.of(
                 new PaymentCommand.AuthorizePayment(paymentId, orderId.value(), 10),
-                new PaymentCommand.CreateCheckoutSession(
-                        paymentId,
-                        orderId.value(),
-                        URI.create("http://localhost/success"),
-                        URI.create("http://localhost/cancel")),
+                new PaymentCommand.RecordCheckoutSession(
+                        paymentId, new CheckoutSession(URI.create("http://localhost/checkout"), now)),
                 new PaymentCommand.ConfirmPaymentAuthorization(paymentId, now),
                 new PaymentCommand.CapturePayment(paymentId),
                 new PaymentCommand.ConfirmPaymentCapture(paymentId),
@@ -57,8 +55,8 @@ public final class PublishedMessages {
                 new OrderCommand.RecordOrderPaymentAuthorization(orderId, paymentId, now),
                 new OrderCommand.RecordOrderStockReservation(orderId, shipmentId, now),
                 new OrderCommand.RecordOrderPackageSent(orderId, "DHL", "JD01", now),
-                new OrderCommand.RecordOrderPaymentCapture(orderId, now),
-                new OrderCommand.RecordOrderPaymentFailure(orderId, now),
+                new OrderCommand.RecordOrderPaymentCapture(orderId, paymentId, now),
+                new OrderCommand.RecordOrderPaymentFailure(orderId, paymentId, now),
                 new OrderCommand.RecordOrderShipmentFailure(orderId, OrderCancellationReason.Requested, now),
                 new OrderCommand.RetryOrderPayment(orderId),
                 new OrderCommand.CloseUnpaidOrder(orderId),

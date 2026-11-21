@@ -2,6 +2,7 @@ package io.eventdriven.distributedprocesses.ecommerce.shipments;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent.*;
+import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
@@ -10,6 +11,7 @@ import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentSummaryRepository;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.SilentFulfillmentService;
 import io.eventdriven.testing.MessageCatcher;
 import io.eventdriven.testing.TestMessages;
@@ -49,8 +51,9 @@ public class ShipmentFacadeTests {
     public ShipmentFacadeTests() {
         eventStore.use(published::catchMessage);
         var shipmentsConfig = new ShipmentsConfig();
-        shipmentsConfig.shipmentFacade(eventStore, messageBus, isProductAvailable, () -> now);
-        shipmentsConfig.shipmentExternalEventForwarder(eventStore, messageBus);
+        shipmentsConfig.shipmentFacade(eventStore, TestTracing.untraced(), messageBus, isProductAvailable, () -> now);
+        var shipmentSummaries = shipmentsConfig.shipmentSummaries(eventStore, H2.bean(ShipmentSummaryRepository.class));
+        shipmentsConfig.shipmentExternalEventForwarder(eventStore, shipmentSummaries, messageBus);
         shipmentsConfig.fulfillmentServiceClient(eventStore, new SilentFulfillmentService());
     }
 
@@ -79,7 +82,7 @@ public class ShipmentFacadeTests {
 
         messageBus.publish(List.of(new RequestFulfillment(shipmentId)));
 
-        published.shouldReceiveMessages(new FulfillmentRequested(shipmentId, referenceId, available, now));
+        published.shouldReceiveMessages(new FulfillmentRequested(shipmentId, available, now));
     }
 
     @Test
@@ -90,7 +93,7 @@ public class ShipmentFacadeTests {
 
         messageBus.publish(List.of(new ConfirmPackageSent(shipmentId, carrier, trackingNumber)));
 
-        published.shouldReceiveMessages(new PackageWasSent(shipmentId, referenceId, carrier, trackingNumber, now));
+        published.shouldReceiveMessages(new PackageWasSent(shipmentId, carrier, trackingNumber, now));
     }
 
     @Test
@@ -109,7 +112,7 @@ public class ShipmentFacadeTests {
 
         messageBus.publish(List.of(new DeliverPackage(shipmentId)));
 
-        published.shouldReceiveMessages(new PackageWasDelivered(shipmentId, referenceId, now));
+        published.shouldReceiveMessages(new PackageWasDelivered(shipmentId, now));
     }
 
     @Test
@@ -128,7 +131,7 @@ public class ShipmentFacadeTests {
 
         messageBus.publish(List.of(new ReleaseStock(shipmentId)));
 
-        published.shouldReceiveMessages(new StockReleased(shipmentId, referenceId, now));
+        published.shouldReceiveMessages(new StockReleased(shipmentId, now));
     }
 
     @Test
@@ -150,7 +153,7 @@ public class ShipmentFacadeTests {
 
         messageBus.publish(List.of(new RejectFulfillment(shipmentId)));
 
-        published.shouldReceiveMessages(new FulfillmentRejected(shipmentId, referenceId, now));
+        published.shouldReceiveMessages(new FulfillmentRejected(shipmentId, now));
     }
 
     @Test

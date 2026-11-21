@@ -130,8 +130,7 @@ public class ShopPages {
 
     @PostMapping("/customers/{customerId}/cart/items")
     public String addToCart(@PathVariable UUID customerId, @RequestParam UUID productId, @RequestParam int quantity) {
-        shoppingCarts.addProductItem(
-                new AddProductItemToShoppingCart(customerId, new ProductItem(productId, quantity)));
+        shoppingCarts.addProductItem(customerId, new ProductItem(productId, quantity));
         return "redirect:/shop/customers/%s/cart".formatted(customerId);
     }
 

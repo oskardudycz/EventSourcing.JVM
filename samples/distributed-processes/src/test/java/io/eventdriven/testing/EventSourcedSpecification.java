@@ -3,6 +3,7 @@ package io.eventdriven.testing;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -23,6 +24,11 @@ public abstract class EventSourcedSpecification<Entity, Event> {
 
     public EventSourcedSpecificationBuilder<Entity, Event> given(Supplier<Event[]> getEvents) {
         return new EventSourcedSpecificationBuilder(this, getEvents);
+    }
+
+    @SafeVarargs
+    public final EventSourcedSpecificationBuilder<Entity, Event> given(Event... events) {
+        return new EventSourcedSpecificationBuilder(this, () -> events);
     }
 
     protected class EventSourcedSpecificationBuilder<Entity, Event> {
@@ -67,13 +73,25 @@ public abstract class EventSourcedSpecification<Entity, Event> {
             return current;
         }
 
-        public EventSourcedSpecificationBuilder<Entity, Event> then(Event... expectedEvents) {
+        @SafeVarargs
+        public final EventSourcedSpecificationBuilder<Entity, Event> then(Event... expectedEvents) {
             return then(events -> {
-                assertThat(events.length).isEqualTo(expectedEvents.length);
-                for (var i = 0; i < events.length; i++) {
-                    assertThat(events[i]).isEqualTo(expectedEvents[i]);
-                }
+                var actualEvents = List.of(events);
+                var expected = List.of(expectedEvents);
+
+                assertThat(actualEvents)
+                        .as("%s", """
+              Expected events:
+              %s
+              Actual events:
+              %s""".formatted(Transcript.numbered(expected), Transcript.numbered(actualEvents)))
+                        .usingRecursiveComparison()
+                        .isEqualTo(expected);
             });
+        }
+
+        public EventSourcedSpecificationBuilder<Entity, Event> thenNothing() {
+            return then(events -> assertThat(events).isEmpty());
         }
     }
 }

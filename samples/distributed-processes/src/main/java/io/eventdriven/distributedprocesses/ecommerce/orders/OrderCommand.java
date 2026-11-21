@@ -35,10 +35,12 @@ public sealed interface OrderCommand {
             implements OrderCommand {}
 
     @Schema(description = "Records that the customer was charged for the order.")
-    record RecordOrderPaymentCapture(OrderId orderId, OffsetDateTime capturedAt) implements OrderCommand {}
+    record RecordOrderPaymentCapture(OrderId orderId, PaymentId paymentId, OffsetDateTime capturedAt)
+            implements OrderCommand {}
 
     @Schema(description = "Records that the order's payment failed.")
-    record RecordOrderPaymentFailure(OrderId orderId, OffsetDateTime failedAt) implements OrderCommand {}
+    record RecordOrderPaymentFailure(OrderId orderId, PaymentId paymentId, OffsetDateTime failedAt)
+            implements OrderCommand {}
 
     @Schema(description = "Records that the order's products cannot ship, and why.")
     record RecordOrderShipmentFailure(OrderId orderId, OrderCancellationReason reason, OffsetDateTime failedAt)
