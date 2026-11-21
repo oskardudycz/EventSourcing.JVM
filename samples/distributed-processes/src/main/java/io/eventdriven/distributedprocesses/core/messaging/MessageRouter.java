@@ -1,6 +1,7 @@
 package io.eventdriven.distributedprocesses.core.messaging;
 
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
@@ -32,6 +33,20 @@ public class MessageRouter {
         var conventional = convention.apply(message);
         return new RoutingTarget(
                 target != null ? target : conventional.target(), key != null ? key : conventional.key());
+    }
+
+    public RoutingTarget declaredRouteFor(Object message, Set<String> declaredChannels) {
+        var route = routeFor(message);
+
+        if (route.target() == null)
+            throw new IllegalStateException(
+                    "No route for message type %s".formatted(message.getClass().getName()));
+
+        if (!declaredChannels.contains(route.target()))
+            throw new IllegalStateException("Channel '%s' of message type %s is not declared"
+                    .formatted(route.target(), message.getClass().getName()));
+
+        return route;
     }
 
     public static @Nullable String firstRecordComponent(Object message) {

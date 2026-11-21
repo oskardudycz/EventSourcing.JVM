@@ -73,7 +73,7 @@ public class ShoppingCartsController {
         var cartId = currentCartOf(customerId);
         var eTag = shoppingCarts.checkOut(new CheckOutShoppingCart(cartId, new ETag(ifMatch).toLong()));
 
-        if (!carts.get(cartId).orElseThrow().isCheckedOut())
+        if (!shoppingCarts.isCheckedOut(cartId))
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .eTag(eTag.value())
                     .body(ProblemDetail.forStatusAndDetail(

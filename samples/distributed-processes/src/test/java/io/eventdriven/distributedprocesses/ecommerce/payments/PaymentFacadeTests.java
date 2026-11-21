@@ -2,6 +2,7 @@ package io.eventdriven.distributedprocesses.ecommerce.payments;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
+import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -9,8 +10,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
 import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
+import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizedPaymentRepository;
+import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.PendingPaymentRepository;
+import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentSummaryRepository;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.TestTracing;
 import java.net.URI;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -31,8 +37,8 @@ public class PaymentFacadeTests {
     private final OffsetDateTime captureBefore = now.plus(authorizationValidity);
     private final OffsetDateTime timedOutAt = now.plus(paymentTimeout);
 
-    private final InMemoryEventStore eventStore = new InMemoryEventStore();
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
+    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
     private final MessageCatcher published = new MessageCatcher();
     private final AtomicReference<OffsetDateTime> clock = new AtomicReference<>(now);
     private final SilentPaymentGateway gateway = new SilentPaymentGateway();
@@ -42,7 +48,14 @@ public class PaymentFacadeTests {
     public PaymentFacadeTests() {
         eventStore.use(published::catchMessage);
         facade = PaymentsConfig.configure(
-                        eventStore, messageBus, gateway, PaymentValidity.of(paymentTimeout), clock::get)
+                        eventStore,
+                        messageBus,
+                        gateway,
+                        PaymentValidity.of(paymentTimeout),
+                        H2.bean(PaymentSummaryRepository.class),
+                        H2.bean(PendingPaymentRepository.class),
+                        H2.bean(AuthorizedPaymentRepository.class),
+                        clock::get)
                 .facade();
     }
 
@@ -117,10 +130,17 @@ public class PaymentFacadeTests {
 
     @Test
     public void createCheckoutSessionThatTheGatewayFailsToOpenRecordsNothing() {
-        var store = new InMemoryEventStore();
-        var bus = new InMemoryMessageBus();
+        var store = new InMemoryEventStore(TestTracing.untraced());
+        var bus = new InMemoryMessageBus(TestTracing.untraced());
         var throwingFacade = PaymentsConfig.configure(
-                        store, bus, new ThrowingPaymentGateway(), PaymentValidity.of(paymentTimeout), clock::get)
+                        store,
+                        bus,
+                        new ThrowingPaymentGateway(),
+                        PaymentValidity.of(paymentTimeout),
+                        H2.bean(PaymentSummaryRepository.class),
+                        H2.bean(PendingPaymentRepository.class),
+                        H2.bean(AuthorizedPaymentRepository.class),
+                        clock::get)
                 .facade();
         bus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
 
@@ -312,7 +332,8 @@ public class PaymentFacadeTests {
 
     private List<Object> storedEvents() {
         return switch (eventStore.read(PaymentFacade.mapToStreamId(paymentId))) {
-            case EventStore.ReadResult.Success success -> List.of(success.events());
+            case EventStore.ReadResult.Success success ->
+                success.events().stream().map(EventEnvelope::data).toList();
             default -> List.of();
         };
     }

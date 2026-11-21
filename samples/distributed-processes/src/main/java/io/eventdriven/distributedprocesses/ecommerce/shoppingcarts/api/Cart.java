@@ -2,15 +2,25 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.api;
 
 import io.eventdriven.distributedprocesses.core.projections.Versioned;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
 import java.util.List;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
+@Entity
 public class Cart implements Versioned {
     public record Line(UUID productId, int quantity, double unitPrice) {}
 
+    @EmbeddedId
     private ShoppingCartId shoppingCartId;
+
     private UUID customerId;
+
+    @JdbcTypeCode(SqlTypes.JSON)
     private List<Line> lines;
+
     private double totalPrice;
     private boolean checkedOut;
     private long version;

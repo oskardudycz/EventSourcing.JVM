@@ -12,6 +12,16 @@
       "host": "localhost",
       "protocol": "in-memory",
       "description": "The message bus inside the application. Each channel delivers a message to the queues bound to it with a matching routing key, as a RabbitMQ topic exchange does."
+    },
+    "kafka": {
+      "host": "localhost:9092",
+      "protocol": "kafka",
+      "description": "Apache Kafka, with messaging.bus\u003dkafka. Each channel is a topic. A queue is a consumer group."
+    },
+    "rabbitmq": {
+      "host": "localhost:5672",
+      "protocol": "amqp",
+      "description": "RabbitMQ, with messaging.bus\u003drabbitmq. Each channel is a topic exchange. A queue is a quorum queue bound to it with a routing key pattern."
     }
   },
   "channels": {

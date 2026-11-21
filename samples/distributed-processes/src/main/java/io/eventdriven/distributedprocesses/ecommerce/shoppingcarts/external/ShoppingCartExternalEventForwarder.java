@@ -18,6 +18,14 @@ public class ShoppingCartExternalEventForwarder {
         this.messageBus = messageBus;
     }
 
+    public void handle(EventEnvelope<Object> envelope) {
+        switch (envelope.data()) {
+            case ShoppingCartEvent.ShoppingCartCheckedOut event ->
+                onCheckedOut(new EventEnvelope<>(event, envelope.metadata()));
+            default -> throw new IllegalArgumentException("Unexpected event %s".formatted(envelope.data()));
+        }
+    }
+
     @AsyncPublisher(
             operation =
                     @AsyncOperation(

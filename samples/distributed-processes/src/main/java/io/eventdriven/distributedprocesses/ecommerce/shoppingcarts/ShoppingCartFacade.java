@@ -54,4 +54,8 @@ public class ShoppingCartFacade {
                 command.expectedVersion(),
                 current -> current.checkOut(productPriceCalculator, now.get()));
     }
+
+    public boolean isCheckedOut(ShoppingCartId shoppingCartId) {
+        return store.get(shoppingCartId).map(ShoppingCart::isCheckedOut).orElse(false);
+    }
 }

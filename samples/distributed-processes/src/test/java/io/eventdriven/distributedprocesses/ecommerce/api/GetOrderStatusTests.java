@@ -9,8 +9,10 @@ import java.util.UUID;
 import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.JsonNode;
 
+@ActiveProfiles("in-memory")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class GetOrderStatusTests extends ApiSpecification {
     private final UUID customerId = UUID.randomUUID();

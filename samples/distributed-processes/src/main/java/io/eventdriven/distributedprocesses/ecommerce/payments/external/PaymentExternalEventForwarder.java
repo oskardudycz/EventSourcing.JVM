@@ -22,6 +22,19 @@ public class PaymentExternalEventForwarder {
         this.messageBus = messageBus;
     }
 
+    public void handle(EventEnvelope<Object> envelope) {
+        var metadata = envelope.metadata();
+
+        switch (envelope.data()) {
+            case PaymentEvent.PaymentAuthorized event -> onAuthorized(new EventEnvelope<>(event, metadata));
+            case PaymentEvent.PaymentCaptured event -> onCaptured(new EventEnvelope<>(event, metadata));
+            case PaymentCaptureFailed event -> onCaptureFailed(new EventEnvelope<>(event, metadata));
+            case PaymentTimedOut event -> onTimedOut(new EventEnvelope<>(event, metadata));
+            case PaymentAuthorizationExpired event -> onAuthorizationExpired(new EventEnvelope<>(event, metadata));
+            default -> throw new IllegalArgumentException("Unexpected event %s".formatted(envelope.data()));
+        }
+    }
+
     @AsyncPublisher(
             operation =
                     @AsyncOperation(

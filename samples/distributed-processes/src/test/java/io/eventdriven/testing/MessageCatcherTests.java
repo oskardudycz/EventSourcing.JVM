@@ -8,9 +8,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class MessageCatcherTests {
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus()
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced())
             .routes(new MessageRoutes()
                     .routeTarget(MessageRoutes.inPackage(MessageCatcherTests.class.getPackageName()), "orders"))
+            .channel("orders")
             .bind("orders", "orders", "#");
     private final MessageCatcher messages = new MessageCatcher();
 

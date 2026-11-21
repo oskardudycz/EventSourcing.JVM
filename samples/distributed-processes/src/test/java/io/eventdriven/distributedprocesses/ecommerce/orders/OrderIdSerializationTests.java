@@ -7,8 +7,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
 import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
+import io.eventdriven.testing.TestTracing;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -49,13 +51,14 @@ public class OrderIdSerializationTests {
 
     @Test
     public void aStoredEventRoundTripsThroughTheEventStore() {
-        var eventStore = new InMemoryEventStore();
+        var eventStore = new InMemoryEventStore(TestTracing.untraced());
         var streamId = OrderFacade.mapToStreamId(orderId);
 
         eventStore.append(streamId, event);
 
         var read = switch (eventStore.read(streamId)) {
-            case EventStore.ReadResult.Success success -> success.events();
+            case EventStore.ReadResult.Success success ->
+                success.events().stream().map(EventEnvelope::data).toArray();
             default -> new Object[0];
         };
 

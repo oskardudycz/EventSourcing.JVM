@@ -115,7 +115,7 @@ public class OrderFacade {
                             channelName = OrdersConfig.internal,
                             description = "Closes the order if it is still unpaid at its due date."))
     public void closeUnpaidOrder(CloseUnpaidOrder command) {
-        store.getAndUpdate(command.orderId(), current -> current.closeUnpaid(now.get()));
+        store.getAndUpdateContinuingTrace(command.orderId(), command, current -> current.closeUnpaid(now.get()));
     }
 
     public void cancelOrder(CancelOrder command) {

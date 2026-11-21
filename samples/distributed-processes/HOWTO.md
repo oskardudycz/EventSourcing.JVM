@@ -14,12 +14,13 @@ This guide takes you through one purchase in the sample shop, step by step. Afte
   - [8. Read the messages in Springwolf UI](#8-read-the-messages-in-springwolf-ui)
   - [9. Make a payment fail](#9-make-a-payment-fail)
   - [10. Browse the catalog in EventCatalog](#10-browse-the-catalog-in-eventcatalog)
-  - [11. Run the tests](#11-run-the-tests)
+  - [11. Look at the purchase in Grafana](#11-look-at-the-purchase-in-grafana)
+  - [12. Run the tests](#12-run-the-tests)
 
 ## What you need
 
 - Java 22 or newer. The sample builds and tests with the JDK you start Gradle with. If that JDK is older than 22 (Gradle needs at least 17), Gradle uses an installed JDK 22 or downloads it.
-- Docker, only for the two test classes that use KurrentDB.
+- Docker. The application starts Kafka, KurrentDB, PostgreSQL and Grafana in it. The tests start their servers in it too. Without Docker you can still run the application with the `in-memory` profile (step 1).
 
 You don't need Node.js. Gradle downloads it for the EventCatalog tasks.
 
@@ -31,7 +32,25 @@ Run all commands in this folder, `samples/distributed-processes`.
 ./gradlew bootRun
 ```
 
-The application starts on port 8080. Everything runs inside it, in memory: the shop's four modules (shopping carts, orders, payments and shipments), the event store that keeps their data, the message bus that carries messages between them, a payment provider and a warehouse. You need no database and no message broker. When you stop the application, its data is gone.
+The application starts on port 8080. Spring Boot starts the sample's Docker Compose services first: Kafka, KurrentDB, PostgreSQL and Grafana LGTM. If they already run, it uses them. The first start pulls their images, which takes a few minutes. The application runs the shop's four modules (shopping carts, orders, payments and shipments), a payment provider and a warehouse. Kafka carries the messages between the modules, KurrentDB keeps their events, and PostgreSQL keeps the views of the events.
+
+Three settings change that. Set them on the command line, for example `./gradlew bootRun --args='--messaging.bus=rabbitmq'`:
+
+| Setting | Values | Default |
+| --- | --- | --- |
+| `messaging.bus` | `in-memory`, `kafka`, `rabbitmq` | `kafka` |
+| `eventstore.type` | `in-memory`, `kurrentdb`, `postgresql` | `kurrentdb` |
+| `projections.database` | `h2`, `postgresql` | `postgresql` |
+
+With `messaging.bus=rabbitmq`, Spring Boot also starts RabbitMQ. If you ran an older version of the sample with RabbitMQ, remove its old queues once, because the queues now have dead-letter settings that the old ones lack: `docker compose --profile all down -v`, in this folder. This also removes the data of the other Compose services.
+
+To run with no Docker and no database, use the `in-memory` profile. It sets all three settings to in memory and turns the Docker Compose support off. When you stop the application, its data is gone:
+
+```shell
+./gradlew bootRun --args='--spring.profiles.active=in-memory'
+```
+
+To stop the Docker Compose services, run `docker compose --profile all down` in this folder.
 
 The payment provider and the warehouse are *sandboxes*: small stand-ins for the real services, built into the application. The sandbox payment provider shows a payment page like Stripe's and accepts Stripe's test card numbers. The sandbox warehouse sends every package at once. They let you go through a whole purchase without an account at a real provider.
 
@@ -151,13 +170,25 @@ The catalog shows one domain, E-Commerce, with each module as a service. A servi
 
 ![The events in the catalog](./assets/howto/12-eventcatalog-events.png)
 
-## 11. Run the tests
+## 11. Look at the purchase in Grafana
+
+This step needs the default start, because the `in-memory` profile doesn't start Grafana. After a purchase, open Grafana at <http://localhost:3000>. It needs no login.
+
+1. Open **Explore** and choose the **Tempo** data source. Search by tag for `correlationId`, with the order's id from the **Order status** page. Tempo shows the trace of the purchase: one span for each step, and inside a step a `streams.append` span for each append to KurrentDB.
+2. Open the **Logs** of a span, or choose the **Loki** data source in **Explore**. Loki has the application's log lines, each with the `traceId` of its span.
+3. Open **Dashboards** and choose **Purchase flow**. It shows the messages published, handled and failed for each channel, the dead letters and the HTTP requests, from Prometheus. Each panel links to the traces.
+
+If Grafana doesn't run, the application works the same.
+
+## 12. Run the tests
 
 ```shell
 ./gradlew build
 ```
 
-The build runs all tests. Most of them run in memory. The browser tests start the application and go through the purchase above in Chromium, which Playwright downloads on the first run. Two test classes use KurrentDB and start it in Docker with Testcontainers. If `docker compose --profile kurrentdb up` is running, they use that KurrentDB instead.
+The build runs all tests. The tests of the web API and the business logic use the `in-memory` profile. The tests of the Kafka, RabbitMQ, KurrentDB and PostgreSQL implementations, and the tests that run a purchase on real servers, use the Docker Compose services when they run, and start their own servers with Testcontainers when they don't. The browser tests start the application and go through the purchase above in Chromium, which Playwright downloads on the first run.
+
+In a dev container, don't run the Kafka tests while the Docker Compose Kafka runs. The tests find it, and it advertises `localhost:9092`, which inside the dev container is the container itself. Stop it with `docker compose --profile all down`, and the tests start their own Kafka.
 
 ```shell
 ./gradlew eventCatalogTest

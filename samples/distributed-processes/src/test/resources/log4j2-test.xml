@@ -9,9 +9,17 @@
         <Pattern>%d %p %c{1.} [%t] %m%n</Pattern>
       </PatternLayout>
     </File>
+    <OpenTelemetry name="LogToOpenTelemetry" captureMapMessageAttributes="true" captureContextDataAttributes="*"/>
   </Appenders>
   <Loggers>
     <Logger name="io.eventdriven.distributedprocesses" level="debug" additivity="false">
+      <AppenderRef ref="LogToFile"/>
+      <AppenderRef ref="LogToOpenTelemetry"/>
+    </Logger>
+    <Logger name="org.springframework.kafka" level="debug" additivity="false">
+      <AppenderRef ref="LogToFile"/>
+    </Logger>
+    <Logger name="org.springframework.amqp" level="debug" additivity="false">
       <AppenderRef ref="LogToFile"/>
     </Logger>
     <Root level="error">

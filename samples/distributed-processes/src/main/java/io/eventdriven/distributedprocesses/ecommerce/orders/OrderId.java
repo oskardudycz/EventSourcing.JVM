@@ -4,8 +4,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.eventdriven.distributedprocesses.core.identifiers.EntityId;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
+import jakarta.persistence.Embeddable;
 import java.util.UUID;
 
+@Embeddable
 public record OrderId(@JsonValue String value) implements EntityId {
     private static final String type = "order";
 

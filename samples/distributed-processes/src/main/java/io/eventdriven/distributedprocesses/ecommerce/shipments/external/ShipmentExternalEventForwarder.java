@@ -18,6 +18,18 @@ public class ShipmentExternalEventForwarder {
         this.messageBus = messageBus;
     }
 
+    public void handle(EventEnvelope<Object> envelope) {
+        var metadata = envelope.metadata();
+
+        switch (envelope.data()) {
+            case ShipmentEvent.StockReserved event -> onStockReserved(new EventEnvelope<>(event, metadata));
+            case ProductWasOutOfStock event -> onProductWasOutOfStock(new EventEnvelope<>(event, metadata));
+            case ShipmentEvent.PackageWasSent event -> onPackageWasSent(new EventEnvelope<>(event, metadata));
+            case FulfillmentRejected event -> onFulfillmentRejected(new EventEnvelope<>(event, metadata));
+            default -> throw new IllegalArgumentException("Unexpected event %s".formatted(envelope.data()));
+        }
+    }
+
     @AsyncPublisher(
             operation =
                     @AsyncOperation(

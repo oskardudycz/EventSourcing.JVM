@@ -7,7 +7,9 @@ import io.eventdriven.testing.ApiSpecification;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
+@ActiveProfiles("in-memory")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class CreateCheckoutSessionTests extends ApiSpecification {
     private final UUID customerId = UUID.randomUUID();

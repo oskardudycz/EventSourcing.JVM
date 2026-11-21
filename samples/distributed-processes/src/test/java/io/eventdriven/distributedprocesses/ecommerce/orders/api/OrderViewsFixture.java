@@ -3,7 +3,6 @@ package io.eventdriven.distributedprocesses.ecommerce.orders.api;
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.*;
 
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
-import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.projections.Projection;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCancellationReason;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderFacade;
@@ -14,7 +13,9 @@ import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProdu
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
+import io.eventdriven.testing.Metadata;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 class OrderViewsFixture {
@@ -25,12 +26,12 @@ class OrderViewsFixture {
     final PaymentId retriedPaymentId = PaymentId.derivedFrom(orderId.value(), 2);
     final ShipmentId shipmentId = ShipmentId.derivedFrom(orderId.value());
     final PricedProductItem[] productItems = {new PricedProductItem(UUID.randomUUID(), 2, 50)};
-    final OffsetDateTime now = OffsetDateTime.now();
+    final OffsetDateTime now = OffsetDateTime.now().truncatedTo(ChronoUnit.MICROS);
 
-    private final Projection<?> view;
+    private final Projection<?, ?> view;
     private long streamPosition;
 
-    OrderViewsFixture(Projection<?> view) {
+    OrderViewsFixture(Projection<?, ?> view) {
         this.view = view;
     }
 
@@ -92,8 +93,7 @@ class OrderViewsFixture {
     private OrderViewsFixture apply(Object event) {
         var position = streamPosition++;
         if (view.canHandle().contains(event.getClass()))
-            view.handle(new EventEnvelope<>(
-                    event, new EventMetadata(OrderFacade.mapToStreamId(orderId), position, position)));
+            view.handle(new EventEnvelope<>(event, Metadata.at(OrderFacade.mapToStreamId(orderId), position)));
         return this;
     }
 }

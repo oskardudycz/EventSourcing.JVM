@@ -4,12 +4,19 @@ import io.eventdriven.distributedprocesses.core.projections.Versioned;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.jspecify.annotations.Nullable;
 
+@Entity
 public class OrderStatus implements Versioned {
     enum Stage {
         Opened,
@@ -31,18 +38,32 @@ public class OrderStatus implements Versioned {
         Failed
     }
 
+    @EmbeddedId
     private OrderId orderId;
+
     private UUID customerId;
-    private PricedProductItem[] productItems;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<PricedProductItem> productItems;
+
     private double totalPrice;
     private OffsetDateTime placedAt;
     private PaymentId paymentId;
     private @Nullable String carrier;
     private @Nullable String trackingNumber;
+
+    @Enumerated(EnumType.STRING)
     private OrderProgress progress;
+
+    @Enumerated(EnumType.STRING)
     private Stage stage;
+
+    @Enumerated(EnumType.STRING)
     private Payment payment;
+
+    @Enumerated(EnumType.STRING)
     private Shipment shipment;
+
     private long version;
 
     public OrderStatus() {}
@@ -56,7 +77,7 @@ public class OrderStatus implements Versioned {
             PaymentId paymentId) {
         this.orderId = orderId;
         this.customerId = customerId;
-        this.productItems = productItems;
+        this.productItems = List.of(productItems);
         this.totalPrice = totalPrice;
         this.placedAt = placedAt;
         this.paymentId = paymentId;
@@ -131,7 +152,7 @@ public class OrderStatus implements Versioned {
     }
 
     public PricedProductItem[] getProductItems() {
-        return productItems;
+        return productItems.toArray(new PricedProductItem[0]);
     }
 
     public double getTotalPrice() {

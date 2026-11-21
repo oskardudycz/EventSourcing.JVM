@@ -4,14 +4,17 @@ import static org.assertj.core.api.Assertions.*;
 
 import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
 import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+import io.eventdriven.testing.TestTracing;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 public class AggregateStoreTests {
-    private final InMemoryEventStore eventStore = new InMemoryEventStore();
+    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
     private final AggregateStore<Counter, CounterEvent, UUID> store =
             new AggregateStore<>(eventStore, AggregateStoreTests::mapToStreamId, Counter::new);
     private final ArrayList<String> log = new ArrayList<>();
@@ -157,8 +160,9 @@ public class AggregateStoreTests {
     @Test
     public void subscriberOnTheStoreReceivesTheEventsThatWereAppended() {
         eventStore.subscribe(
-                CounterEvent.Opened.class,
-                envelope -> log.add("opened:" + envelope.data().name()));
+                "Opened",
+                List.of(CounterEvent.Opened.class),
+                envelope -> log.add("opened:" + ((CounterEvent.Opened) envelope.data()).name()));
 
         store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
 
@@ -167,7 +171,8 @@ public class AggregateStoreTests {
 
     private Object[] eventsIn(UUID id) {
         return switch (eventStore.read(mapToStreamId(id))) {
-            case EventStore.ReadResult.Success success -> success.events();
+            case EventStore.ReadResult.Success success ->
+                success.events().stream().map(EventEnvelope::data).toArray();
             default -> new Object[0];
         };
     }

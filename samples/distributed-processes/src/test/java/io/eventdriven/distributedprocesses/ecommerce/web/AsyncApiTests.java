@@ -13,10 +13,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+@ActiveProfiles("in-memory")
 @SpringBootTest
 @AutoConfigureMockMvc
 public class AsyncApiTests {
@@ -111,13 +113,21 @@ public class AsyncApiTests {
     }
 
     @Test
-    public void eachDocumentNamesTheInMemoryBusAsItsServerAndProtocol() throws Exception {
+    public void asyncApiListsTheKafkaAndRabbitMQServersNextToInMemory() throws Exception {
         for (var group : groups) {
             var document = documentOf(group);
 
             assertThat(document.get("servers").values())
                     .extracting(server -> server.get("protocol").asString())
-                    .containsExactly("in-memory");
+                    .containsExactlyInAnyOrder("kafka", "amqp", "in-memory");
+        }
+    }
+
+    @Test
+    public void eachOperationAndMessageHasTheInMemoryBinding() throws Exception {
+        for (var group : groups) {
+            var document = documentOf(group);
+
             for (var operation : document.get("operations").values())
                 assertThat(operation.get("bindings").propertyNames())
                         .as(group + " operation")

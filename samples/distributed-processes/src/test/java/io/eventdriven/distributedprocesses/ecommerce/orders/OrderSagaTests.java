@@ -3,6 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce.orders;
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.*;
 
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
@@ -14,6 +15,7 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.external.Shipment
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.TestTracing;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -32,11 +34,16 @@ public class OrderSagaTests {
 
     private final PricedProductItem[] orderItems = new PricedProductItem[] {new PricedProductItem(productId, 2, 12.5)};
 
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
     private final MessageCatcher sent = new MessageCatcher();
     private final OrderSaga saga = new OrderSaga(messageBus);
 
     public OrderSagaTests() {
+        messageBus
+                .routes(new MessageRoutes()
+                        .routeTarget(
+                                MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), "published"))
+                .channel("published");
         messageBus.use(sent::catchMessage);
     }
 

@@ -2,17 +2,18 @@ package io.eventdriven.distributedprocesses.ecommerce.orders.api;
 
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.*;
 
-import io.eventdriven.distributedprocesses.core.identifiers.EntityId;
-import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.core.projections.Projection;
-import java.util.Comparator;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-public class CustomerOrders extends Projection<CustomerOrder> {
-    public CustomerOrders(Database database) {
-        super(CustomerOrder.class, database);
+public class CustomerOrders extends Projection<CustomerOrder, OrderId> {
+    private final CustomerOrderRepository repository;
+
+    public CustomerOrders(CustomerOrderRepository repository) {
+        super(repository);
+        this.repository = repository;
     }
 
     @Override
@@ -30,7 +31,7 @@ public class CustomerOrders extends Projection<CustomerOrder> {
     }
 
     @Override
-    protected EntityId getDocumentId(Object event) {
+    protected OrderId getDocumentId(Object event) {
         return switch (event) {
             case OrderPlaced e -> e.orderId();
             case OrderPaymentAuthorized e -> e.orderId();
@@ -71,8 +72,6 @@ public class CustomerOrders extends Projection<CustomerOrder> {
     }
 
     public List<CustomerOrder> of(UUID customerId) {
-        return find(order -> order.getCustomerId().equals(customerId)).stream()
-                .sorted(Comparator.comparing(CustomerOrder::getPlacedAt).reversed())
-                .toList();
+        return repository.findByCustomerIdOrderByPlacedAtDesc(customerId);
     }
 }

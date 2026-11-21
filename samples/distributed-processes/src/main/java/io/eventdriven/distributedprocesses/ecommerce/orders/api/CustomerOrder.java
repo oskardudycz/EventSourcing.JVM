@@ -2,15 +2,25 @@ package io.eventdriven.distributedprocesses.ecommerce.orders.api;
 
 import io.eventdriven.distributedprocesses.core.projections.Versioned;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+@Entity
 public class CustomerOrder implements Versioned {
+    @EmbeddedId
     private OrderId orderId;
+
     private UUID customerId;
     private OffsetDateTime placedAt;
     private double totalPrice;
+
+    @Enumerated(EnumType.STRING)
     private OrderProgress progress;
+
     private boolean shipped;
     private long version;
 

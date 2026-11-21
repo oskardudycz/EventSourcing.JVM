@@ -2,19 +2,24 @@ package io.eventdriven.distributedprocesses.core.kurrentdb;
 
 import static org.assertj.core.api.Assertions.*;
 
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
+import io.eventdriven.testing.TestTracing;
 import io.kurrent.dbclient.StreamState;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
-public class InMemoryEventStoreTests {
-    private final InMemoryEventStore eventStore = new InMemoryEventStore();
+public class InMemoryEventStoreTests extends EventStoreTests {
+    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
     private final ArrayList<String> log = new ArrayList<>();
 
-    private static final String cartId = "cart-1";
-    private static final String streamId = "ShoppingCart-cart-1";
+    @Override
+    protected EventStore eventStore() {
+        return eventStore;
+    }
 
     @Test
     public void appendStoresEventsThatCanBeReadBack() {
@@ -66,18 +71,19 @@ public class InMemoryEventStoreTests {
     @Test
     public void subscribersGetTheStreamAndLogPositionOfEachEvent() {
         var metadata = new ArrayList<EventMetadata>();
-        eventStore.subscribe(ShoppingCartOpened.class, envelope -> metadata.add(envelope.metadata()));
-        eventStore.subscribe(ProductItemAdded.class, envelope -> metadata.add(envelope.metadata()));
+        eventStore.subscribe(
+                "ShoppingCartOpened", List.of(ShoppingCartOpened.class), envelope -> metadata.add(envelope.metadata()));
+        eventStore.subscribe(
+                "ProductItemAdded", List.of(ProductItemAdded.class), envelope -> metadata.add(envelope.metadata()));
 
         eventStore.append(
                 streamId, new ShoppingCartOpened(cartId, openedAt()), new ProductItemAdded(cartId, "t-shirt"));
         eventStore.append("ShoppingCart-cart-2", new ShoppingCartOpened("cart-2", openedAt()));
 
         assertThat(metadata)
+                .extracting(EventMetadata::streamId, EventMetadata::streamPosition, EventMetadata::logPosition)
                 .containsExactly(
-                        new EventMetadata(streamId, 0, 0),
-                        new EventMetadata(streamId, 1, 1),
-                        new EventMetadata("ShoppingCart-cart-2", 0, 2));
+                        tuple(streamId, 0L, 0L), tuple(streamId, 1L, 1L), tuple("ShoppingCart-cart-2", 0L, 2L));
     }
 
     @Test
@@ -149,23 +155,25 @@ public class InMemoryEventStoreTests {
     @Test
     public void notifiesSubscribersOfAppendedEventsInOrder() {
         eventStore.subscribe(
-                ShoppingCartOpened.class,
-                envelope -> log.add("opened:" + envelope.data().cartId()));
+                "ShoppingCartOpened",
+                List.of(ShoppingCartOpened.class),
+                envelope -> log.add("opened:" + ((ShoppingCartOpened) envelope.data()).cartId()));
         eventStore.subscribe(
-                ProductItemAdded.class,
-                envelope -> log.add("added:" + envelope.data().productId()));
+                "ProductItemAdded",
+                List.of(ProductItemAdded.class),
+                envelope -> log.add("added:" + ((ProductItemAdded) envelope.data()).productId()));
 
         eventStore.append(
                 streamId, new ShoppingCartOpened(cartId, openedAt()), new ProductItemAdded(cartId, "t-shirt"));
 
-        assertThat(log).containsExactly("opened:cart-1", "added:t-shirt");
+        assertThat(log).containsExactly("opened:" + cartId, "added:t-shirt");
     }
 
     @Test
     public void runsMiddlewareForEveryEventBeforeItsSubscribers() {
         eventStore.use(message -> log.add("middleware:" + message.getClass().getSimpleName()));
-        eventStore.subscribe(ShoppingCartOpened.class, envelope -> log.add("opened"));
-        eventStore.subscribe(ProductItemAdded.class, envelope -> log.add("added"));
+        eventStore.subscribe("ShoppingCartOpened", List.of(ShoppingCartOpened.class), envelope -> log.add("opened"));
+        eventStore.subscribe("ProductItemAdded", List.of(ProductItemAdded.class), envelope -> log.add("added"));
 
         eventStore.append(
                 streamId, new ShoppingCartOpened(cartId, openedAt()), new ProductItemAdded(cartId, "t-shirt"));
@@ -178,8 +186,8 @@ public class InMemoryEventStoreTests {
 
     @Test
     public void notifiesAllSubscribersOfTheTypeInRegistrationOrder() {
-        eventStore.subscribe(ShoppingCartOpened.class, envelope -> log.add("first"));
-        eventStore.subscribe(ShoppingCartOpened.class, envelope -> log.add("second"));
+        eventStore.subscribe("first", List.of(ShoppingCartOpened.class), envelope -> log.add("first"));
+        eventStore.subscribe("second", List.of(ShoppingCartOpened.class), envelope -> log.add("second"));
 
         eventStore.append(streamId, new ShoppingCartOpened(cartId, openedAt()));
 
@@ -188,7 +196,7 @@ public class InMemoryEventStoreTests {
 
     @Test
     public void notifiesByExactRuntimeClassNotByAssignability() {
-        eventStore.subscribe(ShoppingCartEvent.class, envelope -> log.add("supertype"));
+        eventStore.subscribe("ShoppingCartEvent", List.of(ShoppingCartEvent.class), envelope -> log.add("supertype"));
 
         eventStore.append(streamId, new ShoppingCartOpened(cartId, openedAt()));
 
@@ -197,10 +205,10 @@ public class InMemoryEventStoreTests {
 
     @Test
     public void failedAppendNotifiesNobody() {
-        eventStore.append(streamId, new ShoppingCartOpened(cartId, openedAt()));
-
         eventStore.use(message -> log.add("middleware"));
-        eventStore.subscribe(ProductItemAdded.class, envelope -> log.add("added"));
+        eventStore.subscribe("ProductItemAdded", List.of(ProductItemAdded.class), envelope -> log.add("added"));
+        eventStore.append(streamId, new ShoppingCartOpened(cartId, openedAt()));
+        log.clear();
 
         var result =
                 eventStore.append(streamId, StreamState.streamRevision(4), new ProductItemAdded(cartId, "t-shirt"));
@@ -211,26 +219,27 @@ public class InMemoryEventStoreTests {
 
     @Test
     public void appendFromInsideASubscriberIsDeliveredAfterTheEventBeingHandled() {
-        eventStore.subscribe(ShoppingCartOpened.class, envelope -> {
+        eventStore.subscribe("ShoppingCartOpened", List.of(ShoppingCartOpened.class), envelope -> {
             log.add("opened:start");
             eventStore.append("ShoppingCart-cart-2", new ProductItemAdded("cart-2", "t-shirt"));
             log.add("opened:end");
         });
         eventStore.subscribe(
-                ProductItemAdded.class,
-                envelope -> log.add("added:" + envelope.data().cartId()));
+                "ProductItemAdded",
+                List.of(ProductItemAdded.class),
+                envelope -> log.add("added:" + ((ProductItemAdded) envelope.data()).cartId()));
 
         eventStore.append(streamId, new ShoppingCartOpened(cartId, openedAt()), new ProductItemAdded(cartId, "hoodie"));
 
-        assertThat(log).containsExactly("opened:start", "opened:end", "added:cart-1", "added:cart-2");
+        assertThat(log).containsExactly("opened:start", "opened:end", "added:" + cartId, "added:cart-2");
     }
 
     @Test
     public void failingSubscriberDoesNotFailTheAppendNorStopOtherSubscribers() {
-        eventStore.subscribe(ShoppingCartOpened.class, envelope -> {
+        eventStore.subscribe("ShoppingCartOpened", List.of(ShoppingCartOpened.class), envelope -> {
             throw new IllegalStateException("projection is down");
         });
-        eventStore.subscribe(ShoppingCartOpened.class, envelope -> log.add("other"));
+        eventStore.subscribe("other", List.of(ShoppingCartOpened.class), envelope -> log.add("other"));
 
         var result = eventStore.append(streamId, new ShoppingCartOpened(cartId, openedAt()));
 
@@ -241,10 +250,10 @@ public class InMemoryEventStoreTests {
     @Test
     public void failedEventIsDeliveredAgainOnTheNextAppendBeforeNewerEvents() {
         var attempts = new int[] {0};
-        eventStore.subscribe(ProductItemAdded.class, envelope -> {
+        eventStore.subscribe("ProductItemAdded", List.of(ProductItemAdded.class), envelope -> {
             if (attempts[0]++ == 0) throw new IllegalStateException("broker is down");
 
-            log.add("added:" + envelope.data().productId());
+            log.add("added:" + ((ProductItemAdded) envelope.data()).productId());
         });
 
         eventStore.append(streamId, new ProductItemAdded(cartId, "hoodie"), new ProductItemAdded(cartId, "t-shirt"));
@@ -257,11 +266,23 @@ public class InMemoryEventStoreTests {
     }
 
     @Test
+    public void aNewStoreStartsItsSubscriptionsFromTheBeginningWithoutCheckpoints() {
+        eventStore.subscribe("cart-events", List.of(ShoppingCartOpened.class), envelope -> log.add("first store"));
+        eventStore.append(streamId, new ShoppingCartOpened(cartId, openedAt()));
+        var restarted = new InMemoryEventStore(TestTracing.untraced());
+
+        restarted.subscribe("cart-events", List.of(ShoppingCartOpened.class), envelope -> log.add("restarted store"));
+        restarted.append(streamId, new ShoppingCartOpened(cartId, openedAt()));
+
+        assertThat(log).containsExactly("first store", "restarted store");
+    }
+
+    @Test
     public void subscriberAddedLaterCatchesUpFromTheStartOfTheLog() {
         eventStore.append(streamId, new ShoppingCartOpened(cartId, openedAt()));
 
-        eventStore.subscribe(ShoppingCartOpened.class, envelope -> log.add("opened"));
-        eventStore.subscribe(ProductItemAdded.class, envelope -> log.add("added"));
+        eventStore.subscribe("ShoppingCartOpened", List.of(ShoppingCartOpened.class), envelope -> log.add("opened"));
+        eventStore.subscribe("ProductItemAdded", List.of(ProductItemAdded.class), envelope -> log.add("added"));
 
         eventStore.append(streamId, StreamState.any(), new ProductItemAdded(cartId, "t-shirt"));
 
@@ -275,7 +296,8 @@ public class InMemoryEventStoreTests {
     private static Object[] eventsOf(EventStore.ReadResult result) {
         assertThat(result).isInstanceOf(EventStore.ReadResult.Success.class);
 
-        return ((EventStore.ReadResult.Success) result).events();
+        return ((EventStore.ReadResult.Success) result)
+                .events().stream().map(EventEnvelope::data).toArray();
     }
 
     private static StreamState nextExpectedRevisionOf(EventStore.AppendResult result) {

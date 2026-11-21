@@ -1,0 +1,12 @@
+package io.eventdriven.testing;
+
+import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
+import java.util.UUID;
+
+public final class Metadata {
+    public static EventMetadata at(String streamId, long position) {
+        var id = UUID.randomUUID().toString();
+
+        return new EventMetadata(streamId, position, position, id, id, id, null, null);
+    }
+}

@@ -2,14 +2,14 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.external;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.*;
+import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
-import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
-import io.eventdriven.distributedprocesses.core.projections.Database;
+import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.ecommerce.payments.CaptureFailureReason;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentFacade;
@@ -17,7 +17,11 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentValidity;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGateway;
+import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizedPaymentRepository;
+import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.PendingPaymentRepository;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.Metadata;
+import io.eventdriven.testing.TestTracing;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -35,8 +39,8 @@ public class PaymentExternalEventForwarderTests {
     private final OffsetDateTime captureBefore = now.plus(authorizationValidity);
     private final OffsetDateTime timedOutAt = now.plusMinutes(5);
 
-    private final InMemoryEventStore eventStore = new InMemoryEventStore();
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
+    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
     private final MessageCatcher externalEvents = new MessageCatcher();
 
     public PaymentExternalEventForwarderTests() {
@@ -44,7 +48,14 @@ public class PaymentExternalEventForwarderTests {
             if (message instanceof PaymentExternalEvent) externalEvents.catchMessage(message);
         });
         PaymentsConfig.configure(
-                eventStore, messageBus, new SilentPaymentGateway(), PaymentValidity.of(paymentTimeout), () -> now);
+                eventStore,
+                messageBus,
+                new SilentPaymentGateway(),
+                PaymentValidity.of(paymentTimeout),
+                H2.bean(PaymentSummaryRepository.class),
+                H2.bean(PendingPaymentRepository.class),
+                H2.bean(AuthorizedPaymentRepository.class),
+                () -> now);
     }
 
     @Test
@@ -130,14 +141,17 @@ public class PaymentExternalEventForwarderTests {
 
     @Test
     public void forwarderRefusesAPaymentWithoutSummarySoTheStoreDeliversItAgain() {
-        var summaries = new PaymentSummaries(new Database());
-        var bus = new InMemoryMessageBus();
+        var summaries = new PaymentSummaries(H2.bean(PaymentSummaryRepository.class));
+        var bus = new InMemoryMessageBus(TestTracing.untraced())
+                .routes(new MessageRoutes()
+                        .routeTarget(
+                                MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), "published"))
+                .channel("published");
         var published = new MessageCatcher();
         bus.use(published::catchMessage);
         var forwarder = new PaymentExternalEventForwarder(summaries, bus);
         var streamId = PaymentFacade.mapToStreamId(paymentId);
-        var timedOut = new EventEnvelope<>(
-                new PaymentEvent.PaymentTimedOut(paymentId, now), new EventMetadata(streamId, 1, 1));
+        var timedOut = new EventEnvelope<>(new PaymentEvent.PaymentTimedOut(paymentId, now), Metadata.at(streamId, 1));
 
         assertThatThrownBy(() -> forwarder.onTimedOut(timedOut)).isInstanceOf(IllegalStateException.class);
         published.shouldNotReceiveAnyEvent();
@@ -145,7 +159,7 @@ public class PaymentExternalEventForwarderTests {
         summaries.handle(new EventEnvelope<>(
                 new PaymentEvent.PaymentAuthorizationRequested(
                         paymentId, referenceId, amount, now, now.plus(paymentTimeout)),
-                new EventMetadata(streamId, 0, 0)));
+                Metadata.at(streamId, 0)));
         forwarder.onTimedOut(timedOut);
 
         published.shouldReceiveMessages(new PaymentFailed(referenceId, paymentId, now));

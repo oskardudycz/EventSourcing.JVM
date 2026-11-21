@@ -9,6 +9,8 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public sealed interface OrderCommand {
+    OrderId orderId();
+
     @Schema(
             description =
                     "Places an order for the products of a checked-out shopping cart, at the prices of the checkout.")

@@ -3,12 +3,21 @@ package io.eventdriven.distributedprocesses.ecommerce.orders.api;
 import static io.eventdriven.distributedprocesses.ecommerce.orders.api.OrderAction.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.distributedprocesses.core.projections.Database;
+import io.eventdriven.testing.ProjectionsDatabase;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.EnumSource;
 
+@ParameterizedClass
+@EnumSource(ProjectionsDatabase.class)
 public class OrderStatusesTests {
-    private final OrderStatuses orderStatuses = new OrderStatuses(new Database());
-    private final OrderViewsFixture order = new OrderViewsFixture(orderStatuses);
+    private final OrderStatuses orderStatuses;
+    private final OrderViewsFixture order;
+
+    OrderStatusesTests(ProjectionsDatabase database) {
+        orderStatuses = new OrderStatuses(database.bean(OrderStatusRepository.class));
+        order = new OrderViewsFixture(orderStatuses);
+    }
 
     @Test
     public void aPlacedOrderCanBePaidNowWithItsFirstPaymentOrCanceled() {

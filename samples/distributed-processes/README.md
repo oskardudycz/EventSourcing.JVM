@@ -537,14 +537,14 @@ private ShoppingCartSummary get(ShoppingCartId shoppingCartId, long streamPositi
 Each projection extends [Projection](./src/main/java/io/eventdriven/distributedprocesses/core/projections/Projection.java), in the same shape as the projections in the [event-driven architecture](../../workshops/event-driven-architecture/) workshop. It says which events it handles, which *document* each event belongs to (the stored record of the view, such as one `PaymentSummary`), and how the event changes that document. Returning no document deletes it:
 
 ```java
-public class PaymentSummaries extends Projection<PaymentSummary> {
+public class PaymentSummaries extends Projection<PaymentSummary, PaymentId> {
     @Override
     public List<Class<?>> canHandle() {
         return List.of(PaymentAuthorizationRequested.class);
     }
 
     @Override
-    protected EntityId getDocumentId(Object event) {
+    protected PaymentId getDocumentId(Object event) {
         return switch (event) {
             case PaymentAuthorizationRequested e -> e.paymentId();
             default -> throw new IllegalArgumentException("Unexpected event %s".formatted(event));
@@ -554,14 +554,14 @@ public class PaymentSummaries extends Projection<PaymentSummary> {
     @Override
     protected @Nullable PaymentSummary evolve(@Nullable PaymentSummary current, Object event) {
         return switch (event) {
-            case PaymentAuthorizationRequested e -> new PaymentSummary(e.referenceId());
+            case PaymentAuthorizationRequested e -> new PaymentSummary(e.paymentId(), e.referenceId());
             default -> current;
         };
     }
 }
 ```
 
-The base class reads and stores the document, so no projection touches the database. Each document records the stream position it last applied, so an event delivered twice is skipped instead of counted twice. A summary keeps only what its forwarder adds to the internal events: `PaymentSummary` holds the `referenceId`, because only the authorization request carries it. The shipments module needs no summary, because its internal events carry the `referenceId` themselves.
+The base class reads and stores the document through the view's Spring Data repository, so no projection touches the database. Each document is a JPA entity. Each document records the stream position it last applied, so an event delivered twice is skipped instead of counted twice. A summary keeps only what its forwarder adds to the internal events: `PaymentSummary` holds the `referenceId`, because only the authorization request carries it. The shipments module needs no summary, because its internal events carry the `referenceId` themselves.
 
 The projection and the forwarder are separate subscribers, and each keeps its own *checkpoint*: the position of the last event it handled. If the projection fails on an event and the forwarder does not, the forwarder would read a view that has not seen that event yet. So the forwarder checks that the view has what it needs. If it does not, the forwarder throws: the store keeps its checkpoint and delivers the event again on the next append, after the projection has caught up. The cart's products change with every add, remove and price change, so the cart forwarder also checks that the summary's version has reached the event's stream position.
 
@@ -594,7 +594,7 @@ A *channel* is a named place where a module publishes messages. A *queue* is whe
 
 A channel carries many message types. The type only picks the handler inside the queue, so adding a message adds no channel.
 
-Each module's `Config` tells the bus three things, with [MessageRoutes](./src/main/java/io/eventdriven/distributedprocesses/core/messaging/MessageRoutes.java) taken from the [event-driven architecture](../../workshops/event-driven-architecture/) workshop:
+Each module's `Config` tells the bus four things, with [MessageRoutes](./src/main/java/io/eventdriven/distributedprocesses/core/messaging/MessageRoutes.java) taken from the [event-driven architecture](../../workshops/event-driven-architecture/) workshop:
 
 ```java
 messageBus
@@ -605,26 +605,33 @@ messageBus
                 .route(
                         PaymentExternalEvent.class,
                         event -> new RoutingTarget(responses, Urns.routingKeyOf(event.referenceId())))
-                .routeTarget(MessageRoutes.inPackage(PaymentsConfig.class.getPackageName()), internal))
+                .routeTarget(MessageRoutes.inPackage(PaymentsConfig.class.getPackageName()), internal)
+                .routeKey(
+                        PaymentCommand.class,
+                        command -> Urns.routingKeyOf(command.paymentId().value())))
+        .channel(requests)
+        .channel(responses)
+        .channel(internal)
         .bind(requests, requests, "#")
         .bind(internal, internal, "#")
         .subscribe(requests, AuthorizePayment.class, facade::authorizePayment)
         // ...
 ```
 
-- the routes decide the channel and the routing key of each message that the module publishes;
+- the routes decide the channel and the routing key of each message that the module publishes. A message with no route, or one routed to a channel that nobody declared, fails the publish with an error that names the message type or the channel;
+- `channel` declares a channel that messages can be published to;
 - `bind` connects a queue to a channel for the routing keys that match a pattern: `*` matches one word, `#` any number of words;
 - `subscribe` registers a handler for one message type that reaches the queue.
 
 A response goes back to whoever asked, without payments knowing who that is. Its routing key comes from the `referenceId`, which is a *URN*: a standard text id made of a namespace, a type and a value, such as `urn:ecommerce:order:42-1`. That URN becomes the key `ecommerce.order.42-1`. Orders binds its queue to `payments-responses` with `ecommerce.order.*`, so it gets the answers about orders and nothing else. Another client of payments would bind its own queue with its own prefix. The requester owns the queue that reads the responses, as orders owns `orders-payments-responses`.
 
-[InMemoryMessageBus](./src/main/java/io/eventdriven/distributedprocesses/core/messaging/InMemoryMessageBus.java) does the matching itself. RabbitMQ's topic exchanges match the same patterns. Kafka has no such matching, so with Kafka a consumer has to read the channel's topic and route by key itself. With real infrastructure, a channel could also be an event store stream: each module could append its external events to its own stream, such as `shopping_carts__external-events`, and the other modules could subscribe to it, as consumers read a Kafka topic. Which of them to use for the channels is an open question of [the plan](./plans/saga-and-outbox/plan.md).
+[InMemoryMessageBus](./src/main/java/io/eventdriven/distributedprocesses/core/messaging/InMemoryMessageBus.java) does the matching itself, with the rules of [RoutingPattern](./src/main/java/io/eventdriven/distributedprocesses/core/messaging/RoutingPattern.java). RabbitMQ's topic exchanges match the same patterns. Kafka has no such matching, so with Kafka a consumer has to read the channel's topic and route by key itself. With real infrastructure, [KafkaMessageBus](./src/main/java/io/eventdriven/distributedprocesses/core/messaging/KafkaMessageBus.java) and [RabbitMQMessageBus](./src/main/java/io/eventdriven/distributedprocesses/core/messaging/RabbitMQMessageBus.java) carry the channels, the `<module>-internal` channels included. `messaging.bus` chooses the bus.
 
 ### Delivering messages reliably
 
 A module that stores an event and then publishes a message has a problem: a crash between the two steps loses the message, or publishes a message for an event that was never stored. Two writes to two systems can't be made atomic without a distributed transaction. The *outbox pattern* solves this: the module writes the message to its own database in the same transaction as its data, and a separate process publishes it from there.
 
-With Event Sourcing, the event store already is that outbox. A facade only appends events. The subscribers (the projections, the forwarders, the saga, and the clients that call the payment provider and the fulfillment service) read the stored events and publish from there. Appending writes to the stream and to one global log, and every subscriber reads that log from its own checkpoint. [InMemoryEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/kurrentdb/InMemoryEventStore.java) delivers once the outermost append is done, entry by entry, to every subscriber that is behind. An event appended by a subscriber is delivered after the one it is handling, never in the middle of it. Against KurrentDB, [KurrentDBEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/kurrentdb/KurrentDBEventStore.java) subscribes to `$all`, KurrentDB's stream of all events, filtered by event type. It starts from the beginning every time. A production version would store the checkpoint.
+With Event Sourcing, the event store already is that outbox. A facade only appends events. The subscribers (the projections, the forwarders, the saga, and the clients that call the payment provider and the fulfillment service) read the stored events and publish from there. Appending writes to the stream and to one global log, and every subscriber reads that log from its own checkpoint. [InMemoryEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/kurrentdb/InMemoryEventStore.java) delivers once the outermost append is done, entry by entry, to every subscriber that is behind. An event appended by a subscriber is delivered after the one it is handling, never in the middle of it. Against KurrentDB, [KurrentDBEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/kurrentdb/KurrentDBEventStore.java) subscribes to `$all`, KurrentDB's stream of all events, filtered by event type. Each subscription stores a checkpoint, the log position of the last event it handled, in the projections database (`processor_checkpoints`), and continues after it when the application starts. A projection saves its document change and its checkpoint in one transaction, so a failed checkpoint rolls the change back too. A forwarder publishes first and then stores the checkpoint, so a crash between the two publishes the message again, which the idempotent handlers absorb. A subscription whose handler fails stops and subscribes again from its checkpoint after a back-off delay. `eventstore.type=kurrentdb` selects this store. [PostgreSQLEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/kurrentdb/PostgreSQLEventStore.java) keeps the events in one `events` table and polls it. Each event row stores the ID of the transaction that wrote it (`pg_current_xact_id()`). The poller reads only rows from transactions older than the oldest running one (`pg_snapshot_xmin(pg_current_snapshot())`), ordered by transaction ID and then global position, so it never passes a transaction that has not committed yet. Its checkpoint holds the transaction ID and the position, and compares the transaction ID first. `eventstore.type=postgresql` selects this store; it connects with its own `eventstore.postgresql.url`, `.username` and `.password`, so it also runs with the projections on H2. With H2 as the projections database the checkpoints are lost on restart, so the subscriptions read the whole log again.
 
 A subscriber that throws keeps its checkpoint. It gets nothing more in that run, and the next append delivers the same event to it again, before anything newer. The append itself does not fail: the event is stored, and the subscriber has to catch up. So each event reaches each subscriber at least once, and maybe more than once. That is called *at-least-once delivery*, and it is why every handler has to be idempotent.
 
@@ -713,7 +720,25 @@ public void cancelOrder_succeeds_withAcceptedAndCancelsTheUnpaidOrder() {
 
 `PurchaseRestBuilder` brings the order to the state that the test needs, through the same endpoints. [PurchaseOverHttpTests](./src/test/java/io/eventdriven/distributedprocesses/ecommerce/api/PurchaseOverHttpTests.java) runs the whole purchase, from the first product to the completed order. [ShopInBrowserTests](./src/test/java/io/eventdriven/distributedprocesses/ecommerce/web/ShopInBrowserTests.java) goes through the shop in Chromium with [Playwright](https://playwright.dev/java/), checks that the browser reports no errors, and takes the screenshots of [HOWTO.md](./HOWTO.md).
 
-The application and almost all tests run in memory. Only [KurrentDBEventStoreTests](./src/test/java/io/eventdriven/distributedprocesses/core/kurrentdb/KurrentDBEventStoreTests.java) and [ShoppingCartTests](./src/test/java/io/eventdriven/distributedprocesses/shoppingcarts/ShoppingCartTests.java) need KurrentDB. They start it with [Testcontainers](https://testcontainers.com/), so running them needs only Docker. While `docker compose --profile kurrentdb up` runs, the tests use its KurrentDB instead of starting their own.
+The application runs on real infrastructure by default: Kafka, KurrentDB and PostgreSQL. `./gradlew bootRun` starts them with Spring Boot's Docker Compose support, as [the HOWTO](./HOWTO.md#1-start-the-application) describes. The `in-memory` Spring profile switches the application back to the in-memory bus, event store and projections, with no Docker. The business tests and the API tests use that profile. The tests of the Kafka, RabbitMQ, KurrentDB and PostgreSQL implementations, and the application tests that run one purchase on real servers, use the servers of the Docker Compose project when they run, and start them with [Testcontainers](https://testcontainers.com/) when they don't. So running them needs only Docker. A test class that starts the application on shared servers needs `@DirtiesContext` and `TestDatabases.newPostgreSQLDatabase()`, so that its projections and checkpoints don't mix with the ones of another class.
+
+In a dev container, Docker is the host's Docker. Don't run the Kafka tests while the Docker Compose Kafka runs: the tests find it, and it advertises `localhost:9092`, which inside the dev container is the container itself. Stop it, and the tests start their own Kafka.
+
+#### Three settings and the in-memory profile
+
+Three settings choose the implementations. Each has its default in `application.properties`:
+
+| Setting | Values | Default |
+| --- | --- | --- |
+| `messaging.bus` | `in-memory`, `kafka`, `rabbitmq` | `kafka` |
+| `eventstore.type` | `in-memory`, `kurrentdb`, `postgresql` | `kurrentdb` |
+| `projections.database` | `h2`, `postgresql` | `postgresql` |
+
+A value outside the list stops the start and names the setting. The modules don't change with the settings: they call the same `MessageBus` and `EventStore`. The `in-memory` profile sets all three to in memory (`h2` for the projections) and turns the Docker Compose support off.
+
+#### Looking at a purchase in Grafana
+
+The Docker Compose services include Grafana LGTM (Grafana with Tempo for traces, Loki for logs and Prometheus for metrics). The application sends its traces, logs and metrics to it over OTLP. After a purchase, open Grafana at <http://localhost:3000>, with no login. Search Tempo for the purchase's `correlationId` to see its trace, with one span for each step and each append to KurrentDB. The **Purchase flow** dashboard shows the messages published, handled and failed for each channel, the dead letters and the HTTP requests. If Grafana doesn't run, the application works the same and the exporters stay quiet.
 
 ### Documenting the messages
 
@@ -782,7 +807,7 @@ A few classes in the [ecommerce](./src/main/java/io/eventdriven/distributedproce
 - [ModuleOperations](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/ModuleOperations.java) marks each operation with the module whose code declares it, and [ModuleGroupingService](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/ModuleGroupingService.java) keeps in each module's document only its operations and the channels they use. So `AuthorizePayment` shows twice: in the orders document as a message that the saga sends to `payments-requests`, and in the payments document as a message that the facade receives there.
 - [MessageDescriptions](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/MessageDescriptions.java) copies each record's `@Schema` description to its message, because Springwolf does that only for payloads that it writes inline.
 - [EventCatalogMessageTypes](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/EventCatalogMessageTypes.java) adds `x-eventcatalog-message-type` to each message: `command` for the records of `OrderCommand`, `PaymentCommand` and `ShipmentCommand`, `event` for the rest. AsyncAPI has only messages, and EventCatalog reads this field to tell commands from events. In the web API, a `GET` is a query and every other method a command.
-- The bus runs inside the application, so the documents name a server with the `in-memory` protocol. Springwolf's UI also needs a protocol on each operation and message. AsyncAPI allows only its known protocols as binding names, and other names only with the `x-` prefix, so [InMemoryBindings](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/InMemoryBindings.java) adds an `x-in-memory` binding.
+- Each document lists three servers: `kafka`, `rabbitmq` and `in-memory`. The channels are the same on all of them, so the document doesn't change with `messaging.bus`. Springwolf's UI also needs a protocol on each operation and message. AsyncAPI allows only its known protocols as binding names, and other names only with the `x-` prefix, so [InMemoryBindings](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/InMemoryBindings.java) adds an `x-in-memory` binding.
 - [InMemoryPublishingController](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/InMemoryPublishingController.java) lets the **Publish** button in Springwolf's UI send a message to the bus, through Springwolf's own `PublishingBaseController`. Springwolf loads the message class by its name, which fails for records nested in an interface, so [NestedRecordPayloadCreator](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/NestedRecordPayloadCreator.java) loads them with Spring's `ClassUtils`.
 
 #### Building the catalog from the documents
@@ -845,6 +870,6 @@ Each module keeps its aggregate, its events, its commands, its facade and its `C
 - **A sent package has no return path.** Returns and refunds are a process of their own.
 - **Partial reservations do not exist.** A reservation covers every product or none.
 - **Money is a `double`.** Prices and totals are rounded to whole cents. A real shop would use a decimal type and a currency.
-- **The infrastructure is in memory.** The KurrentDB implementations exist but are not wired, and the JPA auto-configuration is switched off, because no read model uses a database yet. The projection `Database` is a `HashMap` behind a store/get/delete/find API, so swapping it for a real one is a change in one class. None of it is thread-safe: the application is for one person trying the flow, not for many users at once.
+- **The application is not built for many users.** The sample runs one purchase at a time on one Kafka, one KurrentDB and one PostgreSQL, with no cluster, no security and no scaling. It is for one person trying the flow, not for many users at once.
 - **A view can come back after a replay.** `Projection.handle` skips an event that a stored document has already applied, but a deleted document keeps no version. Replay an `OrderPaymentFailed` after its `OrderCompleted`, and the order is listed as awaiting payment again. Nothing breaks, because the worker wakes the order at its `dueAt` and a completed order appends nothing. But a versioned delete would keep it off the list.
 - **`core/messaging` duplicates the older `core/commands` and `core/events`.** Both stay, because `hotelmanagement` still depends on the older pair.
