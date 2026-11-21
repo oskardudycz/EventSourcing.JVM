@@ -3,6 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce.orders;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RabbitMQMessageBus;
@@ -62,12 +63,15 @@ public class OrderSagaRabbitMQRedeliveryTests {
     public void sagaRepublishesBothCommandsWithTheSameIdsOnRedelivery() {
         var eventStore = new InMemoryEventStore(messageContext);
         messageBus = TestRabbitMQ.busOn(
-                connection, messageContext, applicationContext, TestMessages.serializer(ECommerceMessages.mapping()));
-        messageBus
-                .routes(new MessageRoutes()
+                connection,
+                messageContext,
+                applicationContext,
+                TestMessages.serializer(ECommerceMessages.mapping()),
+                List.of(new MessageRoutes()
                         .routeTarget(
-                                MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), published))
-                .channel(published);
+                                MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), published)),
+                List.of(new MessageChannel(published)),
+                List.of());
         queues = new RabbitMQQueues(connection);
         var collector = queues.collectEverythingPublishedTo(published);
         var saga = new OrderSaga(messageBus);

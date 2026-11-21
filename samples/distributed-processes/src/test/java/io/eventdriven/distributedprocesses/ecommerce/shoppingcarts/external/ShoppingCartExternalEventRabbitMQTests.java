@@ -22,6 +22,7 @@ import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestRabbitMQ;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -68,16 +69,22 @@ public class ShoppingCartExternalEventRabbitMQTests {
         var connection = TestDatabases.connectionTo(rabbitMQ);
         var eventStore = new InMemoryEventStore(messageContext);
         messageBus = TestRabbitMQ.busOn(
-                connection, messageContext, applicationContext, TestMessages.serializer(ECommerceMessages.mapping()));
-        var shoppingCarts = ShoppingCartsConfig.configure(
-                        eventStore,
-                        messageBus,
-                        item -> new PricedProductItem(item, 12.5),
-                        H2.bean(CustomerShoppingCartRepository.class),
-                        H2.bean(ShoppingCartSummaryRepository.class),
-                        H2.bean(CartRepository.class),
-                        () -> now)
-                .facade();
+                connection,
+                messageContext,
+                applicationContext,
+                TestMessages.serializer(ECommerceMessages.mapping()),
+                List.of(ShoppingCartsConfig.shoppingCartsRoutes()),
+                List.of(ShoppingCartsConfig.shoppingCartsExternalChannel()),
+                List.of());
+        var shoppingCartsConfig = new ShoppingCartsConfig();
+        var customerShoppingCarts =
+                shoppingCartsConfig.customerShoppingCarts(eventStore, H2.bean(CustomerShoppingCartRepository.class));
+        var shoppingCarts = shoppingCartsConfig.shoppingCartFacade(
+                eventStore, customerShoppingCarts, item -> new PricedProductItem(item, 12.5), () -> now);
+        var shoppingCartSummaries =
+                shoppingCartsConfig.shoppingCartSummaries(eventStore, H2.bean(ShoppingCartSummaryRepository.class));
+        shoppingCartsConfig.shoppingCartExternalEventForwarder(eventStore, shoppingCartSummaries, messageBus);
+        shoppingCartsConfig.carts(eventStore, H2.bean(CartRepository.class));
 
         checkOutCartOfNewCustomer(shoppingCarts);
         checkOutCartOfNewCustomer(shoppingCarts);

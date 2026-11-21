@@ -35,7 +35,11 @@ public class ShoppingCartFacadeTests {
     private final OffsetDateTime now = OffsetDateTime.now();
 
     private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            TestTracing.untraced(),
+            List.of(ShoppingCartsConfig.shoppingCartsRoutes()),
+            List.of(ShoppingCartsConfig.shoppingCartsExternalChannel()),
+            List.of());
     private final MessageCatcher published = new MessageCatcher();
     private Runnable beforePricing = () -> {};
     private final ProductPriceCalculator prices = item -> {
@@ -48,15 +52,14 @@ public class ShoppingCartFacadeTests {
 
     public ShoppingCartFacadeTests() {
         eventStore.use(published::catchMessage);
-        shoppingCarts = ShoppingCartsConfig.configure(
-                        eventStore,
-                        messageBus,
-                        prices,
-                        H2.bean(CustomerShoppingCartRepository.class),
-                        H2.bean(ShoppingCartSummaryRepository.class),
-                        H2.bean(CartRepository.class),
-                        () -> now)
-                .facade();
+        var shoppingCartsConfig = new ShoppingCartsConfig();
+        var customerShoppingCarts =
+                shoppingCartsConfig.customerShoppingCarts(eventStore, H2.bean(CustomerShoppingCartRepository.class));
+        shoppingCarts = shoppingCartsConfig.shoppingCartFacade(eventStore, customerShoppingCarts, prices, () -> now);
+        var shoppingCartSummaries =
+                shoppingCartsConfig.shoppingCartSummaries(eventStore, H2.bean(ShoppingCartSummaryRepository.class));
+        shoppingCartsConfig.shoppingCartExternalEventForwarder(eventStore, shoppingCartSummaries, messageBus);
+        shoppingCartsConfig.carts(eventStore, H2.bean(CartRepository.class));
     }
 
     @Test

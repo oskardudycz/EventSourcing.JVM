@@ -60,8 +60,7 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     private final RabbitTemplate template;
     private final RabbitTemplate mandatoryTemplate;
 
-    private final List<MessageRoutes> routes = new ArrayList<>();
-    private MessageRouter router = routerFor(routes);
+    private final MessageRouter router;
     private final Set<String> channels = ConcurrentHashMap.newKeySet();
     private final List<Consumer<Object>> middlewares = new CopyOnWriteArrayList<>();
     private final Map<String, Map<Class<?>, List<Consumer<Object>>>> queues = new ConcurrentHashMap<>();
@@ -75,7 +74,10 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
             ApplicationContext applicationContext,
             MessageSerializer serializer,
             Duration publishTimeout,
-            FailureHandling failures) {
+            FailureHandling failures,
+            List<MessageRoutes> routes,
+            List<MessageChannel> channels,
+            List<MessageQueue> queues) {
         this.connectionFactory = connectionFactory;
         this.context = context;
         this.applicationContext = applicationContext;
@@ -90,6 +92,10 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
 
         this.template = publisher(connectionFactory, applicationContext, false);
         this.mandatoryTemplate = publisher(connectionFactory, applicationContext, true);
+        this.router = routerFor(routes);
+
+        channels.forEach(this::declare);
+        queues.forEach(this::declare);
     }
 
     public static RabbitMQMessageBus connectingTo(
@@ -101,7 +107,10 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
             ApplicationContext applicationContext,
             MessageSerializer serializer,
             Duration publishTimeout,
-            FailureHandling failures) {
+            FailureHandling failures,
+            List<MessageRoutes> routes,
+            List<MessageChannel> channels,
+            List<MessageQueue> queues) {
         var connectionFactory = new CachingConnectionFactory(host, port);
         connectionFactory.setUsername(username);
         connectionFactory.setPassword(password);
@@ -109,7 +118,15 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
         connectionFactory.setPublisherReturns(true);
 
         return new RabbitMQMessageBus(
-                connectionFactory, context, applicationContext, serializer, publishTimeout, failures);
+                connectionFactory,
+                context,
+                applicationContext,
+                serializer,
+                publishTimeout,
+                failures,
+                routes,
+                channels,
+                queues);
     }
 
     @Override
@@ -134,41 +151,6 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     }
 
     private record Prepared(RoutingTarget route, Message message, MessageValues values) {}
-
-    @Override
-    public RabbitMQMessageBus routes(MessageRoutes moduleRoutes) {
-        routes.add(moduleRoutes);
-        router = routerFor(routes);
-        return this;
-    }
-
-    @Override
-    public RabbitMQMessageBus channel(String name) {
-        channels.add(name);
-        declareExchange(name);
-        return this;
-    }
-
-    @Override
-    public RabbitMQMessageBus bind(String queue, String channel, String routingPattern) {
-        declareExchange(channel);
-
-        declareDeadLetterQueue(queue);
-
-        var declared = QueueBuilder.durable(queue)
-                .quorum()
-                .deadLetterExchange(deadLetterExchangeOf(queue))
-                .deadLetterRoutingKey(queue)
-                .withArgument("x-dead-letter-strategy", "at-least-once")
-                .overflow(QueueBuilder.Overflow.rejectPublish)
-                .build();
-        admin.declareQueue(declared);
-        admin.declareBinding(
-                BindingBuilder.bind(declared).to(topicExchange(channel)).with(routingPattern));
-
-        containers.computeIfAbsent(queue, this::createContainer);
-        return this;
-    }
 
     @Override
     public <Message> RabbitMQMessageBus subscribe(
@@ -232,6 +214,30 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     public void close() {
         stop();
         connectionFactory.destroy();
+    }
+
+    private void declare(MessageChannel channel) {
+        channels.add(channel.name());
+        declareExchange(channel.name());
+    }
+
+    private void declare(MessageQueue queue) {
+        declareExchange(queue.channel());
+
+        declareDeadLetterQueue(queue.name());
+
+        var declared = QueueBuilder.durable(queue.name())
+                .quorum()
+                .deadLetterExchange(deadLetterExchangeOf(queue.name()))
+                .deadLetterRoutingKey(queue.name())
+                .withArgument("x-dead-letter-strategy", "at-least-once")
+                .overflow(QueueBuilder.Overflow.rejectPublish)
+                .build();
+        admin.declareQueue(declared);
+        admin.declareBinding(
+                BindingBuilder.bind(declared).to(topicExchange(queue.channel())).with(queue.routingPattern()));
+
+        containers.computeIfAbsent(queue.name(), this::createContainer);
     }
 
     private MessageListener queueListener(String queue) {

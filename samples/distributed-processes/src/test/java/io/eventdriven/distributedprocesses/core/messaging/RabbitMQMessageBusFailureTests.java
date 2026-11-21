@@ -3,10 +3,11 @@ package io.eventdriven.distributedprocesses.core.messaging;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.MAP;
-import static org.awaitility.Awaitility.await;
 
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.distributedprocesses.core.processing.RetryBackOff;
+import io.eventdriven.testing.MessageCatcher;
 import io.eventdriven.testing.RabbitMQConnection;
 import io.eventdriven.testing.RabbitMQManagement;
 import io.eventdriven.testing.RabbitMQQueues;
@@ -18,7 +19,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +38,7 @@ public class RabbitMQMessageBusFailureTests {
     public record RoomInspected(String room, String inspector) {}
 
     private static final String KEY = "ecommerce.payment.1";
+    private static final Duration CATCH_UP_TIMEOUT = Duration.ofSeconds(30);
 
     private final RabbitMQConnection connection = TestDatabases.rabbitMQ();
     private final RabbitMQManagement management = new RabbitMQManagement(connection);
@@ -46,7 +47,7 @@ public class RabbitMQMessageBusFailureTests {
     private final String billing = "billing-" + id;
     private final String shipping = "shipping-" + id;
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
-    private final List<String> log = new CopyOnWriteArrayList<>();
+    private final MessageCatcher messages = new MessageCatcher();
     private final AtomicInteger decisions = new AtomicInteger();
 
     @Autowired
@@ -61,34 +62,43 @@ public class RabbitMQMessageBusFailureTests {
     @BeforeEach
     void createMessageBus() {
         queues = new RabbitMQQueues(connection);
-        messageBus = TestRabbitMQ.busOn(
-                        connection,
-                        messageContext,
-                        applicationContext,
-                        TestMessages.serializer(new MessageMapping()
-                                .register("test.PaymentReceived", PaymentReceived.class)
-                                .register("test.RoomInspected", RoomInspected.class)
-                                .register(
-                                        "test.RoomInspected.v1",
-                                        String.class,
-                                        room -> new RoomInspected(room, "unknown"))
-                                .register(
-                                        "test.RoomInspected.v0",
-                                        json -> new RoomInspected(json.get("r").asString(), "unknown"))),
-                        new RabbitMQMessageBus.FailureHandling(
-                                (type, message, error) -> {
-                                    decisions.incrementAndGet();
-                                    return MessageFailureStrategy.retryUnlessUnreadable()
-                                            .onFailure(type, message, error);
-                                },
-                                RetryBackOff.exponential(TestRabbitMQ.RETRY_INTERVAL),
-                                meters))
-                .routes(new MessageRoutes()
-                        .routeTarget(MessageRoutes.inPackage(getClass().getPackageName()), payments)
-                        .routeKey(PaymentReceived.class, message -> KEY)
-                        .routeKey(RoomInspected.class, message -> KEY))
-                .channel(payments)
-                .bind(billing, payments, "#");
+        messageBus = busWith(new MessageQueue(billing, payments, "#"));
+    }
+
+    private RabbitMQMessageBus busWith(MessageQueue... queues) {
+        return TestRabbitMQ.busOn(
+                connection,
+                messageContext,
+                applicationContext,
+                serializer(),
+                new RabbitMQMessageBus.FailureHandling(
+                        (type, message, error) -> {
+                            decisions.incrementAndGet();
+                            return MessageFailureStrategy.retryUnlessUnreadable()
+                                    .onFailure(type, message, error);
+                        },
+                        RetryBackOff.exponential(TestRabbitMQ.RETRY_INTERVAL),
+                        meters),
+                List.of(paymentRoutes()),
+                List.of(new MessageChannel(payments)),
+                List.of(queues));
+    }
+
+    private MessageRoutes paymentRoutes() {
+        return new MessageRoutes()
+                .routeTarget(MessageRoutes.inPackage(getClass().getPackageName()), payments)
+                .routeKey(PaymentReceived.class, message -> KEY)
+                .routeKey(RoomInspected.class, message -> KEY);
+    }
+
+    private static MessageSerializer serializer() {
+        return TestMessages.serializer(new MessageMapping()
+                .register("test.PaymentReceived", PaymentReceived.class)
+                .register("test.RoomInspected", RoomInspected.class)
+                .register("test.RoomInspected.v1", String.class, room -> new RoomInspected(room, "unknown"))
+                .register(
+                        "test.RoomInspected.v0",
+                        json -> new RoomInspected(json.get("r").asString(), "unknown")));
     }
 
     @AfterEach
@@ -120,16 +130,16 @@ public class RabbitMQMessageBusFailureTests {
         record Unnamed(String id) {}
         var collector = queues.collectEverythingPublishedTo(payments);
         var bus = TestRabbitMQ.busOn(
-                        connection,
-                        messageContext,
-                        applicationContext,
-                        TestMessages.serializer(
-                                new MessageMapping().register("test.PaymentReceived", PaymentReceived.class)))
-                .routes(new MessageRoutes()
+                connection,
+                messageContext,
+                applicationContext,
+                TestMessages.serializer(new MessageMapping().register("test.PaymentReceived", PaymentReceived.class)),
+                List.of(new MessageRoutes()
                         .routeTarget(MessageRoutes.inPackage(getClass().getPackageName()), payments)
                         .routeKey(PaymentReceived.class, message -> KEY)
-                        .routeKey(Unnamed.class, message -> KEY))
-                .channel(payments);
+                        .routeKey(Unnamed.class, message -> KEY)),
+                List.of(new MessageChannel(payments)),
+                List.of());
 
         try {
             assertThatThrownBy(() -> bus.publish(List.of(new PaymentReceived("payment-1"), new Unnamed("unnamed"))))
@@ -147,31 +157,46 @@ public class RabbitMQMessageBusFailureTests {
         var attempts = new AtomicInteger();
         messageBus.subscribe(billing, PaymentReceived.class, message -> {
             if (attempts.incrementAndGet() == 1) throw new IllegalStateException("Payment gateway unavailable");
-            log.add("handled:" + message.id());
+            messages.catchMessage(message);
         });
 
         publish(new PaymentReceived("payment-1"));
 
-        awaitLog("handled:payment-1");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
         assertThat(attempts).hasValue(2);
         assertThat(queues.messageCount(billing + "-dlq")).isZero();
         assertThat(deadLettered()).isZero();
     }
 
     @Test
+    public void aDeadLetteredMessageCountsAsCaughtUp() {
+        messageBus.subscribe(billing, PaymentReceived.class, message -> {
+            throw new IllegalStateException("Payment gateway unavailable");
+        });
+
+        publish(new PaymentReceived("payment-1"));
+
+        awaitCaughtUp();
+        assertThat(queues.receiveAll(billing + "-dlq", 1)).hasSize(1);
+    }
+
+    @Test
     public void alwaysFailingHandlerSendsTheMessageToItsQueuesDeadLetterQueueAfterTheLastRetry() {
         var attempts = new AtomicInteger();
-        messageBus.bind(shipping, payments, "#");
+        messageBus.close();
+        messageBus = busWith(new MessageQueue(billing, payments, "#"), new MessageQueue(shipping, payments, "#"));
         messageBus.subscribe(billing, PaymentReceived.class, message -> {
             attempts.incrementAndGet();
             throw new IllegalStateException("Payment gateway unavailable");
         });
-        messageBus.subscribe(shipping, PaymentReceived.class, message -> log.add("shipping:" + message.id()));
+        messageBus.subscribe(shipping, PaymentReceived.class, messages::catchMessage);
 
         publish(new PaymentReceived("payment-1"), new PaymentReceived("payment-2"));
 
         var deadLetters = queues.receiveAll(billing + "-dlq", 2);
-        awaitLog("shipping:payment-1", "shipping:payment-2");
+        awaitCaughtUp();
+        messages.shouldReceiveMessages(new PaymentReceived("payment-1"), new PaymentReceived("payment-2"));
         assertThat(deadLetters).hasSize(2);
         assertThat(attempts).hasValue(6);
         assertThat(queues.messageCount(shipping + "-dlq")).isZero();
@@ -180,13 +205,14 @@ public class RabbitMQMessageBusFailureTests {
 
     @Test
     public void bodyThatIsNotJsonGoesToTheDeadLetterQueueWithoutRetriesAndTheNextMessageIsHandled() {
-        messageBus.subscribe(billing, PaymentReceived.class, message -> log.add("handled:" + message.id()));
+        messageBus.subscribe(billing, PaymentReceived.class, messages::catchMessage);
         publishRaw("test.PaymentReceived", "{\"id\":");
 
         publish(new PaymentReceived("payment-1"));
 
         var deadLetters = queues.receiveAll(billing + "-dlq", 1);
-        awaitLog("handled:payment-1");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
         assertThat(deadLetters).hasSize(1);
         assertThat(new String(deadLetters.getFirst().getBody(), StandardCharsets.UTF_8))
                 .isEqualTo("{\"id\":");
@@ -196,13 +222,14 @@ public class RabbitMQMessageBusFailureTests {
 
     @Test
     public void typeOutsideTheSamplesPackageIsNotCreatedAndIsDeadLettered() {
-        messageBus.subscribe(billing, PaymentReceived.class, message -> log.add("handled:" + message.id()));
+        messageBus.subscribe(billing, PaymentReceived.class, messages::catchMessage);
         publishRaw("java.lang.ProcessBuilder", "{}");
 
         publish(new PaymentReceived("payment-1"));
 
         var deadLetters = queues.receiveAll(billing + "-dlq", 1);
-        awaitLog("handled:payment-1");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
         assertThat(deadLetters).hasSize(1);
         assertThat(deadLetters.getFirst().getMessageProperties().<String>getHeader(RabbitMQMessageBus.MESSAGE_TYPE))
                 .isEqualTo("java.lang.ProcessBuilder");
@@ -218,13 +245,14 @@ public class RabbitMQMessageBusFailureTests {
 
     @Test
     public void messageWithoutATypeHeaderIsDeadLettered() {
-        messageBus.subscribe(billing, PaymentReceived.class, message -> log.add("handled:" + message.id()));
+        messageBus.subscribe(billing, PaymentReceived.class, messages::catchMessage);
         queues.send(payments, KEY, new Message("{}".getBytes(StandardCharsets.UTF_8)));
 
         publish(new PaymentReceived("payment-1"));
 
         assertThat(queues.receiveAll(billing + "-dlq", 1)).hasSize(1);
-        awaitLog("handled:payment-1");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
     }
 
     @Test
@@ -258,13 +286,17 @@ public class RabbitMQMessageBusFailureTests {
 
     @Test
     public void oldVersionOfAMessageIsTransformedToTheCurrentOne() {
-        messageBus.subscribe(
-                billing, RoomInspected.class, message -> log.add(message.room() + ":" + message.inspector()));
+        messageBus.subscribe(billing, RoomInspected.class, messages::catchMessage);
         publishRaw("test.RoomInspected.v1", "\"101\"");
         publishRaw("test.RoomInspected.v0", "{\"r\":\"102\"}");
         publishRaw("test.RoomInspected", "{\"room\":\"103\",\"inspector\":\"anna\"}");
 
-        awaitLog("101:unknown", "102:unknown", "103:anna");
+        awaitCaughtUp();
+        assertThat(messages.published)
+                .containsExactlyInAnyOrder(
+                        new RoomInspected("101", "unknown"),
+                        new RoomInspected("102", "unknown"),
+                        new RoomInspected("103", "anna"));
         assertThat(queues.messageCount(billing + "-dlq")).isZero();
     }
 
@@ -287,8 +319,7 @@ public class RabbitMQMessageBusFailureTests {
                 .sum();
     }
 
-    private void awaitLog(String... entries) {
-        await().atMost(Duration.ofSeconds(30))
-                .untilAsserted(() -> assertThat(log).containsExactlyInAnyOrder(entries));
+    private void awaitCaughtUp() {
+        messageBus.awaitCaughtUp(CATCH_UP_TIMEOUT);
     }
 }

@@ -39,7 +39,14 @@ public class CaptureGatewayClientTests {
     private final OffsetDateTime captureBefore = now.plus(authorizationValidity);
 
     private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            TestTracing.untraced(),
+            List.of(PaymentsConfig.paymentsRoutes()),
+            List.of(
+                    PaymentsConfig.paymentsRequestsChannel(),
+                    PaymentsConfig.paymentsResponsesChannel(),
+                    PaymentsConfig.paymentsInternalChannel()),
+            List.of(PaymentsConfig.paymentsRequestsQueue(), PaymentsConfig.paymentsInternalQueue()));
     private final MessageCatcher published = new MessageCatcher();
 
     @Test
@@ -101,14 +108,15 @@ public class CaptureGatewayClientTests {
     private void configure(PaymentGateway paymentGateway) {
         eventStore.use(published::catchMessage);
 
-        PaymentsConfig.configure(
-                eventStore,
-                messageBus,
-                paymentGateway,
-                PaymentValidity.of(paymentTimeout),
-                H2.bean(PaymentSummaryRepository.class),
-                H2.bean(PendingPaymentRepository.class),
-                H2.bean(AuthorizedPaymentRepository.class),
-                () -> now);
+        var paymentsConfig = new PaymentsConfig();
+        var paymentSummaries = paymentsConfig.paymentSummaries(eventStore, H2.bean(PaymentSummaryRepository.class));
+        var pendingPayments = paymentsConfig.pendingPayments(eventStore, H2.bean(PendingPaymentRepository.class));
+        var authorizedPayments =
+                paymentsConfig.authorizedPayments(eventStore, H2.bean(AuthorizedPaymentRepository.class));
+        paymentsConfig.paymentExternalEventForwarder(eventStore, paymentSummaries, messageBus);
+        paymentsConfig.captureGatewayClient(eventStore, paymentGateway, messageBus);
+        paymentsConfig.authorizationGatewayClient(eventStore, paymentGateway);
+        paymentsConfig.paymentFacade(
+                eventStore, messageBus, paymentGateway, PaymentValidity.of(paymentTimeout), () -> now);
     }
 }

@@ -2,6 +2,7 @@ package io.eventdriven.distributedprocesses.core.eventstore;
 
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
@@ -19,6 +20,10 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
@@ -95,7 +100,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
     }
 
     @Test
-    public void aClosedStoreStopsDeliveringAndRetrying() {
+    public void closingAStoreReturnsOnlyAfterItsSubscriptionStopped() {
         var store = newStore(ProjectionsDatabase.H2);
         var attempts = new AtomicInteger();
         store.subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
@@ -110,18 +115,77 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         close(store);
         var attemptsAtClose = attempts.get();
 
-        await().during(Duration.ofSeconds(1))
-                .atMost(Duration.ofSeconds(3))
-                .untilAsserted(() -> assertThat(attempts.get()).isLessThanOrEqualTo(attemptsAtClose + 1));
+        assertThat(attempts).hasValue(attemptsAtClose);
+    }
+
+    @Test
+    public void closingAStoreWaitsForTheHandlerThatIsRunning() throws Exception {
+        var store = newStore(ProjectionsDatabase.H2);
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var handlerFinished = new AtomicBoolean(false);
+        store.subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
+            if (!envelope.metadata().streamId().equals(streamId)) return;
+
+            entered.countDown();
+            awaitUninterruptibly(release);
+            handlerFinished.set(true);
+        });
+        store.append(streamId, new ItemAdded(cartId, "t-shirt"));
+        assertThat(entered.await(30, TimeUnit.SECONDS)).isTrue();
+        var executor = Executors.newSingleThreadExecutor();
+
+        try {
+            var closing = executor.submit(() -> {
+                close(store);
+                return handlerFinished.get();
+            });
+
+            release.countDown();
+
+            assertThat(closing.get(30, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            release.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    private static void awaitUninterruptibly(CountDownLatch latch) {
+        var interrupted = false;
+
+        while (latch.getCount() > 0) {
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                interrupted = true;
+            }
+        }
+
+        if (interrupted) Thread.currentThread().interrupt();
+    }
+
+    @Test
+    public void awaitingACheckpointHandledBeforeARestartReturnsAfterTheRestart() {
+        var name = subscriptionName();
+        var store = newStore(ProjectionsDatabase.H2);
+        var subscription = store.subscribe(name, List.of(ItemAdded.class), envelope -> {});
+        var appended = store.append(streamId, new ItemAdded(cartId, "t-shirt"));
+        var checkpoint = ((EventStore.AppendResult.Success) appended).lastEvent();
+        subscription.awaitProcessed(checkpoint, PROCESSING_TIMEOUT);
+        close(store);
+
+        var restarted = newStore(ProjectionsDatabase.H2);
+        var restartedSubscription = restarted.subscribe(name, List.of(ItemAdded.class), envelope -> {});
+
+        assertThatNoException().isThrownBy(() -> restartedSubscription.awaitProcessed(checkpoint, PROCESSING_TIMEOUT));
     }
 
     @Test
     public void subscriptionContinuesAfterItsCheckpointOnRestart() {
         var name = subscriptionName();
         var store = newStore(ProjectionsDatabase.POSTGRESQL);
-        var checkpoints = ProjectionsDatabase.POSTGRESQL.bean(SubscriptionCheckpoints.class);
         var forwarded = new CopyOnWriteArrayList<Object>();
-        store.subscribe(name, List.of(ItemAdded.class), envelope -> {
+        var subscription = store.subscribe(name, List.of(ItemAdded.class), envelope -> {
             if (envelope.metadata().streamId().equals(streamId)) forwarded.add(envelope.data());
         });
         store.append(
@@ -130,22 +194,19 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
                 new ItemAdded(cartId, "hoodie"),
                 new ItemAdded(cartId, "socks"));
         var result = store.append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "scarf"));
-        var lastHandledPosition =
-                ((EventStore.AppendResult.Success) result).lastEvent().position();
-        await().atMost(Duration.ofSeconds(10))
-                .until(() -> checkpoints.lastProcessedPosition(name).orElse(-1) >= lastHandledPosition);
+        subscription.awaitProcessed(((EventStore.AppendResult.Success) result).lastEvent(), PROCESSING_TIMEOUT);
         close(store);
         forwarded.clear();
 
         var restarted = newStore(ProjectionsDatabase.POSTGRESQL);
-        restarted.subscribe(name, List.of(ItemAdded.class), envelope -> {
+        var restartedSubscription = restarted.subscribe(name, List.of(ItemAdded.class), envelope -> {
             if (envelope.metadata().streamId().equals(streamId)) forwarded.add(envelope.data());
         });
-        restarted.append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "gloves"));
+        var gloves = restarted.append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "gloves"));
 
-        await().atMost(Duration.ofSeconds(10))
-                .during(Duration.ofSeconds(1))
-                .untilAsserted(() -> assertThat(forwarded).containsExactly(new ItemAdded(cartId, "gloves")));
+        restartedSubscription.awaitProcessed(
+                ((EventStore.AppendResult.Success) gloves).lastEvent(), PROCESSING_TIMEOUT);
+        assertThat(forwarded).containsExactly(new ItemAdded(cartId, "gloves"));
     }
 
     @Test
@@ -190,28 +251,18 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         var orderStatuses = new OrderStatuses(repository);
         var warmUpOrderId = anOrderId();
         var orderId = anOrderId();
-        var delivered = new AtomicInteger();
-        store.subscribe(name, orderStatuses.canHandle(), envelope -> {
-            if (isOrderOf(envelope, warmUpOrderId)) orderStatuses.handle(envelope);
-
-            if (!isOrderOf(envelope, orderId)) return;
-
-            orderStatuses.handle(envelope);
-            delivered.incrementAndGet();
+        var subscription = store.subscribe(name, orderStatuses.canHandle(), envelope -> {
+            if (isOrderOf(envelope, warmUpOrderId) || isOrderOf(envelope, orderId)) orderStatuses.handle(envelope);
         });
-        store.append("Order-%s".formatted(warmUpOrderId.value()), orderPlaced(warmUpOrderId));
-        await().atMost(Duration.ofSeconds(10))
-                .untilAsserted(
-                        () -> assertThat(repository.findById(warmUpOrderId)).isPresent());
+        var warmUp = store.append("Order-%s".formatted(warmUpOrderId.value()), orderPlaced(warmUpOrderId));
+        subscription.awaitProcessed(((EventStore.AppendResult.Success) warmUp).lastEvent(), PROCESSING_TIMEOUT);
         checkpoints.handle(name, Long.MAX_VALUE, Long.MAX_VALUE, () -> {});
 
-        store.append("Order-%s".formatted(orderId.value()), orderPlaced(orderId));
+        var appended = store.append("Order-%s".formatted(orderId.value()), orderPlaced(orderId));
 
-        await().atMost(Duration.ofSeconds(10)).until(() -> delivered.get() > 0);
-        await().during(Duration.ofSeconds(1)).atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
-            assertThat(repository.findById(orderId)).isEmpty();
-            assertThat(checkpoints.lastProcessedPosition(name)).hasValue(Long.MAX_VALUE);
-        });
+        subscription.awaitProcessed(((EventStore.AppendResult.Success) appended).lastEvent(), PROCESSING_TIMEOUT);
+        assertThat(repository.findById(orderId)).isEmpty();
+        assertThat(checkpoints.lastProcessedPosition(name)).hasValue(Long.MAX_VALUE);
     }
 
     private static OrderId anOrderId() {

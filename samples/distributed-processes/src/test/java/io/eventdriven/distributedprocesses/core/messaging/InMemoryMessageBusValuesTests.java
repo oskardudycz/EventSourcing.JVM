@@ -15,16 +15,19 @@ public class InMemoryMessageBusValuesTests {
     record Second(String id) {}
 
     private final TestTracing tracing = new TestTracing();
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(tracing.messageContext());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            tracing.messageContext(),
+            List.of(new MessageRoutes()
+                    .routeTarget(
+                            MessageRoutes.inPackage(InMemoryMessageBusValuesTests.class.getPackageName()),
+                            "published")),
+            List.of(new MessageChannel("published")),
+            List.of(new MessageQueue("queue", "published", "#")));
     private final List<String> messageIds = new ArrayList<>();
     private final List<String> correlationIds = new ArrayList<>();
 
     public InMemoryMessageBusValuesTests() {
         messageBus
-                .routes(new MessageRoutes()
-                        .routeTarget(MessageRoutes.inPackage(getClass().getPackageName()), "published"))
-                .channel("published")
-                .bind("queue", "published", "#")
                 .subscribe("queue", First.class, message -> observe())
                 .subscribe("queue", Second.class, message -> observe());
     }

@@ -3,6 +3,8 @@ package io.eventdriven.distributedprocesses.core.eventstore.kurrentdb;
 import io.eventdriven.distributedprocesses.core.eventstore.Checkpoint;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
+import io.eventdriven.distributedprocesses.core.eventstore.Subscription;
+import io.eventdriven.distributedprocesses.core.eventstore.SubscriptionProgress;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
@@ -22,6 +24,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.springframework.util.backoff.BackOff;
@@ -92,7 +95,7 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
     }
 
     @Override
-    public EventStore subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler) {
+    public Subscription subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler) {
         if (types.isEmpty())
             throw new IllegalArgumentException("Subscription '%s' needs at least one event type".formatted(name));
 
@@ -105,6 +108,8 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
                 .withEventTypeRegularExpression("^(%s)$".formatted(typeNames))
                 .build();
 
+        var progress = new SubscriptionProgress(name);
+        checkpoints.lastProcessed(name).ifPresent(progress::handled);
         var subscription = new KurrentDBSubscriptionToAll(
                 eventStore,
                 name,
@@ -119,20 +124,31 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
                                 metadata.logPosition(),
                                 () -> handler.accept(new EventEnvelope<>(event, metadata)));
                     }
+
+                    progress.handled(metadata.checkpoint());
                 }),
                 backOff,
                 scheduler);
         subscriptions.add(subscription);
         subscription.start();
 
-        return this;
+        return progress;
     }
 
     @Override
     public void close() {
         subscriptions.forEach(KurrentDBSubscriptionToAll::close);
         scheduler.shutdownNow();
+        awaitSchedulerTermination();
         if (ownsClient) eventStore.shutdown();
+    }
+
+    private void awaitSchedulerTermination() {
+        try {
+            scheduler.awaitTermination(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private SubscribeToAllOptions optionsAfterCheckpointOf(String name) {

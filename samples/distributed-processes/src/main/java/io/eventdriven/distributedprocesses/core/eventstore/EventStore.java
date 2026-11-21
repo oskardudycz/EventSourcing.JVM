@@ -13,7 +13,7 @@ public interface EventStore {
 
     AppendResult append(String streamId, ExpectedStreamVersion expectedVersion, Object... events);
 
-    EventStore subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler);
+    Subscription subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler);
 
     MessageContext.Scope continueTraceOf(String stepName, EventMetadata lastEvent);
 

@@ -38,7 +38,14 @@ public class PaymentFacadeTests {
     private final OffsetDateTime timedOutAt = now.plus(paymentTimeout);
 
     private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            TestTracing.untraced(),
+            List.of(PaymentsConfig.paymentsRoutes()),
+            List.of(
+                    PaymentsConfig.paymentsRequestsChannel(),
+                    PaymentsConfig.paymentsResponsesChannel(),
+                    PaymentsConfig.paymentsInternalChannel()),
+            List.of(PaymentsConfig.paymentsRequestsQueue(), PaymentsConfig.paymentsInternalQueue()));
     private final MessageCatcher published = new MessageCatcher();
     private final AtomicReference<OffsetDateTime> clock = new AtomicReference<>(now);
     private final SilentPaymentGateway gateway = new SilentPaymentGateway();
@@ -47,16 +54,16 @@ public class PaymentFacadeTests {
 
     public PaymentFacadeTests() {
         eventStore.use(published::catchMessage);
-        facade = PaymentsConfig.configure(
-                        eventStore,
-                        messageBus,
-                        gateway,
-                        PaymentValidity.of(paymentTimeout),
-                        H2.bean(PaymentSummaryRepository.class),
-                        H2.bean(PendingPaymentRepository.class),
-                        H2.bean(AuthorizedPaymentRepository.class),
-                        clock::get)
-                .facade();
+        var paymentsConfig = new PaymentsConfig();
+        var paymentSummaries = paymentsConfig.paymentSummaries(eventStore, H2.bean(PaymentSummaryRepository.class));
+        var pendingPayments = paymentsConfig.pendingPayments(eventStore, H2.bean(PendingPaymentRepository.class));
+        var authorizedPayments =
+                paymentsConfig.authorizedPayments(eventStore, H2.bean(AuthorizedPaymentRepository.class));
+        paymentsConfig.paymentExternalEventForwarder(eventStore, paymentSummaries, messageBus);
+        paymentsConfig.captureGatewayClient(eventStore, gateway, messageBus);
+        paymentsConfig.authorizationGatewayClient(eventStore, gateway);
+        facade = paymentsConfig.paymentFacade(
+                eventStore, messageBus, gateway, PaymentValidity.of(paymentTimeout), clock::get);
     }
 
     @Test
@@ -131,17 +138,24 @@ public class PaymentFacadeTests {
     @Test
     public void createCheckoutSessionThatTheGatewayFailsToOpenRecordsNothing() {
         var store = new InMemoryEventStore(TestTracing.untraced());
-        var bus = new InMemoryMessageBus(TestTracing.untraced());
-        var throwingFacade = PaymentsConfig.configure(
-                        store,
-                        bus,
-                        new ThrowingPaymentGateway(),
-                        PaymentValidity.of(paymentTimeout),
-                        H2.bean(PaymentSummaryRepository.class),
-                        H2.bean(PendingPaymentRepository.class),
-                        H2.bean(AuthorizedPaymentRepository.class),
-                        clock::get)
-                .facade();
+        var bus = new InMemoryMessageBus(
+                TestTracing.untraced(),
+                List.of(PaymentsConfig.paymentsRoutes()),
+                List.of(
+                        PaymentsConfig.paymentsRequestsChannel(),
+                        PaymentsConfig.paymentsResponsesChannel(),
+                        PaymentsConfig.paymentsInternalChannel()),
+                List.of(PaymentsConfig.paymentsRequestsQueue(), PaymentsConfig.paymentsInternalQueue()));
+        var paymentGateway = new ThrowingPaymentGateway();
+        var paymentsConfig = new PaymentsConfig();
+        var paymentSummaries = paymentsConfig.paymentSummaries(store, H2.bean(PaymentSummaryRepository.class));
+        var pendingPayments = paymentsConfig.pendingPayments(store, H2.bean(PendingPaymentRepository.class));
+        var authorizedPayments = paymentsConfig.authorizedPayments(store, H2.bean(AuthorizedPaymentRepository.class));
+        paymentsConfig.paymentExternalEventForwarder(store, paymentSummaries, bus);
+        paymentsConfig.captureGatewayClient(store, paymentGateway, bus);
+        paymentsConfig.authorizationGatewayClient(store, paymentGateway);
+        var throwingFacade = paymentsConfig.paymentFacade(
+                store, bus, paymentGateway, PaymentValidity.of(paymentTimeout), clock::get);
         bus.publish(List.of(new AuthorizePayment(paymentId, referenceId, amount)));
 
         assertThatThrownBy(() -> throwingFacade.createCheckoutSession(createCheckoutSession()))

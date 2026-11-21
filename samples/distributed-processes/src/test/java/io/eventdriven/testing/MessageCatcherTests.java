@@ -1,6 +1,8 @@
 package io.eventdriven.testing;
 
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
+import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import java.util.List;
 import java.util.UUID;
@@ -8,11 +10,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class MessageCatcherTests {
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced())
-            .routes(new MessageRoutes()
-                    .routeTarget(MessageRoutes.inPackage(MessageCatcherTests.class.getPackageName()), "orders"))
-            .channel("orders")
-            .bind("orders", "orders", "#");
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            TestTracing.untraced(),
+            List.of(new MessageRoutes()
+                    .routeTarget(MessageRoutes.inPackage(MessageCatcherTests.class.getPackageName()), "orders")),
+            List.of(new MessageChannel("orders")),
+            List.of(new MessageQueue("orders", "orders", "#")));
     private final MessageCatcher messages = new MessageCatcher();
 
     private final UUID orderId = UUID.randomUUID();

@@ -5,6 +5,7 @@ import static org.awaitility.Awaitility.await;
 
 import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.KafkaMessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.ecommerce.ECommerceMessages;
@@ -65,12 +66,12 @@ public class OrderSagaKafkaRedeliveryTests {
                 observations,
                 TestMessages.serializer(ECommerceMessages.mapping()),
                 Duration.ofSeconds(10),
-                TestKafka.failureHandling(bootstrapServers, observations));
-        messageBus
-                .routes(new MessageRoutes()
+                TestKafka.failureHandling(bootstrapServers, observations),
+                List.of(new MessageRoutes()
                         .routeTarget(
-                                MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), published))
-                .channel(published);
+                                MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), published)),
+                List.of(new MessageChannel(published)),
+                List.of());
         var saga = new OrderSaga(messageBus);
         var calls = new AtomicInteger();
         eventStore.subscribe("OrderSaga", List.of(OrderEvent.OrderPlaced.class), envelope -> {

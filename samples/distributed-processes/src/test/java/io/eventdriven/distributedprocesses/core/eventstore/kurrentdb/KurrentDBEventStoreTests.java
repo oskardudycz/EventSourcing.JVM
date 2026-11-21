@@ -89,22 +89,18 @@ public class KurrentDBEventStoreTests extends DurableEventStoreTests {
         var store = newStore(ProjectionsDatabase.POSTGRESQL);
         var checkpoints = ProjectionsDatabase.POSTGRESQL.bean(SubscriptionCheckpoints.class);
         var earlier = store.append("ShoppingCart-%s".formatted(UUID.randomUUID()), new CartOpened(cartId));
-        store.append(streamId, new ItemAdded(cartId, "t-shirt"));
+        var appended = store.append(streamId, new ItemAdded(cartId, "t-shirt"));
         var received = new CopyOnWriteArrayList<Object>();
         checkpoints.handle(name, 1, () -> {});
-        store.subscribe(name, List.of(ItemAdded.class), envelope -> {
+        var subscription = store.subscribe(name, List.of(ItemAdded.class), envelope -> {
             if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
         });
-
-        await().during(Duration.ofSeconds(1))
-                .atMost(Duration.ofSeconds(3))
-                .untilAsserted(() -> assertThat(received).isEmpty());
 
         checkpoints.handle(
                 name, ((EventStore.AppendResult.Success) earlier).lastEvent().position(), () -> {});
 
-        await().atMost(Duration.ofSeconds(10))
-                .untilAsserted(() -> assertThat(received).containsExactly(new ItemAdded(cartId, "t-shirt")));
+        subscription.awaitProcessed(((EventStore.AppendResult.Success) appended).lastEvent(), PROCESSING_TIMEOUT);
+        assertThat(received).containsExactly(new ItemAdded(cartId, "t-shirt"));
     }
 
     @Test

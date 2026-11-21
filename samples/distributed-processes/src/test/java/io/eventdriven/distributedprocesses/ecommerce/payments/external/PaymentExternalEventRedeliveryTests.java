@@ -11,6 +11,7 @@ import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentValidity;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
@@ -28,7 +29,17 @@ import org.junit.jupiter.api.Test;
 public class PaymentExternalEventRedeliveryTests {
     private final TestTracing tracing = new TestTracing();
     private final InMemoryEventStore eventStore = new InMemoryEventStore(tracing.messageContext());
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(tracing.messageContext());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            tracing.messageContext(),
+            List.of(PaymentsConfig.paymentsRoutes()),
+            List.of(
+                    PaymentsConfig.paymentsRequestsChannel(),
+                    PaymentsConfig.paymentsResponsesChannel(),
+                    PaymentsConfig.paymentsInternalChannel()),
+            List.of(
+                    PaymentsConfig.paymentsRequestsQueue(),
+                    PaymentsConfig.paymentsInternalQueue(),
+                    new MessageQueue("probe", PaymentsConfig.responses, "#")));
     private final AtomicInteger calls = new AtomicInteger();
 
     private final String referenceId = Urns.of("ecommerce", "order", UUID.randomUUID());
@@ -37,25 +48,25 @@ public class PaymentExternalEventRedeliveryTests {
     private final OffsetDateTime now = OffsetDateTime.now();
 
     public PaymentExternalEventRedeliveryTests() {
-        PaymentsConfig.configure(
-                eventStore,
-                messageBus,
-                new SilentPaymentGateway(),
-                PaymentValidity.of(Duration.ofMinutes(5)),
-                H2.bean(PaymentSummaryRepository.class),
-                H2.bean(PendingPaymentRepository.class),
-                H2.bean(AuthorizedPaymentRepository.class),
-                () -> now);
-        messageBus
-                .bind("probe", PaymentsConfig.responses, "#")
-                .subscribe("probe", PaymentExternalEvent.PaymentAuthorized.class, event -> {
-                    eventStore.append(
-                            receivedStream,
-                            ExpectedStreamVersion.any(),
-                            new Received(event.paymentId().value()));
+        var paymentGateway = new SilentPaymentGateway();
+        var paymentsConfig = new PaymentsConfig();
+        var paymentSummaries = paymentsConfig.paymentSummaries(eventStore, H2.bean(PaymentSummaryRepository.class));
+        var pendingPayments = paymentsConfig.pendingPayments(eventStore, H2.bean(PendingPaymentRepository.class));
+        var authorizedPayments =
+                paymentsConfig.authorizedPayments(eventStore, H2.bean(AuthorizedPaymentRepository.class));
+        paymentsConfig.paymentExternalEventForwarder(eventStore, paymentSummaries, messageBus);
+        paymentsConfig.captureGatewayClient(eventStore, paymentGateway, messageBus);
+        paymentsConfig.authorizationGatewayClient(eventStore, paymentGateway);
+        paymentsConfig.paymentFacade(
+                eventStore, messageBus, paymentGateway, PaymentValidity.of(Duration.ofMinutes(5)), () -> now);
+        messageBus.subscribe("probe", PaymentExternalEvent.PaymentAuthorized.class, event -> {
+            eventStore.append(
+                    receivedStream,
+                    ExpectedStreamVersion.any(),
+                    new Received(event.paymentId().value()));
 
-                    if (calls.incrementAndGet() == 1) throw new IllegalStateException("Consumer is not ready");
-                });
+            if (calls.incrementAndGet() == 1) throw new IllegalStateException("Consumer is not ready");
+        });
     }
 
     @Test

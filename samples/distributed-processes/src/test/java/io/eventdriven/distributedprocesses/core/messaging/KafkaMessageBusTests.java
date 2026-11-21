@@ -1,26 +1,20 @@
 package io.eventdriven.distributedprocesses.core.messaging;
 
-import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
-import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrdersConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
-import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentValidity;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
-import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGateway;
-import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizedPaymentRepository;
-import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.PendingPaymentRepository;
-import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentSummaryRepository;
+import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent;
 import io.eventdriven.testing.FailingFirstSendKafkaTemplate;
 import io.eventdriven.testing.InMemorySpansConfiguration;
 import io.eventdriven.testing.KafkaTopics;
-import io.eventdriven.testing.RouteRecordingMessageBus;
 import io.eventdriven.testing.TestDatabases;
 import io.eventdriven.testing.TestKafka;
 import io.eventdriven.testing.TestMessages;
@@ -30,11 +24,13 @@ import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -75,14 +71,18 @@ public class KafkaMessageBusTests extends MessageBusTests {
     private InMemorySpanExporter spans;
 
     @Override
-    protected MessageBus createBus() {
+    protected MessageBus createBus(
+            List<MessageRoutes> routes, List<MessageChannel> channels, List<MessageQueue> queues) {
         return KafkaMessageBus.connectingTo(
                 bootstrapServers,
                 messageContext,
                 observations,
                 serializer(),
                 PUBLISH_TIMEOUT,
-                TestKafka.failureHandling(bootstrapServers, observations));
+                TestKafka.failureHandling(bootstrapServers, observations),
+                routes,
+                channels,
+                queues);
     }
 
     @Override
@@ -148,7 +148,8 @@ public class KafkaMessageBusTests extends MessageBusTests {
     @Test
     public void publishToAnUndeclaredChannelFailsAndCreatesNoTopic() {
         var undeclared = "undeclared-" + id;
-        var bus = newBus().routes(new MessageRoutes().routeTarget(OrderPlaced.class, event -> undeclared));
+        var bus = newBus(
+                List.of(new MessageRoutes().routeTarget(OrderPlaced.class, event -> undeclared)), List.of(), List.of());
 
         assertThatThrownBy(() -> publish(bus, new OrderPlaced("order-1")))
                 .isInstanceOf(IllegalStateException.class)
@@ -160,15 +161,58 @@ public class KafkaMessageBusTests extends MessageBusTests {
     @Test
     public void newConsumerGroupReadsFromTheEarliestOffset() {
         publish(messageBus, new OrderPlaced("order-1"));
-        await().atMost(Duration.ofSeconds(30))
-                .until(() -> !KafkaTopics.recordsOf(bootstrapServers, orders).isEmpty());
         var late = "late-" + id;
+        var lateBus = newBus(
+                List.of(ordersRoutes()),
+                List.of(new MessageChannel(orders)),
+                List.of(new MessageQueue(late, orders, "#")));
+        lateBus.subscribe(late, OrderPlaced.class, messages::catchMessage);
+        start((KafkaMessageBus) lateBus);
 
-        messageBus.bind(late, orders, "#");
-        messageBus.subscribe(late, OrderPlaced.class, event -> log.add("late:" + event.id()));
-        start((KafkaMessageBus) messageBus);
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
+    }
 
-        awaitLog("late:order-1");
+    @Test
+    public void aQueueBoundToAChannelDeclaredByALaterModuleGetsItsMessages() {
+        var referenceId = Urns.of("ecommerce", "order", UUID.randomUUID());
+        var authorized = new PaymentExternalEvent.PaymentAuthorized(
+                referenceId, PaymentId.derivedFrom(referenceId), OffsetDateTime.now(ZoneOffset.UTC));
+        var bus = newBus(
+                List.of(PaymentsConfig.paymentsRoutes()),
+                List.of(
+                        PaymentsConfig.paymentsRequestsChannel(),
+                        PaymentsConfig.paymentsResponsesChannel(),
+                        PaymentsConfig.paymentsInternalChannel()),
+                List.of(OrdersConfig.ordersPaymentsResponsesQueue()));
+        bus.subscribe(
+                OrdersConfig.paymentsResponses, PaymentExternalEvent.PaymentAuthorized.class, messages::catchMessage);
+
+        publish(bus, authorized);
+
+        awaitCaughtUp();
+        assertThat(messages.published).contains(authorized);
+    }
+
+    @Test
+    public void waitingForCatchUpFailsNamingTheGroupWhenAHandlerDoesNotFinish() {
+        var release = new CountDownLatch(1);
+        messageBus.subscribe(orders, OrderPlaced.class, event -> {
+            try {
+                release.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        publish(messageBus, new OrderPlaced("order-1"));
+
+        try {
+            assertThatThrownBy(() -> messageBus.awaitCaughtUp(Duration.ofSeconds(1)))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining(orders);
+        } finally {
+            release.countDown();
+        }
     }
 
     @Test
@@ -186,19 +230,13 @@ public class KafkaMessageBusTests extends MessageBusTests {
     @Test
     public void twoMessagesAboutOnePaymentShareTheRecordKeyAndPartition() {
         var paymentId = PaymentId.of(UUID.randomUUID());
-        var recording = new RouteRecordingMessageBus();
-        PaymentsConfig.configure(
-                new InMemoryEventStore(messageContext),
-                recording,
-                new SilentPaymentGateway(),
-                PaymentValidity.of(Duration.ofMinutes(5)),
-                H2.bean(PaymentSummaryRepository.class),
-                H2.bean(PendingPaymentRepository.class),
-                H2.bean(AuthorizedPaymentRepository.class),
-                OffsetDateTime::now);
-        var bus = newBus();
-        recording.routes.forEach(bus::routes);
-        recording.channels.forEach(bus::channel);
+        var bus = newBus(
+                List.of(PaymentsConfig.paymentsRoutes()),
+                List.of(
+                        PaymentsConfig.paymentsRequestsChannel(),
+                        PaymentsConfig.paymentsResponsesChannel(),
+                        PaymentsConfig.paymentsInternalChannel()),
+                List.of());
 
         publish(bus, new CapturePayment(paymentId), new CancelPayment(paymentId));
 
@@ -218,7 +256,7 @@ public class KafkaMessageBusTests extends MessageBusTests {
     public void routingConsumerKeepsKeyTypeHeadersAndBody() {
         var responses = "responses-" + id;
         var queue = "orders-responses-" + id;
-        var bus = routedBus(responses, queue, newBus());
+        var bus = routedBus(responses, queue, null);
 
         publish(bus, new OrderPlaced("ecommerce.order.9"));
 
@@ -235,17 +273,18 @@ public class KafkaMessageBusTests extends MessageBusTests {
         var queue = "orders-responses-" + id;
         var failingFirstSend =
                 new FailingFirstSendKafkaTemplate(KafkaMessageBus.producerFactory(bootstrapServers, PUBLISH_TIMEOUT));
-        var bus = routedBus(responses, queue, failingFirstSendBus(failingFirstSend));
+        var bus = routedBus(responses, queue, failingFirstSend);
 
         publish(bus, new OrderPlaced("ecommerce.order.9"));
 
-        awaitLog("orders:ecommerce.order.9");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new OrderPlaced("ecommerce.order.9"));
         assertThat(recordsOf(queue, 1)).hasSize(1);
     }
 
     @Test
     public void consumerMapsTheStableTypeNameToTheCurrentClass() {
-        messageBus.subscribe(orders, OrderPlaced.class, event -> log.add("placed:" + event.id()));
+        messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
         var record = new ProducerRecord<String, byte[]>(
                 orders, KEY, "{\"id\":\"order-1\"}".getBytes(StandardCharsets.UTF_8));
         record.headers().add(KafkaMessageBus.MESSAGE_TYPE, "test.OrderPlaced".getBytes(StandardCharsets.UTF_8));
@@ -253,7 +292,8 @@ public class KafkaMessageBusTests extends MessageBusTests {
         publishRaw(record);
         start((KafkaMessageBus) messageBus);
 
-        awaitLog("placed:order-1");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
     @Test
@@ -312,7 +352,8 @@ public class KafkaMessageBusTests extends MessageBusTests {
         }
 
         var messageId = KafkaTopics.header(recordsOf(orders, 1).getFirst(), KafkaMessageBus.MESSAGE_ID);
-        await().atMost(Duration.ofSeconds(30)).until(() -> seen.size() == 4);
+        awaitCaughtUp();
+        assertThat(seen).hasSize(4);
         assertThat(seen.subList(0, 3))
                 .containsExactly(
                         "process-correlation-id",
@@ -328,12 +369,13 @@ public class KafkaMessageBusTests extends MessageBusTests {
 
     @Test
     public void recordWithoutATypeHeaderIsSkippedAndTheNextMessageIsHandled() {
-        messageBus.subscribe(orders, OrderPlaced.class, event -> log.add("placed:" + event.id()));
+        messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
         publishRaw(new ProducerRecord<>(orders, KEY, "{}".getBytes(StandardCharsets.UTF_8)));
 
         publish(messageBus, new OrderPlaced("order-1"));
 
-        awaitLog("placed:order-1");
+        awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
     @Test
@@ -351,34 +393,37 @@ public class KafkaMessageBusTests extends MessageBusTests {
 
     @Test
     public void consumerOpensAStepSpanNamedAfterTheMessageType() {
-        messageBus.subscribe(orders, OrderPlaced.class, event -> log.add("placed"));
+        messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
 
         publish(messageBus, new OrderPlaced("order-1"));
 
-        awaitLog("placed");
+        awaitCaughtUp();
         await().atMost(Duration.ofSeconds(30))
                 .untilAsserted(() -> assertThat(spans.getFinishedSpanItems())
                         .extracting(span -> span.getName())
                         .contains("handle OrderPlaced"));
     }
 
-    private MessageBus routedBus(String responses, String queue, MessageBus bus) {
-        return bus.routes(
-                        new MessageRoutes().route(OrderPlaced.class, event -> new RoutingTarget(responses, event.id())))
-                .channel(responses)
-                .bind(queue, responses, "ecommerce.order.*")
-                .subscribe(queue, OrderPlaced.class, event -> log.add("orders:" + event.id()));
-    }
+    private MessageBus routedBus(String responses, String queue, KafkaTemplate<String, byte[]> routingTemplate) {
+        var routes = List.of(
+                new MessageRoutes().route(OrderPlaced.class, event -> new RoutingTarget(responses, event.id())));
+        var channels = List.of(new MessageChannel(responses));
+        var queues = List.of(new MessageQueue(queue, responses, "ecommerce.order.*"));
+        var bus = routingTemplate == null
+                ? newBus(routes, channels, queues)
+                : track(new KafkaMessageBus(
+                        bootstrapServers,
+                        messageContext,
+                        observations,
+                        serializer(),
+                        PUBLISH_TIMEOUT,
+                        TestKafka.failureHandling(bootstrapServers, observations),
+                        routingTemplate,
+                        routes,
+                        channels,
+                        queues));
 
-    private MessageBus failingFirstSendBus(KafkaTemplate<String, byte[]> routingTemplate) {
-        return track(new KafkaMessageBus(
-                bootstrapServers,
-                messageContext,
-                observations,
-                serializer(),
-                PUBLISH_TIMEOUT,
-                TestKafka.failureHandling(bootstrapServers, observations),
-                routingTemplate));
+        return bus.subscribe(queue, OrderPlaced.class, messages::catchMessage);
     }
 
     private void start(KafkaMessageBus bus) {

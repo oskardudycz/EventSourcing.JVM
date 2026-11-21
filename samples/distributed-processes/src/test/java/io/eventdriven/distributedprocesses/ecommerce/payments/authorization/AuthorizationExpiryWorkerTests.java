@@ -36,7 +36,14 @@ public class AuthorizationExpiryWorkerTests {
     private final OffsetDateTime afterExpiry = captureBefore.plusDays(1);
 
     private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            TestTracing.untraced(),
+            List.of(PaymentsConfig.paymentsRoutes()),
+            List.of(
+                    PaymentsConfig.paymentsRequestsChannel(),
+                    PaymentsConfig.paymentsResponsesChannel(),
+                    PaymentsConfig.paymentsInternalChannel()),
+            List.of(PaymentsConfig.paymentsRequestsQueue(), PaymentsConfig.paymentsInternalQueue()));
     private final MessageCatcher published = new MessageCatcher();
 
     private final AtomicReference<OffsetDateTime> clock = new AtomicReference<>(authorizedAt);
@@ -46,16 +53,18 @@ public class AuthorizationExpiryWorkerTests {
         eventStore.use(event -> {
             if (event.toString().contains(paymentId.value())) published.catchMessage(event);
         });
-        worker = PaymentsConfig.configure(
-                        eventStore,
-                        messageBus,
-                        new SilentPaymentGateway(),
-                        PaymentValidity.of(paymentTimeout),
-                        H2.bean(PaymentSummaryRepository.class),
-                        H2.bean(PendingPaymentRepository.class),
-                        H2.bean(AuthorizedPaymentRepository.class),
-                        clock::get)
-                .authorizationExpiryWorker();
+        var paymentGateway = new SilentPaymentGateway();
+        var paymentsConfig = new PaymentsConfig();
+        var paymentSummaries = paymentsConfig.paymentSummaries(eventStore, H2.bean(PaymentSummaryRepository.class));
+        var pendingPayments = paymentsConfig.pendingPayments(eventStore, H2.bean(PendingPaymentRepository.class));
+        var authorizedPayments =
+                paymentsConfig.authorizedPayments(eventStore, H2.bean(AuthorizedPaymentRepository.class));
+        paymentsConfig.paymentExternalEventForwarder(eventStore, paymentSummaries, messageBus);
+        paymentsConfig.captureGatewayClient(eventStore, paymentGateway, messageBus);
+        paymentsConfig.authorizationGatewayClient(eventStore, paymentGateway);
+        paymentsConfig.paymentFacade(
+                eventStore, messageBus, paymentGateway, PaymentValidity.of(paymentTimeout), clock::get);
+        worker = paymentsConfig.authorizationExpiryWorker(authorizedPayments, messageBus, clock::get);
     }
 
     @Test

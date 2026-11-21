@@ -8,6 +8,7 @@ import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion
 import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.KafkaMessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
@@ -68,13 +69,13 @@ public class PaymentExternalEventKafkaRedeliveryTests {
                 observations,
                 TestMessages.serializer(ECommerceMessages.mapping()),
                 Duration.ofSeconds(10),
-                TestKafka.failureHandling(bootstrapServers, observations));
-        messageBus
-                .routes(new MessageRoutes()
+                TestKafka.failureHandling(bootstrapServers, observations),
+                List.of(new MessageRoutes()
                         .route(
                                 PaymentExternalEvent.class,
-                                event -> new RoutingTarget(responses, Urns.routingKeyOf(event.referenceId()))))
-                .channel(responses);
+                                event -> new RoutingTarget(responses, Urns.routingKeyOf(event.referenceId())))),
+                List.of(new MessageChannel(responses)),
+                List.of());
         var summaries = new PaymentSummaries(H2.bean(PaymentSummaryRepository.class));
         var forwarder = new PaymentExternalEventForwarder(summaries, messageBus);
         var calls = new AtomicInteger();

@@ -33,7 +33,14 @@ public class FulfillmentServiceClientTests {
     private final OffsetDateTime now = OffsetDateTime.now();
 
     private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            TestTracing.untraced(),
+            List.of(ShipmentsConfig.shipmentsRoutes()),
+            List.of(
+                    ShipmentsConfig.shipmentsRequestsChannel(),
+                    ShipmentsConfig.shipmentsResponsesChannel(),
+                    ShipmentsConfig.shipmentsInternalChannel()),
+            List.of(ShipmentsConfig.shipmentsRequestsQueue(), ShipmentsConfig.shipmentsInternalQueue()));
     private final MessageCatcher published = new MessageCatcher();
 
     @Test
@@ -148,6 +155,9 @@ public class FulfillmentServiceClientTests {
     private void configure(FulfillmentService fulfillmentService) {
         eventStore.use(published::catchMessage);
 
-        ShipmentsConfig.configure(eventStore, messageBus, fulfillmentService, isProductAvailable, () -> now);
+        var shipmentsConfig = new ShipmentsConfig();
+        shipmentsConfig.shipmentFacade(eventStore, messageBus, isProductAvailable, () -> now);
+        shipmentsConfig.shipmentExternalEventForwarder(eventStore, messageBus);
+        shipmentsConfig.fulfillmentServiceClient(eventStore, fulfillmentService);
     }
 }

@@ -1,6 +1,7 @@
 package io.eventdriven.distributedprocesses.core.eventstore.postgresql;
 
 import io.eventdriven.distributedprocesses.core.eventstore.Checkpoint;
+import io.eventdriven.distributedprocesses.core.eventstore.SubscriptionProgress;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.serialization.EventTypeMapper;
@@ -37,6 +38,7 @@ final class PostgreSQLSubscription {
     private final MessageContext context;
     private final SubscriptionCheckpoints checkpoints;
     private final BackOff backOff;
+    private final SubscriptionProgress progress;
     private BackOffExecution backOffExecution;
     private Checkpoint cursor;
     private Instant retryAt = Instant.MIN;
@@ -57,7 +59,12 @@ final class PostgreSQLSubscription {
         this.context = context;
         this.checkpoints = checkpoints;
         this.backOff = backOff;
+        this.progress = new SubscriptionProgress(name);
         this.backOffExecution = backOff.start();
+    }
+
+    SubscriptionProgress progress() {
+        return progress;
     }
 
     void close() {
@@ -79,6 +86,7 @@ final class PostgreSQLSubscription {
 
                     handle(envelope);
                     cursor = envelope.metadata().checkpoint();
+                    progress.handled(cursor);
                     resetBackOff();
                 }
             } while (batch.size() == BATCH_SIZE);
@@ -88,7 +96,10 @@ final class PostgreSQLSubscription {
     }
 
     private Checkpoint lastProcessed() {
-        return checkpoints.lastProcessed(name).orElse(new Checkpoint(0, 0));
+        var stored = checkpoints.lastProcessed(name);
+        stored.ifPresent(progress::handled);
+
+        return stored.orElse(new Checkpoint(0, 0));
     }
 
     private void handle(EventEnvelope<Object> envelope) {

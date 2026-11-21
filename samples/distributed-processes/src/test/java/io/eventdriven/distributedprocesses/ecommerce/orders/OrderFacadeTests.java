@@ -46,23 +46,27 @@ public class OrderFacadeTests {
     private final Duration timeToPay = Duration.ofDays(14);
 
     private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            TestTracing.untraced(),
+            List.of(OrdersConfig.ordersRoutes()),
+            List.of(OrdersConfig.ordersInternalChannel()),
+            List.of(
+                    OrdersConfig.ordersInternalQueue(),
+                    OrdersConfig.ordersShoppingCartsExternalQueue(),
+                    OrdersConfig.ordersPaymentsResponsesQueue(),
+                    OrdersConfig.ordersShipmentsResponsesQueue()));
     private final MessageCatcher published = new MessageCatcher();
     private final AtomicReference<OffsetDateTime> clock = new AtomicReference<>(now);
     private final OrderFacade orders;
 
     public OrderFacadeTests() {
         eventStore.use(published::catchMessage);
-        orders = OrdersConfig.configure(
-                        eventStore,
-                        messageBus,
-                        PaymentTerms.within(timeToPay),
-                        H2.bean(PendingOrderRepository.class),
-                        H2.bean(OrderAwaitingPaymentRepository.class),
-                        H2.bean(CustomerOrderRepository.class),
-                        H2.bean(OrderStatusRepository.class),
-                        clock::get)
-                .facade();
+        var ordersConfig = new OrdersConfig();
+        orders = ordersConfig.orderFacade(eventStore, messageBus, PaymentTerms.within(timeToPay), clock::get);
+        ordersConfig.pendingOrders(eventStore, H2.bean(PendingOrderRepository.class));
+        ordersConfig.ordersAwaitingPayment(eventStore, H2.bean(OrderAwaitingPaymentRepository.class));
+        ordersConfig.customerOrders(eventStore, H2.bean(CustomerOrderRepository.class));
+        ordersConfig.orderStatuses(eventStore, H2.bean(OrderStatusRepository.class));
     }
 
     @Test

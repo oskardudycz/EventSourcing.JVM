@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.CustomerShoppingCartRepository;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
@@ -22,6 +23,7 @@ import io.eventdriven.testing.Metadata;
 import io.eventdriven.testing.TestTracing;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -41,7 +43,11 @@ public class ShoppingCartExternalEventForwarderTests {
     private final OffsetDateTime now = OffsetDateTime.now();
 
     private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            TestTracing.untraced(),
+            List.of(ShoppingCartsConfig.shoppingCartsRoutes()),
+            List.of(ShoppingCartsConfig.shoppingCartsExternalChannel()),
+            List.of());
     private final MessageCatcher externalEvents = new MessageCatcher();
     private final ShoppingCartFacade shoppingCarts;
 
@@ -49,15 +55,14 @@ public class ShoppingCartExternalEventForwarderTests {
         messageBus.use(message -> {
             if (message instanceof ShoppingCartExternalEvent) externalEvents.catchMessage(message);
         });
-        shoppingCarts = ShoppingCartsConfig.configure(
-                        eventStore,
-                        messageBus,
-                        prices,
-                        H2.bean(CustomerShoppingCartRepository.class),
-                        H2.bean(ShoppingCartSummaryRepository.class),
-                        H2.bean(CartRepository.class),
-                        () -> now)
-                .facade();
+        var shoppingCartsConfig = new ShoppingCartsConfig();
+        var customerShoppingCarts =
+                shoppingCartsConfig.customerShoppingCarts(eventStore, H2.bean(CustomerShoppingCartRepository.class));
+        shoppingCarts = shoppingCartsConfig.shoppingCartFacade(eventStore, customerShoppingCarts, prices, () -> now);
+        var shoppingCartSummaries =
+                shoppingCartsConfig.shoppingCartSummaries(eventStore, H2.bean(ShoppingCartSummaryRepository.class));
+        shoppingCartsConfig.shoppingCartExternalEventForwarder(eventStore, shoppingCartSummaries, messageBus);
+        shoppingCartsConfig.carts(eventStore, H2.bean(CartRepository.class));
     }
 
     @Test
@@ -112,11 +117,13 @@ public class ShoppingCartExternalEventForwarderTests {
     @Test
     public void forwarderRefusesASummaryThatHasNotSeenTheEventSoTheStoreDeliversItAgain() {
         var summaries = new ShoppingCartSummaries(H2.bean(ShoppingCartSummaryRepository.class));
-        var bus = new InMemoryMessageBus(TestTracing.untraced())
-                .routes(new MessageRoutes()
+        var bus = new InMemoryMessageBus(
+                TestTracing.untraced(),
+                List.of(new MessageRoutes()
                         .routeTarget(
-                                MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), "published"))
-                .channel("published");
+                                MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), "published")),
+                List.of(new MessageChannel("published")),
+                List.of());
         var published = new MessageCatcher();
         bus.use(published::catchMessage);
         var forwarder = new ShoppingCartExternalEventForwarder(summaries, bus);

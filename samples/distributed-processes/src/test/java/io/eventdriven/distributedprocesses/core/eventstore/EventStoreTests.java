@@ -1,6 +1,7 @@
 package io.eventdriven.distributedprocesses.core.eventstore;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.awaitility.Awaitility.await;
@@ -18,6 +19,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 public abstract class EventStoreTests {
+    protected static final Duration PROCESSING_TIMEOUT = Duration.ofSeconds(30);
+
     protected final String cartId = UUID.randomUUID().toString();
     protected final String streamId = "ShoppingCart-%s".formatted(cartId);
 
@@ -190,28 +193,67 @@ public abstract class EventStoreTests {
         eventStore().subscribe(subscriptionName(), List.of(CartEvent.class), envelope -> {
             if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
         });
+        var marker = eventStore().subscribe(subscriptionName(), List.of(CartOpened.class), envelope -> {});
 
-        eventStore().append(streamId, new CartOpened(cartId));
+        var result = eventStore().append(streamId, new CartOpened(cartId));
 
-        await().during(Duration.ofMillis(500))
-                .atMost(Duration.ofSeconds(3))
-                .untilAsserted(() -> assertThat(received).isEmpty());
+        marker.awaitProcessed(((AppendResult.Success) result).lastEvent(), PROCESSING_TIMEOUT);
+        assertThat(received).isEmpty();
     }
 
     @Test
     public void aFailedAppendNotifiesNobody() {
         eventStore().append(streamId, new CartOpened(cartId));
         var received = new CopyOnWriteArrayList<Object>();
-        eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
+        var subscription = eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
             if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
         });
 
-        var result = eventStore().append(streamId, ExpectedStreamVersion.at(4), new ItemAdded(cartId, "t-shirt"));
+        var failed = eventStore().append(streamId, ExpectedStreamVersion.at(4), new ItemAdded(cartId, "t-shirt"));
+        var next = eventStore().append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "hoodie"));
 
-        assertThat(result.succeeded()).isFalse();
-        await().during(Duration.ofMillis(500))
-                .atMost(Duration.ofSeconds(3))
-                .untilAsserted(() -> assertThat(received).isEmpty());
+        assertThat(failed.succeeded()).isFalse();
+        subscription.awaitProcessed(((AppendResult.Success) next).lastEvent(), PROCESSING_TIMEOUT);
+        assertThat(received).containsExactly(new ItemAdded(cartId, "hoodie"));
+    }
+
+    @Test
+    public void awaitingAnAppendedCheckpointReturnsOnceTheSubscriberHandledIt() {
+        var received = new CopyOnWriteArrayList<Object>();
+        var subscription = eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
+            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+        });
+
+        var result = eventStore().append(streamId, new CartOpened(cartId), new ItemAdded(cartId, "t-shirt"));
+
+        subscription.awaitProcessed(((AppendResult.Success) result).lastEvent(), PROCESSING_TIMEOUT);
+        assertThat(received).containsExactly(new ItemAdded(cartId, "t-shirt"));
+    }
+
+    @Test
+    public void awaitingAnEarlierCheckpointReturnsOnceALaterEventIsHandled() {
+        var subscription = eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {});
+        var earlier = eventStore().append(streamId, new ItemAdded(cartId, "t-shirt"));
+        var later = eventStore().append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "hoodie"));
+        subscription.awaitProcessed(((AppendResult.Success) later).lastEvent(), PROCESSING_TIMEOUT);
+
+        assertThatNoException()
+                .isThrownBy(() -> subscription.awaitProcessed(
+                        ((AppendResult.Success) earlier).lastEvent(), Duration.ofMillis(1)));
+    }
+
+    @Test
+    public void awaitingACheckpointFailsAfterTheTimeoutWhenTheSubscriberFails() {
+        var name = subscriptionName();
+        var subscription = eventStore().subscribe(name, List.of(ItemAdded.class), envelope -> {
+            throw new IllegalStateException("projection is down");
+        });
+        var result = eventStore().append(streamId, new ItemAdded(cartId, "t-shirt"));
+
+        assertThatThrownBy(() ->
+                        subscription.awaitProcessed(((AppendResult.Success) result).lastEvent(), Duration.ofSeconds(1)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(name);
     }
 
     @Test

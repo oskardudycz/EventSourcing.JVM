@@ -1,37 +1,23 @@
 package io.eventdriven.distributedprocesses.ecommerce;
 
-import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
+import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRouter;
 import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
-import io.eventdriven.distributedprocesses.ecommerce.orders.PaymentTerms;
-import io.eventdriven.distributedprocesses.ecommerce.orders.api.CustomerOrderRepository;
-import io.eventdriven.distributedprocesses.ecommerce.orders.api.OrderStatusRepository;
-import io.eventdriven.distributedprocesses.ecommerce.orders.pending.PendingOrderRepository;
-import io.eventdriven.distributedprocesses.ecommerce.orders.unpaid.OrderAwaitingPaymentRepository;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrdersConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
-import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentValidity;
-import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGateway;
-import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizedPaymentRepository;
-import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.PendingPaymentRepository;
-import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentSummaryRepository;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
-import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.SilentFulfillmentService;
-import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.CustomerShoppingCartRepository;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
-import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.api.CartRepository;
-import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartSummaryRepository;
-import io.eventdriven.testing.RouteRecordingMessageBus;
-import io.eventdriven.testing.TestTracing;
-import java.time.Duration;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartsConfig;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -46,33 +32,22 @@ public class ECommerceRoutesTests {
     private final ShipmentId shipmentId = ShipmentId.derivedFrom(orderId.value());
     private final ShoppingCartId cartId = ShoppingCartId.of(UUID.randomUUID());
     private final UUID customerId = UUID.randomUUID();
-    private final RouteRecordingMessageBus messageBus = new RouteRecordingMessageBus();
-    private final MessageRouter router;
-
-    public ECommerceRoutesTests() {
-        ECommerceConfig.configure(
-                new InMemoryEventStore(TestTracing.untraced()),
-                messageBus,
-                item -> new io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem(
-                        item, 10),
-                new SilentPaymentGateway(),
-                PaymentValidity.of(Duration.ofMinutes(15)),
-                PaymentTerms.within(Duration.ofDays(14)),
-                new SilentFulfillmentService(),
-                item -> true,
-                H2.bean(CustomerShoppingCartRepository.class),
-                H2.bean(ShoppingCartSummaryRepository.class),
-                H2.bean(CartRepository.class),
-                H2.bean(PendingOrderRepository.class),
-                H2.bean(OrderAwaitingPaymentRepository.class),
-                H2.bean(CustomerOrderRepository.class),
-                H2.bean(OrderStatusRepository.class),
-                H2.bean(PaymentSummaryRepository.class),
-                H2.bean(PendingPaymentRepository.class),
-                H2.bean(AuthorizedPaymentRepository.class),
-                () -> now);
-        router = new MessageRouter(messageBus.routes, message -> new RoutingTarget(null, null));
-    }
+    private final List<MessageChannel> channels = List.of(
+            ShoppingCartsConfig.shoppingCartsExternalChannel(),
+            OrdersConfig.ordersInternalChannel(),
+            PaymentsConfig.paymentsRequestsChannel(),
+            PaymentsConfig.paymentsResponsesChannel(),
+            PaymentsConfig.paymentsInternalChannel(),
+            ShipmentsConfig.shipmentsRequestsChannel(),
+            ShipmentsConfig.shipmentsResponsesChannel(),
+            ShipmentsConfig.shipmentsInternalChannel());
+    private final MessageRouter router = new MessageRouter(
+            List.of(
+                    ShoppingCartsConfig.shoppingCartsRoutes(),
+                    OrdersConfig.ordersRoutes(),
+                    PaymentsConfig.paymentsRoutes(),
+                    ShipmentsConfig.shipmentsRoutes()),
+            message -> new RoutingTarget(null, null));
 
     @Test
     public void everyPublishedMessageTypeHasAChannelAndARoutingKey() {
@@ -91,7 +66,8 @@ public class ECommerceRoutesTests {
     @Test
     public void everyChannelAMessageIsRoutedToIsDeclared() {
         assertThat(publishedMessages())
-                .allSatisfy(message -> assertThat(messageBus.channels)
+                .allSatisfy(message -> assertThat(channels)
+                        .extracting(MessageChannel::name)
                         .as("channel of %s", message.getClass().getSimpleName())
                         .contains(router.routeFor(message).target()));
     }

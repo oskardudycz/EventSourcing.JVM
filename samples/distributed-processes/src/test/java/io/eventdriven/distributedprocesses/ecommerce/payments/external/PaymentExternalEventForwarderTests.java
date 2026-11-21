@@ -9,6 +9,7 @@ import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.ecommerce.payments.CaptureFailureReason;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent;
@@ -40,22 +41,31 @@ public class PaymentExternalEventForwarderTests {
     private final OffsetDateTime timedOutAt = now.plusMinutes(5);
 
     private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
+            TestTracing.untraced(),
+            List.of(PaymentsConfig.paymentsRoutes()),
+            List.of(
+                    PaymentsConfig.paymentsRequestsChannel(),
+                    PaymentsConfig.paymentsResponsesChannel(),
+                    PaymentsConfig.paymentsInternalChannel()),
+            List.of(PaymentsConfig.paymentsRequestsQueue(), PaymentsConfig.paymentsInternalQueue()));
     private final MessageCatcher externalEvents = new MessageCatcher();
 
     public PaymentExternalEventForwarderTests() {
         messageBus.use(message -> {
             if (message instanceof PaymentExternalEvent) externalEvents.catchMessage(message);
         });
-        PaymentsConfig.configure(
-                eventStore,
-                messageBus,
-                new SilentPaymentGateway(),
-                PaymentValidity.of(paymentTimeout),
-                H2.bean(PaymentSummaryRepository.class),
-                H2.bean(PendingPaymentRepository.class),
-                H2.bean(AuthorizedPaymentRepository.class),
-                () -> now);
+        var paymentGateway = new SilentPaymentGateway();
+        var paymentsConfig = new PaymentsConfig();
+        var paymentSummaries = paymentsConfig.paymentSummaries(eventStore, H2.bean(PaymentSummaryRepository.class));
+        var pendingPayments = paymentsConfig.pendingPayments(eventStore, H2.bean(PendingPaymentRepository.class));
+        var authorizedPayments =
+                paymentsConfig.authorizedPayments(eventStore, H2.bean(AuthorizedPaymentRepository.class));
+        paymentsConfig.paymentExternalEventForwarder(eventStore, paymentSummaries, messageBus);
+        paymentsConfig.captureGatewayClient(eventStore, paymentGateway, messageBus);
+        paymentsConfig.authorizationGatewayClient(eventStore, paymentGateway);
+        paymentsConfig.paymentFacade(
+                eventStore, messageBus, paymentGateway, PaymentValidity.of(paymentTimeout), () -> now);
     }
 
     @Test
@@ -142,11 +152,13 @@ public class PaymentExternalEventForwarderTests {
     @Test
     public void forwarderRefusesAPaymentWithoutSummarySoTheStoreDeliversItAgain() {
         var summaries = new PaymentSummaries(H2.bean(PaymentSummaryRepository.class));
-        var bus = new InMemoryMessageBus(TestTracing.untraced())
-                .routes(new MessageRoutes()
+        var bus = new InMemoryMessageBus(
+                TestTracing.untraced(),
+                List.of(new MessageRoutes()
                         .routeTarget(
-                                MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), "published"))
-                .channel("published");
+                                MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), "published")),
+                List.of(new MessageChannel("published")),
+                List.of());
         var published = new MessageCatcher();
         bus.use(published::catchMessage);
         var forwarder = new PaymentExternalEventForwarder(summaries, bus);

@@ -29,7 +29,7 @@ public class InMemoryEventStore implements EventStore {
     private final Map<String, List<LogEntry>> streams = new HashMap<>();
     private final List<LogEntry> log = new ArrayList<>();
     private final List<Consumer<Object>> middlewares = new ArrayList<>();
-    private final List<Subscription> subscriptions = new ArrayList<>();
+    private final List<Subscriber> subscribers = new ArrayList<>();
     private final Set<String> subscriptionNames = new HashSet<>();
     private boolean dispatching = false;
     private int lastMiddlewarePosition = -1;
@@ -91,7 +91,7 @@ public class InMemoryEventStore implements EventStore {
     }
 
     @Override
-    public synchronized InMemoryEventStore subscribe(
+    public synchronized Subscription subscribe(
             String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler) {
         if (types.isEmpty())
             throw new IllegalArgumentException("Subscription '%s' needs at least one event type".formatted(name));
@@ -99,12 +99,13 @@ public class InMemoryEventStore implements EventStore {
         if (!subscriptionNames.add(name))
             throw new IllegalArgumentException("Subscription name '%s' is already in use".formatted(name));
 
-        subscriptions.add(
-                new Subscription(name, types.stream().map(Class::getTypeName).collect(Collectors.toSet()), handler));
+        var progress = new SubscriptionProgress(name);
+        subscribers.add(new Subscriber(
+                name, types.stream().map(Class::getTypeName).collect(Collectors.toSet()), handler, progress));
 
         dispatch();
 
-        return this;
+        return progress;
     }
 
     public synchronized InMemoryEventStore use(Consumer<Object> middleware) {
@@ -122,7 +123,7 @@ public class InMemoryEventStore implements EventStore {
         if (dispatching) return;
 
         dispatching = true;
-        var failed = new HashSet<Subscription>();
+        var failed = new HashSet<Subscriber>();
 
         try {
             for (var position = firstUndeliveredPosition(); position < log.size(); position++) {
@@ -136,29 +137,30 @@ public class InMemoryEventStore implements EventStore {
                     }
                 }
 
-                for (var subscription : List.copyOf(subscriptions)) {
-                    if (subscription.checkpoint >= position || failed.contains(subscription)) continue;
+                for (var subscriber : List.copyOf(subscribers)) {
+                    if (subscriber.checkpoint >= position || failed.contains(subscriber)) continue;
 
-                    if (subscription.accepts(entry)) {
+                    if (subscriber.accepts(entry)) {
                         var envelope = toEnvelope(entry);
 
                         try (var _ = context.handling(
                                 "handle %s".formatted(envelope.data().getClass().getSimpleName()),
                                 envelope.metadata())) {
-                            subscription.handler.accept(envelope);
+                            subscriber.handler.accept(envelope);
+                            subscriber.progress.handled(new Checkpoint(0, position));
                         } catch (RuntimeException e) {
                             logger.error(
                                     "Subscriber '{}' failed on {} at log position {}; it will get it again on the next append",
-                                    subscription.name,
+                                    subscriber.name,
                                     entry.storedEvent().eventType(),
                                     position,
                                     e);
-                            failed.add(subscription);
+                            failed.add(subscriber);
                             continue;
                         }
                     }
 
-                    subscription.checkpoint = position;
+                    subscriber.checkpoint = position;
                 }
             }
         } finally {
@@ -169,7 +171,7 @@ public class InMemoryEventStore implements EventStore {
     private int firstUndeliveredPosition() {
         return IntStream.concat(
                         IntStream.of(lastMiddlewarePosition + 1),
-                        subscriptions.stream().mapToInt(subscription -> subscription.checkpoint + 1))
+                        subscribers.stream().mapToInt(subscriber -> subscriber.checkpoint + 1))
                 .min()
                 .getAsInt();
     }
@@ -225,16 +227,22 @@ public class InMemoryEventStore implements EventStore {
     record LogEntry(
             String streamId, long streamPosition, long logPosition, StoredEvent storedEvent, MessageValues values) {}
 
-    private static final class Subscription {
+    private static final class Subscriber {
         private final String name;
         private final Set<String> eventTypes;
         private final Consumer<EventEnvelope<Object>> handler;
+        private final SubscriptionProgress progress;
         private int checkpoint = -1;
 
-        private Subscription(String name, Set<String> eventTypes, Consumer<EventEnvelope<Object>> handler) {
+        private Subscriber(
+                String name,
+                Set<String> eventTypes,
+                Consumer<EventEnvelope<Object>> handler,
+                SubscriptionProgress progress) {
             this.name = name;
             this.eventTypes = eventTypes;
             this.handler = handler;
+            this.progress = progress;
         }
 
         private boolean accepts(LogEntry entry) {

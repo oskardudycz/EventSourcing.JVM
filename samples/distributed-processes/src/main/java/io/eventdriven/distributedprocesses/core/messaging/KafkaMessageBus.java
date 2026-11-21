@@ -86,8 +86,7 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     private final KafkaTemplate<String, byte[]> template;
     private final KafkaTemplate<String, byte[]> routingTemplate;
 
-    private final List<MessageRoutes> routes = new ArrayList<>();
-    private MessageRouter router = routerFor(routes);
+    private final MessageRouter router;
     private final Set<String> channels = ConcurrentHashMap.newKeySet();
     private final List<Consumer<Object>> middlewares = new CopyOnWriteArrayList<>();
     private final Map<String, Map<Class<?>, List<Consumer<Object>>>> queues = new ConcurrentHashMap<>();
@@ -103,7 +102,10 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
             MessageSerializer serializer,
             Duration publishTimeout,
             FailureHandling failures,
-            KafkaTemplate<String, byte[]> routingTemplate) {
+            KafkaTemplate<String, byte[]> routingTemplate,
+            List<MessageRoutes> routes,
+            List<MessageChannel> channels,
+            List<MessageQueue> queues) {
         this.context = context;
         this.observations = observations;
         this.serializer = serializer;
@@ -122,6 +124,10 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
         this.template.setObservationEnabled(true);
         this.template.setObservationRegistry(observations);
         this.routingTemplate = routingTemplate;
+        this.router = routerFor(routes);
+
+        channels.forEach(this::declare);
+        queues.forEach(this::declare);
     }
 
     public static KafkaMessageBus connectingTo(
@@ -130,7 +136,10 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
             ObservationRegistry observations,
             MessageSerializer serializer,
             Duration publishTimeout,
-            FailureHandling failures) {
+            FailureHandling failures,
+            List<MessageRoutes> routes,
+            List<MessageChannel> channels,
+            List<MessageQueue> queues) {
         return new KafkaMessageBus(
                 bootstrapServers,
                 context,
@@ -138,7 +147,10 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
                 serializer,
                 publishTimeout,
                 failures,
-                new KafkaTemplate<>(producerFactory(bootstrapServers, publishTimeout)));
+                new KafkaTemplate<>(producerFactory(bootstrapServers, publishTimeout)),
+                routes,
+                channels,
+                queues);
     }
 
     public static DefaultKafkaProducerFactory<String, byte[]> producerFactory(
@@ -184,35 +196,6 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     }
 
     private record Prepared(ProducerRecord<String, byte[]> record, MessageValues values) {}
-
-    @Override
-    public KafkaMessageBus routes(MessageRoutes moduleRoutes) {
-        routes.add(moduleRoutes);
-        router = routerFor(routes);
-        return this;
-    }
-
-    @Override
-    public KafkaMessageBus channel(String name) {
-        channels.add(name);
-        declareTopic(name);
-        return this;
-    }
-
-    @Override
-    public KafkaMessageBus bind(String queue, String channel, String routingPattern) {
-        declareTopic(deadLetterTopicOf(queue));
-
-        if (routingPattern.equals(ALL_MESSAGES)) {
-            addContainer(queue, channel);
-            return this;
-        }
-
-        declareTopic(queue);
-        addContainer(queue, queue);
-        addRoutingContainer(queue, channel, routingPattern);
-        return this;
-    }
 
     @Override
     public <Message> KafkaMessageBus subscribe(String queue, Class<Message> messageClass, Consumer<Message> handler) {
@@ -262,6 +245,24 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     public void close() {
         stop();
         producerFactory.destroy();
+    }
+
+    private void declare(MessageChannel channel) {
+        channels.add(channel.name());
+        declareTopic(channel.name());
+    }
+
+    private void declare(MessageQueue queue) {
+        declareTopic(deadLetterTopicOf(queue.name()));
+
+        if (queue.routingPattern().equals(ALL_MESSAGES)) {
+            addContainer(queue.name(), queue.channel());
+            return;
+        }
+
+        declareTopic(queue.name());
+        addContainer(queue.name(), queue.name());
+        addRoutingContainer(queue.name(), queue.channel(), queue.routingPattern());
     }
 
     private MessageListener<String, byte[]> queueListener(String queue) {

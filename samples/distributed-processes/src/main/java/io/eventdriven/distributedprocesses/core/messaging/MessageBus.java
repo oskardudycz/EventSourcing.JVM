@@ -14,7 +14,8 @@ import java.util.function.Consumer;
  *   <li>an event records something that already happened, e.g. {@code PaymentCaptured}.
  *       Any number of subscribers may react to it, or none.</li>
  * </ul>
- * The routes decide the channel and the routing key of each published message. A queue bound to
+ * The routes decide the channel and the routing key of each published message. The channels, the
+ * queues bound to them and the routes are given to the bus when it is created. A queue bound to
  * the channel gets the message when its pattern matches the key, as a topic exchange does:
  * {@code *} matches one word and {@code #} any number of words. The queue's subscribers for the
  * message's type then handle it. The bus doesn't check that a command has exactly one subscriber;
@@ -26,21 +27,6 @@ public interface MessageBus {
      * then every queue that the message's channel and key reach.
      */
     <Message> void publish(List<Message> messages);
-
-    /**
-     * Adds the routes a module publishes with. Returns the bus to allow chaining.
-     */
-    MessageBus routes(MessageRoutes routes);
-
-    /**
-     * Declares a channel that messages can be published to. Returns the bus to allow chaining.
-     */
-    MessageBus channel(String name);
-
-    /**
-     * Binds a queue to a channel for the routing keys that match the pattern.
-     */
-    MessageBus bind(String queue, String channel, String routingPattern);
 
     /**
      * Registers a handler for messages of the given type that reach the queue.

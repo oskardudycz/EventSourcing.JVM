@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.eventdriven.distributedprocesses.core.eventstore.Checkpoint;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
+import io.eventdriven.distributedprocesses.core.eventstore.Subscription;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
@@ -203,16 +204,17 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
     }
 
     @Override
-    public EventStore subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler) {
+    public Subscription subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler) {
         if (types.isEmpty())
             throw new IllegalArgumentException("Subscription '%s' needs at least one event type".formatted(name));
 
         if (!subscriptionNames.add(name))
             throw new IllegalArgumentException("Subscription name '%s' is already in use".formatted(name));
 
-        subscriptions.add(new PostgreSQLSubscription(dataSource, name, types, handler, context, checkpoints, backOff));
+        var subscription = new PostgreSQLSubscription(dataSource, name, types, handler, context, checkpoints, backOff);
+        subscriptions.add(subscription);
 
-        return this;
+        return subscription.progress();
     }
 
     synchronized void poll() {

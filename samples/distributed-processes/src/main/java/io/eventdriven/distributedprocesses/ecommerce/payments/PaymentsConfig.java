@@ -7,6 +7,8 @@ import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
+import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizationExpiryWorker;
@@ -23,25 +25,70 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentEx
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEventForwarder;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentSummaries;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentSummaryRepository;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.function.Supplier;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
-public final class PaymentsConfig {
+@Configuration
+public class PaymentsConfig {
     public static final String requests = "payments-requests";
     public static final String responses = "payments-responses";
     public static final String internal = "payments-internal";
 
-    private PaymentsConfig() {}
+    @Bean
+    public static MessageRoutes paymentsRoutes() {
+        return new MessageRoutes()
+                .routeTarget(AuthorizePayment.class, command -> requests)
+                .routeTarget(CapturePayment.class, command -> requests)
+                .routeTarget(CancelPayment.class, command -> requests)
+                .route(
+                        PaymentExternalEvent.class,
+                        event -> new RoutingTarget(responses, Urns.routingKeyOf(event.referenceId())))
+                .routeTarget(MessageRoutes.inPackage(PaymentsConfig.class.getPackageName()), internal)
+                .routeKey(
+                        PaymentCommand.class,
+                        command -> Urns.routingKeyOf(command.paymentId().value()));
+    }
 
-    public static PaymentsModule configure(
+    @Bean
+    public static MessageChannel paymentsRequestsChannel() {
+        return new MessageChannel(requests);
+    }
+
+    @Bean
+    public static MessageChannel paymentsResponsesChannel() {
+        return new MessageChannel(responses);
+    }
+
+    @Bean
+    public static MessageChannel paymentsInternalChannel() {
+        return new MessageChannel(internal);
+    }
+
+    @Bean
+    public static MessageQueue paymentsRequestsQueue() {
+        return new MessageQueue(requests, requests, "#");
+    }
+
+    @Bean
+    public static MessageQueue paymentsInternalQueue() {
+        return new MessageQueue(internal, internal, "#");
+    }
+
+    @Bean
+    public PaymentValidity paymentValidity() {
+        return PaymentValidity.of(Duration.ofHours(24));
+    }
+
+    @Bean
+    public PaymentFacade paymentFacade(
             EventStore eventStore,
             MessageBus messageBus,
             PaymentGateway paymentGateway,
             PaymentValidity paymentValidity,
-            PaymentSummaryRepository paymentSummaryRepository,
-            PendingPaymentRepository pendingPaymentRepository,
-            AuthorizedPaymentRepository authorizedPaymentRepository,
             Supplier<OffsetDateTime> now) {
         var store = new AggregateStore<Payment, PaymentEvent, PaymentId>(
                 eventStore, PaymentFacade::mapToStreamId, Payment::empty);
@@ -49,22 +96,6 @@ public final class PaymentsConfig {
         var facade = new PaymentFacade(store, paymentGateway, paymentValidity, now);
 
         messageBus
-                .routes(new MessageRoutes()
-                        .routeTarget(AuthorizePayment.class, command -> requests)
-                        .routeTarget(CapturePayment.class, command -> requests)
-                        .routeTarget(CancelPayment.class, command -> requests)
-                        .route(
-                                PaymentExternalEvent.class,
-                                event -> new RoutingTarget(responses, Urns.routingKeyOf(event.referenceId())))
-                        .routeTarget(MessageRoutes.inPackage(PaymentsConfig.class.getPackageName()), internal)
-                        .routeKey(
-                                PaymentCommand.class,
-                                command -> Urns.routingKeyOf(command.paymentId().value())))
-                .channel(requests)
-                .channel(responses)
-                .channel(internal)
-                .bind(requests, requests, "#")
-                .bind(internal, internal, "#")
                 .subscribe(requests, AuthorizePayment.class, facade::authorizePayment)
                 .subscribe(requests, CapturePayment.class, facade::capturePayment)
                 .subscribe(requests, CancelPayment.class, facade::cancelPayment)
@@ -74,16 +105,40 @@ public final class PaymentsConfig {
                 .subscribe(internal, TimeOutPayment.class, facade::timeOutPayment)
                 .subscribe(internal, ExpirePaymentAuthorization.class, facade::expirePaymentAuthorization);
 
+        return facade;
+    }
+
+    @Bean
+    public PaymentSummaries paymentSummaries(EventStore eventStore, PaymentSummaryRepository paymentSummaryRepository) {
         var paymentSummaries = new PaymentSummaries(paymentSummaryRepository);
-        var pendingPayments = new PendingPayments(pendingPaymentRepository);
-        var authorizedPayments = new AuthorizedPayments(authorizedPaymentRepository);
 
         eventStore.subscribe("payment-summaries", paymentSummaries.canHandle(), paymentSummaries::handle);
 
+        return paymentSummaries;
+    }
+
+    @Bean
+    public PendingPayments pendingPayments(EventStore eventStore, PendingPaymentRepository pendingPaymentRepository) {
+        var pendingPayments = new PendingPayments(pendingPaymentRepository);
+
         eventStore.subscribe("pending-payments", pendingPayments.canHandle(), pendingPayments::handle);
+
+        return pendingPayments;
+    }
+
+    @Bean
+    public AuthorizedPayments authorizedPayments(
+            EventStore eventStore, AuthorizedPaymentRepository authorizedPaymentRepository) {
+        var authorizedPayments = new AuthorizedPayments(authorizedPaymentRepository);
 
         eventStore.subscribe("authorized-payments", authorizedPayments.canHandle(), authorizedPayments::handle);
 
+        return authorizedPayments;
+    }
+
+    @Bean
+    public PaymentExternalEventForwarder paymentExternalEventForwarder(
+            EventStore eventStore, PaymentSummaries paymentSummaries, MessageBus messageBus) {
         var forwarder = new PaymentExternalEventForwarder(paymentSummaries, messageBus);
 
         eventStore.subscribe(
@@ -96,13 +151,25 @@ public final class PaymentsConfig {
                         PaymentAuthorizationExpired.class),
                 forwarder::handle);
 
-        var authorizationGatewayClient = new AuthorizationGatewayClient(paymentGateway);
+        return forwarder;
+    }
+
+    @Bean
+    public CaptureGatewayClient captureGatewayClient(
+            EventStore eventStore, PaymentGateway paymentGateway, MessageBus messageBus) {
         var captureGatewayClient = new CaptureGatewayClient(paymentGateway, messageBus);
 
         eventStore.subscribe(
                 "capture-gateway-client",
                 List.of(PaymentCaptureRequested.class),
                 envelope -> captureGatewayClient.on((PaymentCaptureRequested) envelope.data()));
+
+        return captureGatewayClient;
+    }
+
+    @Bean
+    public AuthorizationGatewayClient authorizationGatewayClient(EventStore eventStore, PaymentGateway paymentGateway) {
+        var authorizationGatewayClient = new AuthorizationGatewayClient(paymentGateway);
 
         eventStore.subscribe(
                 "authorization-gateway-client", List.of(PaymentCanceled.class, PaymentTimedOut.class), envelope -> {
@@ -113,10 +180,19 @@ public final class PaymentsConfig {
                     }
                 });
 
-        return new PaymentsModule(
-                facade,
-                new ScheduledPaymentTimeoutWorker(new PaymentTimeoutWorker(pendingPayments, messageBus), now),
-                new ScheduledAuthorizationExpiryWorker(
-                        new AuthorizationExpiryWorker(authorizedPayments, messageBus), now));
+        return authorizationGatewayClient;
+    }
+
+    @Bean
+    public ScheduledPaymentTimeoutWorker paymentTimeoutWorker(
+            PendingPayments pendingPayments, MessageBus messageBus, Supplier<OffsetDateTime> now) {
+        return new ScheduledPaymentTimeoutWorker(new PaymentTimeoutWorker(pendingPayments, messageBus), now);
+    }
+
+    @Bean
+    public ScheduledAuthorizationExpiryWorker authorizationExpiryWorker(
+            AuthorizedPayments authorizedPayments, MessageBus messageBus, Supplier<OffsetDateTime> now) {
+        return new ScheduledAuthorizationExpiryWorker(
+                new AuthorizationExpiryWorker(authorizedPayments, messageBus), now);
     }
 }

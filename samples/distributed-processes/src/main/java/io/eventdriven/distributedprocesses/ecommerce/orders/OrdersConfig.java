@@ -7,6 +7,8 @@ import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
+import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
+import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.ecommerce.orders.api.CustomerOrderRepository;
 import io.eventdriven.distributedprocesses.ecommerce.orders.api.CustomerOrders;
@@ -28,41 +30,70 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.external.Shipment
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.function.Supplier;
+import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
-public final class OrdersConfig {
+@Configuration
+public class OrdersConfig {
     public static final String internal = "orders-internal";
     public static final String shoppingCartsExternal = "orders-shopping_carts-external";
     public static final String paymentsResponses = "orders-payments-responses";
     public static final String shipmentsResponses = "orders-shipments-responses";
     public static final String responsesForOrders = "ecommerce.order.*";
 
-    private OrdersConfig() {}
+    @Bean
+    public static MessageRoutes ordersRoutes() {
+        return new MessageRoutes()
+                .routeTarget(MessageRoutes.inPackage(OrdersConfig.class.getPackageName()), internal)
+                .routeKey(
+                        OrderCommand.class,
+                        command -> Urns.routingKeyOf(command.orderId().value()));
+    }
 
-    public static OrdersModule configure(
-            EventStore eventStore,
-            MessageBus messageBus,
-            PaymentTerms paymentTerms,
-            PendingOrderRepository pendingOrderRepository,
-            OrderAwaitingPaymentRepository orderAwaitingPaymentRepository,
-            CustomerOrderRepository customerOrderRepository,
-            OrderStatusRepository orderStatusRepository,
-            Supplier<OffsetDateTime> now) {
+    @Bean
+    public static MessageChannel ordersInternalChannel() {
+        return new MessageChannel(internal);
+    }
+
+    @Bean
+    public static MessageQueue ordersInternalQueue() {
+        return new MessageQueue(internal, internal, "#");
+    }
+
+    @Bean
+    public static MessageQueue ordersShoppingCartsExternalQueue() {
+        return new MessageQueue(shoppingCartsExternal, ShoppingCartsConfig.external, "#");
+    }
+
+    @Bean
+    public static MessageQueue ordersPaymentsResponsesQueue() {
+        return new MessageQueue(paymentsResponses, PaymentsConfig.responses, responsesForOrders);
+    }
+
+    @Bean
+    public static MessageQueue ordersShipmentsResponsesQueue() {
+        return new MessageQueue(shipmentsResponses, ShipmentsConfig.responses, responsesForOrders);
+    }
+
+    @Bean
+    public PaymentTerms paymentTerms() {
+        return PaymentTerms.within(Duration.ofDays(7));
+    }
+
+    @Bean
+    public OrderFacade orderFacade(
+            EventStore eventStore, MessageBus messageBus, PaymentTerms paymentTerms, Supplier<OffsetDateTime> now) {
         var store =
                 new AggregateStore<Order, OrderEvent, OrderId>(eventStore, OrderFacade::mapToStreamId, Order::empty);
 
         var facade = new OrderFacade(store, paymentTerms, now);
 
         messageBus
-                .routes(new MessageRoutes()
-                        .routeTarget(MessageRoutes.inPackage(OrdersConfig.class.getPackageName()), internal)
-                        .routeKey(
-                                OrderCommand.class,
-                                command -> Urns.routingKeyOf(command.orderId().value())))
-                .channel(internal)
-                .bind(internal, internal, "#")
                 .subscribe(internal, PlaceOrder.class, facade::placeOrder)
                 .subscribe(internal, RecordOrderPaymentAuthorization.class, facade::recordOrderPaymentAuthorization)
                 .subscribe(internal, RecordOrderStockReservation.class, facade::recordOrderStockReservation)
@@ -72,30 +103,59 @@ public final class OrdersConfig {
                 .subscribe(internal, RecordOrderShipmentFailure.class, facade::recordOrderShipmentFailure)
                 .subscribe(internal, CloseUnpaidOrder.class, facade::closeUnpaidOrder);
 
+        return facade;
+    }
+
+    @Bean
+    public PendingOrders pendingOrders(EventStore eventStore, PendingOrderRepository pendingOrderRepository) {
         var pendingOrders = new PendingOrders(pendingOrderRepository);
-        var ordersAwaitingPayment = new OrdersAwaitingPayment(orderAwaitingPaymentRepository);
 
         eventStore.subscribe("pending-orders", pendingOrders.canHandle(), pendingOrders::handle);
+
+        return pendingOrders;
+    }
+
+    @Bean
+    public OrdersAwaitingPayment ordersAwaitingPayment(
+            EventStore eventStore, OrderAwaitingPaymentRepository orderAwaitingPaymentRepository) {
+        var ordersAwaitingPayment = new OrdersAwaitingPayment(orderAwaitingPaymentRepository);
 
         eventStore.subscribe(
                 "orders-awaiting-payment", ordersAwaitingPayment.canHandle(), ordersAwaitingPayment::handle);
 
+        return ordersAwaitingPayment;
+    }
+
+    @Bean
+    public CustomerOrders customerOrders(EventStore eventStore, CustomerOrderRepository customerOrderRepository) {
         var customerOrders = new CustomerOrders(customerOrderRepository);
-        var orderStatuses = new OrderStatuses(orderStatusRepository);
 
         eventStore.subscribe("customer-orders", customerOrders.canHandle(), customerOrders::handle);
 
-        eventStore.subscribe("order-statuses", orderStatuses.canHandle(), orderStatuses::handle);
-
-        return new OrdersModule(
-                facade,
-                pendingOrders,
-                new ScheduledUnpaidOrdersWorker(new UnpaidOrdersWorker(ordersAwaitingPayment, messageBus), now),
-                customerOrders,
-                orderStatuses);
+        return customerOrders;
     }
 
-    public static void configureProcess(EventStore eventStore, MessageBus messageBus) {
+    @Bean
+    public OrderStatuses orderStatuses(EventStore eventStore, OrderStatusRepository orderStatusRepository) {
+        var orderStatuses = new OrderStatuses(orderStatusRepository);
+
+        eventStore.subscribe("order-statuses", orderStatuses.canHandle(), orderStatuses::handle);
+
+        return orderStatuses;
+    }
+
+    @Bean
+    public ScheduledUnpaidOrdersWorker unpaidOrdersWorker(
+            OrdersAwaitingPayment ordersAwaitingPayment, MessageBus messageBus, Supplier<OffsetDateTime> now) {
+        return new ScheduledUnpaidOrdersWorker(new UnpaidOrdersWorker(ordersAwaitingPayment, messageBus), now);
+    }
+
+    @Bean
+    public SmartInitializingSingleton orderSagaSubscriptions(EventStore eventStore, MessageBus messageBus) {
+        return () -> subscribeOrderSaga(eventStore, messageBus);
+    }
+
+    public void subscribeOrderSaga(EventStore eventStore, MessageBus messageBus) {
         var saga = new OrderSaga(messageBus);
 
         eventStore.subscribe(
@@ -118,9 +178,6 @@ public final class OrdersConfig {
                 });
 
         messageBus
-                .bind(shoppingCartsExternal, ShoppingCartsConfig.external, "#")
-                .bind(paymentsResponses, PaymentsConfig.responses, responsesForOrders)
-                .bind(shipmentsResponses, ShipmentsConfig.responses, responsesForOrders)
                 .subscribe(shoppingCartsExternal, ShoppingCartCheckedOut.class, saga::onShoppingCartCheckedOut)
                 .subscribe(paymentsResponses, PaymentAuthorized.class, saga::onPaymentAuthorized)
                 .subscribe(paymentsResponses, PaymentCaptured.class, saga::onPaymentCaptured)
