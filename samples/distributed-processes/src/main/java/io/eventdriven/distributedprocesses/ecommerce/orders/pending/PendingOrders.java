@@ -2,16 +2,18 @@ package io.eventdriven.distributedprocesses.ecommerce.orders.pending;
 
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.*;
 
-import io.eventdriven.distributedprocesses.core.identifiers.EntityId;
-import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.core.projections.Projection;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 // Orders that are still running: a to-do list for whoever has to chase them.
-public class PendingOrders extends Projection<PendingOrder> {
-    public PendingOrders(Database database) {
-        super(PendingOrder.class, database);
+public class PendingOrders extends Projection<PendingOrder, OrderId> {
+    private final PendingOrderRepository repository;
+
+    public PendingOrders(PendingOrderRepository repository) {
+        super(repository);
+        this.repository = repository;
     }
 
     @Override
@@ -20,7 +22,7 @@ public class PendingOrders extends Projection<PendingOrder> {
     }
 
     @Override
-    protected EntityId getDocumentId(Object event) {
+    protected OrderId getDocumentId(Object event) {
         return switch (event) {
             case OrderPlaced e -> e.orderId();
             case OrderCompleted e -> e.orderId();
@@ -40,6 +42,6 @@ public class PendingOrders extends Projection<PendingOrder> {
     }
 
     public List<PendingOrder> all() {
-        return find(pending -> true);
+        return repository.findAll();
     }
 }

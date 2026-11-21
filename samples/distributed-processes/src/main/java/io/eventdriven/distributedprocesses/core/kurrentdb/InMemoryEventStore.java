@@ -3,6 +3,8 @@ package io.eventdriven.distributedprocesses.core.kurrentdb;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
+import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
+import io.eventdriven.distributedprocesses.core.messaging.MessageValues;
 import io.kurrent.dbclient.Position;
 import io.kurrent.dbclient.StreamState;
 import java.util.ArrayList;
@@ -10,7 +12,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,11 +26,17 @@ import tools.jackson.databind.json.JsonMapper;
 public class InMemoryEventStore implements EventStore {
     private static final Logger logger = LoggerFactory.getLogger(InMemoryEventStore.class);
 
-    private final Map<String, List<StoredEvent>> streams = new HashMap<>();
+    private final MessageContext context;
+    private final Map<String, List<LogEntry>> streams = new HashMap<>();
     private final List<LogEntry> log = new ArrayList<>();
     private final List<Subscription> middlewares = new ArrayList<>();
     private final List<Subscription> subscriptions = new ArrayList<>();
+    private final Set<String> subscriptionNames = new HashSet<>();
     private boolean dispatching = false;
+
+    public InMemoryEventStore(MessageContext context) {
+        this.context = context;
+    }
 
     @Override
     public ReadResult read(String streamId) {
@@ -36,7 +47,7 @@ public class InMemoryEventStore implements EventStore {
         if (stream.isEmpty()) return new ReadResult.NoEventsFound();
 
         return new ReadResult.Success(
-                stream.stream().map(InMemoryEventStore::deserialize).toArray());
+                stream.stream().map(InMemoryEventStore::toEnvelope).toList());
     }
 
     @Override
@@ -55,11 +66,17 @@ public class InMemoryEventStore implements EventStore {
         }
 
         var stream = streams.computeIfAbsent(streamId, ignored -> new ArrayList<>());
+        var values = context.inherit();
 
         for (var event : events) {
-            var storedEvent = serialize(event);
-            log.add(new LogEntry(streamId, stream.size(), storedEvent));
-            stream.add(storedEvent);
+            var entry = new LogEntry(
+                    streamId,
+                    stream.size(),
+                    log.size(),
+                    serialize(event),
+                    values.withMessageId(UUID.randomUUID().toString()));
+            log.add(entry);
+            stream.add(entry);
         }
 
         var lastLogPosition = log.size() - 1;
@@ -71,16 +88,28 @@ public class InMemoryEventStore implements EventStore {
     }
 
     @Override
-    public <Event> InMemoryEventStore subscribe(Class<Event> type, Consumer<EventEnvelope<Event>> handler) {
-        subscriptions.add(new Subscription(
-                type.getTypeName(),
-                envelope -> handler.accept(new EventEnvelope<>(type.cast(envelope.data()), envelope.metadata()))));
+    public MessageContext.Scope continueTraceOf(String stepName, EventMetadata lastEvent) {
+        return context.continuing(stepName, lastEvent);
+    }
+
+    @Override
+    public InMemoryEventStore subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler) {
+        if (types.isEmpty())
+            throw new IllegalArgumentException("Subscription '%s' needs at least one event type".formatted(name));
+
+        if (!subscriptionNames.add(name))
+            throw new IllegalArgumentException("Subscription name '%s' is already in use".formatted(name));
+
+        subscriptions.add(
+                new Subscription(name, types.stream().map(Class::getTypeName).collect(Collectors.toSet()), handler));
+
+        dispatch();
 
         return this;
     }
 
     public InMemoryEventStore use(Consumer<Object> middleware) {
-        middlewares.add(new Subscription(null, envelope -> middleware.accept(envelope.data())));
+        middlewares.add(new Subscription("middleware", null, envelope -> middleware.accept(envelope.data())));
 
         return this;
     }
@@ -104,11 +133,16 @@ public class InMemoryEventStore implements EventStore {
                     if (subscription.checkpoint >= position || failed.contains(subscription)) continue;
 
                     if (subscription.accepts(entry)) {
-                        try {
-                            subscription.handler.accept(toEnvelope(entry, position));
+                        var envelope = toEnvelope(entry);
+
+                        try (var _ = context.handling(
+                                "handle %s".formatted(envelope.data().getClass().getSimpleName()),
+                                envelope.metadata())) {
+                            subscription.handler.accept(envelope);
                         } catch (RuntimeException e) {
                             logger.error(
-                                    "Subscriber failed on {} at log position {}; it will get it again on the next append",
+                                    "Subscriber '{}' failed on {} at log position {}; it will get it again on the next append",
+                                    subscription.name,
                                     entry.storedEvent().eventType(),
                                     position,
                                     e);
@@ -132,10 +166,20 @@ public class InMemoryEventStore implements EventStore {
                 .orElse(log.size());
     }
 
-    private static EventEnvelope<Object> toEnvelope(LogEntry entry, long logPosition) {
+    private static EventEnvelope<Object> toEnvelope(LogEntry entry) {
+        var values = entry.values();
+
         return new EventEnvelope<>(
                 deserialize(entry.storedEvent()),
-                new EventMetadata(entry.streamId(), entry.streamPosition(), logPosition));
+                new EventMetadata(
+                        entry.streamId(),
+                        entry.streamPosition(),
+                        entry.logPosition(),
+                        values.messageId(),
+                        values.correlationId(),
+                        values.causationId(),
+                        values.traceId(),
+                        values.spanId()));
     }
 
     private StreamState revisionOf(String streamId) {
@@ -168,20 +212,23 @@ public class InMemoryEventStore implements EventStore {
 
     record StoredEvent(String eventType, String json) {}
 
-    record LogEntry(String streamId, long streamPosition, StoredEvent storedEvent) {}
+    record LogEntry(
+            String streamId, long streamPosition, long logPosition, StoredEvent storedEvent, MessageValues values) {}
 
     private static final class Subscription {
-        private final String eventType;
+        private final String name;
+        private final Set<String> eventTypes;
         private final Consumer<EventEnvelope<Object>> handler;
         private int checkpoint = -1;
 
-        private Subscription(String eventType, Consumer<EventEnvelope<Object>> handler) {
-            this.eventType = eventType;
+        private Subscription(String name, Set<String> eventTypes, Consumer<EventEnvelope<Object>> handler) {
+            this.name = name;
+            this.eventTypes = eventTypes;
             this.handler = handler;
         }
 
         private boolean accepts(LogEntry entry) {
-            return eventType == null || eventType.equals(entry.storedEvent().eventType());
+            return eventTypes == null || eventTypes.contains(entry.storedEvent().eventType());
         }
     }
 

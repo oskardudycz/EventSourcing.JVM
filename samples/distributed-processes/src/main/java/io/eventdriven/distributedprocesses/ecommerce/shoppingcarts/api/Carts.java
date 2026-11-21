@@ -2,8 +2,6 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.api;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
-import io.eventdriven.distributedprocesses.core.identifiers.EntityId;
-import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.core.projections.Projection;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
@@ -14,9 +12,9 @@ import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-public class Carts extends Projection<Cart> {
-    public Carts(Database database) {
-        super(Cart.class, database);
+public class Carts extends Projection<Cart, ShoppingCartId> {
+    public Carts(CartRepository repository) {
+        super(repository);
     }
 
     @Override
@@ -29,7 +27,7 @@ public class Carts extends Projection<Cart> {
     }
 
     @Override
-    protected EntityId getDocumentId(Object event) {
+    protected ShoppingCartId getDocumentId(Object event) {
         return switch (event) {
             case ProductItemAddedToShoppingCart e -> e.shoppingCartId();
             case ProductItemRemovedFromShoppingCart e -> e.shoppingCartId();

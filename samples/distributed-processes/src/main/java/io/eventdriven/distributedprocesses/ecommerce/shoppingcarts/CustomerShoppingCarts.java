@@ -2,17 +2,18 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
-import io.eventdriven.distributedprocesses.core.identifiers.EntityId;
-import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.core.projections.Projection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-public class CustomerShoppingCarts extends Projection<CustomerShoppingCart> {
-    public CustomerShoppingCarts(Database database) {
-        super(CustomerShoppingCart.class, database);
+public class CustomerShoppingCarts extends Projection<CustomerShoppingCart, ShoppingCartId> {
+    private final CustomerShoppingCartRepository repository;
+
+    public CustomerShoppingCarts(CustomerShoppingCartRepository repository) {
+        super(repository);
+        this.repository = repository;
     }
 
     @Override
@@ -21,7 +22,7 @@ public class CustomerShoppingCarts extends Projection<CustomerShoppingCart> {
     }
 
     @Override
-    protected EntityId getDocumentId(Object event) {
+    protected ShoppingCartId getDocumentId(Object event) {
         return switch (event) {
             case ProductItemAddedToShoppingCart e -> e.shoppingCartId();
             case ShoppingCartCheckedOut e -> e.shoppingCartId();
@@ -46,14 +47,12 @@ public class CustomerShoppingCarts extends Projection<CustomerShoppingCart> {
     }
 
     public Optional<ShoppingCartId> currentOf(UUID customerId) {
-        return find(cart -> cart.getCustomerId().equals(customerId)
-                        && !cart.getStatus().isClosed())
-                .stream()
-                .map(CustomerShoppingCart::getShoppingCartId)
-                .findFirst();
+        return repository
+                .findFirstByCustomerIdAndStatusNotIn(customerId, ShoppingCartStatus.Closed)
+                .map(CustomerShoppingCart::getShoppingCartId);
     }
 
     public int countOf(UUID customerId) {
-        return find(cart -> cart.getCustomerId().equals(customerId)).size();
+        return repository.countByCustomerId(customerId);
     }
 }

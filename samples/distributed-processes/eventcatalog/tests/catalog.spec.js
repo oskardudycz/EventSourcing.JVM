@@ -120,6 +120,8 @@ async function sidebarSection(page, title) {
   const section = header.locator('xpath=..');
   const items = section.locator(':scope > div > button[title]');
 
+  await expect(header).toBeVisible();
+
   if ((await section.locator(':scope > div').count()) === 0) await header.click();
 
   await expect(items.first()).toBeVisible();

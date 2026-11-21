@@ -4,16 +4,20 @@ import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.Shoppi
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
-import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
-import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartFacade;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
+import io.eventdriven.testing.Metadata;
+import io.eventdriven.testing.ProjectionsDatabase;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.EnumSource;
 
+@ParameterizedClass
+@EnumSource(ProjectionsDatabase.class)
 public class CartsTests {
     private final UUID customerId = UUID.randomUUID();
     private final ShoppingCartId cartId = ShoppingCartId.of(customerId, 1);
@@ -22,7 +26,11 @@ public class CartsTests {
     private final UUID shirt = UUID.randomUUID();
     private final OffsetDateTime now = OffsetDateTime.now();
 
-    private final Carts carts = new Carts(new Database());
+    private final Carts carts;
+
+    CartsTests(ProjectionsDatabase database) {
+        carts = new Carts(database.bean(CartRepository.class));
+    }
 
     @Test
     public void theFirstProductStartsTheCartWithItsPriceAndTotal() {
@@ -93,6 +101,6 @@ public class CartsTests {
     }
 
     private <Event> EventEnvelope<Event> at(long streamPosition, Event event) {
-        return new EventEnvelope<>(event, new EventMetadata(streamId, streamPosition, streamPosition));
+        return new EventEnvelope<>(event, Metadata.at(streamId, streamPosition));
     }
 }

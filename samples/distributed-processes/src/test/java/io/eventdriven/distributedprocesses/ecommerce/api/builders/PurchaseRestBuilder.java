@@ -1,8 +1,10 @@
 package io.eventdriven.distributedprocesses.ecommerce.api.builders;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import io.eventdriven.distributedprocesses.core.http.ETag;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -83,14 +85,16 @@ public class PurchaseRestBuilder {
     }
 
     public String openCheckout(String orderId, String paymentId) {
-        var response = restTestClient
-                .post()
-                .uri(apiUrl("customers/%s/orders/%s/payments/%s/checkout-session"
-                        .formatted(customerId, orderId, paymentId)))
-                .exchange()
-                .returnResult(Void.class);
+        var response = await().atMost(Duration.ofSeconds(30))
+                .until(
+                        () -> restTestClient
+                                .post()
+                                .uri(apiUrl("customers/%s/orders/%s/payments/%s/checkout-session"
+                                        .formatted(customerId, orderId, paymentId)))
+                                .exchange()
+                                .returnResult(Void.class),
+                        result -> result.getStatus() == HttpStatus.SEE_OTHER);
 
-        assertThat(response.getStatus()).isEqualTo(HttpStatus.SEE_OTHER);
         assertThat(response.getResponseHeaders().getLocation()).isNotNull();
 
         return response.getResponseHeaders().getLocation().toString();
@@ -132,13 +136,14 @@ public class PurchaseRestBuilder {
     }
 
     private String currentCartOf(UUID customerId) {
-        var response = restTestClient
-                .get()
-                .uri(apiUrl("customers/%s/shopping-carts/current".formatted(customerId)))
-                .exchange()
-                .returnResult(JsonNode.class);
-
-        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+        var response = await().atMost(Duration.ofSeconds(30))
+                .until(
+                        () -> restTestClient
+                                .get()
+                                .uri(apiUrl("customers/%s/shopping-carts/current".formatted(customerId)))
+                                .exchange()
+                                .returnResult(JsonNode.class),
+                        result -> result.getStatus() == HttpStatus.OK);
 
         return response.getResponseBody().get("shoppingCartId").asString();
     }

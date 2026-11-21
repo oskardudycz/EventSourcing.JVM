@@ -2,16 +2,21 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
+import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
 import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.api.CartRepository;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartSummaryRepository;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.TestTracing;
 import java.time.OffsetDateTime;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
@@ -29,8 +34,8 @@ public class ShoppingCartFacadeTests {
     private final Map<UUID, Double> unitPrices = new HashMap<>(Map.of(shoes.productId(), 12.5, shirt.productId(), 5.0));
     private final OffsetDateTime now = OffsetDateTime.now();
 
-    private final InMemoryEventStore eventStore = new InMemoryEventStore();
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
+    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
     private final MessageCatcher published = new MessageCatcher();
     private Runnable beforePricing = () -> {};
     private final ProductPriceCalculator prices = item -> {
@@ -43,7 +48,14 @@ public class ShoppingCartFacadeTests {
 
     public ShoppingCartFacadeTests() {
         eventStore.use(published::catchMessage);
-        shoppingCarts = ShoppingCartsConfig.configure(eventStore, messageBus, prices, () -> now)
+        shoppingCarts = ShoppingCartsConfig.configure(
+                        eventStore,
+                        messageBus,
+                        prices,
+                        H2.bean(CustomerShoppingCartRepository.class),
+                        H2.bean(ShoppingCartSummaryRepository.class),
+                        H2.bean(CartRepository.class),
+                        () -> now)
                 .facade();
     }
 
@@ -153,7 +165,9 @@ public class ShoppingCartFacadeTests {
 
     @Test
     public void customerCommandsAreNotTakenFromTheMessageBus() {
-        messageBus.publish(List.of(new AddProductItemToShoppingCart(customerId, shoes)));
+        assertThatThrownBy(() -> messageBus.publish(List.of(new AddProductItemToShoppingCart(customerId, shoes))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(AddProductItemToShoppingCart.class.getName());
 
         published.shouldNotReceiveAnyEvent();
     }
@@ -171,7 +185,8 @@ public class ShoppingCartFacadeTests {
 
     private List<Object> storedEvents(ShoppingCartId shoppingCartId) {
         return switch (eventStore.read(ShoppingCartFacade.mapToStreamId(shoppingCartId))) {
-            case EventStore.ReadResult.Success success -> List.of(success.events());
+            case EventStore.ReadResult.Success success ->
+                success.events().stream().map(EventEnvelope::data).toList();
             default -> List.of();
         };
     }

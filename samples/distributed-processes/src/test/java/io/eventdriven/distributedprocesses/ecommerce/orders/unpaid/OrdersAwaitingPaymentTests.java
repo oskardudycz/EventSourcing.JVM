@@ -4,32 +4,40 @@ import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
-import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
-import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCancellationReason;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderFacade;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderPaymentStatus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderShipmentStatus;
+import io.eventdriven.testing.Metadata;
+import io.eventdriven.testing.ProjectionsDatabase;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.EnumSource;
 
+@ParameterizedClass
+@EnumSource(ProjectionsDatabase.class)
 public class OrdersAwaitingPaymentTests {
     private final OrderId orderId = OrderId.of(UUID.randomUUID());
     private final String streamId = OrderFacade.mapToStreamId(orderId);
-    private final OffsetDateTime failedAt = OffsetDateTime.now();
+    private final OffsetDateTime failedAt = OffsetDateTime.now().truncatedTo(ChronoUnit.MICROS);
     private final OffsetDateTime dueAt = failedAt.plusDays(14);
 
-    private final Database database = new Database();
-    private final OrdersAwaitingPayment ordersAwaitingPayment = new OrdersAwaitingPayment(database);
+    private final OrdersAwaitingPayment ordersAwaitingPayment;
+
+    OrdersAwaitingPaymentTests(ProjectionsDatabase database) {
+        ordersAwaitingPayment = new OrdersAwaitingPayment(database.bean(OrderAwaitingPaymentRepository.class));
+    }
 
     @Test
     public void failedPaymentIsOverdueFromTheDateTheOrderGaveTheCustomer() {
         fail();
 
-        assertThat(ordersAwaitingPayment.overdueAt(dueAt)).containsExactly(orderId);
-        assertThat(ordersAwaitingPayment.overdueAt(dueAt.minusMinutes(1))).isEmpty();
+        assertThat(ordersAwaitingPayment.overdueAt(dueAt)).containsOnlyOnce(orderId);
+        assertThat(ordersAwaitingPayment.overdueAt(dueAt.minusMinutes(1))).doesNotContain(orderId);
     }
 
     @Test
@@ -38,7 +46,7 @@ public class OrdersAwaitingPaymentTests {
 
         ordersAwaitingPayment.handle(at(new OrderCompleted(orderId, failedAt), 1));
 
-        assertThat(ordersAwaitingPayment.overdueAt(dueAt)).isEmpty();
+        assertThat(ordersAwaitingPayment.overdueAt(dueAt)).doesNotContain(orderId);
     }
 
     @Test
@@ -47,7 +55,7 @@ public class OrdersAwaitingPaymentTests {
 
         ordersAwaitingPayment.handle(at(new OrderClosedUnpaid(orderId, dueAt), 1));
 
-        assertThat(ordersAwaitingPayment.overdueAt(dueAt)).isEmpty();
+        assertThat(ordersAwaitingPayment.overdueAt(dueAt)).doesNotContain(orderId);
     }
 
     @Test
@@ -65,7 +73,7 @@ public class OrdersAwaitingPaymentTests {
                         failedAt),
                 1));
 
-        assertThat(ordersAwaitingPayment.overdueAt(dueAt)).isEmpty();
+        assertThat(ordersAwaitingPayment.overdueAt(dueAt)).doesNotContain(orderId);
     }
 
     @Test
@@ -73,13 +81,13 @@ public class OrdersAwaitingPaymentTests {
         fail();
         fail();
 
-        assertThat(ordersAwaitingPayment.overdueAt(dueAt)).containsExactly(orderId);
+        assertThat(ordersAwaitingPayment.overdueAt(dueAt)).containsOnlyOnce(orderId);
 
         var completed = at(new OrderCompleted(orderId, failedAt), 1);
         ordersAwaitingPayment.handle(completed);
         ordersAwaitingPayment.handle(completed);
 
-        assertThat(ordersAwaitingPayment.overdueAt(dueAt)).isEmpty();
+        assertThat(ordersAwaitingPayment.overdueAt(dueAt)).doesNotContain(orderId);
     }
 
     private void fail() {
@@ -87,6 +95,6 @@ public class OrdersAwaitingPaymentTests {
     }
 
     private <Event> EventEnvelope<Event> at(Event event, long streamPosition) {
-        return new EventEnvelope<>(event, new EventMetadata(streamId, streamPosition, streamPosition));
+        return new EventEnvelope<>(event, Metadata.at(streamId, streamPosition));
     }
 }

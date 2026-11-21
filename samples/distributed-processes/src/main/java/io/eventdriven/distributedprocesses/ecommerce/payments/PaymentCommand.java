@@ -5,6 +5,8 @@ import java.net.URI;
 import java.time.OffsetDateTime;
 
 public sealed interface PaymentCommand {
+    PaymentId paymentId();
+
     @Schema(
             description =
                     "Asks for a payment of the amount. The payment waits until the customer authorizes it on the payment provider's page.")

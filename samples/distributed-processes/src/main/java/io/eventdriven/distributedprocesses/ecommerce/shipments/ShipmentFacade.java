@@ -55,8 +55,9 @@ public class ShipmentFacade {
                             channelName = ShipmentsConfig.internal,
                             description = "Records that the package was sent."))
     public void confirmPackageSent(ConfirmPackageSent command) {
-        store.getAndUpdate(
+        store.getAndUpdateContinuingTrace(
                 command.shipmentId(),
+                command,
                 current -> current.confirmSent(command.carrier(), command.trackingNumber(), now.get()));
     }
 
@@ -66,7 +67,8 @@ public class ShipmentFacade {
                             channelName = ShipmentsConfig.internal,
                             description = "Records that the fulfillment service will not send the package."))
     public void rejectFulfillment(RejectFulfillment command) {
-        store.getAndUpdate(command.shipmentId(), current -> current.rejectFulfillment(now.get()));
+        store.getAndUpdateContinuingTrace(
+                command.shipmentId(), command, current -> current.rejectFulfillment(now.get()));
     }
 
     @AsyncListener(
@@ -75,7 +77,7 @@ public class ShipmentFacade {
                             channelName = ShipmentsConfig.internal,
                             description = "Records that the package was delivered."))
     public void deliverPackage(DeliverPackage command) {
-        store.getAndUpdate(command.shipmentId(), current -> current.deliver(now.get()));
+        store.getAndUpdateContinuingTrace(command.shipmentId(), command, current -> current.deliver(now.get()));
     }
 
     @AsyncListener(

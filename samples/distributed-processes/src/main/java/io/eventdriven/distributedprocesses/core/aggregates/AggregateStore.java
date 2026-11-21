@@ -2,8 +2,11 @@ package io.eventdriven.distributedprocesses.core.aggregates;
 
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.kurrent.dbclient.StreamState;
 import java.util.ConcurrentModificationException;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -24,26 +27,24 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
     }
 
     public Optional<Entity> get(Id id) {
-        var streamId = mapToStreamId.apply(id);
+        var events = eventsOf(id);
 
-        return switch (eventStore.read(streamId)) {
-            case EventStore.ReadResult.StreamDoesNotExist ignored -> Optional.empty();
-            case EventStore.ReadResult.NoEventsFound ignored -> Optional.empty();
-            case EventStore.ReadResult.Success success -> Optional.of(replay(success.events()));
-            case EventStore.ReadResult.UnexpectedFailure failure -> throw new RuntimeException(failure.t());
-        };
+        return events.isEmpty() ? Optional.empty() : Optional.of(replay(events));
     }
 
     public ETag getAndUpdate(Id id, Consumer<Entity> handle) {
-        for (var attempt = 1; ; attempt++) {
-            var entity = get(id).orElseGet(getEmpty);
+        return getAndUpdate(id, handle, ignored -> () -> {});
+    }
 
-            try {
-                return update(id, entity, entity.version, handle);
-            } catch (ConcurrentModificationException e) {
-                if (attempt == maxAttempts) throw e;
-            }
-        }
+    public ETag getAndUpdateContinuingTrace(Id id, Object command, Consumer<Entity> handle) {
+        var stepName = "handle %s".formatted(command.getClass().getSimpleName());
+
+        return getAndUpdate(
+                id,
+                handle,
+                events -> events.isEmpty()
+                        ? () -> {}
+                        : eventStore.continueTraceOf(stepName, events.getLast().metadata()));
     }
 
     public ETag getAndUpdate(Id id, long expectedVersion, Consumer<Entity> handle) {
@@ -76,15 +77,38 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
         return version < 0 ? StreamState.noStream() : StreamState.streamRevision(version);
     }
 
+    private ETag getAndUpdate(
+            Id id, Consumer<Entity> handle, Function<List<EventEnvelope<Object>>, MessageContext.Scope> scopeOf) {
+        for (var attempt = 1; ; attempt++) {
+            var events = eventsOf(id);
+            var entity = events.isEmpty() ? getEmpty.get() : replay(events);
+
+            try (var _ = scopeOf.apply(events)) {
+                return update(id, entity, entity.version, handle);
+            } catch (ConcurrentModificationException e) {
+                if (attempt == maxAttempts) throw e;
+            }
+        }
+    }
+
+    private List<EventEnvelope<Object>> eventsOf(Id id) {
+        return switch (eventStore.read(mapToStreamId.apply(id))) {
+            case EventStore.ReadResult.StreamDoesNotExist ignored -> List.of();
+            case EventStore.ReadResult.NoEventsFound ignored -> List.of();
+            case EventStore.ReadResult.Success success -> success.events();
+            case EventStore.ReadResult.UnexpectedFailure failure -> throw new RuntimeException(failure.t());
+        };
+    }
+
     @SuppressWarnings("unchecked")
-    private Entity replay(Object[] events) {
+    private Entity replay(List<EventEnvelope<Object>> events) {
         var current = getEmpty.get();
 
-        for (var event : events) {
-            current.evolve((Event) event);
+        for (var envelope : events) {
+            current.evolve((Event) envelope.data());
         }
 
-        current.version = events.length - 1;
+        current.version = events.size() - 1;
 
         return current;
     }

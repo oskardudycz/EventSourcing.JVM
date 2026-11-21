@@ -2,17 +2,24 @@ package io.eventdriven.distributedprocesses.ecommerce.orders;
 
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.*;
+import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
 import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
+import io.eventdriven.distributedprocesses.ecommerce.orders.api.CustomerOrderRepository;
+import io.eventdriven.distributedprocesses.ecommerce.orders.api.OrderStatusRepository;
+import io.eventdriven.distributedprocesses.ecommerce.orders.pending.PendingOrderRepository;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
+import io.eventdriven.distributedprocesses.ecommerce.orders.unpaid.OrderAwaitingPaymentRepository;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.TestTracing;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -38,15 +45,23 @@ public class OrderFacadeTests {
     private final OffsetDateTime capturedAt = now.plusMinutes(4);
     private final Duration timeToPay = Duration.ofDays(14);
 
-    private final InMemoryEventStore eventStore = new InMemoryEventStore();
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
+    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
     private final MessageCatcher published = new MessageCatcher();
     private final AtomicReference<OffsetDateTime> clock = new AtomicReference<>(now);
     private final OrderFacade orders;
 
     public OrderFacadeTests() {
         eventStore.use(published::catchMessage);
-        orders = OrdersConfig.configure(eventStore, messageBus, PaymentTerms.within(timeToPay), clock::get)
+        orders = OrdersConfig.configure(
+                        eventStore,
+                        messageBus,
+                        PaymentTerms.within(timeToPay),
+                        H2.bean(PendingOrderRepository.class),
+                        H2.bean(OrderAwaitingPaymentRepository.class),
+                        H2.bean(CustomerOrderRepository.class),
+                        H2.bean(OrderStatusRepository.class),
+                        clock::get)
                 .facade();
     }
 
@@ -273,7 +288,8 @@ public class OrderFacadeTests {
 
     private List<Object> storedEvents() {
         return switch (eventStore.read(OrderFacade.mapToStreamId(orderId))) {
-            case EventStore.ReadResult.Success success -> List.of(success.events());
+            case EventStore.ReadResult.Success success ->
+                success.events().stream().map(EventEnvelope::data).toList();
             default -> List.of();
         };
     }

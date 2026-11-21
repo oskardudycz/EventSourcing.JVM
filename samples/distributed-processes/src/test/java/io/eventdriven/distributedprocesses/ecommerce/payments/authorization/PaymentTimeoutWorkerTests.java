@@ -2,6 +2,7 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.authorization;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
+import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
@@ -12,7 +13,9 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentValidity;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGateway;
+import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentSummaryRepository;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.TestTracing;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -32,17 +35,26 @@ public class PaymentTimeoutWorkerTests {
     private final OffsetDateTime beforeThreshold = requestedAt.plusMinutes(1);
     private final OffsetDateTime afterThreshold = requestedAt.plusMinutes(10);
 
-    private final InMemoryEventStore eventStore = new InMemoryEventStore();
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
+    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
     private final MessageCatcher published = new MessageCatcher();
 
     private final AtomicReference<OffsetDateTime> clock = new AtomicReference<>(requestedAt);
     private final ScheduledPaymentTimeoutWorker worker;
 
     public PaymentTimeoutWorkerTests() {
-        eventStore.use(published::catchMessage);
+        eventStore.use(event -> {
+            if (event.toString().contains(paymentId.value())) published.catchMessage(event);
+        });
         worker = PaymentsConfig.configure(
-                        eventStore, messageBus, new SilentPaymentGateway(), PaymentValidity.of(timeout), clock::get)
+                        eventStore,
+                        messageBus,
+                        new SilentPaymentGateway(),
+                        PaymentValidity.of(timeout),
+                        H2.bean(PaymentSummaryRepository.class),
+                        H2.bean(PendingPaymentRepository.class),
+                        H2.bean(AuthorizedPaymentRepository.class),
+                        clock::get)
                 .timeoutWorker();
     }
 

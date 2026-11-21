@@ -1,0 +1,354 @@
+package io.eventdriven.distributedprocesses.core.messaging;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
+
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
+import io.eventdriven.testing.FailingFirstSendKafkaTemplate;
+import io.eventdriven.testing.InMemorySpansConfiguration;
+import io.eventdriven.testing.KafkaTopics;
+import io.eventdriven.testing.TestDatabases;
+import io.eventdriven.testing.TestKafka;
+import io.eventdriven.testing.TestMessages;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
+import io.micrometer.tracing.Tracer;
+import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.test.context.ActiveProfiles;
+
+@SpringBootTest
+@ActiveProfiles("in-memory")
+@AutoConfigureTracing
+@Import(InMemorySpansConfiguration.class)
+public class KafkaMessageBusFailureTests {
+    public record PaymentReceived(String id) {}
+
+    public record RoomInspected(String room, String inspector) {}
+
+    private static final String KEY = "ecommerce.payment.1";
+
+    private final String bootstrapServers = TestDatabases.kafkaBootstrapServers();
+    private final String id = UUID.randomUUID().toString().substring(0, 8);
+    private final String payments = "payments-" + id;
+    private final String billing = "billing-" + id;
+    private final String shipping = "shipping-" + id;
+    private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    private final List<String> log = new CopyOnWriteArrayList<>();
+
+    @Autowired
+    private MessageContext messageContext;
+
+    @Autowired
+    private ObservationRegistry observations;
+
+    @Autowired
+    private Tracer tracer;
+
+    @Autowired
+    private InMemorySpanExporter spans;
+
+    private KafkaMessageBus messageBus;
+
+    @BeforeEach
+    void createMessageBus() {
+        messageBus = KafkaMessageBus.connectingTo(
+                bootstrapServers,
+                messageContext,
+                observations,
+                TestMessages.serializer(new MessageMapping()
+                        .register("test.PaymentReceived", PaymentReceived.class)
+                        .register("test.RoomInspected", RoomInspected.class)
+                        .register("test.RoomInspected.v1", String.class, room -> new RoomInspected(room, "unknown"))
+                        .register(
+                                "test.RoomInspected.v0",
+                                json -> new RoomInspected(json.get("r").asString(), "unknown"))),
+                TestKafka.PUBLISH_TIMEOUT,
+                TestKafka.failureHandling(bootstrapServers, observations, meters, TestKafka.PUBLISH_TIMEOUT));
+        messageBus
+                .routes(new MessageRoutes()
+                        .routeTarget(MessageRoutes.inPackage(getClass().getPackageName()), payments)
+                        .routeKey(PaymentReceived.class, message -> KEY)
+                        .routeKey(RoomInspected.class, message -> KEY))
+                .channel(payments)
+                .bind(billing, payments, "#");
+    }
+
+    @AfterEach
+    void closeMessageBus() {
+        messageBus.close();
+        KafkaTopics.deleteContaining(bootstrapServers, id);
+    }
+
+    @Test
+    public void handlerFailingOnceSucceedsOnTheSecondAttempt() {
+        var attempts = new AtomicInteger();
+        messageBus.subscribe(billing, PaymentReceived.class, message -> {
+            if (attempts.incrementAndGet() == 1) throw new IllegalStateException("Payment gateway unavailable");
+            log.add("handled:" + message.id());
+        });
+
+        publish(new PaymentReceived("payment-1"));
+
+        awaitLog("handled:payment-1");
+        assertThat(attempts).hasValue(2);
+        assertThat(KafkaTopics.recordsOf(bootstrapServers, billing + "-dlt")).isEmpty();
+        assertThat(deadLettered()).isZero();
+    }
+
+    @Test
+    public void alwaysFailingHandlerSendsTheMessageToItsQueuesDeadLetterTopicAfterTheLastRetry() {
+        var attempts = new AtomicInteger();
+        messageBus.bind(shipping, payments, "#");
+        messageBus.subscribe(billing, PaymentReceived.class, message -> {
+            attempts.incrementAndGet();
+            throw new IllegalStateException("Payment gateway unavailable");
+        });
+        messageBus.subscribe(shipping, PaymentReceived.class, message -> log.add("shipping:" + message.id()));
+
+        publish(new PaymentReceived("payment-1"), new PaymentReceived("payment-2"));
+
+        var deadLetters = deadLettersOf(billing, 2);
+        awaitLog("shipping:payment-1", "shipping:payment-2");
+        assertThat(attempts).hasValue(6);
+        assertThat(deadLetters)
+                .allSatisfy(record -> assertThat(deliveryAttemptOf(record)).isEqualTo(3));
+        assertThat(deadLetters).extracting(ConsumerRecord::key).containsOnly(KEY);
+        assertThat(KafkaTopics.recordsOf(bootstrapServers, shipping + "-dlt")).isEmpty();
+        assertThat(deadLettered()).isEqualTo(2);
+    }
+
+    @Test
+    public void deadLetterPublishHasASpanInTheTraceOfTheMessage() {
+        messageBus.subscribe(billing, PaymentReceived.class, message -> {
+            throw new IllegalStateException("Payment gateway unavailable");
+        });
+        var publisherSpan = tracer.nextSpan().name("publisher").start();
+
+        try (var _ = tracer.withSpan(publisherSpan)) {
+            publish(new PaymentReceived("payment-1"));
+        } finally {
+            publisherSpan.end();
+        }
+
+        deadLettersOf(billing, 1);
+        await().atMost(Duration.ofSeconds(30))
+                .untilAsserted(() -> assertThat(spans.getFinishedSpanItems()).anySatisfy(span -> {
+                    assertThat(span.getName()).contains(billing + "-dlt");
+                    assertThat(span.getSpanContext().getTraceId())
+                            .isEqualTo(publisherSpan.context().traceId());
+                }));
+    }
+
+    @Test
+    public void bodyThatIsNotJsonGoesToTheDeadLetterTopicWithoutRetriesAndTheNextMessageIsHandled() {
+        messageBus.subscribe(billing, PaymentReceived.class, message -> log.add("handled:" + message.id()));
+        publishRaw("test.PaymentReceived", "{\"id\":");
+
+        publish(new PaymentReceived("payment-1"));
+
+        var deadLetters = deadLettersOf(billing, 1);
+        awaitLog("handled:payment-1");
+        assertThat(new String(deadLetters.getFirst().value(), StandardCharsets.UTF_8))
+                .isEqualTo("{\"id\":");
+        assertThat(deliveryAttemptOf(deadLetters.getFirst())).isEqualTo(1);
+        assertThat(deadLettered()).isEqualTo(1);
+    }
+
+    @Test
+    public void typeOutsideTheSamplesPackageIsNotCreatedAndIsDeadLettered() {
+        messageBus.subscribe(billing, PaymentReceived.class, message -> log.add("handled:" + message.id()));
+        publishRaw("java.lang.ProcessBuilder", "{}");
+
+        publish(new PaymentReceived("payment-1"));
+
+        var deadLetters = deadLettersOf(billing, 1);
+        awaitLog("handled:payment-1");
+        assertThat(KafkaTopics.header(deadLetters.getFirst(), KafkaMessageBus.MESSAGE_TYPE))
+                .isEqualTo("java.lang.ProcessBuilder");
+        assertThat(KafkaTopics.header(deadLetters.getFirst(), KafkaHeaders.DLT_EXCEPTION_CAUSE_FQCN))
+                .isEqualTo(UnreadableMessageException.class.getName());
+        assertThat(deliveryAttemptOf(deadLetters.getFirst())).isEqualTo(1);
+    }
+
+    @Test
+    public void deadLetterCountIsTaggedWithTheStableTypeNameAndTheSourceTopic() {
+        messageBus.subscribe(billing, PaymentReceived.class, message -> {
+            throw new IllegalStateException("Payment gateway unavailable");
+        });
+
+        publish(new PaymentReceived("payment-1"));
+
+        deadLettersOf(billing, 1);
+        assertThat(meters.find(KafkaMessageBus.DEAD_LETTERED)
+                        .tag("message.type", "test.PaymentReceived")
+                        .tag("messaging.destination.name", payments)
+                        .counter())
+                .isNotNull()
+                .satisfies(counter -> assertThat(counter.count()).isEqualTo(1));
+    }
+
+    @Test
+    public void deadLetterCountOfATypeThatIsNotRegisteredIsTaggedUnknown() {
+        publishRaw("io.eventdriven.distributedprocesses.NoSuchMessage", "{}");
+        publishRaw("java.lang.ProcessBuilder", "{}");
+
+        deadLettersOf(billing, 2);
+        assertThat(meters.find(KafkaMessageBus.DEAD_LETTERED).counters())
+                .extracting(counter -> counter.getId().getTag("message.type"))
+                .containsExactly("unknown");
+        assertThat(deadLettered()).isEqualTo(2);
+    }
+
+    @Test
+    public void batchWithAMessageTypeWithoutAStableNamePublishesNothing() {
+        record Unnamed(String id) {}
+        var bus = KafkaMessageBus.connectingTo(
+                bootstrapServers,
+                messageContext,
+                observations,
+                TestMessages.serializer(new MessageMapping().register("test.PaymentReceived", PaymentReceived.class)),
+                TestKafka.PUBLISH_TIMEOUT,
+                TestKafka.failureHandling(bootstrapServers, observations));
+        bus.routes(new MessageRoutes()
+                        .routeTarget(MessageRoutes.inPackage(getClass().getPackageName()), payments)
+                        .routeKey(PaymentReceived.class, message -> KEY)
+                        .routeKey(Unnamed.class, message -> KEY))
+                .channel(payments);
+
+        try {
+            assertThatThrownBy(() -> bus.publish(List.of(new PaymentReceived("payment-1"), new Unnamed("unnamed"))))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining(Unnamed.class.getName());
+        } finally {
+            bus.close();
+        }
+
+        assertThat(KafkaTopics.recordsOf(bootstrapServers, payments)).isEmpty();
+    }
+
+    @Test
+    public void typeNameInsideTheSamplesPackageThatNamesNoClassIsDeadLettered() {
+        publishRaw("io.eventdriven.distributedprocesses.NoSuchMessage", "{}");
+
+        var deadLetters = deadLettersOf(billing, 1);
+
+        assertThat(KafkaTopics.header(deadLetters.getFirst(), KafkaHeaders.DLT_EXCEPTION_CAUSE_FQCN))
+                .isEqualTo(UnreadableMessageException.class.getName());
+    }
+
+    @Test
+    public void messageIsNotLostWhenTheFirstDeadLetterPublishFails() {
+        messageBus.close();
+        messageBus = KafkaMessageBus.connectingTo(
+                bootstrapServers,
+                messageContext,
+                observations,
+                TestMessages.serializer(new MessageMapping().register("test.PaymentReceived", PaymentReceived.class)),
+                TestKafka.PUBLISH_TIMEOUT,
+                TestKafka.failureHandling(
+                        meters,
+                        new FailingFirstSendKafkaTemplate(
+                                KafkaMessageBus.producerFactory(bootstrapServers, TestKafka.PUBLISH_TIMEOUT))));
+        messageBus
+                .routes(new MessageRoutes()
+                        .routeTarget(MessageRoutes.inPackage(getClass().getPackageName()), payments)
+                        .routeKey(PaymentReceived.class, message -> KEY))
+                .channel(payments)
+                .bind(billing, payments, "#");
+        messageBus.subscribe(billing, PaymentReceived.class, message -> {
+            throw new IllegalStateException("Payment gateway unavailable");
+        });
+
+        publish(new PaymentReceived("payment-1"));
+
+        assertThat(deadLettersOf(billing, 1)).hasSize(1);
+        assertThat(deadLettered()).isEqualTo(1);
+    }
+
+    @Test
+    public void recordWithoutATypeHeaderIsDeadLettered() {
+        messageBus.subscribe(billing, PaymentReceived.class, message -> log.add("handled:" + message.id()));
+        publishRaw(new ProducerRecord<>(payments, KEY, "{}".getBytes(StandardCharsets.UTF_8)));
+
+        publish(new PaymentReceived("payment-1"));
+
+        deadLettersOf(billing, 1);
+        awaitLog("handled:payment-1");
+    }
+
+    @Test
+    public void oldVersionOfAMessageIsTransformedToTheCurrentOne() {
+        messageBus.subscribe(
+                billing, RoomInspected.class, message -> log.add(message.room() + ":" + message.inspector()));
+        publishRaw("test.RoomInspected.v1", "\"101\"");
+        publishRaw("test.RoomInspected.v0", "{\"r\":\"102\"}");
+        publishRaw("test.RoomInspected", "{\"room\":\"103\",\"inspector\":\"anna\"}");
+
+        awaitLog("101:unknown", "102:unknown", "103:anna");
+        assertThat(KafkaTopics.recordsOf(bootstrapServers, billing + "-dlt")).isEmpty();
+    }
+
+    private void publish(Object... messages) {
+        if (!messageBus.isRunning()) messageBus.start();
+        messageBus.publish(List.of(messages));
+    }
+
+    private void publishRaw(String typeName, String body) {
+        var record = new ProducerRecord<>(payments, KEY, body.getBytes(StandardCharsets.UTF_8));
+        record.headers().add(KafkaMessageBus.MESSAGE_TYPE, typeName.getBytes(StandardCharsets.UTF_8));
+        publishRaw(record);
+    }
+
+    private void publishRaw(ProducerRecord<String, byte[]> record) {
+        var template =
+                new KafkaTemplate<>(KafkaMessageBus.producerFactory(bootstrapServers, TestKafka.PUBLISH_TIMEOUT));
+        template.send(record).join();
+        template.destroy();
+        if (!messageBus.isRunning()) messageBus.start();
+    }
+
+    private List<ConsumerRecord<String, byte[]>> deadLettersOf(String queue, int count) {
+        await().atMost(Duration.ofSeconds(30))
+                .until(() ->
+                        KafkaTopics.recordsOf(bootstrapServers, queue + "-dlt").size() >= count);
+
+        return KafkaTopics.recordsOf(bootstrapServers, queue + "-dlt");
+    }
+
+    private double deadLettered() {
+        var counter = meters.find(KafkaMessageBus.DEAD_LETTERED).counter();
+
+        return counter != null ? counter.count() : 0;
+    }
+
+    private void awaitLog(String... entries) {
+        await().atMost(Duration.ofSeconds(30))
+                .untilAsserted(() -> assertThat(log).containsExactlyInAnyOrder(entries));
+    }
+
+    private static int deliveryAttemptOf(ConsumerRecord<String, byte[]> record) {
+        return ByteBuffer.wrap(record.headers()
+                        .lastHeader(KafkaHeaders.DELIVERY_ATTEMPT)
+                        .value())
+                .getInt();
+    }
+}

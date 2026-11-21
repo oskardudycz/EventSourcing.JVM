@@ -2,21 +2,31 @@ package io.eventdriven.distributedprocesses.core.projections;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.distributedprocesses.core.identifiers.EntityId;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
-import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
+import io.eventdriven.testing.Metadata;
+import io.eventdriven.testing.ProjectionsDatabase;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.EnumSource;
 
+@ParameterizedClass
+@EnumSource(ProjectionsDatabase.class)
 public class ProjectionTests {
     private final CounterId counterId = new CounterId(UUID.randomUUID().toString());
     private final CounterId otherCounterId = new CounterId(UUID.randomUUID().toString());
-    private final CounterProjection projection = new CounterProjection(new Database());
+    private final ProjectionsDatabase database;
+    private final CounterProjection projection;
+
+    ProjectionTests(ProjectionsDatabase database) {
+        this.database = database;
+        projection = new CounterProjection(database.bean(CounterRepository.class));
+    }
 
     @Test
-    public void firstEventStoresTheDocumentAtItsStreamPosition() {
+    public void firstEventStoresTheDocumentAtTheEventsStreamPosition() {
         projection.handle(at(0, new Started(counterId)));
 
         assertThat(projection.get(counterId)).hasValueSatisfying(counter -> {
@@ -38,7 +48,7 @@ public class ProjectionTests {
     }
 
     @Test
-    public void eventDeliveredAgainIsSkipped() {
+    public void anEventTheDocumentAlreadyAppliedChangesNothing() {
         projection.handle(at(0, new Started(counterId)));
         var incremented = at(1, new Incremented(counterId));
 
@@ -75,7 +85,7 @@ public class ProjectionTests {
     }
 
     @Test
-    public void noDocumentFromEvolveDeletesTheDocument() {
+    public void evolveReturningNoDocumentDeletesIt() {
         projection.handle(at(0, new Started(counterId)));
 
         projection.handle(at(1, new Finished(counterId)));
@@ -84,19 +94,46 @@ public class ProjectionTests {
     }
 
     @Test
-    public void queryFindsOnlyTheMatchingDocuments() {
+    public void aViewQueryReturnsOnlyTheMatchingDocuments() {
         projection.handle(at(0, new Started(counterId)));
         projection.handle(at(1, new Incremented(counterId)));
         projection.handle(at(0, new Started(otherCounterId)));
 
-        assertThat(projection.countedAtLeastOnce()).containsExactly(counterId);
+        assertThat(projection.countedAtLeastOnce()).contains(counterId).doesNotContain(otherCounterId);
+    }
+
+    @Test
+    public void evolveReturningNoDocumentWhenNothingIsStoredChangesNothing() {
+        projection.handle(at(0, new Finished(counterId)));
+
+        assertThat(projection.get(counterId)).isEmpty();
+    }
+
+    @Test
+    public void anEventForAStoredDocumentCostsOneReadAndOneWrite() {
+        projection.handle(at(0, new Started(counterId)));
+        var statistics = database.statistics();
+        var statementsBefore = statistics.getPrepareStatementCount();
+
+        projection.handle(at(1, new Incremented(counterId)));
+
+        assertThat(statistics.getPrepareStatementCount() - statementsBefore).isEqualTo(2);
+    }
+
+    @Test
+    public void deletingAStoredDocumentCostsOneReadAndOneWrite() {
+        projection.handle(at(0, new Started(counterId)));
+        var statistics = database.statistics();
+        var statementsBefore = statistics.getPrepareStatementCount();
+
+        projection.handle(at(1, new Finished(counterId)));
+
+        assertThat(statistics.getPrepareStatementCount() - statementsBefore).isEqualTo(2);
     }
 
     private <Event> EventEnvelope<Event> at(long streamPosition, Event event) {
-        return new EventEnvelope<>(event, new EventMetadata("Counter", streamPosition, streamPosition));
+        return new EventEnvelope<>(event, Metadata.at("Counter", streamPosition));
     }
-
-    record CounterId(String value) implements EntityId {}
 
     record Started(CounterId counterId) {}
 
@@ -106,43 +143,12 @@ public class ProjectionTests {
 
     record Finished(CounterId counterId) {}
 
-    static class Counter implements Versioned {
-        private CounterId counterId;
-        private int count;
-        private long version;
+    static class CounterProjection extends Projection<Counter, CounterId> {
+        private final CounterRepository repository;
 
-        Counter() {}
-
-        Counter(CounterId counterId) {
-            this.counterId = counterId;
-        }
-
-        CounterId getCounterId() {
-            return counterId;
-        }
-
-        int getCount() {
-            return count;
-        }
-
-        void increment() {
-            count++;
-        }
-
-        @Override
-        public long getVersion() {
-            return version;
-        }
-
-        @Override
-        public void setVersion(long version) {
-            this.version = version;
-        }
-    }
-
-    static class CounterProjection extends Projection<Counter> {
-        CounterProjection(Database database) {
-            super(Counter.class, database);
+        CounterProjection(CounterRepository repository) {
+            super(repository);
+            this.repository = repository;
         }
 
         @Override
@@ -151,7 +157,7 @@ public class ProjectionTests {
         }
 
         @Override
-        protected EntityId getDocumentId(Object event) {
+        protected CounterId getDocumentId(Object event) {
             return switch (event) {
                 case Started e -> e.counterId();
                 case Incremented e -> e.counterId();
@@ -175,7 +181,7 @@ public class ProjectionTests {
         }
 
         List<CounterId> countedAtLeastOnce() {
-            return find(counter -> counter.getCount() > 0).stream()
+            return repository.findByCountGreaterThan(0).stream()
                     .map(Counter::getCounterId)
                     .toList();
         }

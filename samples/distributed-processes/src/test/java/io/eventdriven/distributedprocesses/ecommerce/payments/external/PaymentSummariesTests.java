@@ -5,14 +5,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
-import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
-import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentFacade;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
+import io.eventdriven.testing.Metadata;
+import io.eventdriven.testing.ProjectionsDatabase;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.EnumSource;
 
+@ParameterizedClass
+@EnumSource(ProjectionsDatabase.class)
 public class PaymentSummariesTests {
     private final String referenceId = Urns.of("ecommerce", "order", UUID.randomUUID());
     private final PaymentId paymentId = PaymentId.derivedFrom(referenceId);
@@ -20,7 +24,11 @@ public class PaymentSummariesTests {
     private final double amount = 62.5;
     private final OffsetDateTime now = OffsetDateTime.now();
 
-    private final PaymentSummaries summaries = new PaymentSummaries(new Database());
+    private final PaymentSummaries summaries;
+
+    PaymentSummariesTests(ProjectionsDatabase database) {
+        summaries = new PaymentSummaries(database.bean(PaymentSummaryRepository.class));
+    }
 
     @Test
     public void requestedAuthorizationIsSummarizedWithTheReference() {
@@ -52,6 +60,6 @@ public class PaymentSummariesTests {
     }
 
     private <Event> EventEnvelope<Event> at(long streamPosition, Event event) {
-        return new EventEnvelope<>(event, new EventMetadata(streamId, streamPosition, streamPosition));
+        return new EventEnvelope<>(event, Metadata.at(streamId, streamPosition));
     }
 }

@@ -14,6 +14,7 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.external.Shipment
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.FulfillmentService;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.FulfillmentServiceClient;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -43,7 +44,16 @@ public final class ShipmentsConfig {
                         .route(
                                 ShipmentExternalEvent.class,
                                 event -> new RoutingTarget(responses, Urns.routingKeyOf(event.referenceId())))
-                        .routeTarget(MessageRoutes.inPackage(ShipmentsConfig.class.getPackageName()), internal))
+                        .routeTarget(MessageRoutes.inPackage(ShipmentsConfig.class.getPackageName()), internal)
+                        .routeKey(ReserveStock.class, command -> Urns.routingKeyOf(command.referenceId()))
+                        .routeKey(RequestFulfillment.class, command -> routingKeyOf(command.shipmentId()))
+                        .routeKey(ConfirmPackageSent.class, command -> routingKeyOf(command.shipmentId()))
+                        .routeKey(RejectFulfillment.class, command -> routingKeyOf(command.shipmentId()))
+                        .routeKey(DeliverPackage.class, command -> routingKeyOf(command.shipmentId()))
+                        .routeKey(ReleaseStock.class, command -> routingKeyOf(command.shipmentId())))
+                .channel(requests)
+                .channel(responses)
+                .channel(internal)
                 .bind(requests, requests, "#")
                 .bind(internal, internal, "#")
                 .subscribe(requests, ReserveStock.class, facade::reserveStock)
@@ -55,16 +65,26 @@ public final class ShipmentsConfig {
 
         var forwarder = new ShipmentExternalEventForwarder(messageBus);
 
-        eventStore
-                .subscribe(StockReserved.class, forwarder::onStockReserved)
-                .subscribe(ProductWasOutOfStock.class, forwarder::onProductWasOutOfStock)
-                .subscribe(PackageWasSent.class, forwarder::onPackageWasSent)
-                .subscribe(FulfillmentRejected.class, forwarder::onFulfillmentRejected);
+        eventStore.subscribe(
+                "shipments-external-forwarder",
+                List.of(
+                        StockReserved.class,
+                        ProductWasOutOfStock.class,
+                        PackageWasSent.class,
+                        FulfillmentRejected.class),
+                forwarder::handle);
 
         var fulfillmentServiceClient = new FulfillmentServiceClient(fulfillmentService);
 
-        eventStore.subscribe(FulfillmentRequested.class, envelope -> fulfillmentServiceClient.on(envelope.data()));
+        eventStore.subscribe(
+                "fulfillment-service-client",
+                List.of(FulfillmentRequested.class),
+                envelope -> fulfillmentServiceClient.on((FulfillmentRequested) envelope.data()));
 
         return new ShipmentsModule(facade);
+    }
+
+    private static String routingKeyOf(ShipmentId shipmentId) {
+        return Urns.routingKeyOf(shipmentId.value());
     }
 }

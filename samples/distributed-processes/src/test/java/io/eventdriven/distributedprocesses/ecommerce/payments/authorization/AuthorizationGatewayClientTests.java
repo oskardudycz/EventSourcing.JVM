@@ -2,6 +2,7 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.authorization;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
+import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
@@ -14,7 +15,9 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentValidity;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.RecordingPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.RefusingAfterAuthorizationPaymentGateway;
+import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentSummaryRepository;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.TestTracing;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -32,8 +35,8 @@ public class AuthorizationGatewayClientTests {
     private final OffsetDateTime captureBefore = now.plus(authorizationValidity);
     private final OffsetDateTime timedOutAt = now.plus(paymentTimeout);
 
-    private final InMemoryEventStore eventStore = new InMemoryEventStore();
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
+    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
     private final MessageCatcher published = new MessageCatcher();
 
     @Test
@@ -103,6 +106,14 @@ public class AuthorizationGatewayClientTests {
     private void configure(PaymentGateway paymentGateway) {
         eventStore.use(published::catchMessage);
 
-        PaymentsConfig.configure(eventStore, messageBus, paymentGateway, PaymentValidity.of(paymentTimeout), () -> now);
+        PaymentsConfig.configure(
+                eventStore,
+                messageBus,
+                paymentGateway,
+                PaymentValidity.of(paymentTimeout),
+                H2.bean(PaymentSummaryRepository.class),
+                H2.bean(PendingPaymentRepository.class),
+                H2.bean(AuthorizedPaymentRepository.class),
+                () -> now);
     }
 }

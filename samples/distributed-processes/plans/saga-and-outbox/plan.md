@@ -20,9 +20,9 @@ Scope: `samples/distributed-processes`, package `ecommerce`. State: [todo.md](to
 - Q2 (step 2), answered: `orders/OrderSaga.java`.
 - Q3 (step 7), answered: a sandbox gateway and a sandbox warehouse in `payments/sandbox` and `shipments/sandbox`.
 - Q4 (step 7.4), answered on 2026-11-16: Springwolf generates the AsyncAPI document from the code. Spring services generate it this way (Springwolf's users include OTTO, PagoPA and LVM Versicherung); hand-written documents belong to design-first governance, as in the adidas guidelines. The details are in step 7.
-- Q5 (step 8), open: KurrentDB or the workshop's `PostgreSQLEventStore`.
+- Q5 (step 8), answered: both. `eventstore.type` chooses `in-memory`, `kurrentdb` (the default) or `postgresql`, the workshop's `PostgreSQLEventStore`. See [the message broker spec](../message-broker/spec.md).
 - Q6 (step 7.2), answered on 2026-11-16: the gateway sends the card hold's `expiresAt` in `ConfirmPaymentAuthorization`, as Stripe's `capture_before` does. The shop does not compute it.
-- Q7 (step 8), open: whether `<module>-internal` stays the event-store subscription or also becomes a Kafka topic, and where the commands inside a module go (`RecordOrder…`, `TimeOutPayment`, the webhook commands): in-process calls or the module's internal channel.
+- Q7 (step 8), answered: the broker carries every channel, the `<module>-internal` channels included, and the modules keep calling `routes`, `bind`, `subscribe` and `publish` on one `MessageBus`. See [the message broker spec](../message-broker/spec.md). The question was: whether `<module>-internal` stays the event-store subscription or also becomes a Kafka topic, and where the commands inside a module go (`RecordOrder…`, `TimeOutPayment`, the webhook commands): in-process calls or the module's internal channel.
 - Q8 (step 7.2), answered on 2026-11-16: one model per side, Stripe for payments and Shopify for the shop, American spelling. See Names in step 7.
 - Q9 (step 7.3), answered on 2026-11-16: pages for the whole e-commerce flow, server-rendered with Thymeleaf, so a person buys in the browser without curl, styled close to Stripe. "Pay now" moves under the order. Details in 7.3.
 - Q10 (step 7.4), answered on 2026-11-16: the in-memory `MessageBus` gets the channels in step 7, starting from the routing in the event-driven architecture workshop's solution (`e03_businessprocesses/core`: `MessageRoutes`, `MessageRouter`, `RoutingTarget`). Details in 7.4.
@@ -510,7 +510,7 @@ AsyncAPI:
   the external channels are the contract for the other modules, and the internal channel is
   documented for the team that owns the module. Each channel lists the messages it carries.
 - The requests carry the correlation URN, and the responses' routing key is described with it.
-- No servers yet; in step 8 the channels become the Kafka topics, so the contract does not change.
+- No servers yet; in step 8 the channels become the Kafka topics, so the contract does not change. Step 8 is specified in [the message broker spec](../message-broker/spec.md).
 - The bus is our own, so Springwolf finds nothing by itself. The methods carry the annotations:
   - a PaymentFacade or ShipmentFacade method that handles a request from <module>-requests:
     @AsyncListener;

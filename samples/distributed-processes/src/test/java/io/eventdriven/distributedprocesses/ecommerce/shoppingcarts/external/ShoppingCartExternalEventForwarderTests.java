@@ -1,21 +1,25 @@
 package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartCommand.*;
+import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
-import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
-import io.eventdriven.distributedprocesses.core.projections.Database;
+import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.CustomerShoppingCartRepository;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartFacade;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartsConfig;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.api.CartRepository;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.Metadata;
+import io.eventdriven.testing.TestTracing;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,8 +40,8 @@ public class ShoppingCartExternalEventForwarderTests {
     private final ProductPriceCalculator prices = item -> new PricedProductItem(item, unitPrices.get(item.productId()));
     private final OffsetDateTime now = OffsetDateTime.now();
 
-    private final InMemoryEventStore eventStore = new InMemoryEventStore();
-    private final InMemoryMessageBus messageBus = new InMemoryMessageBus();
+    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryMessageBus messageBus = new InMemoryMessageBus(TestTracing.untraced());
     private final MessageCatcher externalEvents = new MessageCatcher();
     private final ShoppingCartFacade shoppingCarts;
 
@@ -45,7 +49,14 @@ public class ShoppingCartExternalEventForwarderTests {
         messageBus.use(message -> {
             if (message instanceof ShoppingCartExternalEvent) externalEvents.catchMessage(message);
         });
-        shoppingCarts = ShoppingCartsConfig.configure(eventStore, messageBus, prices, () -> now)
+        shoppingCarts = ShoppingCartsConfig.configure(
+                        eventStore,
+                        messageBus,
+                        prices,
+                        H2.bean(CustomerShoppingCartRepository.class),
+                        H2.bean(ShoppingCartSummaryRepository.class),
+                        H2.bean(CartRepository.class),
+                        () -> now)
                 .facade();
     }
 
@@ -100,8 +111,12 @@ public class ShoppingCartExternalEventForwarderTests {
 
     @Test
     public void forwarderRefusesASummaryThatHasNotSeenTheEventSoTheStoreDeliversItAgain() {
-        var summaries = new ShoppingCartSummaries(new Database());
-        var bus = new InMemoryMessageBus();
+        var summaries = new ShoppingCartSummaries(H2.bean(ShoppingCartSummaryRepository.class));
+        var bus = new InMemoryMessageBus(TestTracing.untraced())
+                .routes(new MessageRoutes()
+                        .routeTarget(
+                                MessageRoutes.inPackage("io.eventdriven.distributedprocesses.ecommerce"), "published"))
+                .channel("published");
         var published = new MessageCatcher();
         bus.use(published::catchMessage);
         var forwarder = new ShoppingCartExternalEventForwarder(summaries, bus);
@@ -109,9 +124,9 @@ public class ShoppingCartExternalEventForwarderTests {
 
         summaries.handle(new EventEnvelope<>(
                 new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, customerId, pricedShoes, now),
-                new EventMetadata(streamId, 0, 0)));
+                Metadata.at(streamId, 0)));
         var checkedOut = new EventEnvelope<>(
-                new ShoppingCartEvent.ShoppingCartCheckedOut(shoppingCartId, now), new EventMetadata(streamId, 1, 1));
+                new ShoppingCartEvent.ShoppingCartCheckedOut(shoppingCartId, now), Metadata.at(streamId, 1));
 
         assertThatThrownBy(() -> forwarder.onCheckedOut(checkedOut)).isInstanceOf(IllegalStateException.class);
         published.shouldNotReceiveAnyEvent();

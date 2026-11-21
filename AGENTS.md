@@ -35,6 +35,8 @@ The tests need Docker. They start KurrentDB, PostgreSQL and MongoDB with Testcon
 
 In a dev container, the repository root is mounted at `/workspaces/EventSourcing.JVM`, and Docker is the host's Docker, reached through its socket. There, don't run the Kafka tests of `workshops/event-driven-architecture/solved` while the Docker Compose Kafka runs: the tests find it and fail, because it advertises `localhost:9092`, which inside the container is the container itself. Without it, the tests start their own Kafka.
 
+The same limit holds for `samples/distributed-processes`: its Kafka tests find the Compose Kafka the same way, and its `bootRun` starts that Kafka by default. Stop it before you run those tests in a dev container.
+
 ### Everyday commands
 
 From a sample or workshop folder:

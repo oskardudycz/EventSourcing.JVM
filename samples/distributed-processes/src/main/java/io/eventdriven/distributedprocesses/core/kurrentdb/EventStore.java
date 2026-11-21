@@ -1,8 +1,11 @@
 package io.eventdriven.distributedprocesses.core.kurrentdb;
 
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
+import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
+import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.kurrent.dbclient.Position;
 import io.kurrent.dbclient.StreamState;
+import java.util.List;
 import java.util.function.Consumer;
 
 public interface EventStore {
@@ -12,10 +15,12 @@ public interface EventStore {
 
     AppendResult append(String streamId, StreamState expectedRevision, Object... events);
 
-    <Event> EventStore subscribe(Class<Event> type, Consumer<EventEnvelope<Event>> handler);
+    EventStore subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler);
+
+    MessageContext.Scope continueTraceOf(String stepName, EventMetadata lastEvent);
 
     sealed interface ReadResult {
-        record Success(Object[] events) implements ReadResult {}
+        record Success(List<EventEnvelope<Object>> events) implements ReadResult {}
 
         record NoEventsFound() implements ReadResult {}
 

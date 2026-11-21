@@ -4,17 +4,21 @@ import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.Shoppi
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
-import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
-import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartFacade;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
+import io.eventdriven.testing.Metadata;
+import io.eventdriven.testing.ProjectionsDatabase;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.EnumSource;
 
+@ParameterizedClass
+@EnumSource(ProjectionsDatabase.class)
 public class ShoppingCartSummariesTests {
     private static final double unitPrice = 12.5;
 
@@ -27,8 +31,12 @@ public class ShoppingCartSummariesTests {
     private final PricedProductItem pricedShirt = new PricedProductItem(shirt, unitPrice);
     private final OffsetDateTime now = OffsetDateTime.now();
 
-    private final ShoppingCartSummaries summaries = new ShoppingCartSummaries(new Database());
+    private final ShoppingCartSummaries summaries;
     private long nextPosition = 0;
+
+    ShoppingCartSummariesTests(ProjectionsDatabase database) {
+        summaries = new ShoppingCartSummaries(database.bean(ShoppingCartSummaryRepository.class));
+    }
 
     @Test
     public void theFirstProductStoresTheSummaryOfTheCustomer() {
@@ -132,7 +140,7 @@ public class ShoppingCartSummariesTests {
     }
 
     private void republishAt(long position, ShoppingCartEvent event) {
-        summaries.handle(new EventEnvelope<>(event, new EventMetadata(streamId, position, position)));
+        summaries.handle(new EventEnvelope<>(event, Metadata.at(streamId, position)));
     }
 
     private ShoppingCartSummary summary() {

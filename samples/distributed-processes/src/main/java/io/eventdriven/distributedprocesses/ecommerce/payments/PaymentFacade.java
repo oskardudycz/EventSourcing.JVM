@@ -93,8 +93,10 @@ public class PaymentFacade {
                             description =
                                     "Records that the payment is authorized, and the date by which the shop must charge the customer."))
     public void confirmPaymentAuthorization(ConfirmPaymentAuthorization command) {
-        store.getAndUpdate(
-                command.paymentId(), current -> current.confirmAuthorization(now.get(), command.captureBefore()));
+        store.getAndUpdateContinuingTrace(
+                command.paymentId(),
+                command,
+                current -> current.confirmAuthorization(now.get(), command.captureBefore()));
     }
 
     @AsyncListener(
@@ -112,7 +114,7 @@ public class PaymentFacade {
                             channelName = PaymentsConfig.internal,
                             description = "Records that the customer was charged."))
     public void confirmPaymentCapture(ConfirmPaymentCapture command) {
-        store.getAndUpdate(command.paymentId(), current -> current.confirmCapture(now.get()));
+        store.getAndUpdateContinuingTrace(command.paymentId(), command, current -> current.confirmCapture(now.get()));
     }
 
     @AsyncListener(
@@ -121,7 +123,8 @@ public class PaymentFacade {
                             channelName = PaymentsConfig.internal,
                             description = "Records that charging the customer failed."))
     public void failPaymentCapture(FailPaymentCapture command) {
-        store.getAndUpdate(command.paymentId(), current -> current.failCapture(command.reason(), now.get()));
+        store.getAndUpdateContinuingTrace(
+                command.paymentId(), command, current -> current.failCapture(command.reason(), now.get()));
     }
 
     @AsyncListener(
@@ -139,7 +142,8 @@ public class PaymentFacade {
                             channelName = PaymentsConfig.internal,
                             description = "Fails the payment, because the customer did not pay in time."))
     public void timeOutPayment(TimeOutPayment command) {
-        store.getAndUpdate(command.paymentId(), current -> current.timeOut(command.timedOutAt()));
+        store.getAndUpdateContinuingTrace(
+                command.paymentId(), command, current -> current.timeOut(command.timedOutAt()));
     }
 
     @AsyncListener(
@@ -149,6 +153,7 @@ public class PaymentFacade {
                             description =
                                     "Fails the payment, because its authorization ran out before the shop charged the customer."))
     public void expirePaymentAuthorization(ExpirePaymentAuthorization command) {
-        store.getAndUpdate(command.paymentId(), current -> current.expireAuthorization(command.expiredAt()));
+        store.getAndUpdateContinuingTrace(
+                command.paymentId(), command, current -> current.expireAuthorization(command.expiredAt()));
     }
 }

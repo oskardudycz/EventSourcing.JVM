@@ -1,0 +1,8 @@
+apiVersion: 1
+
+providers:
+  - name: "Purchase flow"
+    type: file
+    options:
+      path: /otel-lgtm/purchase-flow-dashboard.json
+      foldersFromFilesStructure: false

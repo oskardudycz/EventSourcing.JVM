@@ -2,10 +2,15 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.authorization;
 
 import io.eventdriven.distributedprocesses.core.projections.Versioned;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
 import java.time.OffsetDateTime;
 
+@Entity
 public class PendingPayment implements Versioned {
+    @EmbeddedId
     private PaymentId paymentId;
+
     private OffsetDateTime timesOutAt;
     private long version;
 

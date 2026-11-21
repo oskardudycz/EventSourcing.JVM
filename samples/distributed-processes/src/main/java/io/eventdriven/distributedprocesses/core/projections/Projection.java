@@ -4,47 +4,45 @@ import io.eventdriven.distributedprocesses.core.identifiers.EntityId;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Predicate;
 import org.jspecify.annotations.Nullable;
 
-public abstract class Projection<Document extends Versioned> {
-    private final Class<Document> documentType;
-    private final Database database;
+public abstract class Projection<Document extends Versioned, Id extends EntityId> {
+    private final ProjectionRepository<Document, Id> repository;
 
-    protected Projection(Class<Document> documentType, Database database) {
-        this.documentType = documentType;
-        this.database = database;
+    protected Projection(ProjectionRepository<Document, Id> repository) {
+        this.repository = repository;
     }
 
     public abstract List<Class<?>> canHandle();
 
-    protected abstract EntityId getDocumentId(Object event);
+    protected abstract Id getDocumentId(Object event);
 
     protected abstract @Nullable Document evolve(@Nullable Document current, Object event);
 
     public void handle(EventEnvelope<?> envelope) {
+        repository.inTransaction(() -> apply(envelope));
+    }
+
+    private void apply(EventEnvelope<?> envelope) {
         var event = envelope.data();
         var streamPosition = envelope.metadata().streamPosition();
         var id = getDocumentId(event);
-        var current = database.get(documentType, id).orElse(null);
+        var current = repository.findById(id).orElse(null);
 
         if (current != null && current.getVersion() >= streamPosition) return;
 
         var document = evolve(current, event);
 
         if (document == null) {
-            database.delete(documentType, id);
+            if (current != null) repository.delete(current);
             return;
         }
 
-        database.store(documentType, id, streamPosition, document);
+        document.setVersion(streamPosition);
+        repository.save(document);
     }
 
-    public Optional<Document> get(EntityId id) {
-        return database.get(documentType, id);
-    }
-
-    protected List<Document> find(Predicate<Document> filter) {
-        return database.find(documentType, filter);
+    public Optional<Document> get(Id id) {
+        return repository.findById(id);
     }
 }

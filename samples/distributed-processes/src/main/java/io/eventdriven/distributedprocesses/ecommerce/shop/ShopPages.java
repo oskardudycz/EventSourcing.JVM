@@ -175,7 +175,7 @@ public class ShopPages {
             return "redirect:/shop/customers/%s/cart".formatted(customerId);
         }
 
-        if (!carts.get(cartId).map(Cart::isCheckedOut).orElse(false)) {
+        if (!shoppingCarts.isCheckedOut(cartId)) {
             redirect.addFlashAttribute(
                     "message", "Some prices have changed. Check the new prices and check out again.");
             return "redirect:/shop/customers/%s/cart".formatted(customerId);

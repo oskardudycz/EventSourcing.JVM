@@ -81,6 +81,10 @@ public class ShoppingCart extends AbstractAggregate<ShoppingCartEvent, ShoppingC
         enqueue(new ShoppingCartCheckedOut(id, now));
     }
 
+    boolean isCheckedOut() {
+        return status == ShoppingCartStatus.CheckedOut;
+    }
+
     private boolean isClosed() {
         return this.status == null || this.status.isClosed();
     }

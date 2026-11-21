@@ -4,16 +4,15 @@ import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.*;
 import static io.eventdriven.distributedprocesses.ecommerce.orders.api.OrderStatus.Payment;
 import static io.eventdriven.distributedprocesses.ecommerce.orders.api.OrderStatus.Shipment;
 
-import io.eventdriven.distributedprocesses.core.identifiers.EntityId;
-import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.core.projections.Projection;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
-public class OrderStatuses extends Projection<OrderStatus> {
-    public OrderStatuses(Database database) {
-        super(OrderStatus.class, database);
+public class OrderStatuses extends Projection<OrderStatus, OrderId> {
+    public OrderStatuses(OrderStatusRepository repository) {
+        super(repository);
     }
 
     @Override
@@ -34,7 +33,7 @@ public class OrderStatuses extends Projection<OrderStatus> {
     }
 
     @Override
-    protected EntityId getDocumentId(Object event) {
+    protected OrderId getDocumentId(Object event) {
         return switch (event) {
             case OrderPlaced e -> e.orderId();
             case OrderPaymentAuthorized e -> e.orderId();

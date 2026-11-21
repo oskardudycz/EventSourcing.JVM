@@ -2,14 +2,22 @@ package io.eventdriven.distributedprocesses.ecommerce.orders.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.distributedprocesses.core.projections.Database;
+import io.eventdriven.testing.ProjectionsDatabase;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.EnumSource;
 
+@ParameterizedClass
+@EnumSource(ProjectionsDatabase.class)
 public class CustomerOrdersTests {
-    private final Database database = new Database();
-    private final CustomerOrders customerOrders = new CustomerOrders(database);
-    private final OrderViewsFixture order = new OrderViewsFixture(customerOrders);
+    private final CustomerOrders customerOrders;
+    private final OrderViewsFixture order;
+
+    CustomerOrdersTests(ProjectionsDatabase database) {
+        customerOrders = new CustomerOrders(database.bean(CustomerOrderRepository.class));
+        order = new OrderViewsFixture(customerOrders);
+    }
 
     @Test
     public void aPlacedOrderIsListedForItsCustomerAsAwaitingPayment() {

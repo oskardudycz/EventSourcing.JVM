@@ -2,17 +2,18 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.authorization;
 
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
 
-import io.eventdriven.distributedprocesses.core.identifiers.EntityId;
-import io.eventdriven.distributedprocesses.core.projections.Database;
 import io.eventdriven.distributedprocesses.core.projections.Projection;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
-public class PendingPayments extends Projection<PendingPayment> {
-    public PendingPayments(Database database) {
-        super(PendingPayment.class, database);
+public class PendingPayments extends Projection<PendingPayment, PaymentId> {
+    private final PendingPaymentRepository repository;
+
+    public PendingPayments(PendingPaymentRepository repository) {
+        super(repository);
+        this.repository = repository;
     }
 
     @Override
@@ -21,7 +22,7 @@ public class PendingPayments extends Projection<PendingPayment> {
     }
 
     @Override
-    protected EntityId getDocumentId(Object event) {
+    protected PaymentId getDocumentId(Object event) {
         return switch (event) {
             case PaymentAuthorizationRequested e -> e.paymentId();
             case PaymentAuthorized e -> e.paymentId();
@@ -40,7 +41,7 @@ public class PendingPayments extends Projection<PendingPayment> {
     }
 
     public List<PaymentId> timedOutAt(OffsetDateTime now) {
-        return find(pending -> !pending.getTimesOutAt().isAfter(now)).stream()
+        return repository.findByTimesOutAtLessThanEqual(now).stream()
                 .map(PendingPayment::getPaymentId)
                 .toList();
     }

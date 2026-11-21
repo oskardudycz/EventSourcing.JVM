@@ -1,12 +1,22 @@
 package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts;
 
 import io.eventdriven.distributedprocesses.core.projections.Versioned;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import java.util.UUID;
 
+@Entity
 public class CustomerShoppingCart implements Versioned {
     private UUID customerId;
+
+    @EmbeddedId
     private ShoppingCartId shoppingCartId;
+
+    @Enumerated(EnumType.STRING)
     private ShoppingCartStatus status;
+
     private long version;
 
     public CustomerShoppingCart() {}

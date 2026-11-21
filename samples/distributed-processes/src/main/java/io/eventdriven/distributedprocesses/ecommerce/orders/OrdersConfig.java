@@ -4,13 +4,17 @@ import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.*;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
+import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
-import io.eventdriven.distributedprocesses.core.projections.Database;
+import io.eventdriven.distributedprocesses.ecommerce.orders.api.CustomerOrderRepository;
 import io.eventdriven.distributedprocesses.ecommerce.orders.api.CustomerOrders;
+import io.eventdriven.distributedprocesses.ecommerce.orders.api.OrderStatusRepository;
 import io.eventdriven.distributedprocesses.ecommerce.orders.api.OrderStatuses;
+import io.eventdriven.distributedprocesses.ecommerce.orders.pending.PendingOrderRepository;
 import io.eventdriven.distributedprocesses.ecommerce.orders.pending.PendingOrders;
+import io.eventdriven.distributedprocesses.ecommerce.orders.unpaid.OrderAwaitingPaymentRepository;
 import io.eventdriven.distributedprocesses.ecommerce.orders.unpaid.OrdersAwaitingPayment;
 import io.eventdriven.distributedprocesses.ecommerce.orders.unpaid.ScheduledUnpaidOrdersWorker;
 import io.eventdriven.distributedprocesses.ecommerce.orders.unpaid.UnpaidOrdersWorker;
@@ -25,6 +29,7 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.external.Shipment
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.function.Supplier;
 
 public final class OrdersConfig {
@@ -37,7 +42,14 @@ public final class OrdersConfig {
     private OrdersConfig() {}
 
     public static OrdersModule configure(
-            EventStore eventStore, MessageBus messageBus, PaymentTerms paymentTerms, Supplier<OffsetDateTime> now) {
+            EventStore eventStore,
+            MessageBus messageBus,
+            PaymentTerms paymentTerms,
+            PendingOrderRepository pendingOrderRepository,
+            OrderAwaitingPaymentRepository orderAwaitingPaymentRepository,
+            CustomerOrderRepository customerOrderRepository,
+            OrderStatusRepository orderStatusRepository,
+            Supplier<OffsetDateTime> now) {
         var store =
                 new AggregateStore<Order, OrderEvent, OrderId>(eventStore, OrderFacade::mapToStreamId, Order::empty);
 
@@ -45,7 +57,11 @@ public final class OrdersConfig {
 
         messageBus
                 .routes(new MessageRoutes()
-                        .routeTarget(MessageRoutes.inPackage(OrdersConfig.class.getPackageName()), internal))
+                        .routeTarget(MessageRoutes.inPackage(OrdersConfig.class.getPackageName()), internal)
+                        .routeKey(
+                                OrderCommand.class,
+                                command -> Urns.routingKeyOf(command.orderId().value())))
+                .channel(internal)
                 .bind(internal, internal, "#")
                 .subscribe(internal, PlaceOrder.class, facade::placeOrder)
                 .subscribe(internal, RecordOrderPaymentAuthorization.class, facade::recordOrderPaymentAuthorization)
@@ -56,28 +72,20 @@ public final class OrdersConfig {
                 .subscribe(internal, RecordOrderShipmentFailure.class, facade::recordOrderShipmentFailure)
                 .subscribe(internal, CloseUnpaidOrder.class, facade::closeUnpaidOrder);
 
-        var database = new Database();
-        var pendingOrders = new PendingOrders(database);
-        var ordersAwaitingPayment = new OrdersAwaitingPayment(database);
+        var pendingOrders = new PendingOrders(pendingOrderRepository);
+        var ordersAwaitingPayment = new OrdersAwaitingPayment(orderAwaitingPaymentRepository);
 
-        for (var eventType : pendingOrders.canHandle()) {
-            eventStore.subscribe(eventType, pendingOrders::handle);
-        }
+        eventStore.subscribe("pending-orders", pendingOrders.canHandle(), pendingOrders::handle);
 
-        for (var eventType : ordersAwaitingPayment.canHandle()) {
-            eventStore.subscribe(eventType, ordersAwaitingPayment::handle);
-        }
+        eventStore.subscribe(
+                "orders-awaiting-payment", ordersAwaitingPayment.canHandle(), ordersAwaitingPayment::handle);
 
-        var customerOrders = new CustomerOrders(new Database());
-        var orderStatuses = new OrderStatuses(new Database());
+        var customerOrders = new CustomerOrders(customerOrderRepository);
+        var orderStatuses = new OrderStatuses(orderStatusRepository);
 
-        for (var eventType : customerOrders.canHandle()) {
-            eventStore.subscribe(eventType, customerOrders::handle);
-        }
+        eventStore.subscribe("customer-orders", customerOrders.canHandle(), customerOrders::handle);
 
-        for (var eventType : orderStatuses.canHandle()) {
-            eventStore.subscribe(eventType, orderStatuses::handle);
-        }
+        eventStore.subscribe("order-statuses", orderStatuses.canHandle(), orderStatuses::handle);
 
         return new OrdersModule(
                 facade,
@@ -90,12 +98,24 @@ public final class OrdersConfig {
     public static void configureProcess(EventStore eventStore, MessageBus messageBus) {
         var saga = new OrderSaga(messageBus);
 
-        eventStore
-                .subscribe(OrderPlaced.class, envelope -> saga.onOrderPlaced(envelope.data()))
-                .subscribe(OrderConfirmed.class, envelope -> saga.onOrderConfirmed(envelope.data()))
-                .subscribe(OrderPaymentDue.class, envelope -> saga.onOrderPaymentDue(envelope.data()))
-                .subscribe(OrderPaymentRetried.class, envelope -> saga.onOrderPaymentRetried(envelope.data()))
-                .subscribe(OrderCanceled.class, envelope -> saga.onOrderCanceled(envelope.data()));
+        eventStore.subscribe(
+                "order-saga",
+                List.of(
+                        OrderPlaced.class,
+                        OrderConfirmed.class,
+                        OrderPaymentDue.class,
+                        OrderPaymentRetried.class,
+                        OrderCanceled.class),
+                envelope -> {
+                    switch (envelope.data()) {
+                        case OrderPlaced event -> saga.onOrderPlaced(event);
+                        case OrderConfirmed event -> saga.onOrderConfirmed(event);
+                        case OrderPaymentDue event -> saga.onOrderPaymentDue(event);
+                        case OrderPaymentRetried event -> saga.onOrderPaymentRetried(event);
+                        case OrderCanceled event -> saga.onOrderCanceled(event);
+                        default -> throw new IllegalArgumentException("Unexpected event %s".formatted(envelope.data()));
+                    }
+                });
 
         messageBus
                 .bind(shoppingCartsExternal, ShoppingCartsConfig.external, "#")

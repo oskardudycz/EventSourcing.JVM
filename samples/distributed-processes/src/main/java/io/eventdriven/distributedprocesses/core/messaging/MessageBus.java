@@ -32,6 +32,11 @@ public interface MessageBus {
     MessageBus routes(MessageRoutes routes);
 
     /**
+     * Declares a channel that messages can be published to. Returns the bus to allow chaining.
+     */
+    MessageBus channel(String name);
+
+    /**
      * Binds a queue to a channel for the routing keys that match the pattern.
      */
     MessageBus bind(String queue, String channel, String routingPattern);
