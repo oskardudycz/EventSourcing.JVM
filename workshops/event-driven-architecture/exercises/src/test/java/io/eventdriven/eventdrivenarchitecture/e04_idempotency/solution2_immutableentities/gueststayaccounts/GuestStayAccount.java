@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record GuestStayAccount(UUID id, double balance, Status status) {
     public enum Status {
+        NOT_EXISTING,
         OPEN,
         CHECKED_OUT
     }
@@ -25,5 +26,5 @@ public record GuestStayAccount(UUID id, double balance, Status status) {
         };
     }
 
-    public static final GuestStayAccount INITIAL = new GuestStayAccount(null, Double.MIN_VALUE, null);
+    public static final GuestStayAccount INITIAL = new GuestStayAccount(null, Double.MIN_VALUE, Status.NOT_EXISTING);
 }

@@ -1,10 +1,15 @@
 package io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.core;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.cfg.DateTimeFeature;
@@ -18,64 +23,223 @@ public class Database {
             .changeDefaultVisibility(visibility -> visibility.withFieldVisibility(JsonAutoDetect.Visibility.ANY))
             .build();
 
-    private Map<Class, LinkedHashMap<String, Versioned<Object>>> storage = new LinkedHashMap<>();
+    private final Map<Class<?>, LinkedHashMap<UUID, Versioned<Object>>> storage = new LinkedHashMap<>();
+    private final Map<Class<?>, Map<UUID, Integer>> latestVersions = new HashMap<>();
+    private final Map<Class<?>, Integer> typeChanges = new HashMap<>();
 
     public <T> Collection<T> collection(Class<T> typeClass) {
         return new Collection<>(typeClass, this);
     }
 
+    public void transaction(Consumer<Database> operations) {
+        var transaction = new Transaction(this);
+
+        try {
+            operations.accept(transaction);
+        } catch (Exception e) {
+            // Do nothing, discard transactional changes
+            throw e;
+        }
+
+        transaction.commit();
+    }
+
+    synchronized Optional<Versioned<Object>> read(Class<?> typeClass, UUID id) {
+        return Optional.ofNullable(documents(typeClass).get(id));
+    }
+
+    synchronized Map<UUID, Versioned<Object>> readAll(Class<?> typeClass) {
+        return new LinkedHashMap<>(documents(typeClass));
+    }
+
+    synchronized void write(Class<?> typeClass, UUID id, Object document, Integer expectedVersion) {
+        var currentVersion = versionOf(typeClass, id);
+
+        if (expectedVersion != null && expectedVersion != currentVersion)
+            throw new ConcurrencyException("Expected version %d of %s '%s', but it's %d"
+                    .formatted(expectedVersion, typeClass.getSimpleName(), id, currentVersion));
+
+        var newVersion = latestVersionOf(typeClass, id) + 1;
+        latestVersions.computeIfAbsent(typeClass, _ -> new HashMap<>()).put(id, newVersion);
+        typeChanges.merge(typeClass, 1, Integer::sum);
+        documents(typeClass).put(id, new Versioned<>(document, newVersion));
+    }
+
+    synchronized void remove(Class<?> typeClass, UUID id) {
+        if (documents(typeClass).remove(id) == null) return;
+
+        latestVersions.computeIfAbsent(typeClass, _ -> new HashMap<>()).put(id, latestVersionOf(typeClass, id) + 1);
+        typeChanges.merge(typeClass, 1, Integer::sum);
+    }
+
+    private LinkedHashMap<UUID, Versioned<Object>> documents(Class<?> typeClass) {
+        return storage.computeIfAbsent(typeClass, _ -> new LinkedHashMap<>());
+    }
+
+    private synchronized int versionOf(Class<?> typeClass, UUID id) {
+        var stored = documents(typeClass).get(id);
+        return stored != null ? stored.version() : 0;
+    }
+
+    private synchronized int latestVersionOf(Class<?> typeClass, UUID id) {
+        return latestVersions.getOrDefault(typeClass, Map.of()).getOrDefault(id, 0);
+    }
+
+    private synchronized int typeChangesOf(Class<?> typeClass) {
+        return typeChanges.getOrDefault(typeClass, 0);
+    }
+
+    private static class Transaction extends Database {
+        private record Key(Class<?> typeClass, UUID id) {}
+
+        private record Change(Object document, boolean deleted, Integer expectedVersion) {}
+
+        private final Database database;
+        private final Map<Key, Integer> versionsSeen = new LinkedHashMap<>();
+        private final Map<Class<?>, Integer> typeChangesSeen = new LinkedHashMap<>();
+        private final Map<Key, Change> changes = new LinkedHashMap<>();
+
+        private Transaction(Database database) {
+            this.database = database;
+        }
+
+        @Override
+        public void transaction(Consumer<Database> operations) {
+            throw new UnsupportedOperationException("Nested transactions are not supported");
+        }
+
+        @Override
+        Optional<Versioned<Object>> read(Class<?> typeClass, UUID id) {
+            var key = new Key(typeClass, id);
+            var change = changes.get(key);
+
+            if (change != null)
+                return change.deleted()
+                        ? Optional.empty()
+                        : Optional.of(new Versioned<>(change.document(), versionsSeen.get(key) + 1));
+
+            synchronized (database) {
+                versionsSeen.putIfAbsent(key, database.latestVersionOf(typeClass, id));
+                return database.read(typeClass, id);
+            }
+        }
+
+        @Override
+        Map<UUID, Versioned<Object>> readAll(Class<?> typeClass) {
+            Map<UUID, Versioned<Object>> documents;
+            synchronized (database) {
+                typeChangesSeen.putIfAbsent(typeClass, database.typeChangesOf(typeClass));
+                documents = database.readAll(typeClass);
+            }
+
+            changes.forEach((key, change) -> {
+                if (!key.typeClass().equals(typeClass)) return;
+
+                if (change.deleted()) documents.remove(key.id());
+                else documents.put(key.id(), new Versioned<>(change.document(), versionsSeen.get(key) + 1));
+            });
+            return documents;
+        }
+
+        @Override
+        void write(Class<?> typeClass, UUID id, Object document, Integer expectedVersion) {
+            change(typeClass, id, new Change(document, false, expectedVersion));
+        }
+
+        @Override
+        void remove(Class<?> typeClass, UUID id) {
+            change(typeClass, id, new Change(null, true, null));
+        }
+
+        private void change(Class<?> typeClass, UUID id, Change change) {
+            var key = new Key(typeClass, id);
+            versionsSeen.computeIfAbsent(key, _ -> database.latestVersionOf(typeClass, id));
+            changes.put(key, change);
+        }
+
+        private void commit() {
+            synchronized (database) {
+                versionsSeen.forEach((key, versionSeen) -> {
+                    if (database.latestVersionOf(key.typeClass(), key.id()) != versionSeen)
+                        throw new ConcurrencyException("%s '%s' was changed by another transaction"
+                                .formatted(key.typeClass().getSimpleName(), key.id()));
+                });
+
+                typeChangesSeen.forEach((typeClass, changesSeen) -> {
+                    if (database.typeChangesOf(typeClass) != changesSeen)
+                        throw new ConcurrencyException("%s documents were changed by another transaction"
+                                .formatted(typeClass.getSimpleName()));
+                });
+
+                changes.forEach((key, change) -> {
+                    var currentVersion = database.versionOf(key.typeClass(), key.id());
+
+                    if (change.expectedVersion() != null && change.expectedVersion() != currentVersion)
+                        throw new ConcurrencyException("Expected version %d of %s '%s', but it's %d"
+                                .formatted(
+                                        change.expectedVersion(),
+                                        key.typeClass().getSimpleName(),
+                                        key.id(),
+                                        currentVersion));
+                });
+
+                changes.forEach((key, change) -> {
+                    if (change.deleted()) database.remove(key.typeClass(), key.id());
+                    else database.write(key.typeClass(), key.id(), change.document(), null);
+                });
+            }
+        }
+    }
+
     public static class Collection<T> {
-        private final Map<String, Versioned<Object>> storage;
         private final Class<T> typeClass;
+        private final Database database;
 
         public Collection(Class<T> typeClass, Database database) {
             this.typeClass = typeClass;
-            synchronized (database) {
-                this.storage = database.storage.computeIfAbsent(typeClass, ignored -> new LinkedHashMap<>());
-            }
+            this.database = database;
         }
 
         public void store(UUID id, Object obj) {
-            synchronized (storage) {
-                storage.put(getId(id), new Versioned<>(obj, currentVersion(id) + 1));
-            }
+            database.write(typeClass, id, obj, null);
         }
 
         public void store(UUID id, Object obj, int expectedVersion) {
-            synchronized (storage) {
-                var currentVersion = currentVersion(id);
-
-                if (expectedVersion != currentVersion)
-                    throw new ConcurrencyException("Expected version %d of %s '%s', but it's %d"
-                            .formatted(expectedVersion, typeClass.getSimpleName(), id, currentVersion));
-
-                storage.put(getId(id), new Versioned<>(obj, currentVersion + 1));
-            }
+            database.write(typeClass, id, obj, expectedVersion);
         }
 
         public void delete(UUID id) {
-            synchronized (storage) {
-                storage.remove(getId(id));
-            }
+            database.remove(typeClass, id);
         }
 
         public Optional<Versioned<T>> get(UUID id) {
-            Optional<Versioned<T>> result;
-
-            synchronized (storage) {
-                result = Optional.ofNullable(storage.get(getId(id)))
-                        // Clone to simulate getting new instance on loading
-                        .map(stored -> new Versioned<>(clone(stored.document()), stored.version()));
-            }
+            // Clone to simulate getting new instance on loading
+            var result = database.read(typeClass, id)
+                    .map(stored -> new Versioned<>(clone(stored.document()), stored.version()));
 
             respondWithDelay();
 
             return result;
         }
 
-        private int currentVersion(UUID id) {
-            var stored = storage.get(getId(id));
-            return stored != null ? stored.version() : 0;
+        public List<T> findAll() {
+            return database.readAll(typeClass).values().stream()
+                    .map(stored -> clone(stored.document()))
+                    .toList();
+        }
+
+        public void getAndUpdate(UUID id, Function<T, T> update) {
+            try {
+                var item = get(id).map(Versioned::document)
+                        .orElse(typeClass.getConstructor().newInstance());
+
+                store(id, update.apply(item));
+            } catch (InstantiationException
+                    | IllegalAccessException
+                    | InvocationTargetException
+                    | NoSuchMethodException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         private T clone(Object document) {
@@ -94,10 +258,6 @@ public class Database {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
-        }
-
-        private String getId(UUID id) {
-            return "%s-%s".formatted(typeClass.getTypeName(), id);
         }
     }
 }

@@ -183,7 +183,10 @@ public class MessageMetadataPropagationTest {
         publishedMessages.shouldReceiveMessages(List.of(
                 new GroupCheckoutEvent.GroupCheckoutInitiated(groupCheckoutId, clerkId, new UUID[] {guestStayId}, now),
                 new CheckOutGuest(guestStayId, now, groupCheckoutId),
-                new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, groupCheckoutId)));
+                new GuestStayAccountEvent.GuestCheckedOut(guestStayId, now, groupCheckoutId),
+                new RecordGuestCheckoutCompletion(groupCheckoutId, guestStayId, now),
+                new GroupCheckoutEvent.GuestCheckoutCompletionRecorded(groupCheckoutId, guestStayId, now),
+                new GroupCheckoutEvent.GroupCheckoutCompleted(groupCheckoutId, new UUID[] {guestStayId}, now)));
 
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
             assertThat(initiatedMessageId.get())

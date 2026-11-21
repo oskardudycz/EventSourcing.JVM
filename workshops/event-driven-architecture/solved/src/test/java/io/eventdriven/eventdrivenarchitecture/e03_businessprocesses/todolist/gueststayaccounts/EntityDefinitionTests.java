@@ -1,5 +1,8 @@
 package io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.todolist.gueststayaccounts;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.InMemoryMessageBus;
 import io.eventdriven.eventdrivenarchitecture.e03_businessprocesses.core.MessageBus;
@@ -12,6 +15,36 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class EntityDefinitionTests {
+
+    @Test
+    public void recordingChargeForMissingGuestStayAccount_FailsWithEntityNotFound() {
+        // Given
+        var command = new GuestStayAccountCommand.RecordCharge(
+                UUID.randomUUID(), faker.number().randomDouble(2, 10, 1000), now);
+        publishedMessages.reset();
+
+        // When
+        var exception = assertThrows(IllegalStateException.class, () -> guestStayFacade.recordCharge(command));
+
+        // Then
+        assertEquals("Entity not found", exception.getMessage());
+        publishedMessages.shouldNotReceiveAnyMessage();
+    }
+
+    @Test
+    public void recordingPaymentForMissingGuestStayAccount_FailsWithEntityNotFound() {
+        // Given
+        var command = new GuestStayAccountCommand.RecordPayment(
+                UUID.randomUUID(), faker.number().randomDouble(2, 10, 1000), now);
+        publishedMessages.reset();
+
+        // When
+        var exception = assertThrows(IllegalStateException.class, () -> guestStayFacade.recordPayment(command));
+
+        // Then
+        assertEquals("Entity not found", exception.getMessage());
+        publishedMessages.shouldNotReceiveAnyMessage();
+    }
 
     private Database database;
     private MessageBus messageBus;

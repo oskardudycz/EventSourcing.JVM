@@ -39,7 +39,14 @@ public class GuestStayAccountFacade {
     }
 
     public void checkOutGuest(CheckOutGuest command) {
-        handle(command.guestStayId(), account -> decide(command, account));
+        var account =
+                collection.get(command.guestStayId()).map(Versioned::document).orElse(null);
+        if (account == null) return;
+
+        var events = decide(command, account);
+
+        collection.store(command.guestStayId(), reduce(events, account, GuestStayAccount::evolve));
+        messageBus.publish(events);
     }
 
     private void handle(UUID guestStayId, Function<GuestStayAccount, List<GuestStayAccountEvent>> decide) {

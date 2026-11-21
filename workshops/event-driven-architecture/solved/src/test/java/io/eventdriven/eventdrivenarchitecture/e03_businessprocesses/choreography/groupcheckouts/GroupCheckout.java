@@ -11,12 +11,13 @@ import java.util.stream.Collectors;
 public record GroupCheckout(UUID id, Map<UUID, CheckoutStatus> guestStayCheckouts, CheckoutStatus status) {
 
     public enum CheckoutStatus {
+        NOT_EXISTING,
         INITIATED,
         COMPLETED,
         FAILED
     }
 
-    public static final GroupCheckout INITIAL = new GroupCheckout(null, null, null);
+    public static final GroupCheckout INITIAL = new GroupCheckout(null, null, CheckoutStatus.NOT_EXISTING);
 
     public static GroupCheckout evolve(GroupCheckout state, GroupCheckoutEvent groupCheckoutEvent) {
         return switch (groupCheckoutEvent) {

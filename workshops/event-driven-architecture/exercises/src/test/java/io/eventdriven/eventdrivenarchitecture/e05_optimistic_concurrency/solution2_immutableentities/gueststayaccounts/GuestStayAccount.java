@@ -14,6 +14,7 @@ public record GuestStayAccount(
         List<UUID> recordedPaymentIds,
         @Nullable UUID groupCheckoutId) {
     public enum Status {
+        NOT_EXISTING,
         OPEN,
         CHECKED_OUT
     }
@@ -57,5 +58,5 @@ public record GuestStayAccount(
     }
 
     public static final GuestStayAccount INITIAL =
-            new GuestStayAccount(null, Double.MIN_VALUE, null, List.of(), List.of(), null);
+            new GuestStayAccount(null, Double.MIN_VALUE, Status.NOT_EXISTING, List.of(), List.of(), null);
 }

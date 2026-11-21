@@ -26,11 +26,13 @@ public class GroupCheckoutFacade {
             var guestStayAccounts = db.collection(GuestStayAccount.class);
 
             for (var guestStayAccountId : command.guestStayIds()) {
-                var account = guestStayAccounts.get(guestStayAccountId).orElseThrow();
+                var account = guestStayAccounts
+                        .get(guestStayAccountId)
+                        .orElseThrow(() -> new IllegalStateException("Entity not found"));
                 var event = GuestStayAccountDecider.decide(
                         new CheckOutGuest(guestStayAccountId, command.now(), command.groupCheckoutId()), account);
 
-                guestStayAccounts.store(command.groupCheckoutId(), GuestStayAccount.evolve(account, event));
+                guestStayAccounts.store(guestStayAccountId, GuestStayAccount.evolve(account, event));
                 events.add(event);
             }
 

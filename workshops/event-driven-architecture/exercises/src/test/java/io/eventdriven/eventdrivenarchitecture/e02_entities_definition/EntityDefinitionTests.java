@@ -1,5 +1,8 @@
 package io.eventdriven.eventdrivenarchitecture.e02_entities_definition;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.GuestStayFacade.GroupCheckoutCommand;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.GuestStayFacade.GuestStayAccountCommand;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.Database;
@@ -17,6 +20,53 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 public class EntityDefinitionTests {
+
+    @Test
+    @Tag("Exercise")
+    public void recordingChargeForMissingGuestStayAccount_FailsWithEntityNotFound() {
+        // Given
+        var command = new GuestStayAccountCommand.RecordCharge(
+                UUID.randomUUID(), faker.number().randomDouble(2, 10, 1000), now);
+        publishedMessages.reset();
+
+        // When
+        var exception = assertThrows(IllegalStateException.class, () -> guestStayFacade.recordCharge(command));
+
+        // Then
+        assertEquals("Entity not found", exception.getMessage());
+        publishedMessages.shouldNotReceiveAnyMessage();
+    }
+
+    @Test
+    @Tag("Exercise")
+    public void recordingPaymentForMissingGuestStayAccount_FailsWithEntityNotFound() {
+        // Given
+        var command = new GuestStayAccountCommand.RecordPayment(
+                UUID.randomUUID(), faker.number().randomDouble(2, 10, 1000), now);
+        publishedMessages.reset();
+
+        // When
+        var exception = assertThrows(IllegalStateException.class, () -> guestStayFacade.recordPayment(command));
+
+        // Then
+        assertEquals("Entity not found", exception.getMessage());
+        publishedMessages.shouldNotReceiveAnyMessage();
+    }
+
+    @Test
+    @Tag("Exercise")
+    public void checkingOutMissingGuestStayAccount_FailsWithEntityNotFound() {
+        // Given
+        var command = new GuestStayAccountCommand.CheckOutGuest(UUID.randomUUID(), now);
+        publishedMessages.reset();
+
+        // When
+        var exception = assertThrows(IllegalStateException.class, () -> guestStayFacade.checkOutGuest(command));
+
+        // Then
+        assertEquals("Entity not found", exception.getMessage());
+        publishedMessages.shouldNotReceiveAnyMessage();
+    }
 
     private Database database;
     private MessageBus messageBus;

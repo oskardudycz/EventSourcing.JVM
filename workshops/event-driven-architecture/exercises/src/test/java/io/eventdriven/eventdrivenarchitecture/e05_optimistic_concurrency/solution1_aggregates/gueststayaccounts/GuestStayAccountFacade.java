@@ -49,10 +49,9 @@ public class GuestStayAccountFacade {
     }
 
     public void checkOutGuest(GuestStayAccountCommand.CheckOutGuest command) {
-        var account = collection
-                .get(command.guestStayId())
-                .map(Versioned::document)
-                .orElseThrow(() -> new IllegalStateException("Entity not found"));
+        var account =
+                collection.get(command.guestStayId()).map(Versioned::document).orElse(null);
+        if (account == null) return;
 
         account.checkout(command.now(), command.groupCheckOutId());
 

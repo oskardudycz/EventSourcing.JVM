@@ -50,8 +50,8 @@ public class GuestStayAccountFacade {
     }
 
     public void checkOutGuest(CheckOutGuest command) {
-        var account =
-                collection.get(command.guestStayId()).orElseThrow(() -> new IllegalStateException("Entity not found"));
+        var account = collection.get(command.guestStayId()).orElse(null);
+        if (account == null) return;
 
         var checkedOut = decide(command, account);
 

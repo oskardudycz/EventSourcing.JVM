@@ -66,8 +66,8 @@ public class GroupCheckout extends AbstractAggregate<GroupCheckoutEvent, UUID> {
                 this.guestStayCheckouts = Arrays.stream(groupCheckoutInitiated.guestStayAccountIds())
                         .collect(Collectors.toMap(
                                 key -> key,
-                                ignored -> CheckoutStatus.INITIATED,
-                                (existing, ignored) -> existing,
+                                _ -> CheckoutStatus.INITIATED,
+                                (existing, _) -> existing,
                                 LinkedHashMap::new));
                 this.status = CheckoutStatus.INITIATED;
             }

@@ -1,5 +1,8 @@
 package io.eventdriven.eventdrivenarchitecture.e02_entities_definition.solution2_immutableentities;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.InMemoryMessageBus;
 import io.eventdriven.eventdrivenarchitecture.e02_entities_definition.core.MessageBus;
@@ -16,6 +19,50 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class EntityDefinitionTests {
+
+    @Test
+    public void recordingChargeForMissingGuestStayAccount_FailsWithEntityNotFound() {
+        // Given
+        var command = new GuestStayAccountCommand.RecordCharge(
+                UUID.randomUUID(), faker.number().randomDouble(2, 10, 1000), now);
+        publishedMessages.reset();
+
+        // When
+        var exception = assertThrows(IllegalStateException.class, () -> guestStayFacade.recordCharge(command));
+
+        // Then
+        assertEquals("Entity not found", exception.getMessage());
+        publishedMessages.shouldNotReceiveAnyMessage();
+    }
+
+    @Test
+    public void recordingPaymentForMissingGuestStayAccount_FailsWithEntityNotFound() {
+        // Given
+        var command = new GuestStayAccountCommand.RecordPayment(
+                UUID.randomUUID(), faker.number().randomDouble(2, 10, 1000), now);
+        publishedMessages.reset();
+
+        // When
+        var exception = assertThrows(IllegalStateException.class, () -> guestStayFacade.recordPayment(command));
+
+        // Then
+        assertEquals("Entity not found", exception.getMessage());
+        publishedMessages.shouldNotReceiveAnyMessage();
+    }
+
+    @Test
+    public void checkingOutMissingGuestStayAccount_FailsWithEntityNotFound() {
+        // Given
+        var command = new GuestStayAccountCommand.CheckOutGuest(UUID.randomUUID(), now);
+        publishedMessages.reset();
+
+        // When
+        var exception = assertThrows(IllegalStateException.class, () -> guestStayFacade.checkOutGuest(command));
+
+        // Then
+        assertEquals("Entity not found", exception.getMessage());
+        publishedMessages.shouldNotReceiveAnyMessage();
+    }
 
     private Database database;
     private MessageBus messageBus;

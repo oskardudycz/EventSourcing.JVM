@@ -24,31 +24,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 public class BusinessProcessTests {
-
-    private Database database;
-    private MessageBus messageBus;
-    private MessageCatcher publishedMessages;
-    private GuestStayAccountFacade guestStayFacade;
-    private GroupCheckoutFacade groupCheckoutFacade;
-    private Faker faker;
-    private OffsetDateTime now;
-
-    @BeforeEach
-    public void setUp() {
-        database = new Database();
-        messageBus = new InMemoryMessageBus();
-        publishedMessages = new MessageCatcher();
-        guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), messageBus);
-        groupCheckoutFacade = new GroupCheckoutFacade(database.collection(GroupCheckout.class), messageBus);
-        faker = new Faker();
-        now = OffsetDateTime.now();
-
-        messageBus.use(publishedMessages::catchMessage);
-
-        configureGroupCheckouts(messageBus, groupCheckoutFacade);
-        configureGuestStayAccounts(messageBus, guestStayFacade);
-    }
-
     @Test
     @Tag("Exercise")
     public void groupCheckoutForMultipleGuestStayWithoutPaymentsAndCharges_ShouldComplete() {
@@ -268,5 +243,29 @@ public class BusinessProcessTests {
                         new UUID[] {},
                         new UUID[] {guestStays[0], guestStays[1], guestStays[2]},
                         now)));
+    }
+
+    private Database database;
+    private MessageBus messageBus;
+    private MessageCatcher publishedMessages;
+    private GuestStayAccountFacade guestStayFacade;
+    private GroupCheckoutFacade groupCheckoutFacade;
+    private Faker faker;
+    private OffsetDateTime now;
+
+    @BeforeEach
+    public void setUp() {
+        database = new Database();
+        messageBus = new InMemoryMessageBus();
+        publishedMessages = new MessageCatcher();
+        guestStayFacade = new GuestStayAccountFacade(database.collection(GuestStayAccount.class), messageBus);
+        groupCheckoutFacade = new GroupCheckoutFacade(database.collection(GroupCheckout.class), messageBus);
+        faker = new Faker();
+        now = OffsetDateTime.now();
+
+        messageBus.use(publishedMessages::catchMessage);
+
+        configureGroupCheckouts(messageBus, groupCheckoutFacade);
+        configureGuestStayAccounts(messageBus, guestStayFacade);
     }
 }

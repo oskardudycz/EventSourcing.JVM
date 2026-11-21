@@ -31,7 +31,8 @@ public class GroupCheckoutFacade {
         final var groupCheckout = collection
                 .get(command.groupCheckoutId())
                 .map(Versioned::document)
-                .orElseThrow(() -> new IllegalStateException("Entity not found"));
+                .orElse(null);
+        if (groupCheckout == null) return;
 
         var events = decide(command, groupCheckout);
 
@@ -43,7 +44,8 @@ public class GroupCheckoutFacade {
         var groupCheckout = collection
                 .get(command.groupCheckoutId())
                 .map(Versioned::document)
-                .orElseThrow(() -> new IllegalStateException("Entity not found"));
+                .orElse(null);
+        if (groupCheckout == null) return;
 
         var events = decide(command, groupCheckout);
 

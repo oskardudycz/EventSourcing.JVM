@@ -1,5 +1,8 @@
 package io.eventdriven.eventdrivenarchitecture.e04_idempotency.solution1_aggregates.gueststayaccounts;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.Database;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.InMemoryMessageBus;
 import io.eventdriven.eventdrivenarchitecture.e04_idempotency.core.MessageBus;
@@ -132,6 +135,36 @@ public class EntityDefinitionTests {
         // Then
         publishedMessages.shouldReceiveSingleMessage(new GuestStayAccountEvent.GuestCheckoutFailed(
                 guestStayId, GuestStayAccountEvent.GuestCheckoutFailed.Reason.BALANCE_NOT_SETTLED, now, null));
+    }
+
+    @Test
+    public void recordingChargeForMissingGuestStayAccount_FailsWithEntityNotFound() {
+        // Given
+        var command = new GuestStayAccountCommand.RecordCharge(
+                UUID.randomUUID(), UUID.randomUUID(), faker.number().randomDouble(2, 10, 1000), now);
+        publishedMessages.reset();
+
+        // When
+        var exception = assertThrows(IllegalStateException.class, () -> guestStayFacade.recordCharge(command));
+
+        // Then
+        assertEquals("Entity not found", exception.getMessage());
+        publishedMessages.shouldNotReceiveAnyMessage();
+    }
+
+    @Test
+    public void recordingPaymentForMissingGuestStayAccount_FailsWithEntityNotFound() {
+        // Given
+        var command = new GuestStayAccountCommand.RecordPayment(
+                UUID.randomUUID(), UUID.randomUUID(), faker.number().randomDouble(2, 10, 1000), now);
+        publishedMessages.reset();
+
+        // When
+        var exception = assertThrows(IllegalStateException.class, () -> guestStayFacade.recordPayment(command));
+
+        // Then
+        assertEquals("Entity not found", exception.getMessage());
+        publishedMessages.shouldNotReceiveAnyMessage();
     }
 
     private Database database;

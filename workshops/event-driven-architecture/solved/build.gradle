@@ -33,10 +33,6 @@ repositories {
   maven { url = 'https://maven-central.storage-download.googleapis.com/maven2/' }
 }
 
-configurations {
-  mockitoAgent
-}
-
 dependencies {
   // Spring Boot Web
   implementation 'org.springframework.boot:spring-boot-starter-webmvc'
@@ -82,9 +78,6 @@ dependencies {
   testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
   testImplementation 'net.datafaker:datafaker:2.3.0'
   testImplementation 'com.tngtech.archunit:archunit-junit5:1.5.1'
-  mockitoAgent('org.mockito:mockito-core') {
-    transitive = false
-  }
 }
 
 configurations {
@@ -92,6 +85,7 @@ configurations {
     exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
     exclude group: 'ch.qos.logback'
     exclude group: 'org.apache.logging.log4j', module: 'log4j-to-slf4j'
+    exclude group: 'org.mockito'
   }
 }
 
@@ -103,7 +97,6 @@ test {
       excludeTags 'Exercise'
     }
   }
-  jvmArgs += "-javaagent:${configurations.mockitoAgent.asPath}"
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
 }

@@ -3,32 +3,16 @@ package io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.soluti
 import static io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.solution2_immutableentities.groupcheckouts.GroupCheckoutDecider.GroupCheckoutCommand.*;
 
 import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.core.MessageBus;
-import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.core.SagaResult;
 import io.eventdriven.eventdrivenarchitecture.e05_optimistic_concurrency.solution2_immutableentities.gueststayaccounts.GuestStayAccountEvent;
-import java.util.List;
 
 public final class GroupCheckoutsConfig {
     public static void configureGroupCheckouts(MessageBus messageBus, GroupCheckoutFacade groupCheckoutFacade) {
+        var saga = new GroupCheckoutSaga(messageBus);
+
         messageBus
-                .subscribe(
-                        GroupCheckoutEvent.GroupCheckoutInitiated.class,
-                        (event) -> messageBus.publish(GroupCheckoutSaga.handle(event).stream()
-                                .map(SagaResult.Command::message)
-                                .toList()))
-                .subscribe(GuestStayAccountEvent.GuestCheckedOut.class, (event) -> {
-                    var result = GroupCheckoutSaga.handle(event);
-
-                    if (result instanceof SagaResult.Command(RecordGuestCheckoutCompletion message)) {
-                        messageBus.publish(List.of(message));
-                    }
-                })
-                .subscribe(GuestStayAccountEvent.GuestCheckoutFailed.class, (event) -> {
-                    var result = GroupCheckoutSaga.handle(event);
-
-                    if (result instanceof SagaResult.Command(RecordGuestCheckoutFailure message)) {
-                        messageBus.publish(List.of(message));
-                    }
-                });
+                .subscribe(GroupCheckoutEvent.GroupCheckoutInitiated.class, saga::handle)
+                .subscribe(GuestStayAccountEvent.GuestCheckedOut.class, saga::handle)
+                .subscribe(GuestStayAccountEvent.GuestCheckoutFailed.class, saga::handle);
 
         messageBus
                 .subscribe(RecordGuestCheckoutCompletion.class, groupCheckoutFacade::recordGuestCheckoutCompletion)
