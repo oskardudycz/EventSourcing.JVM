@@ -1,6 +1,8 @@
 package io.eventdriven.distributedprocesses.core.projections;
 
 import io.eventdriven.distributedprocesses.core.configuration.Settings;
+import io.eventdriven.distributedprocesses.core.subscriptions.SubscriptionCheckpointRepository;
+import io.eventdriven.distributedprocesses.core.subscriptions.SubscriptionCheckpoints;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceProperties;
@@ -26,8 +28,8 @@ public class ProjectionsDatabaseConfig {
     }
 
     @Bean
-    ProcessorCheckpoints processorCheckpoints(
-            ProcessorCheckpointRepository repository, PlatformTransactionManager transactionManager) {
-        return new ProcessorCheckpoints(repository, transactionManager);
+    SubscriptionCheckpoints subscriptionCheckpoints(
+            SubscriptionCheckpointRepository repository, PlatformTransactionManager transactionManager) {
+        return new SubscriptionCheckpoints(repository, transactionManager);
     }
 }

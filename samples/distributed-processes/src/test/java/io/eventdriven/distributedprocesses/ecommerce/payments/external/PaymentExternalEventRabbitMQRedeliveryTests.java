@@ -3,8 +3,9 @@ package io.eventdriven.distributedprocesses.ecommerce.payments.external;
 import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
+import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
-import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RabbitMQMessageBus;
@@ -19,7 +20,6 @@ import io.eventdriven.testing.RabbitMQQueues;
 import io.eventdriven.testing.TestDatabases;
 import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestRabbitMQ;
-import io.kurrent.dbclient.StreamState;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -90,7 +90,9 @@ public class PaymentExternalEventRabbitMQRedeliveryTests {
                 streamId,
                 new PaymentEvent.PaymentAuthorizationRequested(paymentId, referenceId, 62.5, now, now.plusMinutes(5)));
         eventStore.append(
-                streamId, StreamState.any(), new PaymentEvent.PaymentAuthorized(paymentId, now, now.plusDays(7)));
+                streamId,
+                ExpectedStreamVersion.any(),
+                new PaymentEvent.PaymentAuthorized(paymentId, now, now.plusDays(7)));
         eventStore.append("Trigger-" + UUID.randomUUID(), new Trigger());
 
         var messageIds = queues.receiveAll(collector, 2).stream()

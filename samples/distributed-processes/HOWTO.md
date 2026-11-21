@@ -44,6 +44,8 @@ Three settings change that. Set them on the command line, for example `./gradlew
 
 With `messaging.bus=rabbitmq`, Spring Boot also starts RabbitMQ. If you ran an older version of the sample with RabbitMQ, remove its old queues once, because the queues now have dead-letter settings that the old ones lack: `docker compose --profile all down -v`, in this folder. This also removes the data of the other Compose services.
 
+The PostgreSQL event store keeps its events in the tables `streams` and `messages`. If your local PostgreSQL volume holds an older version of the sample, which used the table `events`, reset it once with `docker compose --profile all down -v`, in this folder. This also removes the data of the other Compose services. A projections database belongs to one event store type, so do not point two event store types at the same projections database.
+
 To run with no Docker and no database, use the `in-memory` profile. It sets all three settings to in memory and turns the Docker Compose support off. When you stop the application, its data is gone:
 
 ```shell

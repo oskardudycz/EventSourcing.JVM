@@ -4,8 +4,8 @@ import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.*;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
+import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
-import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.ecommerce.orders.api.CustomerOrderRepository;

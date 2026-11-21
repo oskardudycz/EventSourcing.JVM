@@ -2,8 +2,9 @@ package io.eventdriven.distributedprocesses.core.aggregates;
 
 import static org.assertj.core.api.Assertions.*;
 
-import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
-import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
+import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.testing.TestTracing;
 import java.util.ArrayList;
@@ -89,7 +90,8 @@ public class AggregateStoreTests {
         store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
         store.getAndUpdate(counterId, current -> current.increment(1));
 
-        assertThatThrownBy(() -> store.getAndUpdate(counterId, 0, current -> current.increment(1)))
+        assertThatThrownBy(() ->
+                        store.getAndUpdate(counterId, ExpectedStreamVersion.at(0), current -> current.increment(1)))
                 .isInstanceOf(ConcurrentModificationException.class)
                 .hasMessageContaining(mapToStreamId(counterId));
 
@@ -146,7 +148,7 @@ public class AggregateStoreTests {
         store.getAndUpdate(counterId, current -> current.open(counterId, "clicks"));
         var attempts = new AtomicInteger();
 
-        assertThatThrownBy(() -> store.getAndUpdate(counterId, 0, current -> {
+        assertThatThrownBy(() -> store.getAndUpdate(counterId, ExpectedStreamVersion.at(0), current -> {
                     attempts.incrementAndGet();
                     store.getAndUpdate(counterId, other -> other.increment(1));
                     current.increment(1);

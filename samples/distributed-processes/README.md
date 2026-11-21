@@ -84,63 +84,7 @@ public class GroupCheckoutSaga {
 
 See more in [GroupCheckoutSaga.java](./src/main/java/io/eventdriven/distributedprocesses/hotelmanagement/saga/groupcheckout/GroupCheckoutSaga.java)
 
-The saga sends commands through a *command bus*. The bus first stores each command and only then delivers it, so a crash between the two steps can't lose a command. That is the *outbox pattern*, described in [Delivering messages reliably](#delivering-messages-reliably). The bus below stores the commands in [KurrentDB](https://www.kurrent.io/), a database made for events: it appends each command to one *stream*, an ordered list of entries, and reads them back through a *subscription*, which calls the bus for each new entry:
-
-```java
-public class KurrentDBCommandBus implements CommandBus {
-    private static final String commandStreamId = "_commands-all";
-    private final KurrentDBClient kurrentDBClient;
-    private final EventStore eventStore;
-    private final RetryTemplate retryTemplate;
-    private final Supplier<String> currentCorrelationId;
-    private final Supplier<String> currentCausationId;
-
-    public KurrentDBCommandBus(
-            KurrentDBClient kurrentDBClient,
-            EventStore eventStore,
-            RetryTemplate retryTemplate,
-            Supplier<String> currentCorrelationId,
-            Supplier<String> currentCausationId) {
-        this.kurrentDBClient = kurrentDBClient;
-        this.eventStore = eventStore;
-        this.retryTemplate = retryTemplate;
-        this.currentCorrelationId = currentCorrelationId;
-        this.currentCausationId = currentCausationId;
-    }
-
-    @Override
-    public <Command> EventStore.AppendResult schedule(Command command) {
-        return retryTemplate.invoke(() -> {
-            var result = eventStore.append(
-                    commandStreamId,
-                    new CommandEnvelope<>(
-                            command, new CommandMetadata(currentCorrelationId.get(), currentCausationId.get())));
-
-            if (result instanceof EventStore.AppendResult.UnexpectedFailure)
-                throw new IllegalStateException("Unexpected failure while appending: %s".formatted(result));
-
-            return result;
-        });
-    }
-
-    @Override
-    public void subscribe(Consumer<CommandEnvelope<Object>>... handlers) {
-        subscribeToStream(kurrentDBClient, commandStreamId, (subscription, resolvedEvent) -> {
-            var commandEnvelope = deserializeCommand(resolvedEvent);
-
-            if (commandEnvelope.isEmpty()) {
-                return;
-            }
-
-            for (var handler : handlers) {
-                handler.accept(commandEnvelope.get());
-            }
-        });
-    }
-}
-```
-
-See more in [KurrentDBCommandBus.java](./src/main/java/io/eventdriven/distributedprocesses/core/commands/KurrentDBCommandBus.java)
+The saga sends commands through a *command bus* ([CommandBus.java](./src/main/java/io/eventdriven/distributedprocesses/core/commands/CommandBus.java)). The bus first stores each command and only then delivers it, so a crash between the two steps can't lose a command. That is the *outbox pattern*, described in [Delivering messages reliably](#delivering-messages-reliably).
 
 The saga delegates the business logic to the group checkout *decider*: a function that takes a command and the current state, checks the business rules and returns the resulting events. That gives a clear split between coordination (the saga) and business logic (the decider), so the saga stays lightweight. It is much easier to maintain than a process manager that does both.
 
@@ -631,7 +575,7 @@ A response goes back to whoever asked, without payments knowing who that is. Its
 
 A module that stores an event and then publishes a message has a problem: a crash between the two steps loses the message, or publishes a message for an event that was never stored. Two writes to two systems can't be made atomic without a distributed transaction. The *outbox pattern* solves this: the module writes the message to its own database in the same transaction as its data, and a separate process publishes it from there.
 
-With Event Sourcing, the event store already is that outbox. A facade only appends events. The subscribers (the projections, the forwarders, the saga, and the clients that call the payment provider and the fulfillment service) read the stored events and publish from there. Appending writes to the stream and to one global log, and every subscriber reads that log from its own checkpoint. [InMemoryEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/kurrentdb/InMemoryEventStore.java) delivers once the outermost append is done, entry by entry, to every subscriber that is behind. An event appended by a subscriber is delivered after the one it is handling, never in the middle of it. Against KurrentDB, [KurrentDBEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/kurrentdb/KurrentDBEventStore.java) subscribes to `$all`, KurrentDB's stream of all events, filtered by event type. Each subscription stores a checkpoint, the log position of the last event it handled, in the projections database (`processor_checkpoints`), and continues after it when the application starts. A projection saves its document change and its checkpoint in one transaction, so a failed checkpoint rolls the change back too. A forwarder publishes first and then stores the checkpoint, so a crash between the two publishes the message again, which the idempotent handlers absorb. A subscription whose handler fails stops and subscribes again from its checkpoint after a back-off delay. `eventstore.type=kurrentdb` selects this store. [PostgreSQLEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/kurrentdb/PostgreSQLEventStore.java) keeps the events in one `events` table and polls it. Each event row stores the ID of the transaction that wrote it (`pg_current_xact_id()`). The poller reads only rows from transactions older than the oldest running one (`pg_snapshot_xmin(pg_current_snapshot())`), ordered by transaction ID and then global position, so it never passes a transaction that has not committed yet. Its checkpoint holds the transaction ID and the position, and compares the transaction ID first. `eventstore.type=postgresql` selects this store; it connects with its own `eventstore.postgresql.url`, `.username` and `.password`, so it also runs with the projections on H2. With H2 as the projections database the checkpoints are lost on restart, so the subscriptions read the whole log again.
+With Event Sourcing, the event store already is that outbox. A facade only appends events. The subscribers (the projections, the forwarders, the saga, and the clients that call the payment provider and the fulfillment service) read the stored events and publish from there. Appending writes to the stream and to one global log, and every subscriber reads that log from its own checkpoint. [InMemoryEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/eventstore/InMemoryEventStore.java) delivers once the outermost append is done, entry by entry, to every subscriber that is behind. An event appended by a subscriber is delivered after the one it is handling, never in the middle of it. Against KurrentDB, [KurrentDBEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/eventstore/kurrentdb/KurrentDBEventStore.java) subscribes to `$all`, KurrentDB's stream of all events, filtered by event type. Each subscription stores a checkpoint, the log position of the last event it handled, in the projections database (`processor_checkpoints`), and continues after it when the application starts. A projection saves its document change and its checkpoint in one transaction, so a failed checkpoint rolls the change back too. A forwarder publishes first and then stores the checkpoint, so a crash between the two publishes the message again, which the idempotent handlers absorb. A subscription whose handler fails stops and subscribes again from its checkpoint after a back-off delay. `eventstore.type=kurrentdb` selects this store. [PostgreSQLEventStore](./src/main/java/io/eventdriven/distributedprocesses/core/eventstore/postgresql/PostgreSQLEventStore.java) keeps the events in the `messages` table and the streams' versions in the `streams` table, and polls `messages`. An append is one call of the SQL function `append_to_stream`: it moves the stream's version only if it still equals the expected one, then writes all events with one insert, so one append is one round trip. Each message row stores the ID of the transaction that wrote it (`pg_current_xact_id()`). The poller reads only rows from transactions older than the oldest running one (`pg_snapshot_xmin(pg_current_snapshot())`), ordered by transaction ID and then global position, so it never passes a transaction that has not committed yet. Its checkpoint holds the transaction ID and the position, and compares the transaction ID first. `eventstore.type=postgresql` selects this store; it connects with its own `eventstore.postgresql.url`, `.username` and `.password`, so it also runs with the projections on H2. With H2 as the projections database the checkpoints are lost on restart, so the subscriptions read the whole log again.
 
 A subscriber that throws keeps its checkpoint. It gets nothing more in that run, and the next append delivers the same event to it again, before anything newer. The append itself does not fail: the event is stored, and the subscriber has to catch up. So each event reaches each subscriber at least once, and maybe more than once. That is called *at-least-once delivery*, and it is why every handler has to be idempotent.
 
