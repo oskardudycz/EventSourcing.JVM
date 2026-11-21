@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRouter;
-import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderId;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrdersConfig;
@@ -41,13 +40,11 @@ public class ECommerceRoutesTests {
             ShipmentsConfig.shipmentsRequestsChannel(),
             ShipmentsConfig.shipmentsResponsesChannel(),
             ShipmentsConfig.shipmentsInternalChannel());
-    private final MessageRouter router = new MessageRouter(
-            List.of(
-                    ShoppingCartsConfig.shoppingCartsRoutes(),
-                    OrdersConfig.ordersRoutes(),
-                    PaymentsConfig.paymentsRoutes(),
-                    ShipmentsConfig.shipmentsRoutes()),
-            message -> new RoutingTarget(null, null));
+    private final MessageRouter router = new MessageRouter(List.of(
+            ShoppingCartsConfig.shoppingCartsRoutes(),
+            OrdersConfig.ordersRoutes(),
+            PaymentsConfig.paymentsRoutes(),
+            ShipmentsConfig.shipmentsRoutes()));
 
     @Test
     public void everyPublishedMessageTypeHasAChannelAndARoutingKey() {

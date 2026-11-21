@@ -1,14 +1,22 @@
 package io.eventdriven.distributedprocesses.core.messaging;
 
 import io.eventdriven.testing.TestTracing;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 public class InMemoryMessageBusTests extends MessageBusTests {
+    private final TestTracing tracing = new TestTracing();
+
     @Override
     protected MessageBus createBus(
             List<MessageRoutes> routes, List<MessageChannel> channels, List<MessageQueue> queues) {
-        return new InMemoryMessageBus(TestTracing.untraced(), routes, channels, queues);
+        return new InMemoryMessageBus(tracing.messageContext(), routes, channels, queues);
+    }
+
+    @Override
+    protected List<SpanData> finishedSpans() {
+        return tracing.finishedSpans();
     }
 
     @Test

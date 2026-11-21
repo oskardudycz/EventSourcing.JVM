@@ -9,6 +9,7 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentEx
 import io.eventdriven.testing.InMemorySpansConfiguration;
 import io.micrometer.tracing.Tracer;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -42,6 +43,11 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
 
     @Autowired
     protected InMemorySpanExporter spans;
+
+    @Override
+    protected List<SpanData> finishedSpans() {
+        return spans.getFinishedSpanItems();
+    }
 
     protected abstract Supplier<PublishedMessage> collectFirstPublishedTo(String channel);
 

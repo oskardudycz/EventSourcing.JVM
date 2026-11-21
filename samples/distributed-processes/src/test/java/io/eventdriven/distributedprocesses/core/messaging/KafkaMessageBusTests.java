@@ -296,19 +296,6 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
         }
     }
 
-    @Test
-    public void consumerOpensAStepSpanNamedAfterTheMessageType() {
-        messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
-
-        publish(messageBus, new OrderPlaced("order-1"));
-
-        awaitCaughtUp();
-        await().atMost(Duration.ofSeconds(30))
-                .untilAsserted(() -> assertThat(spans.getFinishedSpanItems())
-                        .extracting(span -> span.getName())
-                        .contains("handle OrderPlaced"));
-    }
-
     private MessageBus routedBus(String responses, String queue, KafkaTemplate<String, byte[]> routingTemplate) {
         var routes = List.of(
                 new MessageRoutes().route(OrderPlaced.class, event -> new RoutingTarget(responses, event.id())));

@@ -174,6 +174,20 @@ public class RabbitMQMessageBusFailureTests {
     }
 
     @Test
+    public void aFailingHandlerIsCalledOnceMoreThanTheRetriesThenDeadLettered() {
+        var attempts = new AtomicInteger();
+        messageBus.subscribe(billing, PaymentReceived.class, message -> {
+            attempts.incrementAndGet();
+            throw new IllegalStateException("Payment gateway unavailable");
+        });
+
+        publish(new PaymentReceived("payment-1"));
+
+        assertThat(queues.receiveAll(billing + "-dlq", 1)).hasSize(1);
+        assertThat(attempts).hasValue(3);
+    }
+
+    @Test
     public void aDeadLetteredMessageCountsAsCaughtUp() {
         messageBus.subscribe(billing, PaymentReceived.class, message -> {
             throw new IllegalStateException("Payment gateway unavailable");

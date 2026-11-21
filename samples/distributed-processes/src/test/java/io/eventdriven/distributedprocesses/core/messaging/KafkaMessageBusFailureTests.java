@@ -50,8 +50,8 @@ public class KafkaMessageBusFailureTests {
 
     private final String bootstrapServers = TestDatabases.kafkaBootstrapServers();
     private final String id = UUID.randomUUID().toString().substring(0, 8);
-    private final String payments = "payments-" + id;
-    private final String billing = "billing-" + id;
+    private final String payments = "shopping_carts-external-" + id;
+    private final String billing = "orders-shopping_carts-external-" + id;
     private final String shipping = "shipping-" + id;
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final MessageCatcher messages = new MessageCatcher();
@@ -234,7 +234,7 @@ public class KafkaMessageBusFailureTests {
     }
 
     @Test
-    public void deadLetterCountIsTaggedWithTheStableTypeNameAndTheSourceTopic() {
+    public void deadLetterCountIsTaggedWithTheStableTypeNameAndTheQueue() {
         messageBus.subscribe(billing, PaymentReceived.class, message -> {
             throw new IllegalStateException("Payment gateway unavailable");
         });
@@ -244,7 +244,7 @@ public class KafkaMessageBusFailureTests {
         deadLettersOf(billing, 1);
         assertThat(meters.find(KafkaMessageBus.DEAD_LETTERED)
                         .tag("message.type", "test.PaymentReceived")
-                        .tag("messaging.destination.name", payments)
+                        .tag("messaging.destination.name", billing)
                         .counter())
                 .isNotNull()
                 .satisfies(counter -> assertThat(counter.count()).isEqualTo(1));
