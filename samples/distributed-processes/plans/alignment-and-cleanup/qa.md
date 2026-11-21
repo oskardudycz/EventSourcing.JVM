@@ -161,3 +161,43 @@ Decision: the hotel examples are not changed. The core classes they use stay in 
 Plan r1 review (reviews/20261121T230000_plan_r1_review.md): `EventSourcedSpecification.when` takes `Function<Entity, Event[]>`, and the hotel tests (unchanged, Q11) use it with arrays; deciders returning a `List` don't fit without changing that helper.
 
 Decision (coordinator, following the existing code; no answer needed): shop deciders return arrays of events, as the hotel deciders and `EventSourcedSpecification` do. Spec r6 changes "a list of events" to "an array of events".
+
+## Q13 (spec r8, plan r4)
+
+While step 2 ran, CI took 14.5 minutes. Coordinator's findings: the 109 test classes run one after another in one JVM (746 s); about 60 bus tests wait a fixed 2 seconds after each delivery to prove nothing arrives twice; store tests have 1-second windows; one RabbitMQ test waits 7 seconds and one test sleeps 5 seconds.
+
+**Oskar:** "Check if you can't optimise this CI not to take so long", "and do it in parallel", "Ensure you're not running test suite in parallel (so multiple calls of gradlew test at once)", "In general avoid arbitrary delays or awaits. If you must use the minimum number", "not acceptable to do time-based tests, we should have infra that allow waiting for the catch up like e.g. emmett has with when started in their consumers.", "I mean, if it's the easiest way without overengineering, but in general time base stuff and waits are unpredictable and unsustainable", "do it and after step 2 is finished continue with that before the next steps".
+
+Decision: test classes run in 3 JVMs inside one Gradle run. Buses get `awaitCaughtUp(timeout)` and store subscriptions get `awaitProcessed(checkpoint, timeout)`, after Emmett's `whenCaughtUp` and `whenProcessed`, without Emmett's names. Every fixed delay in the tests goes. Done in a new step right after step 2.
+
+## Q14 (spec r8, plan r4)
+
+The bus tests record handled messages as strings in a `List<String> log` and check them with `awaitLog`; the modules declare channels and queues by calling `channel` and `bind` on the bus; one `ECommerceApplicationConfig` and the static `ECommerceConfig` build all modules.
+
+**Oskar:** "We have message catcher, we have observability, why to use such bs hacking?", "Then rethink and setup channel and bind correctly.", "Dude, each module should have its own config. Essentially those should be separate services right?", "Why do we have? ECommerceApplicationConfig shouldn't each module be a separate application? We can start with monolith if it's easier, but eventually this is weird". Asked to choose between A (one process, each module its own Spring configuration) and B (each module a separate application), with B as a follow-up: "ok".
+
+Decision: the bus tests use the workshop's `MessageCatcher` with the catch-up waits (Q13). Option A: each module is its own `@Configuration` with its beans, its routes, its type mapping, its channels and its queues; the bus gets them injected and declares them; `channel`, `bind` and `routes` leave `MessageBus`; `ECommerceConfig` goes and `ECommerceApplicationConfig` keeps only the shared infrastructure. Each module as a separate application (B) is a follow-up.
+
+## Q15 (spec r9)
+
+Spec r8 review (reviews/20261122T030000_spec_r8_review.md) and step 2 review: open points with no answer.
+
+**Oskar:** "ok, update spec and plan with mentioned skills, then fix review issues and run plan starting from CI otpimisation, it can't run for so long", "Do it please and also fix stuff you can leaving blockers as the follow up for me, then continue with implementation".
+
+Decision: F1 (negative client version) and F2 (appending zero events) are follow-ups in follow-ups.md; later steps keep today's behaviour. Option A of Q14 ("its channels and its queues" as beans) covers the `MessageChannel` and `MessageQueue` records. No new test seam (Q9): tests call the module configuration's bean methods as plain Java. The other r8 findings are fixed from existing answers and code.
+
+## Q16 (spec r11, plan r7)
+
+`AggregateStore.getAndUpdate` retries a conflict with a hand-written `for` loop; the spec said the new `CommandHandler` retries "as `AggregateStore` does today".
+
+**Oskar:** "Do you plan to replace [the loop] with a proper spring native retry?", "Dude, why your review didn't find it, we shouldn't have such manual bs", "Check again for idiomatic, similar usage, and yes, I'm fine with adding it to step".
+
+Decision: no hand-written retries or waits. `CommandHandler` and `AggregateStore` retry a conflict with Spring Framework's `RetryTemplate` (3 attempts, no delay); `KafkaMessageBus.awaitCaughtUp` checks through a `RetryTemplate` with a fixed 50 ms delay and the wait's timeout; RabbitMQ retries through Spring AMQP (already planned); `RabbitMQQueues.receiveAll` waits with Awaitility. Also found: the shop builds ETags with its own `core/http/ETag`; it uses Spring's `org.springframework.http.ETag` instead (the hotel keeps the core one, Q11). Kept: the event stores' own schedulers for polling and resubscribing (plain Java, Q4; `RetryTemplate` blocks).
+
+## Q17 (spec r13)
+
+CI still took 7-8 minutes with 3 test JVMs; the slowest test classes checked the brokers and tools themselves (RabbitMQ dead-lettering with a full dead-letter queue, its memory alarm, client reconnects, a paused Kafka, Testcontainers labels, Grafana LGTM receiving data, 300 rounds of a Spring AMQP close race), and the Kafka test container kept the 3-second consumer group join delay.
+
+**Oskar:** "Are we testing how external tools behave or our ocde?!", "Dude, I asked you to cut all useless waits and timeouts, didn't I?", "We should only check our implementation and integration and how we use them and if int or e2e flows work, no external tools or libraries."
+
+Decision: deleted `RabbitMQMessageBusDeadLetterOutageTests`, `RabbitMQMessageBusBlockedPublisherTests`, `RabbitMQMessageBusConnectionLossTests`, `ShoppingCartExternalEventKafkaDownTests`, `TestDatabasesTests`, `GrafanaExportTests` (with `TestLgtm`, `LgtmApi`) and `RabbitMQMessageBusRestartTests.closingRightAfterPublishingNeverFails`. The Kafka test containers set `KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0`, as `docker-compose.yml` does (`TestDatabases.newKafkaContainer()`). Test JVMs: 2.
