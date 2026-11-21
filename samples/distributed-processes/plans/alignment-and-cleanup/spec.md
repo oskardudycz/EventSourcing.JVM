@@ -1,6 +1,6 @@
 # Alignment and cleanup of samples/distributed-processes
 
-Revision: 7
+Revision: 13
 
 ## Problem Statement
 
@@ -14,6 +14,8 @@ The sample teaches distributed processes with Event Sourcing. Readers compare it
 - Payments and shipments return the requester's id in two different ways.
 - There are bugs: the running application has no tracing bridge, the order accepts a failure of a payment that is no longer current, the in-memory event store and the price calculator are not thread-safe, the shop can show a 404 right after checkout, Grafana and EventCatalog share port 3000, a test can't fail, and more.
 - Names, packages, dead code, copied test helpers and docs are inconsistent.
+- One `ECommerceApplicationConfig` and a static composition root build all four modules, and each module declares its channels and queues by calling the bus, while the workshop gives each module its own Spring configuration with beans (Q14).
+- Tests wait fixed times to prove that nothing more arrives (about 60 bus tests wait 2 seconds each), the bus tests record handled messages as strings, and the 109 test classes run one after another: CI takes 14.5 minutes (Q13, Q14).
 
 The goal is one consistent sample, close to the references, with the bugs fixed, in as few steps as possible (Q1).
 
@@ -42,6 +44,10 @@ flowchart LR
 **Requester's id.** Payments and shipments follow one rule: a module's internal events record only its own facts. The requester's id is stored once, in the event that records the request, and each module's summary projection gives it to the forwarder, which puts it on the external events (Q8).
 
 **Messaging stays as agreed**, with the workshop's pieces put back where the sample rewrote them: RabbitMQ retries through Spring AMQP, routes per module by package, one `publish` for commands and events (Q5, Q7).
+
+**Modules configured on their own.** Each module is configured like a separate service: its own Spring `@Configuration` declares its beans, its routes, its type mapping, its channels and its queues, and subscribes its own handlers. The bus gets the routes, channels and queues injected and creates them on the broker. `ECommerceApplicationConfig` keeps only the shared infrastructure. Running each module as a separate application is a follow-up (Q14).
+
+**Waiting on catch-up, not on time.** As Emmett's consumers do, a bus can be awaited until it has handled everything published before the call, and a store subscription until it has handled a given checkpoint. Tests wait on those, never on a fixed time, and check the handled messages with the workshop's `MessageCatcher`. The test classes run in two JVMs (Q13, Q17).
 
 **Bugs, names, dead code, tests and docs** are fixed as listed below.
 
@@ -110,11 +116,20 @@ flowchart LR
     13.1. GIVEN a message dead-lettered from queue `orders-shopping_carts-external` WHEN the counter `messaging.dead_lettered` grows THEN its destination tag is the queue name on Kafka and on RabbitMQ.
     13.2. GIVEN a RabbitMQ handler that always fails WHEN a message arrives THEN it is retried with the configured interval and attempts through Spring AMQP's listener retry and then dead-lettered, as the message-broker spec's criteria require.
 
-14. A module binds a queue to another module's channel, so that the order of module configuration doesn't matter.
-    14.1. GIVEN a Kafka queue bound to a channel that no module declared yet WHEN the bus starts THEN the channel's topic exists and the queue receives messages published to it.
-
 15. A step handles a message on the in-memory bus, so that all buses trace the same way.
     15.1. GIVEN a subscriber on the in-memory bus WHEN it handles a message THEN a step span named `handle <MessageType>` wraps the handler, as on Kafka and RabbitMQ.
+
+16. A test waits for asynchronous handling, so that it doesn't depend on time (Q13).
+    16.1. GIVEN messages published to queues that a bus consumes WHEN a caller waits for the bus to catch up THEN the wait returns once every one of them is handled or dead-lettered, on the in-memory bus, Kafka and RabbitMQ.
+    16.2. GIVEN a Kafka or RabbitMQ bus whose handler doesn't finish WHEN a caller waits for it to catch up with a timeout THEN the wait fails after the timeout and names the queue or the consumer group.
+    16.3. GIVEN a store subscription and an appended event of its types WHEN a caller waits for the event's checkpoint THEN the wait returns once the subscriber has handled it, on the three stores; with a timeout it fails instead of hanging.
+    16.4. GIVEN the test suite WHEN it runs THEN no test waits a fixed time: no `Thread.sleep`, no Awaitility `during` or `pollDelay`.
+
+17. A module is configured on its own, as a separate service would be (Q14).
+    17.1. GIVEN the application WHEN it starts THEN its context holds the `MessageChannel` beans `shopping_carts-external`, `orders-internal`, `payments-requests`, `payments-responses`, `payments-internal`, `shipments-requests`, `shipments-responses` and `shipments-internal`, and the `MessageQueue` beans of the README's channel table (for example `orders-payments-responses` on `payments-responses` with `ecommerce.order.*`), each declared by the configuration class of the module that owns it, plus one `MessageRoutes` bean per module.
+    17.2. GIVEN a module that binds a queue to another module's channel WHEN the application starts on Kafka or RabbitMQ THEN the queue receives the messages published to that channel, whichever module is configured first. (This replaces criterion 14 of r7, which asked Kafka's `bind` to create the channel topic.)
+    17.3. GIVEN the in-memory store and bus WHEN a cart is checked out THEN `ShoppingCartCheckedOut` is published before `PlaceOrder`, because the forwarders subscribe before the saga. This protects existing behaviour (`ECommerceTests`).
+    17.4. GIVEN the application WHEN it starts THEN its context holds one `MessageMapping` bean per module, declared by that module's configuration class, and the type mapper is built from those four.
 
 
 ## Implementation Decisions
@@ -146,8 +161,8 @@ flowchart LR
 
 **Type names and serialization (Q5, Q6).**
 - The type name is `Class.getName()`, as Spring writes it in `__TypeId__` (with `$` for nested records), on both brokers and all three stores.
-- Each module config has a static `mapping()` returning its `MessageMapping`: the packages it trusts (its package and every sub-package that holds a message class, listed one by one, because Spring AMQP's `DefaultClassMapper` matches trusted packages exactly), explicit names, and transformations of old names. A transformation names the class it produces (`register(oldName, OldClass, CurrentClass, transform)`, and the `JsonNode` variant likewise), a small change to the workshop's signature, so the mapper knows every name of a class. No central list: `ECommerceMessages` is deleted.
-- `MessageTypeMapper` merges the module mappings (the workshop's `MessageMappingRegistry` role): name to class (explicit name, old name, else class name in a trusted package), class to name (explicit name, else class name), and class to all its names. `ECommerceApplicationConfig` builds it from the four modules' `mapping()` before it creates the serializer, the buses and the stores; the bus tests build it from the mappings they need through `TestMessages`. Two different classes under one explicit name fail the start.
+- Each module config has a static `mapping()` returning its `MessageMapping`, exposed as a bean by its configuration (Q14): the packages it trusts (its package and every sub-package that holds a message class, listed one by one, because Spring AMQP's `DefaultClassMapper` matches trusted packages exactly), explicit names, and transformations of old names. A transformation names the class it produces (`register(oldName, OldClass, CurrentClass, transform)`, and the `JsonNode` variant likewise), a small change to the workshop's signature, so the mapper knows every name of a class. No central list: `ECommerceMessages` is deleted.
+- `MessageTypeMapper` merges the module mappings (the workshop's `MessageMappingRegistry` role): name to class (explicit name, old name, else class name in a trusted package), class to name (explicit name, else class name), and class to all its names. the shared messaging configuration builds it from the injected `MessageMapping` beans before it creates the serializer, the buses and the stores; the bus tests build it from the mappings they need through `TestMessages`. Two different classes under one explicit name fail the start.
 - One `JsonMapper` bean with `FAIL_ON_UNKNOWN_PROPERTIES=false`, `WRITE_DATES_AS_TIMESTAMPS=false` and `ADJUST_DATES_TO_CONTEXT_TIME_ZONE=false`, so every store and broker keeps an `OffsetDateTime`'s offset as written; the in-memory store's own mapper (with field visibility ANY) goes. Spring's broker serializers get the same mapper, as in the workshop.
 - `MessageSerializer` is one bean on that mapper: it writes a message's bytes and type name and reads bytes by type name, applying transformations. All three stores use it, the in-memory store included, so a message round-trips the same everywhere.
 - Kafka: Spring's `JacksonJsonSerializer` and `JacksonJsonDeserializer` with `DefaultJacksonJavaTypeMapper` (type id first, the mapper's names, the modules' packages trusted); RabbitMQ: Spring's JSON message converter with `DefaultClassMapper` configured the same way; old names through `VersionedMessageConverter` and `MessageTransformations`, as in the workshop. The `__TypeId__` header replaces the `messageType` header; the dead-letter counter's `message.type` tag reads it.
@@ -157,9 +172,10 @@ flowchart LR
 
 **Command handlers and immutable entities (Q7).**
 - In the four shop modules, each entity is a record with a static `initial()` and `evolve(state, event)`; its rules live in a `<Name>Decider` with `handle(command, state)` functions returning an array of events (some shop commands record more than one fact; arrays, as `EventSourcedSpecification` and the hotel deciders use). As in `event-sourcing-kurrentdb-simple` (`new ShoppingCartDecider(productPriceCalculator)`), a decider is an instance when it needs dependencies (the price calculator, the clock, payment validity and terms); otherwise its functions are static. The rule that late or repeated commands produce no events and don't throw stays.
-- `core/commands/CommandHandler<State, Command, Event>` takes the event store, the message context, the stream id mapping, `initial`, `evolve` and the decider function. It reads the stream, folds it, decides, and appends with the version read. Without a client version it retries a conflict with a new read as `AggregateStore` does today; with a client version it appends with that version and reports a conflict, which the API turns into 412. It returns the next version for the ETag. For the commands that continue a trace today, it opens the continuing scope from the last event. `get(id)` returns the folded state, for the facade methods that only read (`PaymentFacade.createCheckoutSession`, `ShoppingCartFacade.isCheckedOut`). A conflict without a client version is retried up to 3 attempts in all, as `AggregateStore` does.
+- `core/commands/CommandHandler<State, Command, Event>` takes the event store, the message context, the stream id mapping, `initial`, `evolve` and the decider function. It reads the stream, folds it, decides, and appends with the version read. Without a client version it retries a conflict with a new read as `AggregateStore` does today; with a client version it appends with that version and reports a conflict, which the API turns into 412. It returns the next version for the ETag. For the commands that continue a trace today, it opens the continuing scope from the last event. `get(id)` returns the folded state, for the facade methods that only read (`PaymentFacade.createCheckoutSession`, `ShoppingCartFacade.isCheckedOut`). A conflict without a client version is retried up to 3 attempts in all, with no delay, through Spring Framework's `RetryTemplate` (`RetryPolicy` with `includes(ConcurrentModificationException.class)`, `maxRetries(2)`, `delay(Duration.ZERO)`), called with `invoke`, which rethrows the last `ConcurrentModificationException`, as the hotel services use it (Q16). `CommandHandler` throws `ConcurrentModificationException` for `AppendResult.Conflict`, as `AggregateStore` does, so `ApiExceptionHandler` keeps answering 412.
 - Facades call command handlers.
-- The shop no longer uses `AbstractAggregate`, `Aggregate` and `AggregateStore`; they stay in core because the hotel process manager style uses them (Q11), adapted to the new event store types only. The test helper `AggregateSpecification` is deleted.
+- The shop no longer uses `AbstractAggregate`, `Aggregate` and `AggregateStore`; they stay in core because the hotel process manager style uses them (Q11), adapted to the new event store types only; `AggregateStore`'s hand-written retry loop becomes the same `RetryTemplate` (Q16), with the same 3 attempts. The test helper `AggregateSpecification` is deleted.
+- The shop's API builds ETags with Spring's `org.springframework.http.ETag`; the sample's own `core/http/ETag` stays for the hotel (Q16). `CommandHandler` and the shop facades return the next stream version as a `long`; the controller writes `new ETag(String.valueOf(version), true).formattedTag()` (`W/"0"`, as today) and reads `If-Match` with `ETag.parse`, taking the first tag's number; an empty or non-numeric `If-Match` throws `IllegalArgumentException`, which `ApiExceptionHandler` answers with 400, as today.
 
 **Hotel examples (Q11).**
 - No hotel class changes. The core classes they use stay in their packages: `CommandBus`, `CommandEnvelope`, `CommandMetadata`, `EventBus`, `core/events/EventEnvelope` and `EventMetadata`, `EntityStore`, `AbstractAggregate`, `Aggregate`, `AggregateStore`, `AbstractProcessManager`, `ETag`.
@@ -176,7 +192,24 @@ flowchart LR
 - One `publish`.
 - RabbitMQ retries through Spring AMQP's listener retry with the `MessageFailureStrategy` as the retry predicate and a recoverer that counts and rejects, as the workshop's `RabbitConfig`. The hand-written loop and `Thread.sleep` go.
 - Kafka and RabbitMQ stay separate classes with no shared base.
-- The Kafka dead-letter counter tags the queue. Kafka's `bind` creates the channel topic, as RabbitMQ's `bind` declares the exchange. `close()` closes the routing producer too. The in-memory bus opens the step span with `consuming`.
+- The Kafka dead-letter counter tags the queue. `close()` closes the routing producer too. The in-memory bus opens the step span with `consuming`.
+
+**Module configuration (Q14).**
+- `ShoppingCartsConfig`, `OrdersConfig`, `PaymentsConfig` and `ShipmentsConfig` become Spring `@Configuration` classes in their packages. Each declares its facade, projections, forwarder, workers and their repositories, and subscribes its handlers on the bus and its subscriptions on the store when its beans are created, as the workshop's module configurations do.
+- Each also declares, with static `@Bean` methods so that the bus can be built before the module: its `MessageRoutes` (as the workshop's `HotelFinancialMessageRoutes`), its `MessageMapping`, its channels as `MessageChannel(name)` beans and its queues as `MessageQueue(name, channel, routingPattern)` beans.
+- The bus gets the lists of `MessageRoutes`, `MessageChannel` and `MessageQueue` in its constructor and creates them before it starts: exchanges, quorum queues, bindings and dead-letter destinations on RabbitMQ; topics, consumer groups and routing consumers on Kafka; maps in memory. All channels exist before any queue is bound, so the order of the modules doesn't matter. `routes`, `channel` and `bind` leave `MessageBus`.
+- No module configuration uses another module's beans; modules share only the bus, the store, and the other modules' external event classes and the names of the channels they publish to others (`ShoppingCartsConfig.external`, `PaymentsConfig.responses`, `ShipmentsConfig.responses`, public constants as today).
+- The order saga subscribes after all other subscriptions, because the in-memory store delivers in subscription order and each forwarder has to run before the saga: `OrdersConfig` subscribes it from a `SmartInitializingSingleton` bean, which Spring calls once all singletons exist. Test wiring in plain Java calls the same method last.
+- `ECommerceConfig` and `ECommerceModule` go. `ECommerceApplicationConfig` keeps the shared infrastructure: the store, the bus, the projections database, the serializer and observability.
+- The hotel examples don't use `channel`, `bind` or `routes`, so they don't change.
+
+**No hand-written retries (Q16).**
+- Retries and waits on a condition use Spring Framework's `RetryTemplate`, Spring AMQP's listener retry or Spring Kafka's error handler, never a hand-written loop with `Thread.sleep`. The event stores keep their own schedulers for polling and for resubscribing after a delay (plain Java, Q4), because `RetryTemplate` blocks.
+
+**Catch-up waits (Q13).
+- `MessageBus.awaitCaughtUp(Duration timeout)` returns once the queues the bus consumes have handled or dead-lettered every message published before the call, and fails with the queue or consumer group name after the timeout. A bus that isn't running returns at once. In memory it returns at once, because `publish` delivers synchronously. Kafka waits for the routing consumers and then the queue consumers, each until its group's committed offsets reach the end offsets read when the wait starts; Kafka can't announce that, so the bus checks again every 50 ms through a `RetryTemplate` with that fixed delay and a timeout of the time left: one deadline for the whole wait, shared by all consumer groups. "Not caught up yet" is an `IllegalStateException` naming the consumer group and topic; `invoke` rethrows it when the time is up. RabbitMQ sends a probe to each queue and waits until its consumer takes it, because a queue's one consumer handles messages in order.
+- `EventStore.subscribe` returns a `Subscription` (callers that chain `subscribe` today call it once per statement; no hotel class chains it) with `awaitProcessed(Checkpoint checkpoint, Duration timeout)`, which returns once the subscription has handled the event at that checkpoint or a later one, and fails after the timeout. The checkpoint is one of an event of the subscription's types, usually from an append result. Checkpoints are ordered by transaction id, then position, as the PostgreSQL poll orders them; KurrentDB and in-memory put 0 into the transaction id, so they order by position.
+- A test that proves an event was not delivered (a type the subscription doesn't take, a failed append) appends one more event of the subscribed type, waits for its checkpoint, then asserts once. A test with a handler that always fails asserts once after `close()` returns, because `close()` returns only after the subscription has stopped.
 
 **Bugs.**
 - `micrometer-tracing-bridge-otel` becomes an `implementation` dependency; the `testImplementation` copy goes.
@@ -192,22 +225,28 @@ flowchart LR
 - `kurrentdb.connectionstring` stays, as in every other sample.
 - `spring.sql.init.platform`, `hibernate.jdbc.lob.non_contextual_creation` and `spring.jpa.generate-ddl` are removed. The CI workflow drops `-Pci=true`. The two `configurations {}` and the two test-task blocks in `build.gradle` are merged. `logs/test.log` is rewritten on each run.
 
-**Dead code deleted.** `core/processing/HandlerWithAck`, `HandlerWithAckProcessor`, `core/async/SyncProcessor`, `ShoppingCartId.derivedFrom`, `ECommerceModule.shipments()` and `ShipmentsModule`.
+**Dead code deleted.** `core/processing/HandlerWithAck`, `HandlerWithAckProcessor`, `core/async/SyncProcessor`, `ShoppingCartId.derivedFrom`; `ECommerceModule` and the per-module `ShoppingCartsModule`, `OrdersModule`, `PaymentsModule` and `ShipmentsModule` go with the module configuration (Q14).
 
-**Docs.** README and HOWTO describe the shop's deciders and command handlers instead of aggregates, the type names, the PostgreSQL store and the summaries of both payments and shipments (the README's "The forwarder could load the aggregate" reason is rewritten for immutable entities). README Java blocks are copies of the code, with `// ...` where code is left out; line anchors are fixed. The HOWTO says that stored type names changed, so old KurrentDB and PostgreSQL data is removed once with `docker compose down -v`, and it names `playwrightInstallDeps`. The dev-container Kafka note lives in AGENTS.md, and README and HOWTO link to it.
+**Docs.** README and HOWTO describe the modules' own configurations (the "Channels and queues" section and the composition root paragraph are rewritten), the catch-up waits, the shop's deciders and command handlers instead of aggregates, the type names, the PostgreSQL store and the summaries of both payments and shipments (the README's "The forwarder could load the aggregate" reason is rewritten for immutable entities). README Java blocks are copies of the code, with `// ...` where code is left out; line anchors are fixed. The HOWTO says that stored type names changed, so old KurrentDB and PostgreSQL data is removed once with `docker compose down -v`, and it names `playwrightInstallDeps`. The dev-container Kafka note lives in AGENTS.md, and README and HOWTO link to it.
 
 **Generated documents.** The AsyncAPI documents and the EventCatalog copies are regenerated.
 
 ## Testing Decisions
 
 - Tests describe behaviour from the caller's side, Given/When/Then, AssertJ, no mocks, real databases through `TestDatabases`, new ids per test (AGENTS.md).
-- Seams (Q9): deciders through `EventSourcedSpecification`; stores through the shared `EventStoreTests` (criteria 2, 4); buses through the shared `MessageBusTests`, its broker base and the broker failure tests (criteria 5, 13-15); the API and shop pages through `ApiSpecification` and the shop page tests (criteria 6.4, 6.5, 11); flows through `ECommerceTests`, the purchase trace tests and `GrafanaExportTests` (criterion 1).
+- Seams (Q9): deciders through `EventSourcedSpecification`; stores through the shared `EventStoreTests` (criteria 2, 4); buses through the shared `MessageBusTests`, its broker base and the broker failure tests (criteria 5, 13, 15, 16.1, 16.2, 17.2); the API and shop pages through `ApiSpecification` and the shop page tests (criteria 6.4, 6.5, 11); flows through `ECommerceTests`, the purchase trace tests (criterion 1). No new seam: criterion 17.1 runs in the started application (`@SpringBootTest`), and tests that build modules without Spring call the module configuration's bean methods as plain Java (Q9).
 - Criterion 1.1 has no new test: removing the test-only bridge makes the existing trace tests fail when the main build lacks it.
 - Criterion 3 runs in the PostgreSQL store's own tests against a real PostgreSQL. Criterion 6 runs in a new `CommandHandlerTests` on the in-memory store. `AggregateStoreTests` stays, adapted to the new store types. Tests with their own test-only message classes (such as `AggregateStoreTests` and `CommandHandlerTests`) build a `MessageMapping` through `TestMessages` that trusts the test's own package.
-- Checked by the step review, with no test: the PostgreSQL poll has no type filter and moves its cursor over the batch; `KafkaMessageBus.close()` closes the routing producer; `PostgreSQLSubscription`'s constructor doesn't read the checkpoint; derived message ids use the type name, and a published message's id is random when there is no handled message id; the in-memory store's middleware runs before subscribers and its failure is not retried as a subscriber's.
-- The store-neutral tests of `InMemoryEventStoreTests` move into `EventStoreTests`; the six scenarios copied into `KafkaMessageBusTests` and `RabbitMQMessageBusTests` move into a shared base of the Kafka and RabbitMQ bus tests; `PurchaseOnKafkaTraceTests`, `PurchaseOnRabbitMQTraceTests` and `GrafanaExportTests` share one purchase helper and use `PurchaseRestBuilder.paid()`; the Kafka and RabbitMQ redelivery tests get one abstract base, as `MessageBusTests` has.
-- Test infrastructure: the RabbitMQ dead-letter test checks the interval like the Kafka one; `TestTracing` has one exporter per instance; `LgtmApi` throws on HTTP errors other than "not found"; `ApiSpecification` compares strings with `equals`; `TestDatabases.newKafkaContainer()` and the image and timeout constants are used everywhere; one way to count RabbitMQ messages; the OTLP and server property blocks become helpers; test names use sentences and the `Tests` suffix.
+- Checked by the step review, with no test: the PostgreSQL poll has no type filter and moves its cursor over the batch; `KafkaMessageBus.close()` closes the routing producer; `PostgreSQLSubscription`'s constructor doesn't read the checkpoint; derived message ids use the type name, and a published message's id is random when there is no handled message id; the in-memory store's middleware runs before subscribers and its failure is not retried as a subscriber's; `src/test` has no `Thread.sleep`, `during(` or `pollDelay` (criterion 16.4).
+- The store-neutral tests of `InMemoryEventStoreTests` move into `EventStoreTests`; the six scenarios copied into `KafkaMessageBusTests` and `RabbitMQMessageBusTests` move into a shared base of the Kafka and RabbitMQ bus tests; `PurchaseOnKafkaTraceTests`, and `PurchaseOnRabbitMQTraceTests` share one purchase helper and use `PurchaseRestBuilder.paid()`; the Kafka and RabbitMQ redelivery tests get one abstract base, as `MessageBusTests` has.
+- Test infrastructure: the RabbitMQ dead-letter test checks the interval like the Kafka one; `TestTracing` has one exporter per instance; `LgtmApi` throws on HTTP errors other than "not found"; `ApiSpecification` compares strings with `equals`; `TestDatabases.newKafkaContainer()` and the image and timeout constants are used everywhere; one way to count RabbitMQ messages, and `RabbitMQQueues.receiveAll` waits with Awaitility until the expected number of messages arrived and fails with Awaitility's timeout instead of returning a shorter list; its callers assert that number anyway (Q16); the OTLP and server property blocks become helpers; test names use sentences and the `Tests` suffix.
 - The domain tests of the four shop modules move from `AggregateSpecification` to `EventSourcedSpecification` and keep their scenarios. The hotel tests stay as they are.
+- Tests check the sample's own code, its integration with the brokers, stores and databases, and the flows end to end; never the behaviour of the tools themselves (Q17). Test containers use the same settings as `docker-compose.yml` where they change timing, such as Kafka's consumer group join delay of 0.
+- No test waits a fixed time (Q13). A test that proves something does not happen waits for the bus or the subscription to catch up, then asserts once. Awaitility's `atMost` stays only as the limit of a wait on a condition.
+- The bus tests check handled messages with `MessageCatcher`, copied from the workshop into `testing/`, after `awaitCaughtUp`; the string `log` lists and `awaitLog` go (Q14).
+- Tests that build modules without the web application call the module configuration's bean methods as plain Java, as they call the static `configure` functions today, and subscribe the saga last.
+- A test that waits for the end of a chain of messages (a projection row, a published message) waits on that last observable result with Awaitility `atMost`; the catch-up waits serve the checks that nothing more happens on one bus or one subscription. On the in-memory store and bus the whole chain runs before `publish` or `append` returns.
+- The test task runs test classes in two JVMs (`maxParallelForks = 2`, Q17). Only one Gradle test run runs at a time.
 
 ## Out of Scope
 
@@ -224,8 +263,11 @@ flowchart LR
 - The order reading shipment progress from the cancellation reason (a domain change no answer asked for).
 - The fulfillment client logging a failed call instead of recording it (the README documents it).
 - The low findings in review/findings.md that this spec doesn't name.
+- Each module as a separate application with its own `@SpringBootApplication` (Q14 option B): follow-up F3.
+- A negative client version in `If-Match` and appending zero events (step 2 review): follow-ups F1 and F2, for Oskar ("fix stuff you can leaving blockers as the follow up for me"); later steps keep today's behaviour for both.
 
 ## Further Notes
 
 - Research: [review/findings.md](review/findings.md). Q&A: [qa.md](qa.md).
+- Follow-ups for Oskar: [follow-ups.md](follow-ups.md).
 - The plan should group the work into as few steps as possible (Q1, Q9), each ending with the folder's CI command.
