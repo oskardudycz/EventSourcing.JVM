@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce;
 
-import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrdersConfig;
 import io.eventdriven.distributedprocesses.ecommerce.orders.PaymentTerms;

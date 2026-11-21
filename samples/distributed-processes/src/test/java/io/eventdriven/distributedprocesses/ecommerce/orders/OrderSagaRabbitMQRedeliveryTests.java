@@ -2,7 +2,7 @@ package io.eventdriven.distributedprocesses.ecommerce.orders;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RabbitMQMessageBus;

@@ -5,8 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
-import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;

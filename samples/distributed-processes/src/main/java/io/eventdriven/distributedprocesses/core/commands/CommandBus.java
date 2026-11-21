@@ -1,6 +1,6 @@
 package io.eventdriven.distributedprocesses.core.commands;
 
-import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import java.util.function.Consumer;
 
 public interface CommandBus {

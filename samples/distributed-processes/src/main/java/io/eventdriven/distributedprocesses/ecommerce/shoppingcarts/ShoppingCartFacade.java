@@ -3,6 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts;
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartCommand.*;
 
 import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
+import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
 import java.time.OffsetDateTime;
@@ -44,14 +45,14 @@ public class ShoppingCartFacade {
     public ETag removeProductItem(RemoveProductItemFromShoppingCart command) {
         return store.getAndUpdate(
                 command.shoppingCartId(),
-                command.expectedVersion(),
+                ExpectedStreamVersion.at(command.expectedVersion()),
                 current -> current.removeProductItem(command.productItem(), now.get()));
     }
 
     public ETag checkOut(CheckOutShoppingCart command) {
         return store.getAndUpdate(
                 command.shoppingCartId(),
-                command.expectedVersion(),
+                ExpectedStreamVersion.at(command.expectedVersion()),
                 current -> current.checkOut(productPriceCalculator, now.get()));
     }
 

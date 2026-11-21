@@ -3,8 +3,8 @@ package io.eventdriven.distributedprocesses.ecommerce;
 import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
-import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRouter;
 import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand;

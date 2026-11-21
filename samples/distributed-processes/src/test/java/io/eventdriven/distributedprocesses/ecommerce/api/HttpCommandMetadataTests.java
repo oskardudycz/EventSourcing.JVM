@@ -2,7 +2,7 @@ package io.eventdriven.distributedprocesses.ecommerce.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;

@@ -4,9 +4,10 @@ import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentComm
 import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
+import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
-import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
-import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
@@ -17,7 +18,6 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGatew
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizedPaymentRepository;
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.PendingPaymentRepository;
 import io.eventdriven.testing.TestTracing;
-import io.kurrent.dbclient.StreamState;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -51,7 +51,7 @@ public class PaymentExternalEventRedeliveryTests {
                 .subscribe("probe", PaymentExternalEvent.PaymentAuthorized.class, event -> {
                     eventStore.append(
                             receivedStream,
-                            StreamState.any(),
+                            ExpectedStreamVersion.any(),
                             new Received(event.paymentId().value()));
 
                     if (calls.incrementAndGet() == 1) throw new IllegalStateException("Consumer is not ready");

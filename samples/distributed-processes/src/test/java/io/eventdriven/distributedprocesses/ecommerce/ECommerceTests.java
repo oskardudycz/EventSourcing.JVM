@@ -6,7 +6,7 @@ import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCancellationReason;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.*;

@@ -5,8 +5,8 @@ import static io.eventdriven.distributedprocesses.ecommerce.payments.external.Pa
 import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
-import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;

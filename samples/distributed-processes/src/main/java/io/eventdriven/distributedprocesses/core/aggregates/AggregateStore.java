@@ -1,10 +1,10 @@
 package io.eventdriven.distributedprocesses.core.aggregates;
 
+import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.distributedprocesses.core.http.ETag;
-import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
-import io.kurrent.dbclient.StreamState;
 import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.Optional;
@@ -47,21 +47,22 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
                         : eventStore.continueTraceOf(stepName, events.getLast().metadata()));
     }
 
-    public ETag getAndUpdate(Id id, long expectedVersion, Consumer<Entity> handle) {
+    public ETag getAndUpdate(Id id, ExpectedStreamVersion expectedVersion, Consumer<Entity> handle) {
         return update(id, get(id).orElseGet(getEmpty), expectedVersion, handle);
     }
 
-    private ETag update(Id id, Entity entity, long expectedVersion, Consumer<Entity> handle) {
+    private ETag update(Id id, Entity entity, ExpectedStreamVersion expectedVersion, Consumer<Entity> handle) {
         handle.accept(entity);
 
         var events = entity.dequeueUncommittedEvents();
 
-        if (events.length == 0) return ETag.weak(expectedVersion);
+        if (events.length == 0)
+            return ETag.weak(expectedVersion instanceof ExpectedStreamVersion.At at ? at.version() : -1);
 
         var streamId = mapToStreamId.apply(id);
 
-        return switch (eventStore.append(streamId, toExpectedRevision(expectedVersion), events)) {
-            case EventStore.AppendResult.Success success -> ETag.weak(success.nextExpectedRevision());
+        return switch (eventStore.append(streamId, expectedVersion, events)) {
+            case EventStore.AppendResult.Success success -> ETag.weak(success.nextStreamVersion());
             case EventStore.AppendResult.StreamAlreadyExists alreadyExists ->
                 throw new ConcurrentModificationException(
                         "Cannot append to stream %s: expected no stream, but it is at %s"
@@ -73,8 +74,8 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
         };
     }
 
-    private static StreamState toExpectedRevision(long version) {
-        return version < 0 ? StreamState.noStream() : StreamState.streamRevision(version);
+    private static ExpectedStreamVersion toExpectedVersion(long version) {
+        return version < 0 ? ExpectedStreamVersion.noStream() : ExpectedStreamVersion.at(version);
     }
 
     private ETag getAndUpdate(
@@ -84,7 +85,7 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
             var entity = events.isEmpty() ? getEmpty.get() : replay(events);
 
             try (var _ = scopeOf.apply(events)) {
-                return update(id, entity, entity.version, handle);
+                return update(id, entity, toExpectedVersion(entity.version), handle);
             } catch (ConcurrentModificationException e) {
                 if (attempt == maxAttempts) throw e;
             }
@@ -94,7 +95,6 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
     private List<EventEnvelope<Object>> eventsOf(Id id) {
         return switch (eventStore.read(mapToStreamId.apply(id))) {
             case EventStore.ReadResult.StreamDoesNotExist ignored -> List.of();
-            case EventStore.ReadResult.NoEventsFound ignored -> List.of();
             case EventStore.ReadResult.Success success -> success.events();
             case EventStore.ReadResult.UnexpectedFailure failure -> throw new RuntimeException(failure.t());
         };
@@ -113,13 +113,16 @@ public class AggregateStore<Entity extends AbstractAggregate<Event, Id>, Event, 
         return current;
     }
 
-    private static String describe(StreamState revision) {
-        if (revision.equals(StreamState.noStream())) return "no stream";
+    private static String describe(long version) {
+        return version < 0 ? "no stream" : "version %s".formatted(version);
+    }
 
-        if (revision.equals(StreamState.streamExists())) return "stream exists";
-
-        if (revision.equals(StreamState.any())) return "any revision";
-
-        return "revision %s".formatted(revision);
+    private static String describe(ExpectedStreamVersion expected) {
+        return switch (expected) {
+            case ExpectedStreamVersion.NoStream ignored -> "no stream";
+            case ExpectedStreamVersion.StreamExists ignored -> "stream exists";
+            case ExpectedStreamVersion.Any ignored -> "any version";
+            case ExpectedStreamVersion.At at -> describe(at.version());
+        };
     }
 }

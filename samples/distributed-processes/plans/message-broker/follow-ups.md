@@ -1,6 +1,6 @@
 # Follow-ups after the message-broker plan
 
-## F1. Naive stream subscription left in the KurrentDB buses
+## F1. Naive stream subscription left in the KurrentDB buses (done, option A, in step 2 of the alignment-and-cleanup plan)
 
 Oskar asked why a subscription goes to a stream and not to `$all`, and why it isn't like the main samples (2026-11-20).
 

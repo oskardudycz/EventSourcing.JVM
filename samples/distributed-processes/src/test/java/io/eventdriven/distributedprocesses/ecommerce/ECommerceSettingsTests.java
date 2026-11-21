@@ -5,10 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import io.eventdriven.distributedprocesses.Application;
-import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
-import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
-import io.eventdriven.distributedprocesses.core.kurrentdb.KurrentDBEventStore;
-import io.eventdriven.distributedprocesses.core.kurrentdb.PostgreSQLEventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.kurrentdb.KurrentDBEventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.postgresql.PostgreSQLEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.KafkaMessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;

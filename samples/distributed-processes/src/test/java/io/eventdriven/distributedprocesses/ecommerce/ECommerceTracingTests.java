@@ -3,7 +3,7 @@ package io.eventdriven.distributedprocesses.ecommerce;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.testing.InMemorySpansConfiguration;

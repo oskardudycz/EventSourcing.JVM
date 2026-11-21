@@ -5,8 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
+import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
-import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CancelPayment;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.CapturePayment;

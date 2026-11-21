@@ -4,8 +4,9 @@ import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
+import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
-import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.KafkaMessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
@@ -18,7 +19,6 @@ import io.eventdriven.testing.KafkaTopics;
 import io.eventdriven.testing.TestDatabases;
 import io.eventdriven.testing.TestKafka;
 import io.eventdriven.testing.TestMessages;
-import io.kurrent.dbclient.StreamState;
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -90,7 +90,9 @@ public class PaymentExternalEventKafkaRedeliveryTests {
                 streamId,
                 new PaymentEvent.PaymentAuthorizationRequested(paymentId, referenceId, 62.5, now, now.plusMinutes(5)));
         eventStore.append(
-                streamId, StreamState.any(), new PaymentEvent.PaymentAuthorized(paymentId, now, now.plusDays(7)));
+                streamId,
+                ExpectedStreamVersion.any(),
+                new PaymentEvent.PaymentAuthorized(paymentId, now, now.plusDays(7)));
         eventStore.append("Trigger-" + UUID.randomUUID(), new Trigger());
 
         await().atMost(Duration.ofSeconds(30))

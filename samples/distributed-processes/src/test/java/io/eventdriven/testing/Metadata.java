@@ -7,6 +7,6 @@ public final class Metadata {
     public static EventMetadata at(String streamId, long position) {
         var id = UUID.randomUUID().toString();
 
-        return new EventMetadata(streamId, position, position, id, id, id, null, null);
+        return new EventMetadata(streamId, position, position, 0, id, id, id, null, null);
     }
 }

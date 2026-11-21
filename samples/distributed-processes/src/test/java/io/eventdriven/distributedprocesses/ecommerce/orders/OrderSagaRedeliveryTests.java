@@ -2,8 +2,9 @@ package io.eventdriven.distributedprocesses.ecommerce.orders;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
-import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
+import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
@@ -13,7 +14,6 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.Aut
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 import io.eventdriven.testing.TestTracing;
-import io.kurrent.dbclient.StreamState;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -41,11 +41,12 @@ public class OrderSagaRedeliveryTests {
                 .subscribe("probe", AuthorizePayment.class, command -> {
                     eventStore.append(
                             authorizationsStream,
-                            StreamState.any(),
+                            ExpectedStreamVersion.any(),
                             new Handled(command.paymentId().value()));
                 })
                 .subscribe("probe", ReserveStock.class, command -> {
-                    eventStore.append(reservationsStream, StreamState.any(), new Handled(command.referenceId()));
+                    eventStore.append(
+                            reservationsStream, ExpectedStreamVersion.any(), new Handled(command.referenceId()));
 
                     if (reserveStockCalls.incrementAndGet() == 1) throw new IllegalStateException("Warehouse is busy");
                 });

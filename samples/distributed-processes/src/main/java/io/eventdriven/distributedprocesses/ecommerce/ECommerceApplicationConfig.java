@@ -2,10 +2,10 @@ package io.eventdriven.distributedprocesses.ecommerce;
 
 import io.eventdriven.distributedprocesses.Application;
 import io.eventdriven.distributedprocesses.core.configuration.Settings;
-import io.eventdriven.distributedprocesses.core.kurrentdb.EventStore;
-import io.eventdriven.distributedprocesses.core.kurrentdb.InMemoryEventStore;
-import io.eventdriven.distributedprocesses.core.kurrentdb.KurrentDBEventStore;
-import io.eventdriven.distributedprocesses.core.kurrentdb.PostgreSQLEventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.kurrentdb.KurrentDBEventStore;
+import io.eventdriven.distributedprocesses.core.eventstore.postgresql.PostgreSQLEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.KafkaMessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
@@ -14,8 +14,8 @@ import io.eventdriven.distributedprocesses.core.messaging.MessageFailureStrategy
 import io.eventdriven.distributedprocesses.core.messaging.RabbitMQMessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.distributedprocesses.core.processing.RetryBackOff;
-import io.eventdriven.distributedprocesses.core.projections.ProcessorCheckpoints;
 import io.eventdriven.distributedprocesses.core.serialization.EventSerializer;
+import io.eventdriven.distributedprocesses.core.subscriptions.SubscriptionCheckpoints;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrderFacade;
 import io.eventdriven.distributedprocesses.ecommerce.orders.PaymentTerms;
 import io.eventdriven.distributedprocesses.ecommerce.orders.api.CustomerOrderRepository;
@@ -107,7 +107,7 @@ public class ECommerceApplicationConfig {
             @Value("${eventstore.postgresql.password}") String postgreSQLPassword,
             MessageContext messageContext,
             ObjectProvider<ObservationRegistry> observations,
-            ProcessorCheckpoints checkpoints) {
+            SubscriptionCheckpoints checkpoints) {
         return switch (type) {
             case "in-memory" -> new InMemoryEventStore(messageContext);
             case "kurrentdb" ->
