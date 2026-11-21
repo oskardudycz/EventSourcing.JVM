@@ -3,6 +3,7 @@ package io.eventdriven.distributedprocesses.core.messaging;
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +13,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
@@ -42,6 +45,7 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     public static final String DEAD_LETTERED = "messaging.dead_lettered";
 
     private static final String UNKNOWN_TYPE = "unknown";
+    private static final String CATCH_UP_PROBE = "catchUpProbe";
     private static final Set<String> MANDATORY_CHANNEL_SUFFIXES = Set.of("-requests", "-internal");
 
     public record FailureHandling(MessageFailureStrategy strategy, BackOff backOff, MeterRegistry meters) {}
@@ -62,6 +66,7 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     private final List<Consumer<Object>> middlewares = new CopyOnWriteArrayList<>();
     private final Map<String, Map<Class<?>, List<Consumer<Object>>>> queues = new ConcurrentHashMap<>();
     private final Map<String, SimpleMessageListenerContainer> containers = new ConcurrentHashMap<>();
+    private final Map<String, CountDownLatch> catchUpProbes = new ConcurrentHashMap<>();
     private volatile boolean running;
 
     public RabbitMQMessageBus(
@@ -179,6 +184,33 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
         middlewares.add(middleware);
     }
 
+    // Each queue has one consumer that handles its messages in order, so when a probe sent after them comes back,
+    // the messages before it are handled or dead-lettered.
+    @Override
+    public void awaitCaughtUp(Duration timeout) {
+        if (!running) return;
+
+        var deadline = Instant.now().plus(timeout);
+
+        for (var queue : containers.keySet()) {
+            var probeId = UUID.randomUUID().toString();
+            var probe = new CountDownLatch(1);
+            catchUpProbes.put(probeId, probe);
+
+            try {
+                send(new RoutingTarget("", queue), catchUpProbe(probeId));
+
+                if (!probe.await(Duration.between(Instant.now(), deadline).toMillis(), TimeUnit.MILLISECONDS))
+                    throw new IllegalStateException("Queue '%s' didn't catch up in time".formatted(queue));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Waiting for queue '%s' to catch up was interrupted".formatted(queue));
+            } finally {
+                catchUpProbes.remove(probeId);
+            }
+        }
+    }
+
     @Override
     public void start() {
         running = true;
@@ -204,6 +236,13 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
 
     private MessageListener queueListener(String queue) {
         return amqpMessage -> {
+            var probeId = amqpMessage.getMessageProperties().<String>getHeader(CATCH_UP_PROBE);
+            if (probeId != null) {
+                var probe = catchUpProbes.get(probeId);
+                if (probe != null) probe.countDown();
+                return;
+            }
+
             var backOff = failures.backOff().start();
 
             while (true) {
@@ -304,6 +343,14 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
                 .build();
 
         return new Message(serializer.write(message), properties);
+    }
+
+    private static Message catchUpProbe(String probeId) {
+        return new Message(
+                new byte[0],
+                MessagePropertiesBuilder.newInstance()
+                        .setHeader(CATCH_UP_PROBE, probeId)
+                        .build());
     }
 
     private void declareDeadLetterQueue(String queue) {

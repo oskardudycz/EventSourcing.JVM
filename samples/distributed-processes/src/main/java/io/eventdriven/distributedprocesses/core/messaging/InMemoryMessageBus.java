@@ -1,5 +1,6 @@
 package io.eventdriven.distributedprocesses.core.messaging;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -75,6 +76,8 @@ public class InMemoryMessageBus implements MessageBus {
     public void use(Consumer<Object> middleware) {
         middlewares.add(middleware);
     }
+
+    public void awaitCaughtUp(Duration timeout) {}
 
     private static MessageRouter routerFor(List<MessageRoutes> routes) {
         return new MessageRouter(List.copyOf(routes), message -> new RoutingTarget(null, null));

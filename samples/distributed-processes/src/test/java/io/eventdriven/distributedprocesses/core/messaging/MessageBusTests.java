@@ -3,7 +3,6 @@ package io.eventdriven.distributedprocesses.core.messaging;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.awaitility.Awaitility.await;
 
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
 import java.time.Duration;
@@ -17,7 +16,7 @@ import org.junit.jupiter.api.Test;
 
 public abstract class MessageBusTests {
     private static final String KEY = "ecommerce.order.1";
-    private static final Duration LATE_DELIVERY_WINDOW = Duration.ofSeconds(2);
+    private static final Duration CATCH_UP_TIMEOUT = Duration.ofSeconds(30);
 
     protected final String id = UUID.randomUUID().toString().substring(0, 8);
     protected final String orders = "orders-" + id;
@@ -67,21 +66,17 @@ public abstract class MessageBusTests {
     }
 
     protected void awaitLog(String... entries) {
-        await().atMost(Duration.ofSeconds(30))
-                .untilAsserted(() -> assertThat(log).containsExactlyInAnyOrder(entries));
-        awaitLogStaysTheSame(entries);
+        awaitCaughtUp();
+        assertThat(log).containsExactlyInAnyOrder(entries);
     }
 
     protected void awaitLogInOrder(String... entries) {
-        await().atMost(Duration.ofSeconds(30))
-                .untilAsserted(() -> assertThat(log).containsExactly(entries));
-        awaitLogStaysTheSame(entries);
+        awaitCaughtUp();
+        assertThat(log).containsExactly(entries);
     }
 
-    private void awaitLogStaysTheSame(String... entries) {
-        await().during(LATE_DELIVERY_WINDOW)
-                .atMost(LATE_DELIVERY_WINDOW.plusSeconds(5))
-                .untilAsserted(() -> assertThat(log).containsExactlyInAnyOrder(entries));
+    protected void awaitCaughtUp() {
+        buses.forEach(bus -> bus.awaitCaughtUp(CATCH_UP_TIMEOUT));
     }
 
     @Test

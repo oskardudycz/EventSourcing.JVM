@@ -87,6 +87,12 @@ public final class TestDatabases {
                 .orElseGet(() -> connectionTo(SharedRabbitMQ.container));
     }
 
+    public static ConfluentKafkaContainer newKafkaContainer() {
+        return new ConfluentKafkaContainer(DockerImageName.parse(KAFKA_IMAGE))
+                .withEnv("KAFKA_AUTO_CREATE_TOPICS_ENABLE", "false")
+                .withEnv("KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS", "0");
+    }
+
     public static RabbitMQContainer newRabbitMQContainer() {
         return new RabbitMQContainer(RABBITMQ_IMAGE);
     }
@@ -124,9 +130,7 @@ public final class TestDatabases {
     }
 
     private static final class SharedKafka {
-        private static final ConfluentKafkaContainer container = new ConfluentKafkaContainer(
-                        DockerImageName.parse(KAFKA_IMAGE))
-                .withEnv("KAFKA_AUTO_CREATE_TOPICS_ENABLE", "false");
+        private static final ConfluentKafkaContainer container = newKafkaContainer();
 
         static {
             container.start();
