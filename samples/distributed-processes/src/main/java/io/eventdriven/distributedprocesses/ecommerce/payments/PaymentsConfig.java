@@ -3,11 +3,12 @@ package io.eventdriven.distributedprocesses.ecommerce.payments;
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
 
-import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
+import io.eventdriven.distributedprocesses.core.commands.CommandHandler;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
+import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
@@ -93,14 +94,21 @@ public class PaymentsConfig {
     @Bean
     public PaymentFacade paymentFacade(
             EventStore eventStore,
+            MessageContext messageContext,
             MessageBus messageBus,
             PaymentGateway paymentGateway,
             PaymentValidity paymentValidity,
             Supplier<OffsetDateTime> now) {
-        var store = new AggregateStore<Payment, PaymentEvent, PaymentId>(
-                eventStore, PaymentFacade::mapToStreamId, Payment::empty);
+        var decider = new PaymentDecider(paymentValidity, now);
+        var commandHandler = new CommandHandler<PaymentId, Payment, PaymentCommand, PaymentEvent>(
+                eventStore,
+                messageContext,
+                PaymentFacade::mapToStreamId,
+                Payment::initial,
+                Payment::evolve,
+                decider::handle);
 
-        var facade = new PaymentFacade(store, paymentGateway, paymentValidity, now);
+        var facade = new PaymentFacade(commandHandler, paymentGateway, now);
 
         messageBus
                 .subscribe(requests, AuthorizePayment.class, facade::authorizePayment)

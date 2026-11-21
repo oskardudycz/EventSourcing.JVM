@@ -152,8 +152,8 @@ public class OrderSaga {
                             payloadType = RecordOrderPaymentCapture.class,
                             description = "Records on the order that the customer was charged."))
     public void onPaymentCaptured(PaymentExternalEvent.PaymentCaptured event) {
-        messageBus.publish(
-                List.of(new RecordOrderPaymentCapture(new OrderId(event.referenceId()), event.capturedAt())));
+        messageBus.publish(List.of(new RecordOrderPaymentCapture(
+                new OrderId(event.referenceId()), event.paymentId(), event.capturedAt())));
     }
 
     // Compensation
@@ -169,7 +169,8 @@ public class OrderSaga {
                             payloadType = RecordOrderPaymentFailure.class,
                             description = "Records on the order that the payment failed."))
     public void onPaymentFailed(PaymentExternalEvent.PaymentFailed event) {
-        messageBus.publish(List.of(new RecordOrderPaymentFailure(new OrderId(event.referenceId()), event.failedAt())));
+        messageBus.publish(List.of(
+                new RecordOrderPaymentFailure(new OrderId(event.referenceId()), event.paymentId(), event.failedAt())));
     }
 
     @AsyncListener(

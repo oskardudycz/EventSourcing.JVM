@@ -11,20 +11,15 @@ public sealed interface ShipmentEvent {
             ShipmentId shipmentId, String referenceId, ProductItem[] productItems, OffsetDateTime availabilityCheckedAt)
             implements ShipmentEvent {}
 
-    record FulfillmentRequested(
-            ShipmentId shipmentId, String referenceId, ProductItem[] productItems, OffsetDateTime requestedAt)
+    record FulfillmentRequested(ShipmentId shipmentId, ProductItem[] productItems, OffsetDateTime requestedAt)
             implements ShipmentEvent {}
 
-    record FulfillmentRejected(ShipmentId shipmentId, String referenceId, OffsetDateTime rejectedAt)
+    record FulfillmentRejected(ShipmentId shipmentId, OffsetDateTime rejectedAt) implements ShipmentEvent {}
+
+    record PackageWasSent(ShipmentId shipmentId, String carrier, String trackingNumber, OffsetDateTime sentAt)
             implements ShipmentEvent {}
 
-    record PackageWasSent(
-            ShipmentId shipmentId, String referenceId, String carrier, String trackingNumber, OffsetDateTime sentAt)
-            implements ShipmentEvent {}
+    record PackageWasDelivered(ShipmentId shipmentId, OffsetDateTime deliveredAt) implements ShipmentEvent {}
 
-    record PackageWasDelivered(ShipmentId shipmentId, String referenceId, OffsetDateTime deliveredAt)
-            implements ShipmentEvent {}
-
-    record StockReleased(ShipmentId shipmentId, String referenceId, OffsetDateTime releasedAt)
-            implements ShipmentEvent {}
+    record StockReleased(ShipmentId shipmentId, OffsetDateTime releasedAt) implements ShipmentEvent {}
 }

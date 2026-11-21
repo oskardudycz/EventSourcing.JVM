@@ -1,16 +1,18 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments;
 
+import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.payments.PaymentEvent.*;
 
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
-import io.eventdriven.testing.AggregateSpecification;
+import io.eventdriven.testing.EventSourcedSpecification;
 import java.net.URI;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import java.util.function.Consumer;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
-public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, PaymentId> {
+public class PaymentTests extends EventSourcedSpecification<Payment, PaymentEvent> {
     private final PaymentId paymentId = PaymentId.of(UUID.randomUUID());
     private final String referenceId = Urns.of("ecommerce", "order", UUID.randomUUID());
     private final double amount = 62.5;
@@ -36,17 +38,19 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
     private final PaymentAuthorizationExpired authorizationExpired =
             new PaymentAuthorizationExpired(paymentId, captureBefore);
 
-    private final Consumer<Payment> confirmAuthorization = current -> current.confirmAuthorization(now, captureBefore);
-    private final Consumer<Payment> requestCapture = current -> current.requestCapture(now);
-    private final Consumer<Payment> confirmCapture = current -> current.confirmCapture(now);
-    private final Consumer<Payment> failCapture =
-            current -> current.failCapture(CaptureFailureReason.UnexpectedError, now);
-    private final Consumer<Payment> cancel = current -> current.cancel(now);
-    private final Consumer<Payment> timeOut = current -> current.timeOut(timesOutAt);
-    private final Consumer<Payment> expireAuthorization = current -> current.expireAuthorization(captureBefore);
+    private final Function<Payment, PaymentEvent[]> confirmAuthorization =
+            handling(new ConfirmPaymentAuthorization(paymentId, captureBefore));
+    private final Function<Payment, PaymentEvent[]> requestCapture = handling(new CapturePayment(paymentId));
+    private final Function<Payment, PaymentEvent[]> confirmCapture = handling(new ConfirmPaymentCapture(paymentId));
+    private final Function<Payment, PaymentEvent[]> failCapture =
+            handling(new FailPaymentCapture(paymentId, CaptureFailureReason.UnexpectedError));
+    private final Function<Payment, PaymentEvent[]> cancel = handling(new CancelPayment(paymentId));
+    private final Function<Payment, PaymentEvent[]> timeOut = handling(new TimeOutPayment(paymentId, timesOutAt));
+    private final Function<Payment, PaymentEvent[]> expireAuthorization =
+            handling(new ExpirePaymentAuthorization(paymentId, captureBefore));
 
     protected PaymentTests() {
-        super(Payment::empty);
+        super(Payment::initial, Payment::evolve);
     }
 
     @Test
@@ -54,7 +58,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
         // Given
         given()
                 // When
-                .when(current -> current.requestAuthorization(paymentId, referenceId, amount, now, timesOutAt))
+                .when(handling(new AuthorizePayment(paymentId, referenceId, amount)))
                 // Then
                 .then(authorizationRequested);
     }
@@ -64,7 +68,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
         // Given
         given(authorizationRequested)
                 // When
-                .when(current -> current.requestAuthorization(paymentId, referenceId, amount, now, timesOutAt))
+                .when(handling(new AuthorizePayment(paymentId, referenceId, amount)))
                 // Then
                 .thenNothing();
     }
@@ -214,7 +218,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
         // Given
         given(authorizationRequested)
                 // When
-                .when(current -> current.recordCheckoutSession(checkoutSession, now))
+                .when(handling(new RecordCheckoutSession(paymentId, checkoutSession)))
                 // Then
                 .then(checkoutSessionCreated);
     }
@@ -224,7 +228,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
         // Given
         given(authorizationRequested, checkoutSessionCreated)
                 // When
-                .when(current -> current.recordCheckoutSession(nextCheckoutSession, now.plusMinutes(29)))
+                .when(handling(new RecordCheckoutSession(paymentId, nextCheckoutSession), now.plusMinutes(29)))
                 // Then
                 .thenNothing();
     }
@@ -234,7 +238,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
         // Given
         given(authorizationRequested, checkoutSessionCreated)
                 // When
-                .when(current -> current.recordCheckoutSession(nextCheckoutSession, checkoutSession.expiresAt()))
+                .when(handling(new RecordCheckoutSession(paymentId, nextCheckoutSession), checkoutSession.expiresAt()))
                 // Then
                 .then(new CheckoutSessionCreated(
                         paymentId, nextCheckoutSession.url(), nextCheckoutSession.expiresAt()));
@@ -245,7 +249,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
         // Given
         given(authorizationRequested, authorized)
                 // When
-                .when(current -> current.recordCheckoutSession(checkoutSession, now))
+                .when(handling(new RecordCheckoutSession(paymentId, checkoutSession)))
                 // Then
                 .thenNothing();
     }
@@ -255,7 +259,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
         // Given
         given(authorizationRequested, timedOut)
                 // When
-                .when(current -> current.recordCheckoutSession(checkoutSession, now))
+                .when(handling(new RecordCheckoutSession(paymentId, checkoutSession)))
                 // Then
                 .thenNothing();
     }
@@ -275,7 +279,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
         // Given
         given(authorizationRequested)
                 // When
-                .when(current -> current.timeOut(timesOutAt.minusMinutes(1)))
+                .when(handling(new TimeOutPayment(paymentId, timesOutAt.minusMinutes(1))))
                 // Then
                 .thenNothing();
     }
@@ -295,7 +299,7 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
         // Given
         given(authorizationRequested, authorized)
                 // When
-                .when(current -> current.expireAuthorization(captureBefore.minusMinutes(1)))
+                .when(handling(new ExpirePaymentAuthorization(paymentId, captureBefore.minusMinutes(1))))
                 // Then
                 .thenNothing();
     }
@@ -360,12 +364,21 @@ public class PaymentTests extends AggregateSpecification<Payment, PaymentEvent, 
                 .thenNothing();
     }
 
-    private void settlingAgainEmitsNothing(PaymentEvent settledEvent, Consumer<Payment> settleAgain) {
+    private void settlingAgainEmitsNothing(PaymentEvent settledEvent, Function<Payment, PaymentEvent[]> settleAgain) {
         // Given
         given(authorizationRequested, settledEvent)
                 // When
                 .when(settleAgain)
                 // Then
                 .thenNothing();
+    }
+
+    private Function<Payment, PaymentEvent[]> handling(PaymentCommand command) {
+        return handling(command, now);
+    }
+
+    private Function<Payment, PaymentEvent[]> handling(PaymentCommand command, OffsetDateTime at) {
+        return current ->
+                new PaymentDecider(PaymentValidity.of(Duration.ofMinutes(15)), () -> at).handle(command, current);
     }
 }

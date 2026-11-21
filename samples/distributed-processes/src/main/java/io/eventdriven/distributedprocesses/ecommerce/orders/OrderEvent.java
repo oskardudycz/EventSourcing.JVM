@@ -48,7 +48,7 @@ public sealed interface OrderEvent {
 
     record OrderCanceled(
             OrderId orderId,
-            PaymentId paymentId, // nullable — an order canceled before the authorisation has none
+            PaymentId paymentId, // the order's current payment, authorized or not
             OrderPaymentStatus paymentStatus,
             ShipmentId shipmentId, // nullable — an order canceled before the reservation has none
             OrderShipmentStatus shipmentStatus,

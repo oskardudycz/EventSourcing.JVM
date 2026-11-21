@@ -1,7 +1,6 @@
 package io.eventdriven.distributedprocesses.ecommerce.payments;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.net.URI;
 import java.time.OffsetDateTime;
 
 public sealed interface PaymentCommand {
@@ -11,10 +10,6 @@ public sealed interface PaymentCommand {
             description =
                     "Asks for a payment of the amount. The payment waits until the customer authorizes it on the payment provider's page.")
     record AuthorizePayment(PaymentId paymentId, String referenceId, double amount) implements PaymentCommand {}
-
-    @Schema(description = "Opens the payment provider's page, where the customer pays.")
-    record CreateCheckoutSession(PaymentId paymentId, String referenceId, URI successUrl, URI cancelUrl)
-            implements PaymentCommand {}
 
     @Schema(
             description =
@@ -26,6 +21,9 @@ public sealed interface PaymentCommand {
 
     @Schema(description = "The payment provider's answer: the customer was charged.")
     record ConfirmPaymentCapture(PaymentId paymentId) implements PaymentCommand {}
+
+    @Schema(description = "Records the checkout session that the payment provider opened for the payment.")
+    record RecordCheckoutSession(PaymentId paymentId, CheckoutSession session) implements PaymentCommand {}
 
     @Schema(description = "Records that charging the customer failed, and why.")
     record FailPaymentCapture(PaymentId paymentId, CaptureFailureReason reason) implements PaymentCommand {}

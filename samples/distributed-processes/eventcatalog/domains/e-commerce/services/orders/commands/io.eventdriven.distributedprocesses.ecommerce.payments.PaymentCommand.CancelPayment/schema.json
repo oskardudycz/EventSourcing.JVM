@@ -5,7 +5,7 @@
     "paymentId": {
       "title": "PaymentId",
       "type": "string",
-      "x-parser-schema-id": "<anonymous-schema-59>"
+      "x-parser-schema-id": "<anonymous-schema-61>"
     }
   },
   "description": "Cancels an authorized payment before the customer is charged.",

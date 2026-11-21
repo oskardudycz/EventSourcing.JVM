@@ -3,11 +3,12 @@ package io.eventdriven.distributedprocesses.ecommerce.orders;
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.orders.OrderEvent.*;
 
-import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
+import io.eventdriven.distributedprocesses.core.commands.CommandHandler;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
+import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
@@ -101,11 +102,16 @@ public class OrdersConfig {
 
     @Bean
     public OrderFacade orderFacade(
-            EventStore eventStore, MessageBus messageBus, PaymentTerms paymentTerms, Supplier<OffsetDateTime> now) {
-        var store =
-                new AggregateStore<Order, OrderEvent, OrderId>(eventStore, OrderFacade::mapToStreamId, Order::empty);
+            EventStore eventStore,
+            MessageContext messageContext,
+            MessageBus messageBus,
+            PaymentTerms paymentTerms,
+            Supplier<OffsetDateTime> now) {
+        var decider = new OrderDecider(paymentTerms, now);
+        var commandHandler = new CommandHandler<OrderId, Order, OrderCommand, OrderEvent>(
+                eventStore, messageContext, OrderFacade::mapToStreamId, Order::initial, Order::evolve, decider::handle);
 
-        var facade = new OrderFacade(store, paymentTerms, now);
+        var facade = new OrderFacade(commandHandler);
 
         messageBus
                 .subscribe(internal, PlaceOrder.class, facade::placeOrder)

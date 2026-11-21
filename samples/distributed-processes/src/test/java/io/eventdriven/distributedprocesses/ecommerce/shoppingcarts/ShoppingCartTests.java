@@ -1,18 +1,19 @@
 package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts;
 
+import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
-import io.eventdriven.testing.AggregateSpecification;
+import io.eventdriven.testing.EventSourcedSpecification;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, ShoppingCartEvent, ShoppingCartId> {
+public class ShoppingCartTests extends EventSourcedSpecification<ShoppingCart, ShoppingCartEvent> {
     private final UUID customerId = UUID.randomUUID();
     private final ShoppingCartId shoppingCartId = ShoppingCartId.of(customerId, 1);
     private final ProductItem shoes = new ProductItem(UUID.randomUUID(), 2);
@@ -20,14 +21,16 @@ public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, Shop
     private final Map<UUID, Double> unitPrices = new HashMap<>(Map.of(shoes.productId(), 10.0, shirt.productId(), 5.0));
     private final ProductPriceCalculator prices = item -> new PricedProductItem(item, unitPrices.get(item.productId()));
     private final OffsetDateTime now = OffsetDateTime.now();
+    private final ShoppingCartDecider decider = new ShoppingCartDecider(prices, () -> now);
 
     protected ShoppingCartTests() {
-        super(ShoppingCart::empty);
+        super(ShoppingCart::initial, ShoppingCart::evolve);
     }
 
     @Test
     public void theFirstProductStartsTheCart() {
-        given().when(current -> current.addProductItem(shoppingCartId, customerId, prices, shoes, now))
+        given().when(current ->
+                        decider.handle(new AddProductItemToShoppingCart(shoppingCartId, customerId, shoes), current))
                 .then(new ProductItemAddedToShoppingCart(
                         shoppingCartId, customerId, new PricedProductItem(shoes, 10), now));
     }
@@ -37,7 +40,8 @@ public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, Shop
         unitPrices.put(shoes.productId(), 12.0);
 
         given(added(shoes, 10))
-                .when(current -> current.addProductItem(shoppingCartId, customerId, prices, shoes, now))
+                .when(current ->
+                        decider.handle(new AddProductItemToShoppingCart(shoppingCartId, customerId, shoes), current))
                 .then(new ProductItemAddedToShoppingCart(
                         shoppingCartId, customerId, new PricedProductItem(shoes, 10), now));
     }
@@ -47,28 +51,33 @@ public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, Shop
         var oneShoe = new ProductItem(shoes.productId(), 1);
 
         given(added(shoes, 10))
-                .when(current -> current.removeProductItem(oneShoe, now))
+                .when(current ->
+                        decider.handle(new RemoveProductItemFromShoppingCart(shoppingCartId, oneShoe, 0L), current))
                 .then(new ProductItemRemovedFromShoppingCart(shoppingCartId, new PricedProductItem(oneShoe, 10), now));
     }
 
     @Test
     public void removingMoreThanTheCartHoldsThrows() {
         given(added(shoes, 10))
-                .when(current -> current.removeProductItem(new ProductItem(shoes.productId(), 3), now))
+                .when(current -> decider.handle(
+                        new RemoveProductItemFromShoppingCart(
+                                shoppingCartId, new ProductItem(shoes.productId(), 3), 0L),
+                        current))
                 .thenThrows(IllegalStateException.class);
     }
 
     @Test
     public void removingAProductThatIsNotInTheCartThrows() {
         given(added(shoes, 10))
-                .when(current -> current.removeProductItem(shirt, now))
+                .when(current ->
+                        decider.handle(new RemoveProductItemFromShoppingCart(shoppingCartId, shirt, 0L), current))
                 .thenThrows(IllegalStateException.class);
     }
 
     @Test
     public void checkingOutWithUnchangedPricesChecksTheCartOut() {
         given(added(shoes, 10), added(shirt, 5))
-                .when(current -> current.checkOut(prices, now))
+                .when(current -> decider.handle(new CheckOutShoppingCart(shoppingCartId, 0L), current))
                 .then(new ShoppingCartCheckedOut(shoppingCartId, now));
     }
 
@@ -77,7 +86,7 @@ public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, Shop
         unitPrices.put(shoes.productId(), 12.0);
 
         given(added(shoes, 10), added(shirt, 5))
-                .when(current -> current.checkOut(prices, now))
+                .when(current -> decider.handle(new CheckOutShoppingCart(shoppingCartId, 0L), current))
                 .then(new ProductItemPriceChanged(shoppingCartId, shoes.productId(), 10, 12, now));
     }
 
@@ -86,7 +95,7 @@ public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, Shop
         unitPrices.put(shoes.productId(), 12.0);
 
         given(added(shoes, 10), new ProductItemPriceChanged(shoppingCartId, shoes.productId(), 10, 12, now))
-                .when(current -> current.checkOut(prices, now))
+                .when(current -> decider.handle(new CheckOutShoppingCart(shoppingCartId, 0L), current))
                 .then(new ShoppingCartCheckedOut(shoppingCartId, now));
     }
 
@@ -95,26 +104,28 @@ public class ShoppingCartTests extends AggregateSpecification<ShoppingCart, Shop
         given(
                         added(shoes, 10),
                         new ProductItemRemovedFromShoppingCart(shoppingCartId, new PricedProductItem(shoes, 10), now))
-                .when(current -> current.checkOut(prices, now))
+                .when(current -> decider.handle(new CheckOutShoppingCart(shoppingCartId, 0L), current))
                 .thenThrows(IllegalStateException.class);
     }
 
     @Test
     public void checkingOutACartThatDoesNotExistThrows() {
-        given().when(current -> current.checkOut(prices, now)).thenThrows(IllegalStateException.class);
+        given().when(current -> decider.handle(new CheckOutShoppingCart(shoppingCartId, 0L), current))
+                .thenThrows(IllegalStateException.class);
     }
 
     @Test
     public void checkingOutACheckedOutCartAgainRecordsNothing() {
         given(added(shoes, 10), new ShoppingCartCheckedOut(shoppingCartId, now))
-                .when(current -> current.checkOut(prices, now))
+                .when(current -> decider.handle(new CheckOutShoppingCart(shoppingCartId, 0L), current))
                 .thenNothing();
     }
 
     @Test
     public void addingToACheckedOutCartThrows() {
         given(added(shoes, 10), new ShoppingCartCheckedOut(shoppingCartId, now))
-                .when(current -> current.addProductItem(shoppingCartId, customerId, prices, shirt, now))
+                .when(current ->
+                        decider.handle(new AddProductItemToShoppingCart(shoppingCartId, customerId, shirt), current))
                 .thenThrows(IllegalStateException.class);
     }
 

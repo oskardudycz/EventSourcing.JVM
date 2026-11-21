@@ -119,6 +119,11 @@ public class CaptureGatewayClientTests {
         paymentsConfig.captureGatewayClient(eventStore, paymentGateway, messageBus);
         paymentsConfig.authorizationGatewayClient(eventStore, paymentGateway);
         paymentsConfig.paymentFacade(
-                eventStore, messageBus, paymentGateway, PaymentValidity.of(paymentTimeout), () -> now);
+                eventStore,
+                TestTracing.untraced(),
+                messageBus,
+                paymentGateway,
+                PaymentValidity.of(paymentTimeout),
+                () -> now);
     }
 }

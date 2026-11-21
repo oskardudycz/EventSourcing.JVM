@@ -316,26 +316,25 @@ stateDiagram-v2
 
 The command that completes a step appends a second event in the same batch: `OrderConfirmed` once both reservations are in, `OrderCompleted` once the customer is charged after the package was sent, and `OrderCanceled` when a failure ends the order. Recording the sent package also appends `OrderPaymentDue`, which names the payment to charge. There's no `CompleteOrder` or `ConfirmOrder` command, because only the order knows when it moved on.
 
-Every method is idempotent: a command that arrives twice, or too late, appends nothing and returns.
+Every decision is idempotent: a command that arrives twice, or too late, decides no events, so nothing is appended.
 
 ```java
-public void recordPaymentAuthorization(PaymentId paymentId, OffsetDateTime authorizedAt) {
-    if (status == Status.Opened && payment == PaymentProgress.Pending) {
-        enqueue(new OrderPaymentAuthorized(id, paymentId, authorizedAt));
+private OrderEvent[] recordPaymentAuthorization(RecordOrderPaymentAuthorization command, Order state) {
+    var authorized = new OrderPaymentAuthorized(state.id(), command.paymentId(), command.authorizedAt());
 
-        progress(authorizedAt);
-        return;
-    }
+    if (state.status() == Status.Opened && state.payment() == PaymentProgress.Pending)
+        return withProgress(state, command.authorizedAt(), authorized);
 
-    if (payment != PaymentProgress.Retrying || !paymentId.equals(this.paymentId)) return;
+    if (state.payment() != PaymentProgress.Retrying || !command.paymentId().equals(state.paymentId()))
+        return noEvents;
 
-    // the authorization of a payment made again, see "Paying again" below
+    // ... the authorization of a payment made again, see "Paying again" below
 }
 ```
 
 Idempotency also keeps the process moving. A handler that throws inside an asynchronous process blocks it: the message is delivered again, fails again, and the messages behind it wait. So orders, payments and shipments ignore a message they can't use: the method returns and appends nothing. `ShoppingCart` still throws, because its commands come from a person over HTTP, where a rejected action has to reach the caller as an error. The order also gets two commands from a person, `CancelOrder` and `RetryOrderPayment`, but it ignores them too, because the same order is in the middle of the process. The web API answers both with 202 Accepted, and the customer sees the result on the order page.
 
-Two handlers can also append to the same stream at the same moment. `AggregateStore` reads the stream, lets the aggregate decide, and appends only if the stream is still at the version it read. Otherwise the append fails with a conflict. For a message handler, `AggregateStore` retries the conflict: it reads the stream again and decides again, up to three times. That is safe because the aggregates are idempotent. Without the retry, the handler would throw, and the event store would deliver the event again only on its next append, which may never come. A cart command from a person carries the version that the person saw, the *expected version*, so its conflict is not retried. It goes back to the caller.
+Two handlers can also append to the same stream at the same moment. `CommandHandler` reads the stream, folds it into the current state with `evolve`, lets the decider decide, and appends only if the stream is still at the version it read. Otherwise the append fails with a conflict. For a message handler, `CommandHandler` retries the conflict through Spring's `RetryTemplate`: it reads the stream again and decides again, up to three attempts in all. That is safe because the deciders are idempotent. Without the retry, the handler would throw, and the event store would deliver the event again only on its next append, which may never come. A cart command from a person carries the version that the person saw, the *expected version*, so its conflict is not retried. It goes back to the caller.
 
 The whole process is one class, [OrderSaga](./src/main/java/io/eventdriven/distributedprocesses/ecommerce/orders/OrderSaga.java). Each handler is named after the event it reacts to, and it only translates: it takes an event and sends a command built from that event's data alone. That takes some care, because an event doesn't always carry what the next command needs. `PackageWasSent` doesn't know which payment to charge, and it shouldn't: the shipments module has never heard of a payment. So the saga records the sent package on the order, and the order answers with its own `OrderPaymentDue`, which carries the `paymentId`. The saga sends the charge from that event:
 
@@ -403,7 +402,8 @@ There's no refund in that table, because an order can only be canceled before th
 - `RetryOrderPayment` makes the order record `OrderPaymentRetried` with a new `paymentId`, derived from the order id and the attempt number, because the failed `Payment` ignores every command;
 - the saga sends `AuthorizePayment` for it, the order status page shows "Pay now" for the new payment, and the customer pays on a new Checkout Session;
 - before the confirmation, the authorization confirms the order once the products are reserved. After the package left, it makes the order record `OrderPaymentDue`, so the charge follows at once;
-- a payment made again that fails waits for the customer again.
+- a payment made again that fails waits for the customer again;
+- `RecordOrderPaymentFailure` and `RecordOrderPaymentCapture` carry the `paymentId`, and the order ignores them for any payment other than its current one, so a late answer about the first payment can't change an order that already moved to the second.
 
 Only an authorization that expires between the confirmation and sending the package cancels the order: the products are released, and nobody was charged.
 
@@ -505,7 +505,7 @@ public class PaymentSummaries extends Projection<PaymentSummary, PaymentId> {
 }
 ```
 
-The base class reads and stores the document through the view's Spring Data repository, so no projection touches the database. Each document is a JPA entity. Each document records the stream position it last applied, so an event delivered twice is skipped instead of counted twice. A summary keeps only what its forwarder adds to the internal events: `PaymentSummary` holds the `referenceId`, because only the authorization request carries it. The shipments module needs no summary, because its internal events carry the `referenceId` themselves.
+The base class reads and stores the document through the view's Spring Data repository, so no projection touches the database. Each document is a JPA entity. Each document records the stream position it last applied, so an event delivered twice is skipped instead of counted twice. A summary keeps only what its forwarder adds to the internal events: `PaymentSummary` holds the `referenceId`, because only the authorization request carries it. `ShipmentSummary` does the same for shipments: the requester's id is stored once, in `StockReserved` or `ProductWasOutOfStock`, the events that record the request, and the later shipment events don't repeat it.
 
 The projection and the forwarder are separate subscribers, and each keeps its own *checkpoint*: the position of the last event it handled. If the projection fails on an event and the forwarder does not, the forwarder would read a view that has not seen that event yet. So the forwarder checks that the view has what it needs. If it does not, the forwarder throws: the store keeps its checkpoint and delivers the event again on the next append, after the projection has caught up. The cart's products change with every add, remove and price change, so the cart forwarder also checks that the summary's version has reached the event's stream position.
 

@@ -64,7 +64,8 @@ public class OrderFacadeTests {
     public OrderFacadeTests() {
         eventStore.use(published::catchMessage);
         var ordersConfig = new OrdersConfig();
-        orders = ordersConfig.orderFacade(eventStore, messageBus, PaymentTerms.within(timeToPay), clock::get);
+        orders = ordersConfig.orderFacade(
+                eventStore, TestTracing.untraced(), messageBus, PaymentTerms.within(timeToPay), clock::get);
         ordersConfig.pendingOrders(eventStore, H2.bean(PendingOrderRepository.class));
         ordersConfig.ordersAwaitingPayment(eventStore, H2.bean(OrderAwaitingPaymentRepository.class));
         ordersConfig.customerOrders(eventStore, H2.bean(CustomerOrderRepository.class));
@@ -109,7 +110,7 @@ public class OrderFacadeTests {
     public void recordOrderPaymentCaptureCompletesTheOrder() {
         send();
 
-        messageBus.publish(List.of(new RecordOrderPaymentCapture(orderId, capturedAt)));
+        messageBus.publish(List.of(new RecordOrderPaymentCapture(orderId, paymentId, capturedAt)));
 
         published.shouldReceiveMessages(
                 new OrderPaymentCaptured(orderId, paymentId, totalPrice, capturedAt),
@@ -120,7 +121,7 @@ public class OrderFacadeTests {
     public void recordOrderPaymentCaptureBeforeTheDispatchStoresNothingAndDoesNotThrow() {
         confirm();
 
-        assertThatCode(() -> messageBus.publish(List.of(new RecordOrderPaymentCapture(orderId, capturedAt))))
+        assertThatCode(() -> messageBus.publish(List.of(new RecordOrderPaymentCapture(orderId, paymentId, capturedAt))))
                 .doesNotThrowAnyException();
 
         published.shouldNotReceiveAnyEvent();
@@ -132,7 +133,7 @@ public class OrderFacadeTests {
         messageBus.publish(List.of(new RecordOrderStockReservation(orderId, shipmentId, reservedAt)));
         published.reset();
 
-        messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, authorizedAt)));
+        messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, paymentId, authorizedAt)));
 
         published.shouldReceiveMessages(new OrderPaymentFailed(orderId, authorizedAt, authorizedAt.plus(timeToPay)));
     }
@@ -140,7 +141,7 @@ public class OrderFacadeTests {
     @Test
     public void customerCommandsAreNotTakenFromTheMessageBus() {
         place();
-        messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, authorizedAt)));
+        messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, paymentId, authorizedAt)));
         published.reset();
 
         messageBus.publish(
@@ -174,7 +175,7 @@ public class OrderFacadeTests {
     public void recordOrderPaymentFailureAfterTheDispatchKeepsTheOrderOpenForTheTimeThePaymentTermsGive() {
         send();
 
-        messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, capturedAt)));
+        messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, paymentId, capturedAt)));
 
         published.shouldReceiveMessages(new OrderPaymentFailed(orderId, capturedAt, capturedAt.plus(timeToPay)));
     }
@@ -234,7 +235,7 @@ public class OrderFacadeTests {
     @Test
     public void retryOrderPaymentAfterAFailedCaptureDispatchesOrderPaymentRetried() {
         send();
-        messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, capturedAt)));
+        messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, paymentId, capturedAt)));
         published.reset();
 
         orders.retryOrderPayment(new RetryOrderPayment(orderId));
@@ -246,7 +247,7 @@ public class OrderFacadeTests {
     @Test
     public void closeUnpaidOrderAfterAFailedCaptureDispatchesOrderClosedUnpaidOnceThePaymentIsDue() {
         send();
-        messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, capturedAt)));
+        messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, paymentId, capturedAt)));
         published.reset();
         clock.set(capturedAt.plus(timeToPay));
 
@@ -258,7 +259,7 @@ public class OrderFacadeTests {
     @Test
     public void closeUnpaidOrderBeforeThePaymentIsDueStoresNothingAndDoesNotThrow() {
         send();
-        messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, capturedAt)));
+        messageBus.publish(List.of(new RecordOrderPaymentFailure(orderId, paymentId, capturedAt)));
         published.reset();
         clock.set(capturedAt.plus(timeToPay).minusMinutes(1));
 

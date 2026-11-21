@@ -2,7 +2,6 @@ package io.eventdriven.distributedprocesses.ecommerce.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.distributedprocesses.core.http.ETag;
 import io.eventdriven.distributedprocesses.ecommerce.api.builders.PurchaseRestBuilder;
 import io.eventdriven.testing.ApiSpecification;
 import java.util.UUID;
@@ -11,6 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.ETag;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.JsonNode;
 
@@ -76,12 +78,35 @@ public class CheckOutShoppingCartTests extends ApiSpecification {
 
     @Test
     public void checkOut_fails_withPreconditionFailed_forWrongETag() {
-        given(() -> null).when(POST(checkout(customerId), ETag.weak(999))).then(PRECONDITION_FAILED);
+        given(() -> null)
+                .when(POST(checkout(customerId), new ETag("999", true)))
+                .then(PRECONDITION_FAILED);
     }
 
     @Test
     public void checkOut_fails_withBadRequest_forMissingIfMatch() {
         given(() -> null).when(POST(checkout(customerId))).then(BAD_REQUEST);
+    }
+
+    @Test
+    public void checkOut_fails_withBadRequest_forAMalformedIfMatch() {
+        given(() -> null)
+                .when(POST(checkout(customerId), new ETag("not-a-version", false)))
+                .then(BAD_REQUEST);
+    }
+
+    @Test
+    public void checkOut_fails_withBadRequest_forAnEmptyIfMatch() {
+        given(() -> new HttpEntity<>(null, emptyIfMatch()))
+                .when(POST(checkout(customerId)))
+                .then(BAD_REQUEST);
+    }
+
+    private static HttpHeaders emptyIfMatch() {
+        var headers = new HttpHeaders();
+        headers.set(HttpHeaders.IF_MATCH, "");
+
+        return headers;
     }
 
     private String checkout(UUID customerId) {

@@ -60,7 +60,8 @@ public class ShoppingCartExternalEventForwarderTests {
         var shoppingCartsConfig = new ShoppingCartsConfig();
         var customerShoppingCarts =
                 shoppingCartsConfig.customerShoppingCarts(eventStore, H2.bean(CustomerShoppingCartRepository.class));
-        shoppingCarts = shoppingCartsConfig.shoppingCartFacade(eventStore, customerShoppingCarts, prices, () -> now);
+        shoppingCarts = shoppingCartsConfig.shoppingCartFacade(
+                eventStore, TestTracing.untraced(), customerShoppingCarts, prices, () -> now);
         var shoppingCartSummaries =
                 shoppingCartsConfig.shoppingCartSummaries(eventStore, H2.bean(ShoppingCartSummaryRepository.class));
         shoppingCartsConfig.shoppingCartExternalEventForwarder(eventStore, shoppingCartSummaries, messageBus);
@@ -85,7 +86,7 @@ public class ShoppingCartExternalEventForwarderTests {
 
         externalEvents.shouldNotReceiveAnyEvent();
 
-        shoppingCarts.checkOut(new CheckOutShoppingCart(shoppingCartId, afterPriceChange.toLong()));
+        shoppingCarts.checkOut(new CheckOutShoppingCart(shoppingCartId, afterPriceChange));
 
         externalEvents.shouldReceiveMessages(new ShoppingCartExternalEvent.ShoppingCartCheckedOut(
                 shoppingCartId,
@@ -112,8 +113,8 @@ public class ShoppingCartExternalEventForwarderTests {
     }
 
     private void addShoesAndShirt() {
-        shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shoes));
-        shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shirt));
+        shoppingCarts.addProductItem(customerId, shoes);
+        shoppingCarts.addProductItem(customerId, shirt);
     }
 
     @Test

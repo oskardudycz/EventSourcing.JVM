@@ -57,7 +57,8 @@ public class ShoppingCartFacadeTests {
         var shoppingCartsConfig = new ShoppingCartsConfig();
         var customerShoppingCarts =
                 shoppingCartsConfig.customerShoppingCarts(eventStore, H2.bean(CustomerShoppingCartRepository.class));
-        shoppingCarts = shoppingCartsConfig.shoppingCartFacade(eventStore, customerShoppingCarts, prices, () -> now);
+        shoppingCarts = shoppingCartsConfig.shoppingCartFacade(
+                eventStore, TestTracing.untraced(), customerShoppingCarts, prices, () -> now);
         var shoppingCartSummaries =
                 shoppingCartsConfig.shoppingCartSummaries(eventStore, H2.bean(ShoppingCartSummaryRepository.class));
         shoppingCartsConfig.shoppingCartExternalEventForwarder(eventStore, shoppingCartSummaries, messageBus);
@@ -66,32 +67,42 @@ public class ShoppingCartFacadeTests {
 
     @Test
     public void theCustomersFirstProductStartsTheirFirstCart() {
-        var eTag = shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shoes));
+        var version = shoppingCarts.addProductItem(customerId, shoes);
 
         published.shouldReceiveMessages(
                 new ProductItemAddedToShoppingCart(firstCartId, customerId, new PricedProductItem(shoes, 12.5), now));
-        assertThat(eTag.toLong()).isEqualTo(0);
+        assertThat(version).isEqualTo(0);
+    }
+
+    @Test
+    public void addingAProductToACartWithOneProductAppendsAtVersionOne() {
+        shoppingCarts.addProductItem(customerId, shoes);
+
+        var version = shoppingCarts.addProductItem(customerId, shirt);
+
+        assertThat(version).isEqualTo(1);
+        assertThat(storedEvents(firstCartId)).hasSize(2);
     }
 
     @Test
     public void anotherProductGoesToTheCartThatIsStillOpen() {
-        shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shoes));
+        shoppingCarts.addProductItem(customerId, shoes);
         published.reset();
 
-        var eTag = shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shirt));
+        var version = shoppingCarts.addProductItem(customerId, shirt);
 
         published.shouldReceiveMessages(
                 new ProductItemAddedToShoppingCart(firstCartId, customerId, new PricedProductItem(shirt, 5), now));
-        assertThat(eTag.toLong()).isEqualTo(1);
+        assertThat(version).isEqualTo(1);
     }
 
     @Test
     public void aProductAddedAfterCheckoutStartsTheNextCart() {
-        shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shoes));
+        shoppingCarts.addProductItem(customerId, shoes);
         shoppingCarts.checkOut(new CheckOutShoppingCart(firstCartId, 0L));
         published.reset();
 
-        shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shirt));
+        shoppingCarts.addProductItem(customerId, shirt);
 
         published.shouldReceiveMessages(
                 new ProductItemAddedToShoppingCart(secondCartId, customerId, new PricedProductItem(shirt, 5), now));
@@ -99,9 +110,9 @@ public class ShoppingCartFacadeTests {
 
     @Test
     public void twoRequestsStartingTheSameCartEndUpInOneCart() {
-        beforePricing = () -> shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shirt));
+        beforePricing = () -> shoppingCarts.addProductItem(customerId, shirt);
 
-        shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shoes));
+        shoppingCarts.addProductItem(customerId, shoes);
 
         assertThat(storedEvents(firstCartId))
                 .usingRecursiveComparison()
@@ -115,26 +126,26 @@ public class ShoppingCartFacadeTests {
 
     @Test
     public void removeProductItemRecordsItAtTheCartsPrice() {
-        shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shoes));
+        shoppingCarts.addProductItem(customerId, shoes);
         unitPrices.put(shoes.productId(), 20.0);
         published.reset();
 
         var oneShoe = new ProductItem(shoes.productId(), 1);
-        var eTag = shoppingCarts.removeProductItem(new RemoveProductItemFromShoppingCart(firstCartId, oneShoe, 0L));
+        var version = shoppingCarts.removeProductItem(new RemoveProductItemFromShoppingCart(firstCartId, oneShoe, 0L));
 
         published.shouldReceiveMessages(
                 new ProductItemRemovedFromShoppingCart(firstCartId, new PricedProductItem(oneShoe, 12.5), now));
-        assertThat(eTag.toLong()).isEqualTo(1);
+        assertThat(version).isEqualTo(1);
     }
 
     @Test
     public void checkOutWithUnchangedPricesChecksTheCartOut() {
         addShoesAndShirt();
 
-        var eTag = shoppingCarts.checkOut(new CheckOutShoppingCart(firstCartId, 1L));
+        var version = shoppingCarts.checkOut(new CheckOutShoppingCart(firstCartId, 1L));
 
         published.shouldReceiveMessages(new ShoppingCartCheckedOut(firstCartId, now));
-        assertThat(eTag.toLong()).isEqualTo(2);
+        assertThat(version).isEqualTo(2);
     }
 
     @Test
@@ -145,14 +156,14 @@ public class ShoppingCartFacadeTests {
         var afterPriceChange = shoppingCarts.checkOut(new CheckOutShoppingCart(firstCartId, 1L));
 
         published.shouldReceiveMessages(new ProductItemPriceChanged(firstCartId, shoes.productId(), 12.5, 15, now));
-        assertThat(afterPriceChange.toLong()).isEqualTo(2);
+        assertThat(afterPriceChange).isEqualTo(2);
         published.reset();
 
         assertThatThrownBy(() -> shoppingCarts.checkOut(new CheckOutShoppingCart(firstCartId, 1L)))
                 .isInstanceOf(ConcurrentModificationException.class);
         published.shouldNotReceiveAnyEvent();
 
-        shoppingCarts.checkOut(new CheckOutShoppingCart(firstCartId, afterPriceChange.toLong()));
+        shoppingCarts.checkOut(new CheckOutShoppingCart(firstCartId, afterPriceChange));
 
         published.shouldReceiveMessages(new ShoppingCartCheckedOut(firstCartId, now));
     }
@@ -170,7 +181,8 @@ public class ShoppingCartFacadeTests {
 
     @Test
     public void customerCommandsAreNotTakenFromTheMessageBus() {
-        assertThatThrownBy(() -> messageBus.publish(List.of(new AddProductItemToShoppingCart(customerId, shoes))))
+        assertThatThrownBy(() ->
+                        messageBus.publish(List.of(new AddProductItemToShoppingCart(firstCartId, customerId, shoes))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(AddProductItemToShoppingCart.class.getName());
 
@@ -183,8 +195,8 @@ public class ShoppingCartFacadeTests {
     }
 
     private void addShoesAndShirt() {
-        shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shoes));
-        shoppingCarts.addProductItem(new AddProductItemToShoppingCart(customerId, shirt));
+        shoppingCarts.addProductItem(customerId, shoes);
+        shoppingCarts.addProductItem(customerId, shirt);
         published.reset();
     }
 

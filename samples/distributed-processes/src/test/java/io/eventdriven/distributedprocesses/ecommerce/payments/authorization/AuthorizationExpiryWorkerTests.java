@@ -65,7 +65,12 @@ public class AuthorizationExpiryWorkerTests {
         paymentsConfig.captureGatewayClient(eventStore, paymentGateway, messageBus);
         paymentsConfig.authorizationGatewayClient(eventStore, paymentGateway);
         paymentsConfig.paymentFacade(
-                eventStore, messageBus, paymentGateway, PaymentValidity.of(paymentTimeout), clock::get);
+                eventStore,
+                TestTracing.untraced(),
+                messageBus,
+                paymentGateway,
+                PaymentValidity.of(paymentTimeout),
+                clock::get);
         worker = paymentsConfig.authorizationExpiryWorker(authorizedPayments, messageBus, clock::get);
     }
 

@@ -3,17 +3,20 @@ package io.eventdriven.distributedprocesses.ecommerce.shipments;
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent.*;
 
-import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
+import io.eventdriven.distributedprocesses.core.commands.CommandHandler;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
+import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEventForwarder;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentSummaries;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentSummaryRepository;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.FulfillmentService;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.FulfillmentServiceClient;
 import java.time.OffsetDateTime;
@@ -86,13 +89,20 @@ public class ShipmentsConfig {
     @Bean
     public ShipmentFacade shipmentFacade(
             EventStore eventStore,
+            MessageContext messageContext,
             MessageBus messageBus,
             Function<ProductItem, Boolean> isProductAvailable,
             Supplier<OffsetDateTime> now) {
-        var store = new AggregateStore<Shipment, ShipmentEvent, ShipmentId>(
-                eventStore, ShipmentFacade::mapToStreamId, Shipment::empty);
+        var decider = new ShipmentDecider(isProductAvailable, now);
+        var commandHandler = new CommandHandler<ShipmentId, Shipment, ShipmentCommand, ShipmentEvent>(
+                eventStore,
+                messageContext,
+                ShipmentFacade::mapToStreamId,
+                Shipment::initial,
+                Shipment::evolve,
+                decider::handle);
 
-        var facade = new ShipmentFacade(store, isProductAvailable, now);
+        var facade = new ShipmentFacade(commandHandler);
 
         messageBus
                 .subscribe(requests, ReserveStock.class, facade::reserveStock)
@@ -106,8 +116,19 @@ public class ShipmentsConfig {
     }
 
     @Bean
-    public ShipmentExternalEventForwarder shipmentExternalEventForwarder(EventStore eventStore, MessageBus messageBus) {
-        var forwarder = new ShipmentExternalEventForwarder(messageBus);
+    public ShipmentSummaries shipmentSummaries(
+            EventStore eventStore, ShipmentSummaryRepository shipmentSummaryRepository) {
+        var shipmentSummaries = new ShipmentSummaries(shipmentSummaryRepository);
+
+        eventStore.subscribe("shipment-summaries", shipmentSummaries.canHandle(), shipmentSummaries::handle);
+
+        return shipmentSummaries;
+    }
+
+    @Bean
+    public ShipmentExternalEventForwarder shipmentExternalEventForwarder(
+            EventStore eventStore, ShipmentSummaries shipmentSummaries, MessageBus messageBus) {
+        var forwarder = new ShipmentExternalEventForwarder(shipmentSummaries, messageBus);
 
         eventStore.subscribe(
                 "shipments-external-forwarder",

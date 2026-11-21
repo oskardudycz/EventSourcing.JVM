@@ -83,11 +83,6 @@ public class InMemoryEventStore implements EventStore {
     }
 
     @Override
-    public MessageContext.Scope continueTraceOf(String stepName, EventMetadata lastEvent) {
-        return context.continuing(stepName, lastEvent);
-    }
-
-    @Override
     public synchronized Subscription subscribe(
             String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler) {
         if (types.isEmpty())

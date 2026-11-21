@@ -2,11 +2,12 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 
-import io.eventdriven.distributedprocesses.core.aggregates.AggregateStore;
+import io.eventdriven.distributedprocesses.core.commands.CommandHandler;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
+import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
@@ -61,13 +62,20 @@ public class ShoppingCartsConfig {
     @Bean
     public ShoppingCartFacade shoppingCartFacade(
             EventStore eventStore,
+            MessageContext messageContext,
             CustomerShoppingCarts customerShoppingCarts,
             ProductPriceCalculator prices,
             Supplier<OffsetDateTime> now) {
-        var store = new AggregateStore<ShoppingCart, ShoppingCartEvent, ShoppingCartId>(
-                eventStore, ShoppingCartFacade::mapToStreamId, ShoppingCart::empty);
+        var decider = new ShoppingCartDecider(prices, now);
+        var commandHandler = new CommandHandler<ShoppingCartId, ShoppingCart, ShoppingCartCommand, ShoppingCartEvent>(
+                eventStore,
+                messageContext,
+                ShoppingCartFacade::mapToStreamId,
+                ShoppingCart::initial,
+                ShoppingCart::evolve,
+                decider::handle);
 
-        return new ShoppingCartFacade(store, customerShoppingCarts, prices, now);
+        return new ShoppingCartFacade(commandHandler, customerShoppingCarts);
     }
 
     @Bean

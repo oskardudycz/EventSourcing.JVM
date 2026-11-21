@@ -5,16 +5,16 @@
     "amount": {
       "type": "number",
       "format": "double",
-      "x-parser-schema-id": "<anonymous-schema-56>"
+      "x-parser-schema-id": "<anonymous-schema-58>"
     },
     "paymentId": {
       "title": "PaymentId",
       "type": "string",
-      "x-parser-schema-id": "<anonymous-schema-57>"
+      "x-parser-schema-id": "<anonymous-schema-59>"
     },
     "referenceId": {
       "type": "string",
-      "x-parser-schema-id": "<anonymous-schema-58>"
+      "x-parser-schema-id": "<anonymous-schema-60>"
     }
   },
   "description": "Asks for a payment of the amount. The payment waits until the customer authorizes it on the payment provider's page.",

@@ -60,7 +60,12 @@ public class PaymentExternalEventRedeliveryTests {
         paymentsConfig.captureGatewayClient(eventStore, paymentGateway, messageBus);
         paymentsConfig.authorizationGatewayClient(eventStore, paymentGateway);
         paymentsConfig.paymentFacade(
-                eventStore, messageBus, paymentGateway, PaymentValidity.of(Duration.ofMinutes(5)), () -> now);
+                eventStore,
+                tracing.messageContext(),
+                messageBus,
+                paymentGateway,
+                PaymentValidity.of(Duration.ofMinutes(5)),
+                () -> now);
         messageBus.subscribe("probe", PaymentExternalEvent.PaymentAuthorized.class, event -> {
             eventStore.append(
                     receivedStream,

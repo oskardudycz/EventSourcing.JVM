@@ -2,6 +2,7 @@ package io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment;
 
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.*;
 import static io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentEvent.*;
+import static io.eventdriven.testing.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
@@ -11,6 +12,7 @@ import io.eventdriven.distributedprocesses.core.messaging.InMemoryMessageBus;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentSummaryRepository;
 import io.eventdriven.testing.MessageCatcher;
 import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestTracing;
@@ -60,11 +62,10 @@ public class FulfillmentServiceClientTests {
         published.shouldReceiveMessages(
                 new PackageWasSent(
                         shipmentId,
-                        referenceId,
                         CallingBackFulfillmentService.carrier,
                         CallingBackFulfillmentService.trackingNumber,
                         now),
-                new PackageWasDelivered(shipmentId, referenceId, now));
+                new PackageWasDelivered(shipmentId, now));
     }
 
     @Test
@@ -76,7 +77,7 @@ public class FulfillmentServiceClientTests {
 
         messageBus.publish(List.of(new RequestFulfillment(shipmentId)));
 
-        published.shouldReceiveMessages(new FulfillmentRequested(shipmentId, referenceId, available, now));
+        published.shouldReceiveMessages(new FulfillmentRequested(shipmentId, available, now));
     }
 
     @Test
@@ -92,8 +93,7 @@ public class FulfillmentServiceClientTests {
         messageBus.publish(List.of(new ReleaseStock(shipmentId)));
 
         published.shouldReceiveMessages(
-                new FulfillmentRequested(shipmentId, referenceId, available, now),
-                new StockReleased(shipmentId, referenceId, now));
+                new FulfillmentRequested(shipmentId, available, now), new StockReleased(shipmentId, now));
     }
 
     @Test
@@ -151,15 +151,16 @@ public class FulfillmentServiceClientTests {
 
         fulfillmentService.rejectRequests();
 
-        published.shouldReceiveMessages(new FulfillmentRejected(shipmentId, referenceId, now));
+        published.shouldReceiveMessages(new FulfillmentRejected(shipmentId, now));
     }
 
     private void configure(FulfillmentService fulfillmentService) {
         eventStore.use(published::catchMessage);
 
         var shipmentsConfig = new ShipmentsConfig();
-        shipmentsConfig.shipmentFacade(eventStore, messageBus, isProductAvailable, () -> now);
-        shipmentsConfig.shipmentExternalEventForwarder(eventStore, messageBus);
+        shipmentsConfig.shipmentFacade(eventStore, TestTracing.untraced(), messageBus, isProductAvailable, () -> now);
+        var shipmentSummaries = shipmentsConfig.shipmentSummaries(eventStore, H2.bean(ShipmentSummaryRepository.class));
+        shipmentsConfig.shipmentExternalEventForwarder(eventStore, shipmentSummaries, messageBus);
         shipmentsConfig.fulfillmentServiceClient(eventStore, fulfillmentService);
     }
 }

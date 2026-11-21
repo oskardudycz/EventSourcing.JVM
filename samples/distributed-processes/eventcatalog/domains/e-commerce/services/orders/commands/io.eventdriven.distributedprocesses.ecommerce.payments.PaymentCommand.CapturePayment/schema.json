@@ -5,7 +5,7 @@
     "paymentId": {
       "title": "PaymentId",
       "type": "string",
-      "x-parser-schema-id": "<anonymous-schema-60>"
+      "x-parser-schema-id": "<anonymous-schema-62>"
     }
   },
   "description": "Asks to charge the customer the authorized amount.",
