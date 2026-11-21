@@ -195,7 +195,7 @@ public class ECommerceSettingsTests {
             assertThat(meters.counter(
                                     RabbitMQMessageBus.DEAD_LETTERED,
                                     "message.type",
-                                    "shopping_carts.ShoppingCartCheckedOut",
+                                    ShoppingCartExternalEvent.ShoppingCartCheckedOut.class.getName(),
                                     "messaging.destination.name",
                                     queue)
                             .count())

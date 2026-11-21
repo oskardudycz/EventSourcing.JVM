@@ -11,6 +11,7 @@ import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizationExpiryWorker;
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizationGatewayClient;
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizedPaymentRepository;
@@ -37,6 +38,12 @@ public class PaymentsConfig {
     public static final String requests = "payments-requests";
     public static final String responses = "payments-responses";
     public static final String internal = "payments-internal";
+
+    @Bean("paymentsMapping")
+    public static MessageMapping mapping() {
+        return new MessageMapping()
+                .trust(PaymentsConfig.class.getPackageName(), PaymentExternalEvent.class.getPackageName());
+    }
 
     @Bean
     public static MessageRoutes paymentsRoutes() {

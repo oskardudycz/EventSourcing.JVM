@@ -10,6 +10,7 @@ import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
 import io.eventdriven.distributedprocesses.ecommerce.orders.api.CustomerOrderRepository;
 import io.eventdriven.distributedprocesses.ecommerce.orders.api.CustomerOrders;
 import io.eventdriven.distributedprocesses.ecommerce.orders.api.OrderStatusRepository;
@@ -21,14 +22,17 @@ import io.eventdriven.distributedprocesses.ecommerce.orders.unpaid.OrdersAwaitin
 import io.eventdriven.distributedprocesses.ecommerce.orders.unpaid.ScheduledUnpaidOrdersWorker;
 import io.eventdriven.distributedprocesses.ecommerce.orders.unpaid.UnpaidOrdersWorker;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
+import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartsConfig;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -45,6 +49,16 @@ public class OrdersConfig {
     public static final String paymentsResponses = "orders-payments-responses";
     public static final String shipmentsResponses = "orders-shipments-responses";
     public static final String responsesForOrders = "ecommerce.order.*";
+
+    @Bean("ordersMapping")
+    public static MessageMapping mapping() {
+        return new MessageMapping()
+                .trust(
+                        OrdersConfig.class.getPackageName(),
+                        ShoppingCartExternalEvent.class.getPackageName(),
+                        PaymentExternalEvent.class.getPackageName(),
+                        ShipmentExternalEvent.class.getPackageName());
+    }
 
     @Bean
     public static MessageRoutes ordersRoutes() {

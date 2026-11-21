@@ -1,41 +1,62 @@
 package io.eventdriven.distributedprocesses.core.messaging.versioning;
 
 import io.eventdriven.distributedprocesses.core.messaging.UnreadableMessageException;
-import tools.jackson.databind.ObjectMapper;
+import java.util.Optional;
+import java.util.Set;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 public class MessageSerializer {
-    private final MessageMapping mapping;
-    private final ObjectMapper objectMapper;
-    private final String trustedPackage;
+    private final MessageTypeMapper typeMapper;
+    private final JsonMapper jsonMapper;
 
-    public MessageSerializer(MessageMapping mapping, ObjectMapper objectMapper, String trustedPackage) {
-        this.mapping = mapping;
-        this.objectMapper = objectMapper;
-        this.trustedPackage = trustedPackage;
+    public MessageSerializer(MessageTypeMapper typeMapper, JsonMapper jsonMapper) {
+        this.typeMapper = typeMapper;
+        this.jsonMapper = jsonMapper;
+    }
+
+    public static JsonMapper newJsonMapper() {
+        return JsonMapper.builder()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+                .configure(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
+                .build();
+    }
+
+    public MessageTypeMapper typeMapper() {
+        return typeMapper;
+    }
+
+    public JsonMapper jsonMapper() {
+        return jsonMapper;
     }
 
     public String typeNameOf(Class<?> messageClass) {
-        return mapping.typeNameOf(messageClass)
-                .orElseThrow(() -> new IllegalStateException(
-                        "The message type %s has no stable type name".formatted(messageClass.getName())));
+        return typeMapper.nameOf(messageClass);
     }
 
-    public boolean isRegistered(String typeName) {
-        return mapping.classOf(typeName).isPresent()
-                || mapping.transformerOf(typeName).isPresent();
+    public Set<String> typeNamesOf(Class<?> messageClass) {
+        return typeMapper.namesOf(messageClass);
+    }
+
+    public boolean isKnown(String typeName) {
+        return typeMapper.classOf(typeName).isPresent();
     }
 
     public byte[] write(Object message) {
-        return objectMapper.writeValueAsBytes(message);
+        return jsonMapper.writeValueAsBytes(message);
+    }
+
+    public Optional<Object> tryTransform(String typeName, byte[] body) {
+        return typeMapper.transformerOf(typeName).map(transformer -> transformer.transform(body, jsonMapper));
     }
 
     public Object read(String typeName, byte[] body) {
         try {
-            var transformer = mapping.transformerOf(typeName);
+            var transformed = tryTransform(typeName, body);
 
-            return transformer.isPresent()
-                    ? transformer.get().transform(body, objectMapper)
-                    : objectMapper.readValue(body, classOf(typeName));
+            return transformed.isPresent() ? transformed.get() : jsonMapper.readValue(body, classOf(typeName));
         } catch (UnreadableMessageException e) {
             throw e;
         } catch (RuntimeException e) {
@@ -44,17 +65,9 @@ public class MessageSerializer {
     }
 
     private Class<?> classOf(String typeName) {
-        return mapping.classOf(typeName).orElseGet(() -> trustedClassOf(typeName));
-    }
-
-    private Class<?> trustedClassOf(String typeName) {
-        if (!typeName.startsWith(trustedPackage + "."))
-            throw new UnreadableMessageException(typeName, "the type is not trusted");
-
-        try {
-            return Class.forName(typeName, false, getClass().getClassLoader());
-        } catch (ClassNotFoundException e) {
-            throw new UnreadableMessageException(typeName, e);
-        }
+        return typeMapper
+                .classOf(typeName)
+                .orElseThrow(() -> new UnreadableMessageException(
+                        typeName, "no class is mapped to this type name, or its package is not trusted"));
     }
 }

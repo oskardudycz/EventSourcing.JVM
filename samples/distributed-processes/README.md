@@ -547,6 +547,12 @@ public class PaymentsConfig {
     public static final String responses = "payments-responses";
     public static final String internal = "payments-internal";
 
+    @Bean("paymentsMapping")
+    public static MessageMapping mapping() {
+        return new MessageMapping()
+                .trust(PaymentsConfig.class.getPackageName(), PaymentExternalEvent.class.getPackageName());
+    }
+
     @Bean
     public static MessageRoutes paymentsRoutes() {
         return new MessageRoutes()
@@ -594,12 +600,23 @@ public class PaymentsConfig {
 }
 ```
 
+- the `MessageMapping` bean tells the serializers which packages hold the module's messages, and gives a message an explicit name or maps an old name to the current class (see [Type names](#type-names));
 - the routes decide the channel and the routing key of each message that the module publishes. A message with no route, or one routed to a channel that nobody declared, fails the publish with an error that names the message type or the channel;
 - a `MessageChannel` bean declares a channel that messages can be published to;
 - a `MessageQueue` bean connects a queue to a channel for the routing keys that match a pattern: `*` matches one word, `#` any number of words. A queue can be bound to another module's channel, as orders binds its queues to `payments-responses`, using that module's public channel name;
 - `subscribe` registers a handler for one message type that reaches the queue. The module's beans call it when Spring creates them.
 
 The bus gets the lists of all `MessageRoutes`, `MessageChannel` and `MessageQueue` beans in its constructor. It creates all channels first and all queues after them, so the order of the modules doesn't matter. No module configuration uses another module's beans: the modules share only the bus, the store and the other modules' public channel names and external event classes.
+
+#### Type names
+
+Every message and stored event carries the name of its type, so the reader knows which class to create. The name is the Java class name that Spring writes (`Class.getName()`): `io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent$PaymentAuthorized`, with a `$` for a nested record. On Kafka and RabbitMQ it is the `__TypeId__` header, written by Spring's JSON serializers. The event stores write the same name next to the event.
+
+A module does not trust every class name it reads. Its `MessageMapping` lists the packages that hold its messages, one by one, and a reader creates only classes from those packages. A name from another package, such as `java.lang.ProcessBuilder`, is not read: the bus dead-letters the message, and a stream read fails and names the type. Orders trusts the packages of the external events that it receives from the carts, payments and shipments.
+
+A mapping can also give a class an explicit name with `register(name, Class)`, or map the name of an older version to the current class with a transformation, so an old message is read as the current class: `register(oldName, OldClass, CurrentClass, transform)` for a transformation from the old class, and `register(oldName, CurrentClass, jsonTransform)` for one from the JSON. [MessageSerializerTests](./src/test/java/io/eventdriven/distributedprocesses/core/messaging/versioning/MessageSerializerTests.java) shows both.
+
+[MessageTypeMapper](./src/main/java/io/eventdriven/distributedprocesses/core/messaging/versioning/MessageTypeMapper.java) merges the mappings of all modules; two classes under one explicit name stop the application from starting. [MessageSerializer](./src/main/java/io/eventdriven/distributedprocesses/core/messaging/versioning/MessageSerializer.java) uses it to write and read the messages of the three event stores, so a message round-trips the same way everywhere. A store subscription takes the events with the names of its classes: the current, the explicit and the old ones.
 
 A response goes back to whoever asked, without payments knowing who that is. Its routing key comes from the `referenceId`, which is a *URN*: a standard text id made of a namespace, a type and a value, such as `urn:ecommerce:order:42-1`. That URN becomes the key `ecommerce.order.42-1`. Orders binds its queue to `payments-responses` with `ecommerce.order.*`, so it gets the answers about orders and nothing else. Another client of payments would bind its own queue with its own prefix. The requester owns the queue that reads the responses, as orders owns `orders-payments-responses`.
 

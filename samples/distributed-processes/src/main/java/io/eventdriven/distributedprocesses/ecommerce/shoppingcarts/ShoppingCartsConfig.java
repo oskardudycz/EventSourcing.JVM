@@ -9,6 +9,7 @@ import io.eventdriven.distributedprocesses.core.messaging.MessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.api.CartRepository;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.api.Carts;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent;
@@ -25,6 +26,12 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ShoppingCartsConfig {
     public static final String external = "shopping_carts-external";
+
+    @Bean("shoppingCartsMapping")
+    public static MessageMapping mapping() {
+        return new MessageMapping()
+                .trust(ShoppingCartsConfig.class.getPackageName(), ShoppingCartExternalEvent.class.getPackageName());
+    }
 
     @Bean
     public static MessageRoutes shoppingCartsRoutes() {

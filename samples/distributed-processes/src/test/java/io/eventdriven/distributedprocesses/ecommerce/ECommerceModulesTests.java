@@ -6,10 +6,16 @@ import static org.assertj.core.api.Assertions.tuple;
 import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageTypeMapper;
+import io.eventdriven.distributedprocesses.ecommerce.orders.OrderCommand;
 import io.eventdriven.distributedprocesses.ecommerce.orders.OrdersConfig;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand;
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
+import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartsConfig;
+import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -78,6 +84,27 @@ public class ECommerceModulesTests {
                 .extracting(Declaration::owner)
                 .containsExactlyInAnyOrder(
                         ShoppingCartsConfig.class, OrdersConfig.class, PaymentsConfig.class, ShipmentsConfig.class);
+    }
+
+    @Test
+    public void eachModuleDeclaresItsOwnTypeMapping() {
+        assertThat(declarationsOf(MessageMapping.class))
+                .extracting(Declaration::owner)
+                .containsExactlyInAnyOrder(
+                        ShoppingCartsConfig.class, OrdersConfig.class, PaymentsConfig.class, ShipmentsConfig.class);
+    }
+
+    @Test
+    public void theTypeMapperIsBuiltFromTheMappingsOfTheModules() {
+        var typeMapper = context.getBean(MessageTypeMapper.class);
+
+        assertThat(List.of(
+                        ShoppingCartExternalEvent.ShoppingCartCheckedOut.class,
+                        OrderCommand.PlaceOrder.class,
+                        PaymentCommand.CapturePayment.class,
+                        ShipmentCommand.ReserveStock.class))
+                .allSatisfy(messageClass -> assertThat(typeMapper.classOf(typeMapper.nameOf(messageClass)))
+                        .contains(messageClass));
     }
 
     private record Declaration(Object bean, Class<?> owner) {}

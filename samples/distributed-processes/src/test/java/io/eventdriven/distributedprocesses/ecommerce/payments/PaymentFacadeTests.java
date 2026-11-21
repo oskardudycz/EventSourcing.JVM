@@ -16,6 +16,7 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.Auth
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.PendingPaymentRepository;
 import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentSummaryRepository;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestTracing;
 import java.net.URI;
 import java.time.Duration;
@@ -37,7 +38,8 @@ public class PaymentFacadeTests {
     private final OffsetDateTime captureBefore = now.plus(authorizationValidity);
     private final OffsetDateTime timedOutAt = now.plus(paymentTimeout);
 
-    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryEventStore eventStore =
+            new InMemoryEventStore(TestTracing.untraced(), TestMessages.serializer());
     private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
             TestTracing.untraced(),
             List.of(PaymentsConfig.paymentsRoutes()),
@@ -137,7 +139,7 @@ public class PaymentFacadeTests {
 
     @Test
     public void createCheckoutSessionThatTheGatewayFailsToOpenRecordsNothing() {
-        var store = new InMemoryEventStore(TestTracing.untraced());
+        var store = new InMemoryEventStore(TestTracing.untraced(), TestMessages.serializer());
         var bus = new InMemoryMessageBus(
                 TestTracing.untraced(),
                 List.of(PaymentsConfig.paymentsRoutes()),

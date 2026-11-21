@@ -54,6 +54,32 @@ public class InMemoryMessageBusValuesTests {
         assertThat(messageIds.get(1)).isEqualTo(messageIds.get(3));
     }
 
+    @Test
+    public void aHandledEventWithoutStoredCorrelationGivesTheSamePublishedIdsOnRedelivery() {
+        var legacyEvent = new EventMetadata("Stream-1", 0, 0, 0, "m-1", "m-1", "m-1", null, null);
+
+        for (var delivery = 0; delivery < 2; delivery++)
+            try (var _ = tracing.messageContext().handling("handle First", legacyEvent)) {
+                messageBus.publish(List.of(new First("a")));
+            }
+
+        assertThat(messageIds).hasSize(2).doesNotContain("m-1");
+        assertThat(messageIds.get(0)).isEqualTo(messageIds.get(1));
+    }
+
+    @Test
+    public void aContinuingScopeWithoutAHandledMessageGivesRandomPublishedIds() {
+        var lastEvent = new EventMetadata("Stream-1", 0, 0, 0, "m-1", "c-1", "c-1", null, null);
+
+        for (var attempt = 0; attempt < 2; attempt++)
+            try (var _ = tracing.messageContext().continuing("continue", lastEvent)) {
+                messageBus.publish(List.of(new First("a")));
+            }
+
+        assertThat(correlationIds).containsOnly("c-1");
+        assertThat(messageIds).hasSize(2).doesNotHaveDuplicates();
+    }
+
     private void observe() {
         messageIds.add(tracing.tracer().getBaggage(CAUSATION_ID).get());
         correlationIds.add(tracing.tracer().getBaggage(CORRELATION_ID).get());

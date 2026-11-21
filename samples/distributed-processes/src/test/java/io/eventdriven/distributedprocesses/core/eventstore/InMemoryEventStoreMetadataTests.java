@@ -1,7 +1,7 @@
 package io.eventdriven.distributedprocesses.core.eventstore;
 
 public class InMemoryEventStoreMetadataTests extends EventStoreMetadataTests {
-    private final InMemoryEventStore eventStore = new InMemoryEventStore(context);
+    private final InMemoryEventStore eventStore = new InMemoryEventStore(context, serializer());
 
     @Override
     protected EventStore eventStore() {

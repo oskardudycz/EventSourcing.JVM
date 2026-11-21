@@ -10,6 +10,7 @@ import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
+import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestTracing;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -51,7 +52,7 @@ public class OrderIdSerializationTests {
 
     @Test
     public void aStoredEventRoundTripsThroughTheEventStore() {
-        var eventStore = new InMemoryEventStore(TestTracing.untraced());
+        var eventStore = new InMemoryEventStore(TestTracing.untraced(), TestMessages.serializer());
         var streamId = OrderFacade.mapToStreamId(orderId);
 
         eventStore.append(streamId, event);

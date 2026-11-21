@@ -7,6 +7,7 @@ import io.eventdriven.distributedprocesses.core.processing.RetryBackOff;
 import io.eventdriven.distributedprocesses.core.subscriptions.SubscriptionCheckpoints;
 import io.eventdriven.testing.ProjectionsDatabase;
 import io.eventdriven.testing.TestDatabases;
+import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestTracing;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.StatusCode;
@@ -24,6 +25,7 @@ public class KurrentDBEventStoreSpansTests {
     private final KurrentDBEventStore eventStore = KurrentDBEventStore.connectingTo(
             TestDatabases.kurrentDBConnectionString(),
             tracing.messageContext(),
+            TestMessages.serializerTrustingPackageOf(KurrentDBEventStoreSpansTests.class),
             tracing.observations(),
             ProjectionsDatabase.H2.bean(SubscriptionCheckpoints.class),
             RetryBackOff.exponential(Duration.ofMillis(100)));

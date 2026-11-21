@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
-import io.eventdriven.distributedprocesses.ecommerce.payments.external.PaymentExternalEvent;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
+import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.TestMessages;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,10 +36,14 @@ public abstract class MessageBusTests {
 
     protected static MessageMapping messageMapping() {
         return new MessageMapping()
+                .trust(MessageBusTests.class.getPackageName())
                 .register("test.OrderPlaced", OrderPlaced.class)
                 .register("test.ConfirmOrder", ConfirmOrder.class)
-                .register("test.OrderCanceled", OrderCanceled.class)
-                .register("payments.PaymentAuthorized", PaymentExternalEvent.PaymentAuthorized.class);
+                .register("test.OrderCanceled", OrderCanceled.class);
+    }
+
+    protected static MessageSerializer serializer() {
+        return TestMessages.serializer(messageMapping(), PaymentsConfig.mapping());
     }
 
     protected MessageRoutes ordersRoutes() {

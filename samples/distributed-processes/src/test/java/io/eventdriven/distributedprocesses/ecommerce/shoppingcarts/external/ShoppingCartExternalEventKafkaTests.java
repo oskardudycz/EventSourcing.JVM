@@ -9,7 +9,6 @@ import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.identifiers.Urns;
 import io.eventdriven.distributedprocesses.core.messaging.KafkaMessageBus;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
-import io.eventdriven.distributedprocesses.ecommerce.ECommerceMessages;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.CustomerShoppingCartRepository;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartFacade;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
@@ -58,12 +57,12 @@ public class ShoppingCartExternalEventKafkaTests {
 
     @Test
     public void publishToAChannelWithNoQueueSucceedsAndTheForwarderGoesOn() {
-        var eventStore = new InMemoryEventStore(messageContext);
+        var eventStore = new InMemoryEventStore(messageContext, TestMessages.serializer());
         messageBus = KafkaMessageBus.connectingTo(
                 bootstrapServers,
                 messageContext,
                 observations,
-                TestMessages.serializer(ECommerceMessages.mapping()),
+                TestMessages.serializer(),
                 Duration.ofSeconds(10),
                 TestKafka.failureHandling(bootstrapServers, observations),
                 List.of(ShoppingCartsConfig.shoppingCartsRoutes()),

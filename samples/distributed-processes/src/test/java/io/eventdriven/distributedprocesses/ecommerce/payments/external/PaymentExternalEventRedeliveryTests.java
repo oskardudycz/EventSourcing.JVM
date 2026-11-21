@@ -18,6 +18,7 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.payments.SilentPaymentGateway;
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.AuthorizedPaymentRepository;
 import io.eventdriven.distributedprocesses.ecommerce.payments.authorization.PendingPaymentRepository;
+import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestTracing;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -28,7 +29,8 @@ import org.junit.jupiter.api.Test;
 
 public class PaymentExternalEventRedeliveryTests {
     private final TestTracing tracing = new TestTracing();
-    private final InMemoryEventStore eventStore = new InMemoryEventStore(tracing.messageContext());
+    private final InMemoryEventStore eventStore =
+            new InMemoryEventStore(tracing.messageContext(), TestMessages.serializer());
     private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
             tracing.messageContext(),
             List.of(PaymentsConfig.paymentsRoutes()),

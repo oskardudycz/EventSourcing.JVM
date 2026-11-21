@@ -10,6 +10,7 @@ import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentsConfig;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.SilentFulfillmentService;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestTracing;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -30,7 +31,8 @@ public class ShipmentExternalEventForwarderTests {
     private final String carrier = "DHL";
     private final String trackingNumber = "JD014600006281234567";
 
-    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryEventStore eventStore =
+            new InMemoryEventStore(TestTracing.untraced(), TestMessages.serializer());
     private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
             TestTracing.untraced(),
             List.of(ShipmentsConfig.shipmentsRoutes()),

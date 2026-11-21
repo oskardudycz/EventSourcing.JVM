@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.*;
 
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
+import io.eventdriven.distributedprocesses.core.messaging.UnreadableMessageException;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
+import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestTracing;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -12,7 +15,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 public class InMemoryEventStoreTests extends EventStoreTests {
-    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced(), serializer());
     private final ArrayList<String> log = new ArrayList<>();
 
     @Override
@@ -171,12 +174,22 @@ public class InMemoryEventStoreTests extends EventStoreTests {
     public void aNewStoreStartsItsSubscriptionsFromTheBeginningWithoutCheckpoints() {
         eventStore.subscribe("cart-events", List.of(ShoppingCartOpened.class), envelope -> log.add("first store"));
         eventStore.append(streamId, new ShoppingCartOpened(cartId, openedAt()));
-        var restarted = new InMemoryEventStore(TestTracing.untraced());
+        var restarted = new InMemoryEventStore(TestTracing.untraced(), serializer());
 
         restarted.subscribe("cart-events", List.of(ShoppingCartOpened.class), envelope -> log.add("restarted store"));
         restarted.append(streamId, new ShoppingCartOpened(cartId, openedAt()));
 
         assertThat(log).containsExactly("first store", "restarted store");
+    }
+
+    @Test
+    public void readingAnEventOfAnUntrustedPackageFailsNamingTheType() {
+        var untrusting = new InMemoryEventStore(TestTracing.untraced(), TestMessages.serializer(new MessageMapping()));
+        untrusting.append(streamId, new ShoppingCartOpened(cartId, openedAt()));
+
+        assertThatThrownBy(() -> untrusting.read(streamId))
+                .isInstanceOf(UnreadableMessageException.class)
+                .hasMessageContaining(ShoppingCartOpened.class.getName());
     }
 
     @Test

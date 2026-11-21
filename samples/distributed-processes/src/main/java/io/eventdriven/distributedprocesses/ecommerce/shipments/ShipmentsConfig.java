@@ -11,6 +11,7 @@ import io.eventdriven.distributedprocesses.core.messaging.MessageChannel;
 import io.eventdriven.distributedprocesses.core.messaging.MessageQueue;
 import io.eventdriven.distributedprocesses.core.messaging.MessageRoutes;
 import io.eventdriven.distributedprocesses.core.messaging.RoutingTarget;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEvent;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.external.ShipmentExternalEventForwarder;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.fulfillment.FulfillmentService;
@@ -27,6 +28,12 @@ public class ShipmentsConfig {
     public static final String requests = "shipments-requests";
     public static final String responses = "shipments-responses";
     public static final String internal = "shipments-internal";
+
+    @Bean("shipmentsMapping")
+    public static MessageMapping mapping() {
+        return new MessageMapping()
+                .trust(ShipmentsConfig.class.getPackageName(), ShipmentExternalEvent.class.getPackageName());
+    }
 
     @Bean
     public static MessageRoutes shipmentsRoutes() {

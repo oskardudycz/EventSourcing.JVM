@@ -1,11 +1,10 @@
 package io.eventdriven.distributedprocesses.core.eventstore;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.MessageValues;
-import io.eventdriven.distributedprocesses.core.messaging.UnreadableMessageException;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,14 +17,12 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.cfg.DateTimeFeature;
-import tools.jackson.databind.json.JsonMapper;
 
 public class InMemoryEventStore implements EventStore {
     private static final Logger logger = LoggerFactory.getLogger(InMemoryEventStore.class);
 
     private final MessageContext context;
+    private final MessageSerializer serializer;
     private final Map<String, List<LogEntry>> streams = new HashMap<>();
     private final List<LogEntry> log = new ArrayList<>();
     private final List<Consumer<Object>> middlewares = new ArrayList<>();
@@ -34,8 +31,9 @@ public class InMemoryEventStore implements EventStore {
     private boolean dispatching = false;
     private int lastMiddlewarePosition = -1;
 
-    public InMemoryEventStore(MessageContext context) {
+    public InMemoryEventStore(MessageContext context, MessageSerializer serializer) {
         this.context = context;
+        this.serializer = serializer;
     }
 
     @Override
@@ -44,8 +42,7 @@ public class InMemoryEventStore implements EventStore {
 
         if (stream == null || stream.isEmpty()) return new ReadResult.StreamDoesNotExist();
 
-        return new ReadResult.Success(
-                stream.stream().map(InMemoryEventStore::toEnvelope).toList());
+        return new ReadResult.Success(stream.stream().map(this::toEnvelope).toList());
     }
 
     @Override
@@ -101,7 +98,12 @@ public class InMemoryEventStore implements EventStore {
 
         var progress = new SubscriptionProgress(name);
         subscribers.add(new Subscriber(
-                name, types.stream().map(Class::getTypeName).collect(Collectors.toSet()), handler, progress));
+                name,
+                types.stream()
+                        .flatMap(type -> serializer.typeNamesOf(type).stream())
+                        .collect(Collectors.toSet()),
+                handler,
+                progress));
 
         dispatch();
 
@@ -141,13 +143,17 @@ public class InMemoryEventStore implements EventStore {
                     if (subscriber.checkpoint >= position || failed.contains(subscriber)) continue;
 
                     if (subscriber.accepts(entry)) {
-                        var envelope = toEnvelope(entry);
+                        try {
+                            var envelope = toEnvelope(entry);
 
-                        try (var _ = context.handling(
-                                "handle %s".formatted(envelope.data().getClass().getSimpleName()),
-                                envelope.metadata())) {
-                            subscriber.handler.accept(envelope);
-                            subscriber.progress.handled(new Checkpoint(0, position));
+                            try (var _ = context.handling(
+                                    "handle %s"
+                                            .formatted(
+                                                    envelope.data().getClass().getSimpleName()),
+                                    envelope.metadata())) {
+                                subscriber.handler.accept(envelope);
+                                subscriber.progress.handled(new Checkpoint(0, position));
+                            }
                         } catch (RuntimeException e) {
                             logger.error(
                                     "Subscriber '{}' failed on {} at log position {}; it will get it again on the next append",
@@ -176,7 +182,7 @@ public class InMemoryEventStore implements EventStore {
                 .getAsInt();
     }
 
-    private static EventEnvelope<Object> toEnvelope(LogEntry entry) {
+    private EventEnvelope<Object> toEnvelope(LogEntry entry) {
         var values = entry.values();
 
         return new EventEnvelope<>(
@@ -206,23 +212,19 @@ public class InMemoryEventStore implements EventStore {
         };
     }
 
-    private static StoredEvent serialize(Object event) {
+    private StoredEvent serialize(Object event) {
         try {
-            return new StoredEvent(event.getClass().getTypeName(), mapper.writeValueAsString(event));
+            return new StoredEvent(serializer.typeNameOf(event.getClass()), serializer.write(event));
         } catch (Exception e) {
             throw new IllegalArgumentException("Cannot serialize event of type %s".formatted(event.getClass()), e);
         }
     }
 
-    private static Object deserialize(StoredEvent envelope) {
-        try {
-            return mapper.readValue(envelope.json(), Class.forName(envelope.eventType()));
-        } catch (Exception e) {
-            throw new UnreadableMessageException(envelope.eventType(), e);
-        }
+    private Object deserialize(StoredEvent event) {
+        return serializer.read(event.eventType(), event.data());
     }
 
-    record StoredEvent(String eventType, String json) {}
+    record StoredEvent(String eventType, byte[] data) {}
 
     record LogEntry(
             String streamId, long streamPosition, long logPosition, StoredEvent storedEvent, MessageValues values) {}
@@ -249,11 +251,4 @@ public class InMemoryEventStore implements EventStore {
             return eventTypes.contains(entry.storedEvent().eventType());
         }
     }
-
-    private static final JsonMapper mapper = JsonMapper.builder()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-            .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-            .configure(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
-            .changeDefaultVisibility(visibility -> visibility.withFieldVisibility(JsonAutoDetect.Visibility.ANY))
-            .build();
 }

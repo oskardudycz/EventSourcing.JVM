@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStoreMetadataTests;
 import io.eventdriven.distributedprocesses.core.processing.RetryBackOff;
-import io.eventdriven.distributedprocesses.core.serialization.EventTypeMapper;
 import io.eventdriven.distributedprocesses.core.subscriptions.SubscriptionCheckpoints;
 import io.eventdriven.testing.ProjectionsDatabase;
 import io.eventdriven.testing.TestDatabases;
@@ -26,6 +25,7 @@ public class KurrentDBEventStoreMetadataTests extends EventStoreMetadataTests {
     private final KurrentDBEventStore eventStore = new KurrentDBEventStore(
             client,
             context,
+            serializer(),
             ObservationRegistry.NOOP,
             ProjectionsDatabase.H2.bean(SubscriptionCheckpoints.class),
             RetryBackOff.exponential(Duration.ofMillis(100)));
@@ -121,7 +121,7 @@ public class KurrentDBEventStoreMetadataTests extends EventStoreMetadataTests {
     }
 
     private void appendRaw(String data, String metadata) throws Exception {
-        var event = EventDataBuilder.json(EventTypeMapper.toName(Opened.class), data.getBytes());
+        var event = EventDataBuilder.json(Opened.class.getName(), data.getBytes());
         if (metadata != null) event.metadataAsBytes(metadata.getBytes());
 
         client.appendToStream(streamId, event.build()).get();

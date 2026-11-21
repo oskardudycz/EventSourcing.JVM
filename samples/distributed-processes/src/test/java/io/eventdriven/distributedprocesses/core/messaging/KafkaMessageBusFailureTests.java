@@ -97,11 +97,17 @@ public class KafkaMessageBusFailureTests {
 
     private static MessageSerializer serializer() {
         return TestMessages.serializer(new MessageMapping()
+                .trust(PaymentReceived.class.getPackageName())
                 .register("test.PaymentReceived", PaymentReceived.class)
                 .register("test.RoomInspected", RoomInspected.class)
-                .register("test.RoomInspected.v1", String.class, room -> new RoomInspected(room, "unknown"))
+                .register(
+                        "test.RoomInspected.v1",
+                        String.class,
+                        RoomInspected.class,
+                        room -> new RoomInspected(room, "unknown"))
                 .register(
                         "test.RoomInspected.v0",
+                        RoomInspected.class,
                         json -> new RoomInspected(json.get("r").asString(), "unknown")));
     }
 
@@ -209,11 +215,22 @@ public class KafkaMessageBusFailureTests {
 
         var deadLetters = deadLettersOf(billing, 1);
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
-        assertThat(KafkaTopics.header(deadLetters.getFirst(), KafkaMessageBus.MESSAGE_TYPE))
+        assertThat(KafkaTopics.header(deadLetters.getFirst(), KafkaMessageBus.TYPE_ID))
                 .isEqualTo("java.lang.ProcessBuilder");
         assertThat(KafkaTopics.header(deadLetters.getFirst(), KafkaHeaders.DLT_EXCEPTION_CAUSE_FQCN))
                 .isEqualTo(UnreadableMessageException.class.getName());
         assertThat(deliveryAttemptOf(deadLetters.getFirst())).isEqualTo(1);
+    }
+
+    @Test
+    public void aJavaUtilTypeIsDeadLetteredInsteadOfRead() {
+        messageBus.subscribe(billing, PaymentReceived.class, messages::catchMessage);
+        publishRaw("java.util.ArrayList", "[]");
+
+        publish(new PaymentReceived("payment-1"));
+
+        deadLettersOf(billing, 1);
+        messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
     }
 
     @Test
@@ -246,26 +263,24 @@ public class KafkaMessageBusFailureTests {
     }
 
     @Test
-    public void batchWithAMessageTypeWithoutAStableNamePublishesNothing() {
-        record Unnamed(String id) {}
+    public void batchWithAMessageThatHasNoRoutePublishesNothing() {
         var bus = KafkaMessageBus.connectingTo(
                 bootstrapServers,
                 messageContext,
                 observations,
-                TestMessages.serializer(new MessageMapping().register("test.PaymentReceived", PaymentReceived.class)),
+                serializer(),
                 TestKafka.PUBLISH_TIMEOUT,
                 TestKafka.failureHandling(bootstrapServers, observations),
                 List.of(new MessageRoutes()
                         .routeTarget(MessageRoutes.inPackage(getClass().getPackageName()), payments)
-                        .routeKey(PaymentReceived.class, message -> KEY)
-                        .routeKey(Unnamed.class, message -> KEY)),
+                        .routeKey(PaymentReceived.class, message -> KEY)),
                 List.of(new MessageChannel(payments)),
                 List.of());
 
         try {
-            assertThatThrownBy(() -> bus.publish(List.of(new PaymentReceived("payment-1"), new Unnamed("unnamed"))))
+            assertThatThrownBy(() -> bus.publish(List.of(new PaymentReceived("payment-1"), new Object())))
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining(Unnamed.class.getName());
+                    .hasMessageContaining(Object.class.getName());
         } finally {
             bus.close();
         }
@@ -290,7 +305,7 @@ public class KafkaMessageBusFailureTests {
                 bootstrapServers,
                 messageContext,
                 observations,
-                TestMessages.serializer(new MessageMapping().register("test.PaymentReceived", PaymentReceived.class)),
+                serializer(),
                 TestKafka.PUBLISH_TIMEOUT,
                 TestKafka.failureHandling(
                         meters,
@@ -343,7 +358,7 @@ public class KafkaMessageBusFailureTests {
 
     private void publishRaw(String typeName, String body) {
         var record = new ProducerRecord<>(payments, KEY, body.getBytes(StandardCharsets.UTF_8));
-        record.headers().add(KafkaMessageBus.MESSAGE_TYPE, typeName.getBytes(StandardCharsets.UTF_8));
+        record.headers().add(KafkaMessageBus.TYPE_ID, typeName.getBytes(StandardCharsets.UTF_8));
         publishRaw(record);
     }
 

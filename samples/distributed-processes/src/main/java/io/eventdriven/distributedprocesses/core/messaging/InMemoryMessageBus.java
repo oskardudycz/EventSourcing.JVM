@@ -38,7 +38,7 @@ public class InMemoryMessageBus implements MessageBus {
 
             var route = router.declaredRouteFor(message, channels);
 
-            var values = context.inheritForPublished(message.getClass(), position);
+            var values = context.inheritForPublished(message.getClass().getName(), position);
 
             for (var binding : bindings.getOrDefault(route.target(), List.of())) {
                 if (!RoutingPattern.matches(binding.pattern(), route.key())) continue;

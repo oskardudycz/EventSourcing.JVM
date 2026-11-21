@@ -19,6 +19,7 @@ import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentId;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentId;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
 import io.eventdriven.testing.MessageCatcher;
+import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestTracing;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -45,7 +46,8 @@ public class OrderFacadeTests {
     private final OffsetDateTime capturedAt = now.plusMinutes(4);
     private final Duration timeToPay = Duration.ofDays(14);
 
-    private final InMemoryEventStore eventStore = new InMemoryEventStore(TestTracing.untraced());
+    private final InMemoryEventStore eventStore =
+            new InMemoryEventStore(TestTracing.untraced(), TestMessages.serializer());
     private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
             TestTracing.untraced(),
             List.of(OrdersConfig.ordersRoutes()),

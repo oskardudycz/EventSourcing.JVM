@@ -93,11 +93,17 @@ public class RabbitMQMessageBusFailureTests {
 
     private static MessageSerializer serializer() {
         return TestMessages.serializer(new MessageMapping()
+                .trust(PaymentReceived.class.getPackageName())
                 .register("test.PaymentReceived", PaymentReceived.class)
                 .register("test.RoomInspected", RoomInspected.class)
-                .register("test.RoomInspected.v1", String.class, room -> new RoomInspected(room, "unknown"))
+                .register(
+                        "test.RoomInspected.v1",
+                        String.class,
+                        RoomInspected.class,
+                        room -> new RoomInspected(room, "unknown"))
                 .register(
                         "test.RoomInspected.v0",
+                        RoomInspected.class,
                         json -> new RoomInspected(json.get("r").asString(), "unknown")));
     }
 
@@ -126,25 +132,23 @@ public class RabbitMQMessageBusFailureTests {
     }
 
     @Test
-    public void batchWithAMessageTypeWithoutAStableNamePublishesNothing() {
-        record Unnamed(String id) {}
+    public void batchWithAMessageThatHasNoRoutePublishesNothing() {
         var collector = queues.collectEverythingPublishedTo(payments);
         var bus = TestRabbitMQ.busOn(
                 connection,
                 messageContext,
                 applicationContext,
-                TestMessages.serializer(new MessageMapping().register("test.PaymentReceived", PaymentReceived.class)),
+                serializer(),
                 List.of(new MessageRoutes()
                         .routeTarget(MessageRoutes.inPackage(getClass().getPackageName()), payments)
-                        .routeKey(PaymentReceived.class, message -> KEY)
-                        .routeKey(Unnamed.class, message -> KEY)),
+                        .routeKey(PaymentReceived.class, message -> KEY)),
                 List.of(new MessageChannel(payments)),
                 List.of());
 
         try {
-            assertThatThrownBy(() -> bus.publish(List.of(new PaymentReceived("payment-1"), new Unnamed("unnamed"))))
+            assertThatThrownBy(() -> bus.publish(List.of(new PaymentReceived("payment-1"), new Object())))
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining(Unnamed.class.getName());
+                    .hasMessageContaining(Object.class.getName());
         } finally {
             bus.close();
         }
@@ -231,7 +235,7 @@ public class RabbitMQMessageBusFailureTests {
         awaitCaughtUp();
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
         assertThat(deadLetters).hasSize(1);
-        assertThat(deadLetters.getFirst().getMessageProperties().<String>getHeader(RabbitMQMessageBus.MESSAGE_TYPE))
+        assertThat(deadLetters.getFirst().getMessageProperties().<String>getHeader(RabbitMQMessageBus.TYPE_ID))
                 .isEqualTo("java.lang.ProcessBuilder");
         assertThat(decisions).hasValue(1);
     }
@@ -252,6 +256,17 @@ public class RabbitMQMessageBusFailureTests {
 
         assertThat(queues.receiveAll(billing + "-dlq", 1)).hasSize(1);
         awaitCaughtUp();
+        messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
+    }
+
+    @Test
+    public void aJavaUtilTypeIsDeadLetteredInsteadOfRead() {
+        messageBus.subscribe(billing, PaymentReceived.class, messages::catchMessage);
+        publishRaw("java.util.ArrayList", "[]");
+
+        publish(new PaymentReceived("payment-1"));
+
+        assertThat(queues.receiveAll(billing + "-dlq", 1)).hasSize(1);
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
     }
 
@@ -307,7 +322,7 @@ public class RabbitMQMessageBusFailureTests {
 
     private void publishRaw(String typeName, String body) {
         var properties = MessagePropertiesBuilder.newInstance()
-                .setHeader(RabbitMQMessageBus.MESSAGE_TYPE, typeName)
+                .setHeader(RabbitMQMessageBus.TYPE_ID, typeName)
                 .build();
         queues.send(payments, KEY, new Message(body.getBytes(StandardCharsets.UTF_8), properties));
         if (!messageBus.isRunning()) messageBus.start();

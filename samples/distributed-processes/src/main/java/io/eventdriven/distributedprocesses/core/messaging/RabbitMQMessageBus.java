@@ -34,17 +34,18 @@ import org.springframework.amqp.rabbit.core.RabbitOperations;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.amqp.rabbit.support.RabbitExceptionTranslator;
+import org.springframework.amqp.support.converter.DefaultClassMapper;
+import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.util.backoff.BackOff;
 import org.springframework.util.backoff.BackOffExecution;
 
 public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoCloseable {
-    public static final String MESSAGE_TYPE = "messageType";
+    public static final String TYPE_ID = DefaultClassMapper.DEFAULT_CLASSID_FIELD_NAME;
 
     public static final String DEAD_LETTERED = "messaging.dead_lettered";
 
-    private static final String UNKNOWN_TYPE = "unknown";
     private static final String CATCH_UP_PROBE = "catchUpProbe";
     private static final Set<String> MANDATORY_CHANNEL_SUFFIXES = Set.of("-requests", "-internal");
 
@@ -53,6 +54,8 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     private final MessageContext context;
     private final ApplicationContext applicationContext;
     private final MessageSerializer serializer;
+    private final JacksonJsonMessageConverter jsonConverter;
+    private final RabbitMQVersionedMessageConverter messageConverter;
     private final Duration publishTimeout;
     private final FailureHandling failures;
     private final CachingConnectionFactory connectionFactory;
@@ -82,6 +85,8 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
         this.context = context;
         this.applicationContext = applicationContext;
         this.serializer = serializer;
+        this.jsonConverter = jsonConverterOf(serializer);
+        this.messageConverter = new RabbitMQVersionedMessageConverter(jsonConverter, serializer);
         this.publishTimeout = publishTimeout;
         this.failures = failures;
 
@@ -138,7 +143,7 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
             for (var middleware : middlewares) middleware.accept(message);
 
             var route = router.declaredRouteFor(message, channels);
-            var values = context.inheritForPublished(message.getClass(), position);
+            var values = context.inheritForPublished(serializer.typeNameOf(message.getClass()), position);
 
             prepared.add(new Prepared(route, amqpMessageOf(message, values), values));
         }
@@ -264,10 +269,7 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     }
 
     private void handle(String queue, Message amqpMessage) {
-        var typeName = amqpMessage.getMessageProperties().<String>getHeader(MESSAGE_TYPE);
-        if (typeName == null) throw new UnreadableMessageException(UNKNOWN_TYPE, "the message has no type header");
-
-        var message = serializer.read(typeName, amqpMessage.getBody());
+        var message = messageConverter.read(amqpMessage);
         var handlers = queues.getOrDefault(queue, Map.of()).get(message.getClass());
 
         if (handlers == null) return;
@@ -282,8 +284,8 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     }
 
     private long nextAttemptIn(String queue, Message amqpMessage, BackOffExecution backOff, RuntimeException error) {
-        var typeName = amqpMessage.getMessageProperties().<String>getHeader(MESSAGE_TYPE);
-        var decision = failures.strategy().onFailure(typeNameOf(typeName), readMessage(typeName, amqpMessage), error);
+        var typeName = amqpMessage.getMessageProperties().<String>getHeader(TYPE_ID);
+        var decision = failures.strategy().onFailure(typeNameOf(typeName), readMessage(amqpMessage), error);
         var interval =
                 decision == MessageFailureStrategy.Decision.RETRY ? backOff.nextBackOff() : BackOffExecution.STOP;
 
@@ -297,7 +299,9 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
                 .counter(
                         DEAD_LETTERED,
                         "message.type",
-                        typeName != null && serializer.isRegistered(typeName) ? typeName : UNKNOWN_TYPE,
+                        typeName != null && serializer.isKnown(typeName)
+                                ? typeName
+                                : UnreadableMessageException.UNKNOWN_TYPE,
                         "messaging.destination.name",
                         queue)
                 .increment();
@@ -305,18 +309,16 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
         return new AmqpRejectAndDontRequeueException("The message is dead-lettered from queue " + queue, error);
     }
 
-    private Optional<Object> readMessage(String typeName, Message amqpMessage) {
-        if (typeName == null) return Optional.empty();
-
+    private Optional<Object> readMessage(Message amqpMessage) {
         try {
-            return Optional.of(serializer.read(typeName, amqpMessage.getBody()));
+            return Optional.of(messageConverter.read(amqpMessage));
         } catch (UnreadableMessageException e) {
             return Optional.empty();
         }
     }
 
     private static String typeNameOf(String typeName) {
-        return Objects.requireNonNullElse(typeName, UNKNOWN_TYPE);
+        return Objects.requireNonNullElse(typeName, UnreadableMessageException.UNKNOWN_TYPE);
     }
 
     private static void pause(long interval, RuntimeException error) {
@@ -345,10 +347,21 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
                 .setContentType(MessageProperties.CONTENT_TYPE_JSON)
                 .setDeliveryMode(MessageDeliveryMode.PERSISTENT)
                 .setMessageId(values.messageId())
-                .setHeader(MESSAGE_TYPE, serializer.typeNameOf(message.getClass()))
                 .build();
 
-        return new Message(serializer.write(message), properties);
+        return jsonConverter.toMessage(message, properties);
+    }
+
+    private static JacksonJsonMessageConverter jsonConverterOf(MessageSerializer serializer) {
+        var classMapper = new DefaultClassMapper();
+        classMapper.setIdClassMapping(serializer.typeMapper().explicitNames());
+        classMapper.setTrustedPackages(serializer.typeMapper().trustedPackages());
+        classMapper.afterPropertiesSet();
+
+        var converter = new JacksonJsonMessageConverter(serializer.jsonMapper());
+        converter.setClassMapper(classMapper);
+
+        return converter;
     }
 
     private static Message catchUpProbe(String probeId) {

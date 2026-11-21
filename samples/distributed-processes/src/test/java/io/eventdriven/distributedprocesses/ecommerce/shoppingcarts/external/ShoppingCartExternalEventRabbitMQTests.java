@@ -8,7 +8,6 @@ import static org.awaitility.Awaitility.await;
 import io.eventdriven.distributedprocesses.core.eventstore.InMemoryEventStore;
 import io.eventdriven.distributedprocesses.core.messaging.MessageContext;
 import io.eventdriven.distributedprocesses.core.messaging.RabbitMQMessageBus;
-import io.eventdriven.distributedprocesses.ecommerce.ECommerceMessages;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.CustomerShoppingCartRepository;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartFacade;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
@@ -67,12 +66,12 @@ public class ShoppingCartExternalEventRabbitMQTests {
     @Test
     public void publishToAChannelWithNoQueueSucceedsAndTheForwarderGoesOn() {
         var connection = TestDatabases.connectionTo(rabbitMQ);
-        var eventStore = new InMemoryEventStore(messageContext);
+        var eventStore = new InMemoryEventStore(messageContext, TestMessages.serializer());
         messageBus = TestRabbitMQ.busOn(
                 connection,
                 messageContext,
                 applicationContext,
-                TestMessages.serializer(ECommerceMessages.mapping()),
+                TestMessages.serializer(),
                 List.of(ShoppingCartsConfig.shoppingCartsRoutes()),
                 List.of(ShoppingCartsConfig.shoppingCartsExternalChannel()),
                 List.of());

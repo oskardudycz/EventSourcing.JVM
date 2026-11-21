@@ -1,43 +1,58 @@
 package io.eventdriven.distributedprocesses.core.messaging.versioning;
 
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import tools.jackson.databind.JsonNode;
 
 public class MessageMapping {
-    private final Map<String, Class<?>> classesByName = new HashMap<>();
-    private final Map<Class<?>, String> namesByClass = new HashMap<>();
-    private final Map<String, MessageTransformer> transformersByName = new HashMap<>();
+    record OldName(String typeName, Class<?> currentClass, MessageTransformer transformer) {}
+
+    private final List<String> trustedPackages = new ArrayList<>();
+    private final Map<String, Class<?>> explicitNames = new LinkedHashMap<>();
+    private final List<OldName> oldNames = new ArrayList<>();
+
+    public MessageMapping trust(String... packageNames) {
+        trustedPackages.addAll(Arrays.asList(packageNames));
+        return this;
+    }
 
     public MessageMapping register(String typeName, Class<?> messageClass) {
-        classesByName.put(typeName, messageClass);
-        namesByClass.put(messageClass, typeName);
+        explicitNames.put(typeName, messageClass);
         return this;
     }
 
     public <OldMessage, Message> MessageMapping register(
-            String oldTypeName, Class<OldMessage> oldMessageClass, Function<OldMessage, Message> transform) {
-        transformersByName.put(
-                oldTypeName, (json, objectMapper) -> transform.apply(objectMapper.readValue(json, oldMessageClass)));
+            String oldTypeName,
+            Class<OldMessage> oldMessageClass,
+            Class<Message> messageClass,
+            Function<OldMessage, Message> transform) {
+        oldNames.add(new OldName(
+                oldTypeName,
+                messageClass,
+                (json, jsonMapper) -> transform.apply(jsonMapper.readValue(json, oldMessageClass))));
         return this;
     }
 
-    public <Message> MessageMapping register(String oldTypeName, Function<JsonNode, Message> transformJson) {
-        transformersByName.put(oldTypeName, (json, objectMapper) -> transformJson.apply(objectMapper.readTree(json)));
+    public <Message> MessageMapping register(
+            String oldTypeName, Class<Message> messageClass, Function<JsonNode, Message> transformJson) {
+        oldNames.add(new OldName(
+                oldTypeName, messageClass, (json, jsonMapper) -> transformJson.apply(jsonMapper.readTree(json))));
         return this;
     }
 
-    public Optional<String> typeNameOf(Class<?> messageClass) {
-        return Optional.ofNullable(namesByClass.get(messageClass));
+    List<String> trustedPackages() {
+        return trustedPackages;
     }
 
-    public Optional<Class<?>> classOf(String typeName) {
-        return Optional.ofNullable(classesByName.get(typeName));
+    Map<String, Class<?>> explicitNames() {
+        return explicitNames;
     }
 
-    public Optional<MessageTransformer> transformerOf(String typeName) {
-        return Optional.ofNullable(transformersByName.get(typeName));
+    List<OldName> oldNames() {
+        return oldNames;
     }
 }

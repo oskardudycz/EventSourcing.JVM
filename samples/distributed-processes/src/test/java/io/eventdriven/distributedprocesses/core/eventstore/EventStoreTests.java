@@ -9,13 +9,19 @@ import static org.awaitility.Awaitility.await;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore.AppendResult;
 import io.eventdriven.distributedprocesses.core.messaging.EventEnvelope;
 import io.eventdriven.distributedprocesses.core.messaging.EventMetadata;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageMapping;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
+import io.eventdriven.testing.TestMessages;
 import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 public abstract class EventStoreTests {
@@ -26,6 +32,17 @@ public abstract class EventStoreTests {
 
     protected abstract EventStore eventStore();
 
+    protected static List<MessageMapping> mappings() {
+        return Stream.concat(
+                        TestMessages.moduleMappings().stream(),
+                        Stream.of(TestMessages.trustingPackageOf(EventStoreTests.class)))
+                .toList();
+    }
+
+    protected static MessageSerializer serializer() {
+        return TestMessages.serializer(mappings());
+    }
+
     @Test
     public void appendedEventsComeBackInOrder() {
         var opened = new CartOpened(cartId);
@@ -35,6 +52,17 @@ public abstract class EventStoreTests {
         eventStore().append(streamId, opened, added, third);
 
         assertThat(eventsOf(streamId)).containsExactly(opened, added, third);
+    }
+
+    @Test
+    public void anOffsetDateTimeKeepsItsOffset() {
+        var openedAt = OffsetDateTime.of(2024, 5, 1, 10, 15, 30, 0, ZoneOffset.ofHours(2));
+
+        eventStore().append(streamId, new CartOpenedAt(cartId, openedAt));
+
+        assertThat(eventsOf(streamId)).containsExactly(new CartOpenedAt(cartId, openedAt));
+        assertThat(((CartOpenedAt) eventsOf(streamId).getFirst()).openedAt().getOffset())
+                .isEqualTo(ZoneOffset.ofHours(2));
     }
 
     @Test
@@ -373,4 +401,6 @@ public abstract class EventStoreTests {
     public record CartOpened(String cartId) implements CartEvent {}
 
     public record ItemAdded(String cartId, String productId) implements CartEvent {}
+
+    public record CartOpenedAt(String cartId, OffsetDateTime openedAt) {}
 }

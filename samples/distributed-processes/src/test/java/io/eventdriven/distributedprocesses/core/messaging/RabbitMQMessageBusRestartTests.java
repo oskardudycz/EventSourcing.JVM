@@ -6,7 +6,6 @@ import io.eventdriven.testing.MessageCatcher;
 import io.eventdriven.testing.RabbitMQConnection;
 import io.eventdriven.testing.RabbitMQManagement;
 import io.eventdriven.testing.TestDatabases;
-import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestRabbitMQ;
 import java.time.Duration;
 import java.util.List;
@@ -65,7 +64,7 @@ public class RabbitMQMessageBusRestartTests {
                 connection,
                 messageContext,
                 applicationContext,
-                TestMessages.serializer(MessageBusTests.messageMapping()),
+                MessageBusTests.serializer(),
                 List.of(new MessageRoutes()
                         .routeTarget(MessageRoutes.inPackage(MessageBusTests.class.getPackageName()), orders)
                         .routeKey(MessageBusTests.OrderMessage.class, message -> "ecommerce.order.1")),

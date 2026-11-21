@@ -1,6 +1,7 @@
 package io.eventdriven.distributedprocesses.core.eventstore.postgresql;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.zaxxer.hikari.HikariDataSource;
@@ -8,8 +9,9 @@ import io.eventdriven.distributedprocesses.core.eventstore.DurableEventStoreTest
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore;
 import io.eventdriven.distributedprocesses.core.eventstore.EventStore.AppendResult;
 import io.eventdriven.distributedprocesses.core.eventstore.ExpectedStreamVersion;
+import io.eventdriven.distributedprocesses.core.messaging.UnreadableMessageException;
+import io.eventdriven.distributedprocesses.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.distributedprocesses.core.processing.RetryBackOff;
-import io.eventdriven.distributedprocesses.core.serialization.EventTypeMapper;
 import io.eventdriven.distributedprocesses.core.subscriptions.SubscriptionCheckpoints;
 import io.eventdriven.testing.ProjectionsDatabase;
 import io.eventdriven.testing.TestTracing;
@@ -22,6 +24,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -41,8 +44,8 @@ public class PostgreSQLEventStoreTests extends DurableEventStoreTests {
     }
 
     @Override
-    protected EventStore newStore(ProjectionsDatabase projections) {
-        return newStore(projections, POLL_INTERVAL);
+    protected EventStore newStore(ProjectionsDatabase projections, MessageSerializer serializer) {
+        return newStore(projections, serializer, POLL_INTERVAL);
     }
 
     @Override
@@ -51,20 +54,30 @@ public class PostgreSQLEventStoreTests extends DurableEventStoreTests {
     }
 
     @Override
-    protected void appendEventOfUnknownType(String streamId, String typeName) {
+    protected void appendRawEvent(String streamId, String typeName, String json) {
         try (var connection = dataSource.getConnection();
                 var statement = connection.prepareStatement("""
                         select success from append_to_stream(
-                            array[?::text], array['{}'::text], array['{}'::text], array[1],
-                            array[?::text], array['E'::text], ?, 'ShoppingCart', 'no_stream', -1)
+                            array[?::text], array[?::text], array['{}'::text], array[1],
+                            array[?::text], array['E'::text], ?, 'ShoppingCart', 'any', -1)
                         """)) {
             statement.setString(1, UUID.randomUUID().toString());
-            statement.setString(2, typeName);
-            statement.setString(3, streamId);
+            statement.setString(2, json);
+            statement.setString(3, typeName);
+            statement.setString(4, streamId);
             statement.executeQuery();
         } catch (SQLException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    @Override
+    protected List<String> storedTypeNamesOf(String streamId) {
+        return new JdbcTemplate(dataSource)
+                .queryForList(
+                        "select message_type from messages where stream_id = ? order by stream_position",
+                        String.class,
+                        streamId);
     }
 
     @AfterEach
@@ -75,6 +88,44 @@ public class PostgreSQLEventStoreTests extends DurableEventStoreTests {
     @AfterAll
     static void closeDataSource() {
         dataSource.close();
+    }
+
+    @Test
+    public void readingAnEventWithUnreadableMetadataFailsNamingTheType() throws SQLException {
+        try (var connection = dataSource.getConnection();
+                var statement = connection.prepareStatement("""
+                        select success from append_to_stream(
+                            array[?::text], array['{}'::text], array['[1]'::text], array[1],
+                            array[?::text], array['E'::text], ?, 'ShoppingCart', 'any', -1)
+                        """)) {
+            statement.setString(1, UUID.randomUUID().toString());
+            statement.setString(2, CartOpenedAt.class.getName());
+            statement.setString(3, streamId);
+            statement.executeQuery();
+        }
+
+        assertThatThrownBy(() -> eventStore.read(streamId))
+                .isInstanceOf(UnreadableMessageException.class)
+                .hasMessageContaining(CartOpenedAt.class.getName());
+    }
+
+    @Test
+    public void aSubscriptionHandlesItsTypeAfterManyEventsOfOtherTypes() {
+        var otherStreamId = "ShoppingCart-%s".formatted(UUID.randomUUID());
+        var received = new CopyOnWriteArrayList<Object>();
+        var subscription = eventStore.subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
+            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+        });
+        eventStore.append(
+                otherStreamId,
+                IntStream.range(0, 500)
+                        .mapToObj(index -> new CartOpened(cartId))
+                        .toArray());
+
+        var appended = eventStore.append(streamId, new ItemAdded(cartId, "t-shirt"));
+
+        subscription.awaitProcessed(((AppendResult.Success) appended).lastEvent(), PROCESSING_TIMEOUT);
+        assertThat(received).containsExactly(new ItemAdded(cartId, "t-shirt"));
     }
 
     @Test
@@ -160,9 +211,7 @@ public class PostgreSQLEventStoreTests extends DurableEventStoreTests {
                 .extracting(message -> message.get("stream_position"))
                 .containsExactly(0L, 1L, 2L);
         assertThat(messages).extracting(message -> message.get("message_kind")).containsOnly("E");
-        assertThat(messages)
-                .extracting(message -> message.get("message_type"))
-                .containsOnly(EventTypeMapper.toName(ItemAdded.class));
+        assertThat(messages).extracting(message -> message.get("message_type")).containsOnly(ItemAdded.class.getName());
         assertThat(messages)
                 .extracting(message -> message.get("message_schema_version"))
                 .containsOnly(1);
@@ -218,9 +267,15 @@ public class PostgreSQLEventStoreTests extends DurableEventStoreTests {
     }
 
     private PostgreSQLEventStore newStore(ProjectionsDatabase projections, Duration pollInterval) {
+        return newStore(projections, serializer(), pollInterval);
+    }
+
+    private PostgreSQLEventStore newStore(
+            ProjectionsDatabase projections, MessageSerializer serializer, Duration pollInterval) {
         var store = new PostgreSQLEventStore(
                 dataSource,
                 tracing.messageContext(),
+                serializer,
                 projections.bean(SubscriptionCheckpoints.class),
                 RetryBackOff.exponential(Duration.ofMillis(100)),
                 pollInterval);

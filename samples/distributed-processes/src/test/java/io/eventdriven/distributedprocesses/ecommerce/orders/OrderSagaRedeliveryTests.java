@@ -15,6 +15,7 @@ import io.eventdriven.distributedprocesses.ecommerce.orders.products.PricedProdu
 import io.eventdriven.distributedprocesses.ecommerce.payments.PaymentCommand.AuthorizePayment;
 import io.eventdriven.distributedprocesses.ecommerce.shipments.ShipmentCommand.ReserveStock;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.ShoppingCartId;
+import io.eventdriven.testing.TestMessages;
 import io.eventdriven.testing.TestTracing;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -24,7 +25,8 @@ import org.junit.jupiter.api.Test;
 
 public class OrderSagaRedeliveryTests {
     private final TestTracing tracing = new TestTracing();
-    private final InMemoryEventStore eventStore = new InMemoryEventStore(tracing.messageContext());
+    private final InMemoryEventStore eventStore =
+            new InMemoryEventStore(tracing.messageContext(), TestMessages.serializer());
     private final InMemoryMessageBus messageBus = new InMemoryMessageBus(
             tracing.messageContext(),
             List.of(new MessageRoutes()
