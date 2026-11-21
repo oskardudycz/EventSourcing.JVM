@@ -63,6 +63,7 @@ dependencies {
   // Tracing: Micrometer Tracing with the OpenTelemetry bridge
   implementation 'org.springframework.boot:spring-boot-starter-actuator'
   implementation 'org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry'
+  implementation 'io.micrometer:micrometer-tracing-bridge-otel'
 
   // Traces, metrics and logs to Grafana LGTM over OTLP
   implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
@@ -83,7 +84,6 @@ dependencies {
   testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
   testImplementation 'org.springframework.boot:spring-boot-micrometer-tracing-test'
   testImplementation 'org.springframework.boot:spring-boot-micrometer-metrics-test'
-  testImplementation 'io.micrometer:micrometer-tracing-bridge-otel'
   testImplementation 'io.opentelemetry:opentelemetry-sdk-testing'
   testImplementation 'org.testcontainers:testcontainers'
   testImplementation 'org.testcontainers:testcontainers-postgresql'
@@ -170,7 +170,7 @@ tasks.register('eventCatalog', NpmTask) {
 
 tasks.register('eventCatalogPreview', NpmTask) {
   group = 'documentation'
-  description = 'Serves the built EventCatalog on http://localhost:3000.'
+  description = 'Serves the built EventCatalog on http://localhost:3001.'
   dependsOn 'eventCatalog'
   args = ['run', 'preview']
 }

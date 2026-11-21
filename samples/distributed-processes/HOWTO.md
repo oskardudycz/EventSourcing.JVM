@@ -158,7 +158,7 @@ EventCatalog builds a website from the OpenAPI and AsyncAPI documents. To build 
 ./gradlew eventCatalogPreview
 ```
 
-Gradle starts a second copy of the application on port 18086, saves its documents to [eventcatalog/specs](./eventcatalog/specs/), and builds the catalog from them. Then open <http://localhost:3000>. The first run downloads Node.js and the catalog's packages, which takes a few minutes.
+Gradle starts a second copy of the application on port 18086, saves its documents to [eventcatalog/specs](./eventcatalog/specs/), and builds the catalog from them. Then open <http://localhost:3001>. The first run downloads Node.js and the catalog's packages, which takes a few minutes.
 
 ![The catalog's home page](./assets/howto/10-eventcatalog-home.png)
 
@@ -174,9 +174,10 @@ The catalog shows one domain, E-Commerce, with each module as a service. A servi
 
 This step needs the default start, because the `in-memory` profile doesn't start Grafana. After a purchase, open Grafana at <http://localhost:3000>. It needs no login.
 
-1. Open **Explore** and choose the **Tempo** data source. Search by tag for `correlationId`, with the order's id from the **Order status** page. Tempo shows the trace of the purchase: one span for each step, and inside a step a `streams.append` span for each append to KurrentDB.
-2. Open the **Logs** of a span, or choose the **Loki** data source in **Explore**. Loki has the application's log lines, each with the `traceId` of its span.
-3. Open **Dashboards** and choose **Purchase flow**. It shows the messages published, handled and failed for each channel, the dead letters and the HTTP requests, from Prometheus. Each panel links to the traces.
+1. Find the purchase's `correlationId`. Every step of a purchase carries it as a span attribute and as a field of its log lines. Open **Explore**, choose the **Loki** data source, and pick a log line of the purchase, for example the one with the order's id. Its `correlationId` field is the one you need. You can also open any `streams.append` span of the purchase in Tempo and read its `correlationId` attribute.
+2. Choose the **Tempo** data source in **Explore**, and search by tag for that `correlationId`. A purchase forms two traces, because **Pay now** is a new HTTP request: the first trace goes from the checkout to the order waiting for the payment, the second from **Pay now** to the completed order. Both have the same `correlationId`, so the search finds both. In each trace you see one span for each step, and inside a step a `streams.append` span for each append to KurrentDB.
+3. Open the **Logs** of a span, or return to the **Loki** data source in **Explore**. Loki has the application's log lines, each with the `traceId` of its span.
+4. Open **Dashboards** and choose **Purchase flow**. It shows the messages published, handled and failed for each channel, the dead letters and the HTTP requests, from Prometheus. Each panel links to the traces.
 
 If Grafana doesn't run, the application works the same.
 

@@ -193,9 +193,12 @@ public class ShopPages {
 
     @GetMapping("/customers/{customerId}/orders/{orderId}")
     public String orderStatus(@PathVariable UUID customerId, @PathVariable String orderId, Model model) {
-        var status = statusOf(customerId, orderId);
         model.addAttribute("customerId", customerId);
         model.addAttribute("orderTail", orderId);
+
+        if (orderStatusOf(orderId).isEmpty()) return "shop/order-placing";
+
+        var status = statusOf(customerId, orderId);
         model.addAttribute("order", status);
         model.addAttribute("paymentTail", status.getPaymentId().tail());
         model.addAttribute("canPayNow", status.getActions().contains(OrderAction.PayNow));
@@ -223,9 +226,12 @@ public class ShopPages {
         return customerShoppingCarts.currentOf(customerId).flatMap(carts::get);
     }
 
+    private Optional<OrderStatus> orderStatusOf(String orderId) {
+        return orderStatuses.get(new OrderId(Urns.of("ecommerce", "order", orderId)));
+    }
+
     private OrderStatus statusOf(UUID customerId, String orderId) {
-        return orderStatuses
-                .get(new OrderId(Urns.of("ecommerce", "order", orderId)))
+        return orderStatusOf(orderId)
                 .filter(status -> status.getCustomerId().equals(customerId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
     }

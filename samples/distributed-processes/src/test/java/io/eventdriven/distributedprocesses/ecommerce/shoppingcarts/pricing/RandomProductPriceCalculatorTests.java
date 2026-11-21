@@ -4,7 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 
 public class RandomProductPriceCalculatorTests {
@@ -27,6 +31,29 @@ public class RandomProductPriceCalculatorTests {
                     prices.calculate(new ProductItem(UUID.randomUUID(), 1)).unitPrice();
 
             assertThat(BigDecimal.valueOf(unitPrice).scale()).isLessThanOrEqualTo(2);
+        }
+    }
+
+    @Test
+    public void concurrentRequestsForOneNewProductGetOnePrice() throws Exception {
+        var threads = 50;
+        try (var executor = Executors.newFixedThreadPool(threads)) {
+            for (var round = 0; round < 20; round++) {
+                var productItem = new ProductItem(UUID.randomUUID(), 1);
+                var start = new CountDownLatch(1);
+                var results = new ArrayList<Future<Double>>();
+                for (var i = 0; i < threads; i++)
+                    results.add(executor.submit(() -> {
+                        start.await();
+                        return prices.calculate(productItem).unitPrice();
+                    }));
+
+                start.countDown();
+
+                var unitPrices = new ArrayList<Double>();
+                for (var result : results) unitPrices.add(result.get());
+                assertThat(unitPrices).containsOnly(unitPrices.getFirst());
+            }
         }
     }
 }

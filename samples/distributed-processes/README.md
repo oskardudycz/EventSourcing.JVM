@@ -738,7 +738,7 @@ A value outside the list stops the start and names the setting. The modules don'
 
 #### Looking at a purchase in Grafana
 
-The Docker Compose services include Grafana LGTM (Grafana with Tempo for traces, Loki for logs and Prometheus for metrics). The application sends its traces, logs and metrics to it over OTLP. After a purchase, open Grafana at <http://localhost:3000>, with no login. Search Tempo for the purchase's `correlationId` to see its trace, with one span for each step and each append to KurrentDB. The **Purchase flow** dashboard shows the messages published, handled and failed for each channel, the dead letters and the HTTP requests. If Grafana doesn't run, the application works the same and the exporters stay quiet.
+The Docker Compose services include Grafana LGTM (Grafana with Tempo for traces, Loki for logs and Prometheus for metrics). The application sends its traces, logs and metrics to it over OTLP. After a purchase, open Grafana at <http://localhost:3000>, with no login. Find the purchase's `correlationId` in a Loki log line of the purchase, or on a `streams.append` span, and search Tempo for it. A purchase forms two traces, split at **Pay now** (a new HTTP request), and both have the same `correlationId`. Each trace has one span for each step and each append to KurrentDB. The **Purchase flow** dashboard shows the messages published, handled and failed for each channel, the dead letters and the HTTP requests. If Grafana doesn't run, the application works the same and the exporters stay quiet.
 
 ### Documenting the messages
 
@@ -831,7 +831,7 @@ The catalog lives in the [eventcatalog](./eventcatalog/) folder. EventCatalog is
    ],
    ```
 
-3. **Build the website.** Astro, the site builder under EventCatalog, turns the pages into a static website in `eventcatalog/dist`. `./gradlew eventCatalogPreview` serves it on <http://localhost:3000>.
+3. **Build the website.** Astro, the site builder under EventCatalog, turns the pages into a static website in `eventcatalog/dist`. `./gradlew eventCatalogPreview` serves it on <http://localhost:3001>.
 
 The generators connect the documents like this:
 

@@ -2,19 +2,18 @@ package io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.pricing;
 
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.distributedprocesses.ecommerce.shoppingcarts.productitems.ProductItem;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class RandomProductPriceCalculator implements ProductPriceCalculator {
-    private final Map<UUID, Double> productPrices = new HashMap<>();
+    private final Map<UUID, Double> productPrices = new ConcurrentHashMap<>();
 
     public PricedProductItem calculate(ProductItem productItem) {
-        var random = new Random();
-
-        var price =
-                productPrices.computeIfAbsent(productItem.productId(), ignored -> (1 + random.nextInt(9999)) / 100.0);
+        var price = productPrices.computeIfAbsent(
+                productItem.productId(),
+                ignored -> (1 + ThreadLocalRandom.current().nextInt(9999)) / 100.0);
 
         return new PricedProductItem(productItem, price);
     }
