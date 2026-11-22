@@ -7,6 +7,7 @@ import io.eventdriven.core.messaging.MessageBus;
 import io.eventdriven.testing.Transcript;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.data.SpanData;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ import org.springframework.http.ETag;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.test.json.JsonAssert;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import tools.jackson.databind.JsonNode;
@@ -256,6 +258,35 @@ public abstract class ApiE2ESpecification {
 
     public static ResponseExpectation satisfying(Consumer<TestResponse> check) {
         return new ResponseExpectation.Satisfies(check);
+    }
+
+    public static ResponseExpectation htmlContaining(String... fragments) {
+        return satisfying(response -> assertThat(htmlOf(response)).contains(fragments));
+    }
+
+    public static ResponseExpectation htmlNotContaining(String... fragments) {
+        return satisfying(response -> assertThat(htmlOf(response)).doesNotContain(fragments));
+    }
+
+    public static ResponseExpectation redirectsTo(String path) {
+        return satisfying(response -> {
+            var location = response.headers().getFirst(HttpHeaders.LOCATION);
+
+            assertThat(location).as("Location").isNotNull();
+            assertThat(URI.create(location).getRawPath().split(";")[0])
+                    .as("Path of Location %s", location)
+                    .isEqualTo(path);
+        });
+    }
+
+    private static String htmlOf(TestResponse response) {
+        assertThat(response.headers().getContentType())
+                .as("Content type")
+                .matches(
+                        contentType -> contentType != null && contentType.isCompatibleWith(MediaType.TEXT_HTML),
+                        "is HTML");
+
+        return response.body();
     }
 
     public static String weakETag(long version) {

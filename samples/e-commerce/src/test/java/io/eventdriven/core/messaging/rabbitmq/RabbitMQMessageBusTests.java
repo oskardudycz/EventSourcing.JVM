@@ -56,19 +56,18 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
     }
 
     @Override
-    protected Supplier<PublishedMessage> collectFirstPublishedTo(String channel) {
+    protected Supplier<List<PublishedMessage>> collectPublishedTo(String channel, int count) {
         var collector = queues.collectEverythingPublishedTo(channel);
 
-        return () -> {
-            var properties = queues.receiveAll(collector, 1).getFirst().getMessageProperties();
-
-            return new PublishedMessage(
-                    properties.<String>getHeader(RabbitMQMessageBus.TYPE_ID),
-                    properties.getMessageId(),
-                    properties.<String>getHeader("correlationId"),
-                    properties.<String>getHeader("causationId"),
-                    properties.<String>getHeader("traceparent"));
-        };
+        return () -> queues.receiveAll(collector, count).stream()
+                .map(Message::getMessageProperties)
+                .map(properties -> new PublishedMessage(
+                        properties.<String>getHeader(RabbitMQMessageBus.TYPE_ID),
+                        properties.getMessageId(),
+                        properties.<String>getHeader("correlationId"),
+                        properties.<String>getHeader("causationId"),
+                        properties.<String>getHeader("traceparent")))
+                .toList();
     }
 
     @Override

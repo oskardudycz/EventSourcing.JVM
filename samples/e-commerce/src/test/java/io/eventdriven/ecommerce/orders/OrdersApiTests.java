@@ -311,4 +311,69 @@ public class OrdersApiTests extends ApiE2ESpecification {
                 totalPrice,
                 time.now());
     }
+
+    @Nested
+    public class OrderPages {
+        private final String order = "/shop/customers/%s/orders/%s".formatted(customerId, orderId.tail());
+
+        @Test
+        public void theOrderPageSaysTheOrderIsBeingPlacedWhileItHasNoStatus() {
+            given().when(orderPage(customerId, orderId))
+                    .then(expectResponse(
+                            OK, htmlContaining("Your order is being placed", "http-equiv=\"refresh\" content=\"2\"")));
+        }
+
+        @Test
+        public void theOrderPageOfAPlacedOrderOffersPayNowAndCancel() {
+            given(placedOrder)
+                    .when(orderPage(customerId, orderId))
+                    .then(expectResponse(
+                            OK,
+                            htmlContaining(
+                                    "action=\"/customers/%s/orders/%s/payments/%s/checkout-session\""
+                                            .formatted(customerId, orderId.tail(), paymentId.tail()),
+                                    "action=\"%s/cancel\"".formatted(order)),
+                            htmlNotContaining("Your order is being placed")));
+        }
+
+        @Test
+        public void theOrderPageOfAnotherCustomersOrderIsNotFound() {
+            given(placedOrder).when(orderPage(UUID.randomUUID(), orderId)).then(expectResponse(NOT_FOUND));
+        }
+
+        @Test
+        public void cancellingOnTheOrderPageReturnsToIt() {
+            given(placedOrder)
+                    .when(cancelOrderOnPage(customerId, orderId))
+                    .then(expectResponse(FOUND, redirectsTo(order)));
+        }
+
+        @Test
+        public void theOrderPageOfACanceledOrderOffersNoPayment() {
+            given(placedOrder, cancelOrderOnPage(customerId, orderId))
+                    .when(orderPage(customerId, orderId))
+                    .then(expectResponse(OK, htmlContaining("Canceled"), htmlNotContaining("Pay now")));
+        }
+
+        @Test
+        public void retryingAFailedPaymentOnTheOrderPageReturnsToIt() {
+            given(orderWithFailedPayment)
+                    .when(retryOrderPaymentOnPage(customerId, orderId))
+                    .then(expectResponse(FOUND, redirectsTo(order)));
+        }
+
+        @Test
+        public void theOrderPageOfACompletedOrderShowsItsCarrier() {
+            given(completedOrder)
+                    .when(orderPage(customerId, orderId))
+                    .then(expectResponse(OK, htmlContaining("Completed", "UPS")));
+        }
+
+        @Test
+        public void theOrdersPageLinksEachOrderWithItsProgress() {
+            given(completedOrder)
+                    .when(ordersPage(customerId))
+                    .then(expectResponse(OK, htmlContaining("Completed", "href=\"%s\"".formatted(order))));
+        }
+    }
 }

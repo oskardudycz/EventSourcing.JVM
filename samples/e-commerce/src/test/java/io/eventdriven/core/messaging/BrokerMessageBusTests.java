@@ -47,7 +47,13 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
         return spans.getFinishedSpanItems();
     }
 
-    protected abstract Supplier<PublishedMessage> collectFirstPublishedTo(String channel);
+    protected abstract Supplier<List<PublishedMessage>> collectPublishedTo(String channel, int count);
+
+    protected Supplier<PublishedMessage> collectFirstPublishedTo(String channel) {
+        var published = collectPublishedTo(channel, 1);
+
+        return () -> published.get().getFirst();
+    }
 
     protected abstract void sendRaw(String typeId, byte[] body);
 
@@ -150,6 +156,22 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
         assertThat(UUID.fromString(message.correlationId())).isNotNull();
         assertThat(message.causationId()).isEqualTo(message.correlationId());
         assertThat(message.traceparent()).isNotBlank();
+    }
+
+    @Test
+    public void messagesPublishedAgainWhileHandlingARedeliveredMessageKeepTheirIds() {
+        var published = collectPublishedTo(orders, 4);
+
+        for (var delivery = 0; delivery < 2; delivery++)
+            try (var _ = messageContext.handling("redelivered-message-id", "process-correlation-id")) {
+                publish(messageBus, new ConfirmOrder("order-1"), new OrderCanceled("order-1"));
+            }
+
+        var messageIds =
+                published.get().stream().map(PublishedMessage::messageId).toList();
+        assertThat(messageIds).hasSize(4).doesNotContain("redelivered-message-id");
+        assertThat(messageIds.get(0)).isEqualTo(messageIds.get(2)).isNotEqualTo(messageIds.get(1));
+        assertThat(messageIds.get(1)).isEqualTo(messageIds.get(3));
     }
 
     @Test
