@@ -181,49 +181,61 @@ public abstract class EventStoreMetadataTests {
             testSpan.end();
         }
 
-        var append = storeSpansOf("eventStore.appendToStream").getLast();
-        assertThat(append.getParentSpanId()).isEqualTo(testSpan.context().spanId());
-        assertThat(attributesOf(append))
-                .containsEntry("eventdriven.eventstore.operation", "appendToStream")
-                .containsEntry("eventdriven.stream.name", streamId)
-                .containsEntry("eventdriven.eventstore.append.batch_size", "2")
-                .containsEntry("eventdriven.eventstore.append.status", "success")
-                .containsEntry("eventdriven.stream.version.after", "1")
-                .containsEntry("messaging.message.correlation_id", "c-1")
-                .containsEntry("messaging.message.causation_id", "m-1");
+        assertThat(storeSpansOf("eventStore.appendToStream").getLast().getParentSpanId())
+                .isEqualTo(testSpan.context().spanId());
+        assertThat(tracing.observations())
+                .hasObservationWithNameEqualTo("eventdriven.eventstore.append")
+                .that()
+                .hasContextualNameEqualTo("eventStore.appendToStream")
+                .hasLowCardinalityKeyValue("eventdriven.eventstore.operation", "appendToStream")
+                .hasLowCardinalityKeyValue("eventdriven.eventstore.append.status", "success")
+                .hasHighCardinalityKeyValue("eventdriven.stream.name", streamId)
+                .hasHighCardinalityKeyValue("eventdriven.eventstore.append.batch_size", "2")
+                .hasHighCardinalityKeyValue("eventdriven.stream.version.after", "1")
+                .hasHighCardinalityKeyValue("messaging.message.correlation_id", "c-1")
+                .hasHighCardinalityKeyValue("messaging.message.causation_id", "m-1");
     }
 
     @Test
     public void anAppendThatConflictsRecordsTheConflictOnItsSpan() {
         eventStore().append(streamId, new Opened("cart"));
+        tracing.observations().clear();
 
         eventStore().append(streamId, ExpectedStreamVersion.noStream(), new Opened("cart"));
 
-        assertThat(attributesOf(storeSpansOf("eventStore.appendToStream").getLast()))
-                .containsEntry("eventdriven.eventstore.append.status", "conflict");
+        assertThat(tracing.observations())
+                .hasObservationWithNameEqualTo("eventdriven.eventstore.append")
+                .that()
+                .hasLowCardinalityKeyValue("eventdriven.eventstore.append.status", "conflict");
     }
 
     @Test
     public void aReadRecordsTheEventsItFoundOnASpan() {
         eventStore().append(streamId, new Opened("cart"), new Added("cart", "shoes"), new Added("cart", "shirt"));
+        tracing.observations().clear();
 
         eventStore().read(streamId);
 
-        assertThat(attributesOf(storeSpansOf("eventStore.readStream").getLast()))
-                .containsEntry("eventdriven.eventstore.operation", "readStream")
-                .containsEntry("eventdriven.stream.name", streamId)
-                .containsEntry("eventdriven.eventstore.read.status", "success")
-                .containsEntry("eventdriven.eventstore.read.event_count", "3")
-                .containsEntry("eventdriven.eventstore.read.event_types", "Opened,Added");
+        assertThat(tracing.observations())
+                .hasObservationWithNameEqualTo("eventdriven.eventstore.read")
+                .that()
+                .hasContextualNameEqualTo("eventStore.readStream")
+                .hasLowCardinalityKeyValue("eventdriven.eventstore.operation", "readStream")
+                .hasLowCardinalityKeyValue("eventdriven.eventstore.read.status", "success")
+                .hasHighCardinalityKeyValue("eventdriven.stream.name", streamId)
+                .hasHighCardinalityKeyValue("eventdriven.eventstore.read.event_count", "3")
+                .hasHighCardinalityKeyValue("eventdriven.eventstore.read.event_types", "Opened,Added");
     }
 
     @Test
     public void aReadOfAMissingStreamRecordsThatItFoundNoEvents() {
         eventStore().read(streamId);
 
-        assertThat(attributesOf(storeSpansOf("eventStore.readStream").getLast()))
-                .containsEntry("eventdriven.eventstore.read.status", "success")
-                .containsEntry("eventdriven.eventstore.read.event_count", "0");
+        assertThat(tracing.observations())
+                .hasObservationWithNameEqualTo("eventdriven.eventstore.read")
+                .that()
+                .hasLowCardinalityKeyValue("eventdriven.eventstore.read.status", "success")
+                .hasHighCardinalityKeyValue("eventdriven.eventstore.read.event_count", "0");
     }
 
     @Test
@@ -232,6 +244,17 @@ public abstract class EventStoreMetadataTests {
 
         assertThat(appendedCountOf("Opened")).isEqualTo(1);
         assertThat(appendedCountOf("Added")).isEqualTo(2);
+    }
+
+    @Test
+    public void subscribingToAnEventTypeStartsItsAppendedCountAtZero() {
+        eventStore().subscribe("counted-" + UUID.randomUUID(), List.of(Added.class), envelope -> {});
+
+        assertThat(tracing.meters()
+                        .find("eventdriven.event.appending.count")
+                        .tag("eventdriven.event.type", "Added")
+                        .counter())
+                .isNotNull();
     }
 
     private double appendedCountOf(String eventType) {

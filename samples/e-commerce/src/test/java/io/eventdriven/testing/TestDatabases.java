@@ -13,16 +13,21 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.grafana.LgtmStackContainer;
 import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.rabbitmq.RabbitMQContainer;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 public final class TestDatabases {
     private static final String DOCKER_COMPOSE_PROJECT = "eventsourcing";
     private static final String POSTGRESQL_IMAGE = "postgres:18.7-alpine";
     private static final String KAFKA_IMAGE = "confluentinc/cp-kafka:8.4.1";
     private static final String RABBITMQ_IMAGE = "rabbitmq:4.4.0-management";
+    private static final String GRAFANA_IMAGE = "grafana/otel-lgtm:0.41.0";
+
+    public record Grafana(String url, String otlpHttpUrl) {}
 
     public static String kurrentDBConnectionString() {
         return kurrentDBConnectionString(DOCKER_COMPOSE_PROJECT);
@@ -110,6 +115,21 @@ public final class TestDatabases {
                 .orElseGet(() -> connectionTo(SharedRabbitMQ.container));
     }
 
+    // Grafana LGTM from Docker Compose when it runs, with the same dashboards, or a container of its own.
+    public static Grafana grafana() {
+        return runningGrafana()
+                .orElseGet(() -> new Grafana(
+                        SharedGrafana.container.getGrafanaHttpUrl(), SharedGrafana.container.getOtlpHttpUrl()));
+    }
+
+    public static Optional<Grafana> runningGrafana() {
+        return dockerComposePort(DOCKER_COMPOSE_PROJECT, "otel-lgtm", 3000)
+                .flatMap(grafanaPort -> dockerComposePort(DOCKER_COMPOSE_PROJECT, "otel-lgtm", 4318)
+                        .map(otlpPort -> new Grafana(
+                                "http://localhost:%d".formatted(grafanaPort),
+                                "http://localhost:%d".formatted(otlpPort))));
+    }
+
     public static ConfluentKafkaContainer newKafkaContainer() {
         return new ConfluentKafkaContainer(DockerImageName.parse(KAFKA_IMAGE))
                 .withEnv("KAFKA_AUTO_CREATE_TOPICS_ENABLE", "false")
@@ -142,6 +162,18 @@ public final class TestDatabases {
                 .filter(port -> Objects.equals(port.getPrivatePort(), containerPort) && port.getPublicPort() != null)
                 .map(ContainerPort::getPublicPort)
                 .findFirst();
+    }
+
+    private static final class SharedGrafana {
+        private static final LgtmStackContainer container = new LgtmStackContainer(GRAFANA_IMAGE)
+                .withCopyFileToContainer(MountableFile.forHostPath("observability/dashboards"), "/otel-lgtm/dashboards")
+                .withCopyFileToContainer(
+                        MountableFile.forHostPath("observability/dashboards.yaml"),
+                        "/otel-lgtm/grafana/conf/provisioning/dashboards/e-commerce.yaml");
+
+        static {
+            container.start();
+        }
     }
 
     private static final class SharedPostgreSQL {

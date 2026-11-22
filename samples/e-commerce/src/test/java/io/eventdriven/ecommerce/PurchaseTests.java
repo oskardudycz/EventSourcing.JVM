@@ -10,15 +10,18 @@ import static org.springframework.http.HttpStatus.SEE_OTHER;
 
 import io.eventdriven.ecommerce.orders.Order;
 import io.eventdriven.ecommerce.orders.OrderCommand.*;
+import io.eventdriven.ecommerce.orders.OrderEvent;
 import io.eventdriven.ecommerce.orders.OrderFacade;
 import io.eventdriven.ecommerce.payments.Payment;
 import io.eventdriven.ecommerce.payments.PaymentCommand.*;
+import io.eventdriven.ecommerce.payments.PaymentEvent;
 import io.eventdriven.ecommerce.payments.PaymentProvider;
 import io.eventdriven.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized;
 import io.eventdriven.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured;
 import io.eventdriven.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed;
 import io.eventdriven.ecommerce.shipments.Shipment;
 import io.eventdriven.ecommerce.shipments.ShipmentCommand.*;
+import io.eventdriven.ecommerce.shipments.ShipmentEvent;
 import io.eventdriven.ecommerce.shipments.Warehouse;
 import io.eventdriven.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent;
 import io.eventdriven.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed;
@@ -89,7 +92,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                 .when(checkOut(customerId, weakETag(0)))
                 .then(
                         expectResponse(ACCEPTED),
-                        expectOnlyPublished(
+                        expectPublished(
                                 cartCheckedOut(),
                                 placeOrder(),
                                 new AuthorizePayment(paymentId, orderReference, totalPrice),
@@ -122,7 +125,31 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                                                         span("handle AuthorizePayment", handled("AuthorizePayment")),
                                                         span("handle ReserveStock", handled("ReserveStock"))))))),
                         expectCorrelatedTrace(),
-                        expectMetric("command.handle", Map.of("eventdriven.command.type", "PlaceOrder"), 1),
+                        expectCausation(published(
+                                cartCheckedOut(),
+                                sent(
+                                        placeOrder(),
+                                        appended(
+                                                orderPlaced(),
+                                                sent(
+                                                        new AuthorizePayment(paymentId, orderReference, totalPrice),
+                                                        appended(new PaymentEvent.PaymentAuthorizationRequested(
+                                                                paymentId,
+                                                                orderReference,
+                                                                totalPrice,
+                                                                now,
+                                                                now.plus(paymentValidity)))),
+                                                sent(
+                                                        new ReserveStock(orderReference, shipmentItems),
+                                                        appended(
+                                                                new ShipmentEvent.StockReserved(
+                                                                        shipmentId, orderReference, shipmentItems, now),
+                                                                published(
+                                                                        new StockReserved(
+                                                                                shipmentId, orderReference, now),
+                                                                        sent(new RecordOrderStockReservation(
+                                                                                orderId, shipmentId, now))))))))),
+                        expectMetric("eventdriven.command.handle", Map.of("eventdriven.command.type", "PlaceOrder"), 1),
                         expectAppended("OrderPlaced", 1),
                         expectAppended("PaymentAuthorizationRequested", 1),
                         expectAppended("StockReserved", 1),
@@ -146,7 +173,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
         given(orderWithOpenCheckout)
                 .when(providerConfirms(paymentId))
                 .then(
-                        expectOnlyPublished(
+                        expectPublished(
                                 new ConfirmPaymentAuthorization(paymentId, now.plus(authorizationValidity)),
                                 new PaymentAuthorized(orderReference, paymentId, now),
                                 new RecordOrderPaymentAuthorization(orderId, paymentId, now),
@@ -169,7 +196,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
         given(paidOrder)
                 .when(sendsThePackage(shipmentId))
                 .then(
-                        expectOnlyPublished(
+                        expectPublished(
                                 new ConfirmPackageSent(shipmentId, carrier, trackingNumber),
                                 new PackageWasSent(shipmentId, orderReference, carrier, trackingNumber, now),
                                 new RecordOrderPackageSent(orderId, carrier, trackingNumber, now),
@@ -191,7 +218,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
 
     @Test
     public void theDeliveryIsRecordedByTheShipmentOnlyBecauseTheOrderAlreadyCompleted() {
-        given(sentOrder).when(deliversThePackage(shipmentId)).then(expectOnlyPublished(new DeliverPackage(shipmentId)));
+        given(sentOrder).when(deliversThePackage(shipmentId)).then(expectPublished(new DeliverPackage(shipmentId)));
     }
 
     @Test
@@ -200,7 +227,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                 .when(checkOut(customerId, weakETag(0)))
                 .then(
                         expectResponse(ACCEPTED),
-                        expectOnlyPublished(
+                        expectPublished(
                                 cartCheckedOut(),
                                 placeOrder(),
                                 new AuthorizePayment(paymentId, orderReference, totalPrice),
@@ -220,7 +247,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                         payNow(customerId, orderId, paymentId))
                 .when(providerConfirms(paymentId))
                 .then(
-                        expectOnlyPublished(
+                        expectPublished(
                                 new ConfirmPaymentAuthorization(paymentId, now.plus(authorizationValidity)),
                                 new PaymentAuthorized(orderReference, paymentId, now),
                                 new RecordOrderPaymentAuthorization(orderId, paymentId, now),
@@ -234,7 +261,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
         given(paidOrder)
                 .when(rejectsTheRequest(shipmentId))
                 .then(
-                        expectOnlyPublished(
+                        expectPublished(
                                 new RejectFulfillment(shipmentId),
                                 new ShipmentFailed(
                                         shipmentId, orderReference, ShipmentFailed.Reason.FulfillmentRejected, now),
@@ -257,7 +284,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
         given(orderWithOpenCheckout)
                 .when(time.passes(paymentValidity))
                 .then(
-                        expectOnlyPublished(
+                        expectPublished(
                                 new TimeOutPayment(paymentId, timedOutAt),
                                 new PaymentFailed(orderReference, paymentId, timedOutAt),
                                 new RecordOrderPaymentFailure(orderId, paymentId, timedOutAt)),
@@ -280,7 +307,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
     public void anAuthorizationArrivingAfterTheTimeoutChangesNothing() {
         given(orderWithTimedOutPayment)
                 .when(providerConfirms(paymentId))
-                .then(expectOnlyPublished(new ConfirmPaymentAuthorization(paymentId, now.plus(authorizationValidity))));
+                .then(expectPublished(new ConfirmPaymentAuthorization(paymentId, now.plus(authorizationValidity))));
     }
 
     @Test
@@ -292,7 +319,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                         retryOrderPayment(customerId, orderId),
                         payNow(customerId, orderId, retriedPaymentId))
                 .when(providerConfirms(retriedPaymentId))
-                .then(expectOnlyPublished(
+                .then(expectPublished(
                         new ConfirmPaymentAuthorization(retriedPaymentId, now.plus(authorizationValidity)),
                         new PaymentAuthorized(orderReference, retriedPaymentId, paidAgainAt),
                         new RecordOrderPaymentAuthorization(orderId, retriedPaymentId, paidAgainAt),
@@ -303,14 +330,14 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
     public void anOrderStillUnpaidBeforeConfirmationWhenThePaymentIsDueIsCanceledAndTheStockReleased() {
         given(orderWithTimedOutPayment)
                 .when(time.passes(timeToPay))
-                .then(expectOnlyPublished(new CloseUnpaidOrder(orderId), new ReleaseStock(shipmentId)));
+                .then(expectPublished(new CloseUnpaidOrder(orderId), new ReleaseStock(shipmentId)));
     }
 
     @Test
     public void theCustomerCancelingAnUnpaidOrderReleasesTheStock() {
         given(orderWithTimedOutPayment)
                 .when(cancelOrder(customerId, orderId))
-                .then(expectResponse(ACCEPTED), expectOnlyPublished(new ReleaseStock(shipmentId)));
+                .then(expectResponse(ACCEPTED), expectPublished(new ReleaseStock(shipmentId)));
     }
 
     @Test
@@ -318,7 +345,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
         given(paidOrder, paymentProvider.refusesEverythingAfterAuthorizing(paymentId))
                 .when(sendsThePackage(shipmentId))
                 .then(
-                        expectOnlyPublished(
+                        expectPublished(
                                 new ConfirmPackageSent(shipmentId, carrier, trackingNumber),
                                 new PackageWasSent(shipmentId, orderReference, carrier, trackingNumber, now),
                                 new RecordOrderPackageSent(orderId, carrier, trackingNumber, now),
@@ -341,7 +368,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                         retryOrderPayment(customerId, orderId),
                         payNow(customerId, orderId, retriedPaymentId))
                 .when(providerConfirms(retriedPaymentId))
-                .then(expectOnlyPublished(
+                .then(expectPublished(
                         new ConfirmPaymentAuthorization(retriedPaymentId, now.plus(authorizationValidity)),
                         new PaymentAuthorized(orderReference, retriedPaymentId, now),
                         new RecordOrderPaymentAuthorization(orderId, retriedPaymentId, now),
@@ -355,7 +382,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
     public void anOrderStillUnpaidAfterShippingWhenThePaymentIsDueIsClosedUnpaid() {
         given(paidOrder, paymentProvider.refusesEverythingAfterAuthorizing(paymentId), sendsThePackage(shipmentId))
                 .when(time.passes(timeToPay))
-                .then(expectOnlyPublished(new CloseUnpaidOrder(orderId)));
+                .then(expectPublished(new CloseUnpaidOrder(orderId)));
     }
 
     @Test
@@ -394,6 +421,18 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
     private ShoppingCartCheckedOut cartCheckedOut() {
         return new ShoppingCartCheckedOut(
                 cartId, customerId, new PricedProductItem[] {new PricedProductItem(shoes, unitPrice)}, totalPrice, now);
+    }
+
+    private OrderEvent.OrderPlaced orderPlaced() {
+        return new OrderEvent.OrderPlaced(
+                orderId,
+                cartId,
+                customerId,
+                new Order.PricedProductItem[] {
+                    new Order.PricedProductItem(shoes.productId(), shoes.quantity(), unitPrice)
+                },
+                totalPrice,
+                now);
     }
 
     private PlaceOrder placeOrder() {

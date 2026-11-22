@@ -44,8 +44,8 @@ public class ShipmentExternalEventForwarderTests {
     private final MessageCatcher externalEvents = new MessageCatcher();
 
     public ShipmentExternalEventForwarderTests() {
-        messageBus.use(message -> {
-            if (message instanceof ShipmentExternalEvent) externalEvents.catchMessage(message);
+        messageBus.use(envelope -> {
+            if (envelope.message() instanceof ShipmentExternalEvent) externalEvents.catchMessage(envelope.message());
         });
 
         var shipmentsConfig = new ShipmentsConfig();

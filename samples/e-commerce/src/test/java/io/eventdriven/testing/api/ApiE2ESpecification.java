@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.messaging.MessageBus;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.testing.Transcript;
+import io.eventdriven.testing.eventstore.RecordingEventStore;
 import io.eventdriven.testing.tracing.FinishedSpans;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.FunctionCounter;
@@ -54,7 +56,8 @@ public abstract class ApiE2ESpecification {
     private static final String MESSAGE_ID = "messaging.message.id";
     private static final String CORRELATION_ID = "messaging.message.correlation_id";
     private static final String CAUSATION_ID = "messaging.message.causation_id";
-    private static final Map<MessageBus, List<Object>> publishedOn = Collections.synchronizedMap(new WeakHashMap<>());
+    private static final Map<MessageBus, List<MessageEnvelope<Object>>> publishedOn =
+            Collections.synchronizedMap(new WeakHashMap<>());
 
     @Autowired
     protected RestTestClient restTestClient;
@@ -95,7 +98,8 @@ public abstract class ApiE2ESpecification {
 
     public record Outcome(
             @Nullable TestResponse response,
-            List<Object> published,
+            List<MessageEnvelope<Object>> published,
+            List<MessageEnvelope<Object>> appended,
             Supplier<List<SpanData>> spans,
             BiFunction<String, Map<String, String>, Double> metricIncrease) {}
 
@@ -148,6 +152,8 @@ public abstract class ApiE2ESpecification {
 
             var published = specification.published();
             var messagesBefore = published.size();
+            var appended = specification.appended();
+            var eventsBefore = appended.size();
             var metricsBefore = specification.metricCounts();
 
             var response = specification.run(step, traceIds);
@@ -155,7 +161,10 @@ public abstract class ApiE2ESpecification {
             var outcome = new Outcome(
                     response,
                     published.subList(messagesBefore, published.size()).stream()
-                            .filter(specification::isAbout)
+                            .filter(envelope -> specification.isAbout(envelope.message()))
+                            .toList(),
+                    appended.subList(eventsBefore, appended.size()).stream()
+                            .filter(envelope -> specification.isAbout(envelope.message()))
                             .toList(),
                     () -> specification.finishedSpans().stream()
                             .filter(span -> traceIds.contains(span.getTraceId()))
@@ -176,6 +185,10 @@ public abstract class ApiE2ESpecification {
 
     public static TestStep attempt(TestRequest request) {
         return new Attempt(request);
+    }
+
+    public static TestStep send(Object... commands) {
+        return new Publish(List.of(commands));
     }
 
     public static TestStep publish(Object... messages) {
@@ -218,32 +231,121 @@ public abstract class ApiE2ESpecification {
     }
 
     public static Expectation expectPublished(Object... messages) {
-        var expected = List.of(messages);
-
-        return outcome -> assertThat(isSubsequence(expected, outcome.published()))
-                .as("%s", """
-                        Expected these messages, in this order:
-                        %s
-                        Published messages:
-                        %s""".formatted(Transcript.numbered(expected), Transcript.numbered(outcome.published())))
-                .isTrue();
+        return outcome -> assertExactly("published", List.of(messages), outcome.published());
     }
 
-    public static Expectation expectOnlyPublished(Object... messages) {
-        var expected = List.of(messages);
+    public static Expectation expectNothingPublished() {
+        return expectPublished();
+    }
 
-        return outcome -> assertThat(outcome.published())
+    public static Expectation expectAppended(Object... events) {
+        return outcome -> assertExactly("appended", List.of(events), outcome.appended());
+    }
+
+    public static Expectation expectNothingAppended() {
+        return expectAppended();
+    }
+
+    /**
+     * Checks what caused what, with the ids that the messages and events really carry: every message in the tree has
+     * the correlation id of its root, and each child's causation id is the id of its parent. A command or an event that
+     * the application published is {@link #sent} or {@link #published}, an event it stored is {@link #appended}.
+     */
+    public static Expectation expectCausation(Caused... roots) {
+        return outcome -> {
+            for (var root : roots) {
+                var envelope = findIn(outcome, root, null);
+                verifyCausedBy(outcome, root, envelope, envelope.metadata().correlationId());
+            }
+        };
+    }
+
+    public static Caused sent(Object command, Caused... caused) {
+        return new Caused(Caused.Where.Published, command, List.of(caused));
+    }
+
+    public static Caused published(Object event, Caused... caused) {
+        return new Caused(Caused.Where.Published, event, List.of(caused));
+    }
+
+    public static Caused appended(Object event, Caused... caused) {
+        return new Caused(Caused.Where.Appended, event, List.of(caused));
+    }
+
+    public record Caused(Where where, Object message, List<Caused> caused) {
+        public enum Where {
+            Published,
+            Appended
+        }
+    }
+
+    private static void verifyCausedBy(
+            Outcome outcome, Caused expected, MessageEnvelope<Object> cause, String correlationId) {
+        assertThat(cause.metadata().correlationId())
+                .as("Correlation id of %s", cause.message())
+                .isEqualTo(correlationId);
+
+        for (var child : expected.caused()) {
+            var envelope = findIn(outcome, child, cause.metadata().messageId());
+            verifyCausedBy(outcome, child, envelope, correlationId);
+        }
+    }
+
+    private static MessageEnvelope<Object> findIn(Outcome outcome, Caused expected, @Nullable String causationId) {
+        var recorded = expected.where() == Caused.Where.Published ? outcome.published() : outcome.appended();
+        var matching = recorded.stream()
+                .filter(envelope -> isEqual(envelope.message(), expected.message()))
+                .toList();
+
+        assertThat(matching)
+                .as(
+                        "%s %s, but %s:%n%s",
+                        expected.where(), expected.message(), expected.where(), describeEnvelopes(recorded))
+                .isNotEmpty();
+
+        if (causationId == null) return matching.getFirst();
+
+        return matching.stream()
+                .filter(envelope -> causationId.equals(envelope.metadata().causationId()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("%s %s caused by message %s, but it was caused by %s"
+                        .formatted(
+                                expected.where(),
+                                expected.message(),
+                                causationId,
+                                matching.stream()
+                                        .map(envelope -> envelope.metadata().causationId())
+                                        .toList())));
+    }
+
+    private static void assertExactly(String what, List<Object> expected, List<MessageEnvelope<Object>> recorded) {
+        var actual = recorded.stream().map(MessageEnvelope::message).toList();
+
+        assertThat(actual)
                 .as("%s", """
-                        Expected only these messages:
+                        Expected these messages %s:
                         %s
-                        Published messages:
-                        %s""".formatted(Transcript.numbered(expected), Transcript.numbered(outcome.published())))
+                        Messages %s:
+                        %s""".formatted(what, Transcript.numbered(expected), what, Transcript.numbered(actual)))
                 .usingRecursiveComparison()
                 .isEqualTo(expected);
     }
 
-    public static Expectation expectNothingPublished() {
-        return expectOnlyPublished();
+    private static boolean isEqual(Object actual, Object expected) {
+        return new RecursiveComparisonDifferenceCalculator()
+                .determineDifferences(actual, expected, new RecursiveComparisonConfiguration())
+                .isEmpty();
+    }
+
+    private static String describeEnvelopes(List<MessageEnvelope<Object>> recorded) {
+        return recorded.stream()
+                .map(envelope -> "  %s (id %s, correlation %s, causation %s)"
+                        .formatted(
+                                envelope.message(),
+                                envelope.metadata().messageId(),
+                                envelope.metadata().correlationId(),
+                                envelope.metadata().causationId()))
+                .collect(Collectors.joining("\n"));
     }
 
     public static Expectation expectTrace(ExpectedSpan root) {
@@ -388,32 +490,22 @@ public abstract class ApiE2ESpecification {
         }
     }
 
-    private List<Object> published() {
+    private List<MessageEnvelope<Object>> published() {
         if (messageBus == null) return List.of();
 
         return publishedOn.computeIfAbsent(messageBus, bus -> {
-            var recorded = new CopyOnWriteArrayList<Object>();
+            var recorded = new CopyOnWriteArrayList<MessageEnvelope<Object>>();
             bus.use(recorded::add);
             return recorded;
         });
     }
 
-    private List<SpanData> finishedSpans() {
-        return spans == null ? List.of() : spans.getFinishedSpanItems();
+    private List<MessageEnvelope<Object>> appended() {
+        return eventStore instanceof RecordingEventStore recording ? recording.appended() : List.of();
     }
 
-    private static boolean isSubsequence(List<Object> expected, List<Object> published) {
-        var differences = new RecursiveComparisonDifferenceCalculator();
-        var configuration = new RecursiveComparisonConfiguration();
-        var next = 0;
-
-        for (var message : published) {
-            if (next < expected.size()
-                    && differences
-                            .determineDifferences(message, expected.get(next), configuration)
-                            .isEmpty()) next++;
-        }
-        return next == expected.size();
+    private List<SpanData> finishedSpans() {
+        return spans == null ? List.of() : spans.getFinishedSpanItems();
     }
 
     private static Optional<String> mismatchOf(ExpectedSpan expected, List<SpanData> spans) {

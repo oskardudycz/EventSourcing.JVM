@@ -5,6 +5,7 @@ import io.eventdriven.core.messaging.MessageChannel;
 import io.eventdriven.core.messaging.MessageContext;
 import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.messaging.MessageFailureStrategy;
+import io.eventdriven.core.messaging.MessageMetadata;
 import io.eventdriven.core.messaging.MessageQueue;
 import io.eventdriven.core.messaging.MessageRouter;
 import io.eventdriven.core.messaging.MessageRoutes;
@@ -83,7 +84,7 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
 
     private final MessageRouter router;
     private final Set<String> channels = ConcurrentHashMap.newKeySet();
-    private final List<Consumer<Object>> middlewares = new CopyOnWriteArrayList<>();
+    private final List<Consumer<MessageEnvelope<Object>>> middlewares = new CopyOnWriteArrayList<>();
     private final Map<String, Map<Class<?>, List<Consumer<MessageEnvelope<Object>>>>> queues =
             new ConcurrentHashMap<>();
     private final Map<String, SimpleMessageListenerContainer> containers = new ConcurrentHashMap<>();
@@ -159,10 +160,12 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
 
         for (var position = 0; position < messages.size(); position++) {
             Object message = messages.get(position);
-            for (var middleware : middlewares) middleware.accept(message);
 
-            var route = router.declaredRouteFor(message, channels);
             var values = context.inheritForPublished(serializer.typeNameOf(message.getClass()), position);
+            var route = routeOf(message, values);
+            var published = new MessageEnvelope<>(
+                    message, MessageMetadata.of(values, new MessageSource.OnChannel(route.target())));
+            for (var middleware : middlewares) middleware.accept(published);
 
             prepared.add(new Prepared(route, amqpMessageOf(message, values), values));
         }
@@ -186,7 +189,7 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     }
 
     @Override
-    public void use(Consumer<Object> middleware) {
+    public void use(Consumer<MessageEnvelope<Object>> middleware) {
         middlewares.add(middleware);
     }
 
@@ -476,5 +479,15 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
 
     private static boolean isMandatory(String channel) {
         return MANDATORY_CHANNEL_SUFFIXES.stream().anyMatch(channel::endsWith);
+    }
+
+    private RoutingTarget routeOf(Object message, MessageValues values) {
+        try {
+            return router.declaredRouteFor(message, channels);
+        } catch (RuntimeException unrouted) {
+            var published = new MessageEnvelope<>(message, MessageMetadata.of(values, new MessageSource.Unrouted()));
+            for (var middleware : middlewares) middleware.accept(published);
+            throw unrouted;
+        }
     }
 }

@@ -167,52 +167,67 @@ public class CommandHandlerTests {
     @Test
     public void handlingACommandRecordsItsTypeStreamVersionsAndEventsOnASpan() {
         handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+        tracing.observations().clear();
 
         handler.handle(counterId, new CounterCommand.Increment(3), this::decide);
 
-        assertThat(attributesOf(commandSpans().getLast()))
-                .containsEntry("eventdriven.command.type", "Increment")
-                .containsEntry("eventdriven.command.status", "success")
-                .containsEntry("eventdriven.stream.name", mapToStreamId(counterId))
-                .containsEntry("eventdriven.stream.version.before", "0")
-                .containsEntry("eventdriven.stream.version.after", "1")
-                .containsEntry("eventdriven.command.event_count", "1")
-                .containsEntry("eventdriven.command.event_types", "Incremented");
+        assertThat(tracing.observations())
+                .hasObservationWithNameEqualTo("eventdriven.command.handle")
+                .that()
+                .hasContextualNameEqualTo("command.handle")
+                .hasLowCardinalityKeyValue("eventdriven.command.type", "Increment")
+                .hasLowCardinalityKeyValue("eventdriven.command.status", "success")
+                .hasHighCardinalityKeyValue("eventdriven.stream.name", mapToStreamId(counterId))
+                .hasHighCardinalityKeyValue("eventdriven.stream.version.before", "0")
+                .hasHighCardinalityKeyValue("eventdriven.stream.version.after", "1")
+                .hasHighCardinalityKeyValue("eventdriven.command.event_count", "1")
+                .hasHighCardinalityKeyValue("eventdriven.command.event_types", "Incremented");
     }
 
     @Test
     public void aCommandThatDecidesNothingRecordsNoEventsOnItsSpan() {
         handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+        tracing.observations().clear();
 
         handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
 
-        assertThat(attributesOf(commandSpans().getLast()))
-                .containsEntry("eventdriven.command.status", "success")
-                .containsEntry("eventdriven.stream.version.before", "0")
-                .containsEntry("eventdriven.stream.version.after", "0")
-                .containsEntry("eventdriven.command.event_count", "0")
-                .containsEntry("eventdriven.command.event_types", "");
+        assertThat(tracing.observations())
+                .hasObservationWithNameEqualTo("eventdriven.command.handle")
+                .that()
+                .hasLowCardinalityKeyValue("eventdriven.command.status", "success")
+                .hasHighCardinalityKeyValue("eventdriven.stream.version.before", "0")
+                .hasHighCardinalityKeyValue("eventdriven.stream.version.after", "0")
+                .hasHighCardinalityKeyValue("eventdriven.command.event_count", "0")
+                .hasHighCardinalityKeyValue("eventdriven.command.event_types", "");
     }
 
     @Test
     public void aCommandOnANewStreamStartsItsSpanFromNoStream() {
         handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
 
-        assertThat(attributesOf(commandSpans().getLast()))
-                .containsEntry("eventdriven.stream.version.before", "-1")
-                .containsEntry("eventdriven.stream.version.after", "0");
+        assertThat(tracing.observations())
+                .hasObservationWithNameEqualTo("eventdriven.command.handle")
+                .that()
+                .hasHighCardinalityKeyValue("eventdriven.stream.version.before", "-1")
+                .hasHighCardinalityKeyValue("eventdriven.stream.version.after", "0");
     }
 
     @Test
     public void aFailedCommandMarksItsSpanAsFailedWithTheException() {
         handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
         handler.handle(counterId, new CounterCommand.Increment(1), this::decide);
+        tracing.observations().clear();
 
         assertThatThrownBy(() -> handler.handle(counterId, 0, new CounterCommand.Increment(10), this::decide))
                 .isInstanceOf(ConcurrentModificationException.class);
 
+        assertThat(tracing.observations())
+                .hasObservationWithNameEqualTo("eventdriven.command.handle")
+                .that()
+                .hasLowCardinalityKeyValue("eventdriven.command.status", "failure")
+                .assertThatError()
+                .isInstanceOf(ConcurrentModificationException.class);
         var span = commandSpans().getLast();
-        assertThat(attributesOf(span)).containsEntry("eventdriven.command.status", "failure");
         assertThat(span.getStatus().getStatusCode()).isEqualTo(StatusCode.ERROR);
         assertThat(span.getEvents())
                 .anySatisfy(event -> assertThat(event.getName()).isEqualTo("exception"));
@@ -222,12 +237,17 @@ public class CommandHandlerTests {
     public void eachAttemptOfARetriedConflictHasItsOwnSpan() {
         handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
         eventStore.competeBeforeTheNextAppends(2);
+        tracing.observations().clear();
 
         handler.handle(counterId, new CounterCommand.Increment(10), this::decide);
 
-        assertThat(commandSpans().subList(1, 4))
-                .extracting(span -> attributesOf(span).get("eventdriven.command.status"))
-                .containsExactly("failure", "failure", "success");
+        assertThat(tracing.observations())
+                .hasNumberOfObservationsWithNameEqualTo("eventdriven.command.handle", 3)
+                .hasHandledContextsThatSatisfy(contexts -> assertThat(contexts.stream()
+                                .filter(context -> context.getName().equals("eventdriven.command.handle"))
+                                .map(context -> context.getLowCardinalityKeyValue("eventdriven.command.status")
+                                        .getValue()))
+                        .containsExactly("failure", "failure", "success"));
     }
 
     @Test
@@ -236,9 +256,11 @@ public class CommandHandlerTests {
             handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
         }
 
-        assertThat(attributesOf(commandSpans().getLast()))
-                .containsEntry("messaging.message.correlation_id", "correlation-1")
-                .containsEntry("messaging.message.causation_id", "message-1");
+        assertThat(tracing.observations())
+                .hasObservationWithNameEqualTo("eventdriven.command.handle")
+                .that()
+                .hasHighCardinalityKeyValue("messaging.message.correlation_id", "correlation-1")
+                .hasHighCardinalityKeyValue("messaging.message.causation_id", "message-1");
     }
 
     @Test

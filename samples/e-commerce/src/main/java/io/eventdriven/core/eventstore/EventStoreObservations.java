@@ -22,7 +22,7 @@ public final class EventStoreObservations {
 
     public static EventStore.ReadResult observeRead(
             MessageContext context, String streamId, Supplier<EventStore.ReadResult> read) {
-        var observation = context.observation("eventStore.readStream")
+        var observation = context.observation("eventdriven.eventstore.read", "eventStore.readStream")
                 .lowCardinalityKeyValue(OPERATION, "readStream")
                 .highCardinalityKeyValue(STREAM_NAME, streamId)
                 .start();
@@ -55,7 +55,7 @@ public final class EventStoreObservations {
 
     public static EventStore.AppendResult observeAppend(
             MessageContext context, String streamId, Object[] events, Supplier<EventStore.AppendResult> append) {
-        var observation = context.observation("eventStore.appendToStream")
+        var observation = context.observation("eventdriven.eventstore.append", "eventStore.appendToStream")
                 .lowCardinalityKeyValue(OPERATION, "appendToStream")
                 .highCardinalityKeyValue(STREAM_NAME, streamId)
                 .highCardinalityKeyValue(APPEND_BATCH_SIZE, String.valueOf(events.length))
@@ -88,6 +88,12 @@ public final class EventStoreObservations {
         } finally {
             observation.stop();
         }
+    }
+
+    // Registers the appended-events counter of each type at zero, so that Prometheus sees the first append as an
+    // increase.
+    public static void countAppended(MessageContext context, List<Class<?>> types) {
+        for (var type : types) context.meters().counter(APPENDED_EVENTS, EVENT_TYPE, type.getSimpleName());
     }
 
     private static String statusOf(EventStore.ReadResult result) {

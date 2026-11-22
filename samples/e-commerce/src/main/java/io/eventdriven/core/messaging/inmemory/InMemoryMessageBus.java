@@ -4,11 +4,14 @@ import io.eventdriven.core.messaging.MessageBus;
 import io.eventdriven.core.messaging.MessageChannel;
 import io.eventdriven.core.messaging.MessageContext;
 import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.messaging.MessageMetadata;
 import io.eventdriven.core.messaging.MessageQueue;
 import io.eventdriven.core.messaging.MessageRouter;
 import io.eventdriven.core.messaging.MessageRoutes;
 import io.eventdriven.core.messaging.MessageSource;
+import io.eventdriven.core.messaging.MessageValues;
 import io.eventdriven.core.messaging.RoutingPattern;
+import io.eventdriven.core.messaging.RoutingTarget;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -25,7 +28,7 @@ public class InMemoryMessageBus implements MessageBus {
     private final Set<String> channels = new HashSet<>();
     private final Map<String, List<Binding>> bindings = new LinkedHashMap<>();
     private final Map<String, Map<String, List<Consumer<MessageEnvelope<Object>>>>> queues = new LinkedHashMap<>();
-    private final List<Consumer<Object>> middlewares = new ArrayList<>();
+    private final List<Consumer<MessageEnvelope<Object>>> middlewares = new ArrayList<>();
     private final MessageContext context;
 
     public InMemoryMessageBus(
@@ -43,11 +46,12 @@ public class InMemoryMessageBus implements MessageBus {
     public <Message> void publish(List<Message> messages) {
         for (var position = 0; position < messages.size(); position++) {
             Object message = messages.get(position);
-            for (var middleware : middlewares) middleware.accept(message);
-
-            var route = router.declaredRouteFor(message, channels);
 
             var values = context.inheritForPublished(message.getClass().getName(), position);
+            var route = routeOf(message, values);
+            var published = new MessageEnvelope<>(
+                    message, MessageMetadata.of(values, new MessageSource.OnChannel(route.target())));
+            for (var middleware : middlewares) middleware.accept(published);
 
             for (var binding : bindings.getOrDefault(route.target(), List.of())) {
                 if (!RoutingPattern.matches(binding.pattern(), route.key())) continue;
@@ -77,9 +81,19 @@ public class InMemoryMessageBus implements MessageBus {
         return this;
     }
 
-    public void use(Consumer<Object> middleware) {
+    public void use(Consumer<MessageEnvelope<Object>> middleware) {
         middlewares.add(middleware);
     }
 
     public void whenCaughtUp(Duration timeout) {}
+
+    private RoutingTarget routeOf(Object message, MessageValues values) {
+        try {
+            return router.declaredRouteFor(message, channels);
+        } catch (RuntimeException unrouted) {
+            var published = new MessageEnvelope<>(message, MessageMetadata.of(values, new MessageSource.Unrouted()));
+            for (var middleware : middlewares) middleware.accept(published);
+            throw unrouted;
+        }
+    }
 }

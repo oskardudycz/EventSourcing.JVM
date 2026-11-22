@@ -54,8 +54,9 @@ public class ShoppingCartExternalEventForwarderTests {
     private final ShoppingCartFacade shoppingCarts;
 
     public ShoppingCartExternalEventForwarderTests() {
-        messageBus.use(message -> {
-            if (message instanceof ShoppingCartExternalEvent) externalEvents.catchMessage(message);
+        messageBus.use(envelope -> {
+            if (envelope.message() instanceof ShoppingCartExternalEvent)
+                externalEvents.catchMessage(envelope.message());
         });
         var shoppingCartsConfig = new ShoppingCartsConfig();
         var customerShoppingCarts =
@@ -127,7 +128,7 @@ public class ShoppingCartExternalEventForwarderTests {
                 List.of(new MessageChannel("published")),
                 List.of());
         var published = new MessageCatcher();
-        bus.use(published::catchMessage);
+        bus.use(envelope -> published.catchMessage(envelope.message()));
         var forwarder = new ShoppingCartExternalEventForwarder(summaries, bus);
         var streamId = ShoppingCartFacade.mapToStreamId(shoppingCartId);
 

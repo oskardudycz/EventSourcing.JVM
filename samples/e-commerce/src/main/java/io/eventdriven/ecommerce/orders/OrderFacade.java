@@ -126,6 +126,10 @@ public class OrderFacade {
         commandHandler.handle(command.orderId(), decided, OrderDecider::cancel);
     }
 
+    public boolean isPlaced(Order.Id orderId) {
+        return commandHandler.get(orderId).id() != null;
+    }
+
     public interface PaymentTerms {
         OffsetDateTime dueAt(OffsetDateTime failedAt);
 

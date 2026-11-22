@@ -24,7 +24,7 @@ import java.util.function.Consumer;
  */
 public interface MessageBus {
     /**
-     * Publishes messages (commands or events). Middleware sees each message first,
+     * Publishes messages (commands or events). Middleware sees each message first, with the ids it is sent with,
      * then every queue that the message's channel and key reach.
      */
     <Message> void publish(List<Message> messages);
@@ -51,9 +51,9 @@ public interface MessageBus {
     }
 
     /**
-     * Registers middleware called for every published message before subscribers.
+     * Registers middleware called for every published message before subscribers, with the ids it is sent with.
      */
-    void use(Consumer<Object> middleware);
+    void use(Consumer<MessageEnvelope<Object>> middleware);
 
     /**
      * Waits until the queues this bus consumes have handled or dead-lettered every message published before the call.

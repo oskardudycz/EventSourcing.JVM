@@ -288,6 +288,30 @@ public class OrdersApiTests extends ApiE2ESpecification {
         }
 
         @Test
+        public void getOrderStatus_succeeds_withTheVersionOfTheStatusAsETag() {
+            given(placedOrder)
+                    .when(getOrderStatus(customerId, orderId))
+                    .then(expectResponse(OK, headers(Map.of(HttpHeaders.ETAG, weakETag(1)))));
+        }
+
+        @Test
+        public void getOrderStatus_succeeds_withTheNewerStatus_forAClientThatSawAnOlderOne() {
+            given(placedOrder)
+                    .when(getOrderStatus(customerId, orderId, weakETag(0)))
+                    .then(expectResponse(
+                            OK,
+                            headers(Map.of(HttpHeaders.ETAG, weakETag(1))),
+                            body(Map.of("progress", "AwaitingPayment"))));
+        }
+
+        @Test
+        public void getOrderStatus_answersNotModified_whenNothingNewerArrivesBeforeTheDeadline() {
+            given(placedOrder)
+                    .when(getOrderStatus(customerId, orderId, weakETag(1)))
+                    .then(expectResponse(NOT_MODIFIED, headers(Map.of(HttpHeaders.ETAG, weakETag(1)))));
+        }
+
+        @Test
         public void getOrderStatus_fails_withNotFound_forUnknownOrder() {
             given().when(getOrderStatus(customerId, orderId)).then(expectError(NOT_FOUND));
         }
@@ -317,10 +341,49 @@ public class OrdersApiTests extends ApiE2ESpecification {
         private final String order = "/shop/customers/%s/orders/%s".formatted(customerId, orderId.tail());
 
         @Test
-        public void theOrderPageSaysTheOrderIsBeingPlacedWhileItHasNoStatus() {
+        public void theOrderPageSaysTheOrderIsBeingPlacedAndKeepsCheckingWhileItHasNoStatus() {
             given().when(orderPage(customerId, orderId))
                     .then(expectResponse(
-                            OK, htmlContaining("Your order is being placed", "http-equiv=\"refresh\" content=\"2\"")));
+                            OK,
+                            htmlContaining(
+                                    "Your order is being placed",
+                                    "hx-trigger=\"every 1s\"",
+                                    "<noscript><meta http-equiv=\"refresh\" content=\"1\"></noscript>")));
+        }
+
+        @Test
+        public void theOrderPageOfAnOpenOrderKeepsCheckingForNewsNewerThanWhatItShows() {
+            given(placedOrder)
+                    .when(orderPage(customerId, orderId))
+                    .then(expectResponse(
+                            OK,
+                            htmlContaining(
+                                    "hx-get=\"" + order + "\"",
+                                    "hx-trigger=\"every 1s\"",
+                                    "If-None-Match",
+                                    "W/\\&quot;1\\&quot;")));
+        }
+
+        @Test
+        public void theOrderPageOfACompletedOrderStopsChecking() {
+            given(completedOrder)
+                    .when(orderPage(customerId, orderId))
+                    .then(expectResponse(OK, htmlNotContaining("hx-trigger")));
+        }
+
+        @Test
+        public void aCheckForNewsAfterTheOrderChangedAnswersTheNewStatusAlone() {
+            given(placedOrder)
+                    .when(orderPageNewerThan(customerId, orderId, weakETag(0)))
+                    .then(expectResponse(
+                            OK, htmlContaining("Awaiting payment", "Pay now"), htmlNotContaining("<html")));
+        }
+
+        @Test
+        public void aCheckForNewsWhenNothingChangedAnswersNotModified() {
+            given(placedOrder)
+                    .when(orderPageNewerThan(customerId, orderId, weakETag(1)))
+                    .then(expectResponse(NOT_MODIFIED));
         }
 
         @Test

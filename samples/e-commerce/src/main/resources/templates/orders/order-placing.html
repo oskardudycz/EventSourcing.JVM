@@ -3,13 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="refresh" content="2">
+  <noscript><meta http-equiv="refresh" content="1"></noscript>
+  <script th:src="@{/webjars/htmx.org/dist/htmx.min.js}" defer></script>
   <title>Order status · Demo Shop</title>
   <link rel="stylesheet" th:href="@{/css/shop.css}">
 </head>
 <body>
 <header th:replace="~{shop/fragments :: header(${customerId}, 'orders')}"></header>
-<main class="page narrow">
+<main class="page narrow" id="order" th:fragment="order"
+      th:attr="hx-get=@{/shop/customers/{c}/orders/{o}(c=${customerId}, o=${orderTail})}"
+      hx-trigger="every 1s" hx-swap="outerMorph">
   <div class="page-title">
     <div>
       <h1>Order status</h1>

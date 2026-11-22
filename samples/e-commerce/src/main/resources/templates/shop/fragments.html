@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title th:text="${title} + ' · Demo Shop'">Demo Shop</title>
   <link rel="stylesheet" th:href="@{/css/shop.css}">
+  <script th:src="@{/webjars/htmx.org/dist/htmx.min.js}" defer></script>
 </head>
 <body>
 <header th:fragment="header(customerId, current)" class="topbar">

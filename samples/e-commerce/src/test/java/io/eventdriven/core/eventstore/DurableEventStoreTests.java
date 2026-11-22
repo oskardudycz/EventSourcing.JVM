@@ -25,6 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Stream;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
@@ -420,8 +421,10 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         var itemsStreamId = streamId + "-items";
         var keepAppending = new AtomicBoolean(true);
         eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (keepAppending.get() && envelope.metadata().stream().streamId().equals(itemsStreamId))
-                eventStore().append(itemsStreamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "t-shirt"));
+            if (!keepAppending.get() || !envelope.metadata().stream().streamId().equals(itemsStreamId)) return;
+
+            LockSupport.parkNanos(Duration.ofMillis(50).toNanos());
+            eventStore().append(itemsStreamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "t-shirt"));
         });
         eventStore().append(itemsStreamId, new ItemAdded(cartId, "t-shirt"));
 

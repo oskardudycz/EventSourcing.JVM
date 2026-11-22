@@ -3,7 +3,12 @@
 <head th:replace="~{shop/fragments :: head('Order status')}"></head>
 <body>
 <header th:replace="~{shop/fragments :: header(${customerId}, 'orders')}"></header>
-<main class="page narrow">
+<main class="page narrow" id="order" th:fragment="order"
+      th:with="checking=${!order.progress.isFinal()}"
+      th:attr="hx-get=${checking} ? @{/shop/customers/{c}/orders/{o}(c=${customerId}, o=${orderTail})},
+               hx-trigger=${checking} ? 'every 1s',
+               hx-swap=${checking} ? 'outerMorph',
+               hx-headers=${checking} ? ${newsHeaders}">
   <div class="page-title">
     <div>
       <h1>Order status</h1>

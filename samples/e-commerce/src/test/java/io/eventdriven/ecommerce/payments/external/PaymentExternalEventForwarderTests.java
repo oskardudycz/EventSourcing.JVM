@@ -52,8 +52,8 @@ public class PaymentExternalEventForwarderTests {
     private final MessageCatcher externalEvents = new MessageCatcher();
 
     public PaymentExternalEventForwarderTests() {
-        messageBus.use(message -> {
-            if (message instanceof PaymentExternalEvent) externalEvents.catchMessage(message);
+        messageBus.use(envelope -> {
+            if (envelope.message() instanceof PaymentExternalEvent) externalEvents.catchMessage(envelope.message());
         });
         var paymentGateway = new SilentPaymentGateway();
         var paymentsConfig = new PaymentsConfig();
@@ -164,7 +164,7 @@ public class PaymentExternalEventForwarderTests {
                 List.of(new MessageChannel("published")),
                 List.of());
         var published = new MessageCatcher();
-        bus.use(published::catchMessage);
+        bus.use(envelope -> published.catchMessage(envelope.message()));
         var forwarder = new PaymentExternalEventForwarder(summaries, bus);
         var streamId = PaymentFacade.mapToStreamId(paymentId);
         var timedOut =

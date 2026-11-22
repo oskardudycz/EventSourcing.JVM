@@ -71,10 +71,10 @@ public class PaymentExternalEventForwarderOrderingTests {
     }
 
     private void configure(PaymentGateway paymentGateway) {
-        messageBus.use(message -> {
-            if (message instanceof PaymentExternalEvent) {
-                externalEvents.catchMessage(message);
-                transcript.add("published:" + message.getClass().getSimpleName());
+        messageBus.use(envelope -> {
+            if (envelope.message() instanceof PaymentExternalEvent) {
+                externalEvents.catchMessage(envelope.message());
+                transcript.add("published:" + envelope.message().getClass().getSimpleName());
             }
         });
 

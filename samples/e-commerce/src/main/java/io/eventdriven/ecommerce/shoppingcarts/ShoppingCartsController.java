@@ -2,6 +2,8 @@ package io.eventdriven.ecommerce.shoppingcarts;
 
 import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartCommand.*;
 
+import io.eventdriven.core.http.ConditionalRead;
+import io.eventdriven.core.projections.LongPolling;
 import io.eventdriven.ecommerce.shoppingcarts.currentcart.CustomerShoppingCarts;
 import io.eventdriven.ecommerce.shoppingcarts.getcart.Cart;
 import io.eventdriven.ecommerce.shoppingcarts.getcart.Carts;
@@ -11,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.net.URI;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.ETag;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -37,10 +40,13 @@ public class ShoppingCartsController {
 
     @GetMapping
     @Operation(operationId = "Cart")
-    public ResponseEntity<Cart> get(@PathVariable UUID customerId) {
-        var cart = carts.get(currentCartOf(customerId)).orElseThrow();
-
-        return ResponseEntity.ok().eTag(eTagOf(cart.getVersion())).body(cart);
+    public ResponseEntity<Cart> get(
+            @PathVariable UUID customerId,
+            @RequestHeader(name = HttpHeaders.IF_NONE_MATCH, required = false) @Nullable String ifNoneMatch) {
+        return ConditionalRead.newerThan(
+                ifNoneMatch,
+                () -> customerShoppingCarts.currentOf(customerId).flatMap(carts::get),
+                () -> noOpenCart(customerId));
     }
 
     @PostMapping("/product-items")
@@ -97,8 +103,11 @@ public class ShoppingCartsController {
     }
 
     private ShoppingCart.Id currentCartOf(UUID customerId) {
-        return customerShoppingCarts
-                .currentOf(customerId)
-                .orElseThrow(() -> new NoSuchElementException("Customer '%s' has no open cart".formatted(customerId)));
+        return LongPolling.retryIfNotFound(() -> customerShoppingCarts.currentOf(customerId))
+                .orElseThrow(() -> noOpenCart(customerId));
+    }
+
+    private static NoSuchElementException noOpenCart(UUID customerId) {
+        return new NoSuchElementException("Customer '%s' has no open cart".formatted(customerId));
     }
 }

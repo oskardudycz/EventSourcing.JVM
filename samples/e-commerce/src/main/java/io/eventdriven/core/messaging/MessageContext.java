@@ -33,8 +33,8 @@ public class MessageContext {
         return meters;
     }
 
-    public Observation observation(String name) {
-        var observation = Observation.createNotStarted(name, observations);
+    public Observation observation(String name, String contextualName) {
+        var observation = Observation.createNotStarted(name, observations).contextualName(contextualName);
         baggage(CORRELATION_ID).ifPresent(id -> observation.highCardinalityKeyValue(CORRELATION_ID_ATTRIBUTE, id));
         baggage(CAUSATION_ID).ifPresent(id -> observation.highCardinalityKeyValue(CAUSATION_ID_ATTRIBUTE, id));
 
