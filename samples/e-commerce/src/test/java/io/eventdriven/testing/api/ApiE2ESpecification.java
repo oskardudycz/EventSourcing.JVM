@@ -10,6 +10,7 @@ import io.eventdriven.testing.api.SpanTree.RecordedSpan;
 import io.eventdriven.testing.eventstore.RecordingEventStore;
 import io.eventdriven.testing.tracing.FinishedSpans;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -604,6 +605,7 @@ public abstract class ApiE2ESpecification {
             case Counter counter -> counter.count();
             case Timer timer -> timer.count();
             case FunctionCounter counter -> counter.count();
+            case DistributionSummary summary -> summary.count();
             default -> 0;
         };
     }

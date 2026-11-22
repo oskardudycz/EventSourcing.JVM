@@ -1,0 +1,24 @@
+---
+id: io.eventdriven.ecommerce.orders.OrderCommand.CloseUnpaidOrder
+version: 1.0.0
+name: CloseUnpaidOrder
+summary: >-
+  Closes an order that is still unpaid at its due date. An order that was not
+  sent is canceled. An order that was sent is closed as unpaid.
+badges: []
+schemaPath: schema.json
+owners:
+  - orders
+---
+## Architecture
+<NodeGraph />
+
+
+## Schema
+<SchemaViewer file="schema.json" title="Message Schema" maxHeight="500" />
+
+
+
+## Bindings
+
+### x-in-memory

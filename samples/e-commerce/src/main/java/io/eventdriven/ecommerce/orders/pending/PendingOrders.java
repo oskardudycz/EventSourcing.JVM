@@ -41,6 +41,10 @@ public class PendingOrders extends Projection<PendingOrder, Order.Id> {
         };
     }
 
+    public long count() {
+        return repository.count();
+    }
+
     public List<PendingOrder> all() {
         return repository.findAll();
     }

@@ -209,6 +209,11 @@ public record Order(
             return new Id(Urns.derive(sourceUrn, type));
         }
 
+        /** The customer's order number: the number of the cart that the order was placed from. */
+        public String number() {
+            return tail().substring(tail().lastIndexOf('-') + 1);
+        }
+
         @Override
         public String toString() {
             return value;
@@ -235,6 +240,7 @@ public record Order(
     public enum Progress {
         AwaitingPayment("Awaiting payment"),
         PaymentFailed("Payment failed"),
+        OutOfStock("Out of stock"),
         Processing("Processing"),
         Shipped("Shipped"),
         Completed("Completed"),

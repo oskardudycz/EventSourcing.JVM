@@ -58,7 +58,11 @@ The customer clicks **Pay now**, and the shop sends them to the payment provider
 
 ![The payment provider's page](./assets/howto/5-sandbox-checkout.png)
 
-After the payment, the provider sends the customer back to the shop. A second sandbox plays the warehouse and sends every package at once, so the order is already completed, with a carrier and a tracking number:
+After the payment, the provider sends the customer back to the shop, and the order shows **Processing**: it waits for the warehouse. A second sandbox plays the warehouse, with its own page, where a person sends the package or rejects it, and marks products out of stock:
+
+![The sandbox warehouse page](./assets/howto/6-sandbox-warehouse.png)
+
+Once the package is sent, the customer is charged, and the order page updates to **Completed**, with a carrier and a tracking number:
 
 ![The completed order](./assets/howto/6-order-completed.png)
 
@@ -597,7 +601,7 @@ The rest of the provider's API is called by small clients that react to the paym
 
 [FulfillmentServiceClient](./src/main/java/io/eventdriven/ecommerce/shipments/fulfillment/FulfillmentServiceClient.java) sends the request to the fulfillment service when the shipment records `FulfillmentRequested`. The service answers later by sending a command back: `ConfirmPackageSent` with the carrier and the tracking number, or `RejectFulfillment`, and later `DeliverPackage`. If the call itself fails, nothing is recorded, and the order is canceled when the authorization expires.
 
-**The sandboxes.** When the application runs, sandboxes play both outside systems, so that you can go through a purchase without an account at a real provider. [SandboxPaymentGateway](./src/main/java/io/eventdriven/ecommerce/payments/sandbox/SandboxPaymentGateway.java) serves its own payment page, laid out like Stripe Checkout, and takes Stripe's test cards: 4242 4242 4242 4242 pays, and 4000 0000 0000 0002 is declined and stays on the page, so the customer can try again. Two buttons under the form pay with either card in one click. Paying sends `ConfirmPaymentAuthorization` with a 7-day `captureBefore`, as the webhook would, and sends the browser to the `successUrl`. A charge is confirmed at once. [SandboxFulfillmentService](./src/main/java/io/eventdriven/ecommerce/shipments/sandbox/SandboxFulfillmentService.java) plays the fulfillment service: it sends every package at once, with the carrier "Sandbox Express". In the tests, test doubles play both systems and send the same commands.
+**The sandboxes.** When the application runs, sandboxes play both outside systems, so that you can go through a purchase without an account at a real provider. [SandboxPaymentGateway](./src/main/java/io/eventdriven/ecommerce/payments/sandbox/SandboxPaymentGateway.java) serves its own payment page, laid out like Stripe Checkout, and takes Stripe's test cards: 4242 4242 4242 4242 pays, and 4000 0000 0000 0002 is declined and stays on the page, so the customer can try again. The card number field suggests both cards. Paying sends `ConfirmPaymentAuthorization` with a 7-day `captureBefore`, as the webhook would, and sends the browser to the `successUrl`. A charge is confirmed at once. [SandboxWarehouse](./src/main/java/io/eventdriven/ecommerce/shipments/sandbox/SandboxWarehouse.java) plays the warehouse and its fulfillment service. It keeps the stock and the packages it was asked to send, and its page at `/sandbox/warehouse` lets a person decide: **Send** sends `ConfirmPackageSent` with the carrier "Sandbox Express", **Reject** sends `RejectFulfillment`, and **Deliver** sends `DeliverPackage`. A product marked out of stock makes the next reservation fail. The demo product "Limited edition trail shoes" is out of stock from the start. In the tests, test doubles play both systems and send the same commands.
 
 ### The web API and the shop
 
@@ -636,6 +640,21 @@ The customer's pages read views made only for them, named after Shopify's pages:
 The web API uses the `ETag` for that. A read of the cart or the order status can send `If-None-Match` with the `ETag` of the version the client has already seen. The answer is then the first newer version, with its `ETag`, or `304 Not Modified` if nothing newer came within the second ([ConditionalRead](./src/main/java/io/eventdriven/core/http/ConditionalRead.java)). An order that exists, but whose view is still behind after the second, answers `503 Service Unavailable` with `Retry-After: 1`, so the client knows to ask again in a second. An order that doesn't exist answers `404 Not Found`.
 
 Browsers don't follow `Retry-After`, so the pages never answer `503`. The cart page waits for the version that the add, remove or checkout wrote. The order page waits for the order, and if it still isn't there, it says "Your order is being placed". From then on, [htmx](https://htmx.org/) keeps the page up to date: every second it asks for news with `If-None-Match`, and the server answers either the new order status, which htmx swaps into the page without reloading it, or `304`, after which nothing changes. A completed, canceled or closed order is shown without the polling, so the polling stops. The pages use htmx through [htmx-spring-boot](https://github.com/wimdeblauwe/htmx-spring-boot). Without JavaScript, the "being placed" page reloads itself every second instead.
+
+**Alerts.** Grafana loads eight alert rules from [observability/alerting/ecommerce.yaml](./observability/alerting/ecommerce.yaml). They watch the business, not the servers, because a server can look healthy while checkout is broken:
+
+| Alert | Fires when |
+|---|---|
+| Payments failing | more than 20% of at least 5 payments failed in 15 minutes |
+| Capture failed | a package left, but the provider refused to charge |
+| Money lost | an order closed unpaid, or a payment hold expired before the charge |
+| Checkout broken | customers checked out in 10 minutes, but no order was placed |
+| Views falling behind | the 95th percentile of the subscription lag is above 5 seconds for 5 minutes |
+| Dead letters | a message failed every retry |
+| Commands failing | more than 5% of the commands failed in 10 minutes |
+| HTTP errors | more than 1% of the requests answered with a server error in 5 minutes |
+
+The thresholds are a starting point: set yours from your own traffic. The rules have no contact point, so they show under **Alerting** in Grafana. Add one, such as Slack or e-mail, to be told.
 
 **Testing it.** The tests treat the application as a black box. They reach it the way the outside world does: the customer sends HTTP requests, the other modules, the payment provider and the warehouse send messages on the bus, and time passes for the workers. Then they check what the outside world can see: the response, the messages that the application published, and the trace. [ApiE2ESpecification](./src/test/java/io/eventdriven/testing/api/ApiE2ESpecification.java) is a port of [Emmett](https://github.com/event-driven-io/emmett)'s helper of the same name on Spring's `RestTestClient`, and [ApiE2ESpecificationTests](./src/test/java/io/eventdriven/testing/api/ApiE2ESpecificationTests.java) checks the helper itself.
 
@@ -702,7 +721,7 @@ given(paymentPage)
 
 The application runs on real infrastructure by default: Kafka, KurrentDB and PostgreSQL. `./gradlew bootRun` starts them with Spring Boot's Docker Compose support, as [the HOWTO](./HOWTO.md#1-start-the-application) describes. The `in-memory` Spring profile switches the application back to the in-memory bus, event store and projections, with no Docker. The module tests and the in-memory purchase scenarios use that profile. The tests of the Kafka, RabbitMQ, KurrentDB and PostgreSQL implementations, and the purchase scenarios on Kafka and RabbitMQ, use the servers of the Docker Compose project when they run, and start them with [Testcontainers](https://testcontainers.com/) when they don't. So running them needs only Docker. A test class that starts the application on shared servers needs `@DirtiesContext` and `TestDatabases.newPostgreSQLDatabase()`, so that its projections and checkpoints don't mix with the ones of another class.
 
-In a dev container, stop the Docker Compose Kafka before you run the Kafka tests. [AGENTS.md](../../AGENTS.md#build-environment) tells why.
+In a dev container, stop the Docker Compose Kafka before you run the Kafka tests. In a dev container, Docker is the host's Docker, and the Compose Kafka advertises `localhost:9092`, which inside the container is the container itself. The tests find that Kafka and fail to reach it. Without it, they start their own Kafka.
 
 #### Three settings and the in-memory profile
 
@@ -737,7 +756,8 @@ The same steps give the metrics:
 - `eventdriven.command.handling.count` counts the commands by type and status, and the `eventdriven.command.handle` timer times them;
 - `eventdriven.eventstore.read.count` and `eventdriven.eventstore.append.count` count the reads and appends by status (`success`, `conflict` or `failure`), and timers of the same names without `.count` time them;
 - `eventdriven.event.appending.count` counts the appended events of each type. Counting the events is how the dashboards count orders, payments and shipments;
-- `eventdriven.subscription.lag` is the time from appending an event to a subscription handling it, for each subscription.
+- `eventdriven.subscription.lag` is the time from appending an event to a subscription handling it, for each subscription;
+- the orders module adds its business metrics, in [OrderMetrics](./src/main/java/io/eventdriven/ecommerce/orders/OrderMetrics.java): `ecommerce.order.revenue`, the amounts charged; `ecommerce.order.lead.time`, the time from placing an order to its payment, its package leaving and its completion, measured in the orders' own time; and two gauges that count the orders still running (`ecommerce.orders.in.progress`) and the orders waiting for the customer to pay again (`ecommerce.orders.awaiting.payment`).
 
 Prometheus computes `increase()` and `rate()` from the difference between two samples of a series. A series that starts at 1 has no earlier sample, so its first count doesn't show. That's why the counters register all their statuses at 0 the first time they count: the first conflict or failed command then shows as an increase, and an alert on it fires. [Axon](https://docs.axoniq.io/axon-framework-reference/4.10/monitoring/metrics/) does the same. The very first command of each type still starts at 1, so the totals since the start, such as **Commands handled**, use the counter's value itself, not `increase()`.
 
@@ -745,7 +765,7 @@ Prometheus computes `increase()` and `rate()` from the difference between two sa
 
 **Dashboards.** Three dashboards come with the sample, from [observability/dashboards](./observability/dashboards):
 
-- **Purchases** counts what customers do and what goes wrong: orders, payments and shipments, and, under **Watch out**, the failed commands, version conflicts, timeouts, dead letters and failed message handlers;
+- **Purchases** counts what customers do and what goes wrong: orders, payments and shipments, and, under **Watch out**, the failed commands, version conflicts, timeouts, dead letters and failed message handlers. Under **Business**, it shows the numbers that payment and retail teams watch: how many checkouts became orders and how many orders got paid, the payment failures counted once per payment, the reservations that found a product out of stock, the revenue and the average order value, the orders still running, and how long an order takes to be paid, sent and completed;
 - **Commands and event store** shows the command handlers, the event store and how far each subscription lags behind the appends, in the same shape as Emmett's dashboard;
 - **Purchase flow** shows the messages published, handled and failed in each channel.
 
@@ -771,7 +791,7 @@ given(addProductItem(customerId, UUID.randomUUID(), 2))
                 grafanaApi.expectLogsOf("e-commerce"));
 ```
 
-`expectTraceInTempo` takes the same span tree as `expectTrace`, and matches it against what Tempo has. `expectValidDashboardQueries` checks that every dashboard query is valid PromQL, and `expectDashboardShowing` that the named panels show data. [ShopTelemetryInBrowserTests](./src/test/java/io/eventdriven/ecommerce/ShopTelemetryInBrowserTests.java) buys in Chromium on Kafka, KurrentDB and PostgreSQL, then finds the purchase in Grafana as one trace, as metrics and as logs, and takes the screenshots of the dashboards. When the Docker Compose Grafana runs, the other tests send it their telemetry too, so you can look at a test run there.
+`expectTraceInTempo` takes the same span tree as `expectTrace`, and matches it against what Tempo has. `expectValidDashboardQueries` checks that every dashboard query is valid PromQL, `expectDashboardShowing` that the named panels show data, `expectAlertRules` that Grafana loaded the alert rules, and `expectAlertFiring` that a rule fires: a capture that the provider refuses fires **Capture failed**. [ShopTelemetryInBrowserTests](./src/test/java/io/eventdriven/ecommerce/ShopTelemetryInBrowserTests.java) buys in Chromium on Kafka, KurrentDB and PostgreSQL, then finds the purchase in Grafana as one trace, as metrics and as logs, and takes the screenshots of the dashboards. When the Docker Compose Grafana runs, the other tests send it their telemetry too, so you can look at a test run there.
 
 **When something looks wrong.**
 
@@ -857,20 +877,14 @@ A few classes in [core/documentation](./src/main/java/io/eventdriven/core/docume
 The catalog lives in the [eventcatalog](./eventcatalog/) folder. EventCatalog is a Node.js application, and the [node-gradle](https://github.com/node-gradle/gradle-node-plugin) plugin runs it from Gradle, with a Node.js that it downloads itself. `./gradlew eventCatalogGenerate` does the first two steps below, and `./gradlew eventCatalog` the third:
 
 1. **Save the documents.** Gradle starts the application on port 18086, downloads the six documents (two OpenAPI, four AsyncAPI) and saves them to [eventcatalog/specs](./eventcatalog/specs/).
-2. **Write the catalog's pages.** EventCatalog's two generators, `@eventcatalog/generator-openapi` and `@eventcatalog/generator-asyncapi`, read the saved documents and write one Markdown page for each service and each message to [eventcatalog/domains](./eventcatalog/domains/). [eventcatalog.config.js](./eventcatalog/eventcatalog.config.js) tells them which document belongs to which service, and that all services belong to one domain, E-Commerce:
+2. **Write the catalog's pages.** EventCatalog's two generators, `@eventcatalog/generator-openapi` and `@eventcatalog/generator-asyncapi`, read the saved documents and write one Markdown page for each service and each message to [eventcatalog/domains](./eventcatalog/domains/). [eventcatalog.config.js](./eventcatalog/eventcatalog.config.js) tells them which document belongs to which service, and which subdomain each service belongs to. Each module is a bounded context, so each one gets its own subdomain, named after the module. Its service is the module's id with `-service`, as in EventCatalog's examples, because a subdomain and a service can't share an id:
 
    ```js
-   [
-     '@eventcatalog/generator-asyncapi',
-     {
-       services: [
-         { path: spec('asyncapi-orders.json'), id: 'orders', name: 'Orders', owners: ['orders'] },
-         { path: spec('asyncapi-payments.json'), id: 'payments', name: 'Payments', owners: ['payments'] },
-         // ...
-       ],
-       domain,
-     },
-   ],
+   const modules = [
+     { id: 'shopping-carts', name: 'Shopping carts', spec: 'shopping_carts', web: true, domain: { id: 'shopping-carts', name: 'Shopping carts', version: '1.0.0' } },
+     { id: 'orders', name: 'Orders', spec: 'orders', web: true, domain: { id: 'orders', name: 'Orders', version: '1.0.0' } },
+     // ...
+   ];
    ```
 
 3. **Build the website.** Astro, the site builder under EventCatalog, turns the pages into a static website in `eventcatalog/dist`. `./gradlew eventCatalogPreview` serves it on <http://localhost:3001>.
@@ -881,12 +895,14 @@ The generators connect the documents like this:
 - **Operations become "sends" and "receives".** An operation with `"action": "send"` makes the message one that the service sends, and `"action": "receive"` one that it receives.
 - **The same message name links the sender to the receiver.** Each message is named after its record's full class name. The payments document has `PaymentAuthorized` in a `send` operation, and the orders document has the same name in a `receive` operation (`orders-payments-responses_receive_onPaymentAuthorized`). So the catalog shows that payments sends `PaymentAuthorized` to orders. This is why each module's document also has the messages it receives from other modules.
 - **`x-eventcatalog-message-type` sorts the messages** into commands, events and queries.
-- Each message's page is stored under the service that sends it: `AuthorizePayment` is in `orders/commands`, because the saga sends it.
-- The channels don't get pages of their own. You see them on each service's AsyncAPI page.
+- Each message's page is stored under the service that sends it: `AuthorizePayment` is in `orders-service/commands`, because the saga sends it.
+- **Each channel gets a page**, in [channels](./eventcatalog/channels/), with its address and the protocols that carry it: `parseChannels: true` in the configuration turns this on.
 
-The catalog is documentation as code: the pages in `domains` are kept in the repository, next to the hand-written [teams](./eventcatalog/teams/) and [users](./eventcatalog/users/) that own the services. Each service's `owners` in `eventcatalog.config.js` names its team. When the generators run again, they update the pages from the documents, but keep what the pages already have: each service's owners, each message's badges, and messages that are no longer in the documents. So after you change a service's `owners` or a controller's `@Tag`, or rename or remove a message, delete `domains` and generate it again.
+Some pages are written by hand, because no document can say them. The [E-Commerce domain](./eventcatalog/domains/e-commerce/index.mdx) lists the four subdomains and explains the *context map*: which context publishes a language for the others, which one is the customer and which the supplier, and where an anti-corruption layer keeps an outside system's model out. EventCatalog draws the map itself, as its *system context map*, from a system page for each context, such as [orders-system](./eventcatalog/domains/orders/systems/orders-system/index.mdx), and for each [outside system](./eventcatalog/systems/). Each system names its service, its data stores in `containers`, its `relationships` with the pattern as the label, and the `actors` that use it. The domain's diagram draws the messages between the contexts, from the documents. The [purchase flow](./eventcatalog/domains/orders/flows/purchase/index.mdx) shows the steps of a purchase across the contexts, with the compensation when a step fails. Each subdomain's page starts with a short overview, which the generators keep, and has a *ubiquitous language*: a dictionary of the context's terms, such as hold, capture or compensation, in `ubiquitous-language.mdx` next to the subdomain. Each subdomain also has an *entity* page for its aggregate, such as [order](./eventcatalog/domains/orders/entities/order/index.mdx), with the aggregate's state. The order's `paymentId` and `shipmentId` refer to the other aggregates, so the *entity map* draws those links. The two [containers](./eventcatalog/containers/) are the data stores: the event store and the projections database. Each service names them in `writesTo` and `readsFrom`. The four modules run in one application and share both stores, but each module writes only its own streams and views.
 
-`./gradlew eventCatalogTest` builds the catalog and checks it in Chromium with [Playwright](https://playwright.dev/): that each service lists what it sends and receives and shows its team, that the listings have every command, event and query, that each document's page shows its endpoints or channels, and that the browser reports no errors. The CI build runs it and fails when the saved documents or the pages in `domains` don't match the code.
+The catalog is documentation as code: the pages in `domains` are kept in the repository, next to the hand-written [teams](./eventcatalog/teams/) and [users](./eventcatalog/users/) that own the services. Each service's `owners` in `eventcatalog.config.js` names its team. When the generators run again, they update the pages from the documents, but keep what the pages already have: each service's owners, each message's badges, and messages that are no longer in the documents. So after you change a service's `owners` or a controller's `@Tag`, or rename or remove a message, delete that service's folder, such as `domains/payments/services/payments-service`, and generate it again. Then add its `writesTo` and `readsFrom` back, as the other services have them. Don't delete the whole `domains` folder: it holds the hand-written pages too.
+
+`./gradlew eventCatalogTest` builds the catalog and checks it in Chromium with [Playwright](https://playwright.dev/): that the context map and the domain diagram draw the four contexts, that each subdomain holds its module and has its language, that each entity page lists the aggregate's state and the entity map links them, that the event store shows every module, that a channel page shows its address, that the purchase flow has its steps, that each service lists what it sends and receives and shows its team, that the listings have every command, event and query, that each document's page shows its endpoints or channels, and that the browser reports no errors. The CI build runs it and fails when the saved documents or the pages in `domains` don't match the code.
 
 ### Where the code lives
 
@@ -896,7 +912,7 @@ Each module keeps its entity, its decider, its events, its commands, its facade,
 |---|---|
 | orders | `getcustomerorders` (`CustomerOrders`), `getorderstatus` (`OrderStatuses`), `pending` (`PendingOrders`, the orders still in progress), `unpaid` (the orders waiting for the customer to pay again), `products` |
 | payments | `authorization` (the provider calls around the Checkout Session, the time-out and the expiry), `capture`, `external`, `sandbox` (the payment provider when the application runs) |
-| shipments | `fulfillment` (the fulfillment service), `external`, `sandbox` (the fulfillment service when the application runs) |
+| shipments | `fulfillment` (the fulfillment service), `external`, `sandbox` (the warehouse and its page when the application runs) |
 | shopping carts | `getcart` (`Carts`), `currentcart` (`CustomerShoppingCarts`, the customer's open cart), `pricing`, `productitems`, `external` |
 
 `external` holds the module's external events, its forwarder and the summary projection that the forwarder reads. Each module serves its own pages next to its controller. The `shop` package, next to the modules, holds only what the pages share: the login, the page layout and the demo products. Shipments has no controller, because no person sends it a command: the customer sees the carrier and the tracking number on the order status page. The `ecommerce` package itself holds the composition roots, `ECommerceApplicationConfig` and `ECommerceDocumentationConfig`, and `ApiExceptionHandler`. The code that knows nothing about the shop lives in [io.eventdriven.core](./src/main/java/io/eventdriven/core/), and the application plugs it in: the event store contract with an implementation in each of `eventstore/inmemory`, `eventstore/kurrentdb` and `eventstore/postgresql`, the message bus with `messaging/inmemory`, `messaging/kafka` and `messaging/rabbitmq`, the command handler, the message processors (`processing`), the projections with the long-polling reads, the conditional HTTP reads (`http`), the checkpoints and the classes that shape the [API documentation](#documenting-the-messages). The Grafana dashboards live in [observability/dashboards](./observability/dashboards). The test helpers in [io.eventdriven.testing](./src/test/java/io/eventdriven/testing/) follow the same packages. The tests follow the same folders, and the tests of a whole purchase, which cross the modules, sit in the `ecommerce` package.

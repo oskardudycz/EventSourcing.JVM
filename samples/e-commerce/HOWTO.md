@@ -9,10 +9,10 @@ This guide takes you through one purchase in the sample shop, step by step. Afte
   - [3. Add products to the cart](#3-add-products-to-the-cart)
   - [4. Check out](#4-check-out)
   - [5. Pay on the payment provider's page](#5-pay-on-the-payment-providers-page)
-  - [6. See the completed order](#6-see-the-completed-order)
+  - [6. Send the package and see the completed order](#6-send-the-package-and-see-the-completed-order)
   - [7. Call the web API in Swagger UI](#7-call-the-web-api-in-swagger-ui)
   - [8. Read the messages in Springwolf UI](#8-read-the-messages-in-springwolf-ui)
-  - [9. Make a payment fail](#9-make-a-payment-fail)
+  - [9. Make a payment or a shipment fail](#9-make-a-payment-or-a-shipment-fail)
   - [10. Browse the catalog in EventCatalog](#10-browse-the-catalog-in-eventcatalog)
   - [11. Look at the purchase in Grafana](#11-look-at-the-purchase-in-grafana)
   - [12. Run the tests](#12-run-the-tests)
@@ -54,7 +54,7 @@ To run with no Docker and no database, use the `in-memory` profile. It sets all 
 
 To stop the Docker Compose services, run `docker compose --profile all down` in this folder.
 
-The payment provider and the warehouse are *sandboxes*: small stand-ins for the real services, built into the application. The sandbox payment provider shows a payment page like Stripe's and accepts Stripe's test card numbers. The sandbox warehouse sends every package at once. They let you go through a whole purchase without an account at a real provider.
+The payment provider and the warehouse are *sandboxes*: small stand-ins for the real services, built into the application. The sandbox payment provider shows a payment page like Stripe's and accepts Stripe's test card numbers. The sandbox warehouse has a page where you send packages and change the stock. They let you go through a whole purchase without an account at a real provider.
 
 ## 2. Log in
 
@@ -66,7 +66,7 @@ Type any name and click **Log in**. There is no password. The shop makes the cus
 
 ## 3. Add products to the cart
 
-The shop opens the **Products** page. The header has links to your **Products**, **Cart** and **Orders**, and to **Grafana**, where you can see what the shop did (step 11). It also shows your name.
+The shop opens the **Products** page. The header has links to your **Products**, **Cart** and **Orders**. **Developer tools** opens links to Swagger UI (step 7), Springwolf (step 8), EventCatalog (step 10) and Grafana (step 11). The header also shows your name.
 
 ![The products page](./assets/howto/2-products.png)
 
@@ -95,22 +95,27 @@ Click **Pay now**. The shop sends you to the payment provider's page. This is th
 
 ![The sandbox payment page](./assets/howto/5-sandbox-checkout.png)
 
-Type the card number `4242 4242 4242 4242` and click the **Pay** button, which shows the amount. You can leave the other fields empty. Or click **Pay with a card that works** under the form, which does the same in one click. **Try a card that is declined** uses `4000 0000 0000 0002`: the page says the card was declined and you can try again.
+Type the card number `4242 4242 4242 4242` and click the **Pay** button, which shows the amount. You can leave the other fields empty. The card number field suggests both test cards: click it and pick one. With `4000 0000 0000 0002` the page says the card was declined, and you can try again.
 
 To see a declined card, use `4000 0000 0000 0002` instead. The page shows the decline and you can try again with another card, as on Stripe's page.
 
-## 6. See the completed order
+## 6. Send the package and see the completed order
 
-After the payment, the payment provider sends you back to the **Order status** page.
-
-![The completed order](./assets/howto/6-order-completed.png)
-
-The order shows **Completed**, with the carrier and the tracking number. Again, the modules exchanged messages in the meantime:
+After the payment, the payment provider sends you back to the **Order status** page. The order shows **Processing**: it waits for the warehouse. Meanwhile:
 
 1. The payment provider told the payments module that you authorized the payment. Authorized means that the provider keeps the amount for the shop, but doesn't charge you yet.
 2. The payments module told the orders module. Because the products were already set aside, the order was confirmed.
-3. The orders module asked the shipments module to send the products. The sandbox warehouse sent the package at once.
-4. After the package left, the orders module asked the payments module to charge you. The payment provider confirmed the charge, and the order completed.
+3. The orders module asked the shipments module to send the products, and the shipments module asked the warehouse.
+
+Open **Developer tools** › **Sandbox warehouse** in a new tab. Your package waits there:
+
+![The sandbox warehouse page](./assets/howto/6-sandbox-warehouse.png)
+
+Click **Send**. Go back to the order tab: the page updates by itself.
+
+![The completed order](./assets/howto/6-order-completed.png)
+
+The order shows **Completed**, with the carrier and the tracking number. After the package left, the orders module asked the payments module to charge you. The payment provider confirmed the charge, and the order completed. The shop charges only for what it sent.
 
 The **Orders** page lists all your orders.
 
@@ -140,7 +145,7 @@ The page shows the document of the whole system. Each module also has its own do
 
 Each message on the page has a **Publish** button, which sends the message to the application's message bus. The module handles it like any other message. The next step uses it.
 
-## 9. Make a payment fail
+## 9. Make a payment or a shipment fail
 
 In a real shop, a payment fails when the customer doesn't pay in time. In the sample, that time is 24 hours. You can make it happen at once, by sending the message that the payments module sends itself when the time runs out.
 
@@ -151,6 +156,11 @@ In a real shop, a payment fails when the customer doesn't pay in time. In the sa
 5. Click **Publish**.
 
 Reload the **Order status** page. The order now shows **Payment failed** and offers **Retry payment**. The order keeps your products set aside and waits for you to pay again.
+
+You can make a shipment fail on the sandbox warehouse page:
+
+- **Out of stock.** Add **Limited edition trail shoes** to the cart and check out. The warehouse doesn't have them, so the order shows **Out of stock** and offers only **Cancel order**. To try it with another product, click **Mark out of stock** next to it on the warehouse page.
+- **Rejected.** Pay for an order, then click **Reject** next to its package. The order is canceled: the payments module releases the money it held, and the shipments module puts the products back.
 
 ## 10. Browse the catalog in EventCatalog
 
@@ -164,7 +174,15 @@ Gradle starts a second copy of the application on port 18086, saves its document
 
 ![The catalog's home page](./assets/howto/10-eventcatalog-home.png)
 
-The catalog shows one domain, E-Commerce, with each module as a service. A service page shows what the module receives and sends, and which team owns it.
+The catalog shows the E-Commerce domain with four subdomains, one for each module. Each subdomain is a bounded context. **Top level diagrams** › **System Context Diagram** is the context map: the contexts, the customer and the two outside systems, with the pattern of each relationship. The E-Commerce page explains the patterns.
+
+![The context map in the catalog](./assets/howto/16-eventcatalog-context-map.png)
+
+The domain's **Diagram** draws the same map from the documents: the contexts and the messages between them. **Flows** › **Purchase** walks through the purchase step by step, with what the shop undoes when a step fails.
+
+![The domain diagram in the catalog](./assets/howto/17-eventcatalog-domain-diagram.png)
+
+Each module is a service in its subdomain. A service page shows what the module receives and sends, and which team owns it.
 
 ![The Payments service in the catalog](./assets/howto/11-eventcatalog-service.png)
 
@@ -180,6 +198,7 @@ The default start runs Grafana LGTM (Grafana with Tempo for traces, Loki for log
 2. Open the trace of the checkout. It goes from the HTTP request through every module: each `handle ...` span handles one message, and its `messaging.message.id`, `messaging.message.correlation_id` and `messaging.message.causation_id` say which message it was, which purchase it belongs to and which message caused it. Inside, a `command.handle` span shows the command (`eventdriven.command.type`), the stream, the versions before and after and the events it appended, and the `eventStore.readStream` and `eventStore.appendToStream` spans show the reads and appends. **Pay now** is a new HTTP request, so it starts a second trace with the same correlation id.
 3. Open the **Logs** of a span, or choose the **Loki** data source in **Explore**. Each log line has the `traceId` of its span.
 4. Open **Dashboards**. Three dashboards come with the sample, and each chart links to its traces in Tempo.
+5. Open **Alerting** › **Alert rules**. The folder **E-Commerce** holds the sample's rules, such as **Capture failed** and **Checkout broken**. Each rule shows **Normal** until what it watches happens, and **Firing** while it lasts.
 
 **Purchases** counts what customers do and what goes wrong, from the events the modules append: orders placed, completed, canceled and closed unpaid, the payments and shipments, and, under **Watch out**, the failed commands, append conflicts, timeouts, dead letters and failed message handlers.
 
@@ -209,7 +228,7 @@ The build runs all tests except the browser tests. The tests of the web API and 
 
 The browser tests start the application and go through the purchase above in Chromium, which Playwright downloads on the first run. One of them shops on Kafka, KurrentDB and PostgreSQL, where the views catch up after the writes. It checks that the pages never show an error while they wait, that the order page updates in place until the order is completed, and that the purchase reaches Grafana as one trace, as metrics and as logs. On a Linux machine that lacks the system packages of Chromium, install them once with `./gradlew playwrightInstallDeps`, which uses `sudo`.
 
-In a dev container, stop the Docker Compose Kafka with `docker compose --profile all down` before you run the Kafka tests. [AGENTS.md](../../AGENTS.md#build-environment) tells why.
+In a dev container, stop the Docker Compose Kafka with `docker compose --profile all down` before you run the Kafka tests. In a dev container, Docker is the host's Docker, and the Compose Kafka advertises `localhost:9092`, which inside the container is the container itself. The tests find that Kafka and fail to reach it. Without it, they start their own Kafka.
 
 ```shell
 ./gradlew eventCatalogTest

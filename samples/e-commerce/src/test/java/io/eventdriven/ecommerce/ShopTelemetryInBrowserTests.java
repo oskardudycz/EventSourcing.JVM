@@ -3,6 +3,7 @@ package io.eventdriven.ecommerce;
 import static io.eventdriven.testing.grafana.GrafanaApi.flushed;
 import static io.eventdriven.testing.grafana.GrafanaApi.traceWith;
 
+import io.eventdriven.ecommerce.shipments.sandbox.WarehouseKeeper;
 import io.eventdriven.ecommerce.shop.Customer;
 import io.eventdriven.testing.TestDatabases;
 import io.eventdriven.testing.browser.BrowserE2ESpecification;
@@ -66,6 +67,8 @@ public class ShopTelemetryInBrowserTests extends BrowserE2ESpecification {
     private final TestStep[] cartWithTwoProducts = {customer.logsIn(), customer.addsToCart(0), customer.addsToCart(1)};
     private final TestStep[] orderAwaitingPayment = scenario(cartWithTwoProducts, customer.checksOut());
     private final TestStep[] paymentPage = scenario(orderAwaitingPayment, customer.paysNow());
+    private final TestStep[] paidOrder = scenario(paymentPage, customer.paysWithACardThatWorks());
+    private final WarehouseKeeper warehouse = new WarehouseKeeper(this);
 
     @Test
     public void checkingOutShowsTheOrderAwaitingPaymentOnceTheSagaPlacedIt() {
@@ -82,9 +85,16 @@ public class ShopTelemetryInBrowserTests extends BrowserE2ESpecification {
     }
 
     @Test
-    public void payingUpdatesTheOrderPageInPlaceUntilTheOrderIsCompleted() {
+    public void payingReturnsToTheOrderWhichWaitsForTheWarehouseToSendThePackage() {
         given(paymentPage)
                 .when(customer.paysWithACardThatWorks())
+                .then(expectPageShowing("Processing"), expectPageNotShowing("Pay now"), expectNoFailedResponses());
+    }
+
+    @Test
+    public void theWarehouseSendingThePackageCompletesTheOrderOnTheCustomersPageInPlace() {
+        given(paidOrder)
+                .when(warehouse.sendsThePackageOf(customer))
                 .then(
                         expectPageShowing("Completed", "Sandbox Express"),
                         expectPageNotShowing("Pay now"),
@@ -93,8 +103,25 @@ public class ShopTelemetryInBrowserTests extends BrowserE2ESpecification {
     }
 
     @Test
+    public void theWarehouseRejectingThePackageCancelsTheOrder() {
+        given(paidOrder)
+                .when(warehouse.rejectsThePackageOf(customer))
+                .then(expectPageShowing("Canceled"), expectNoFailedResponses());
+    }
+
+    @Test
+    public void theSoldOutProductLeavesTheOrderOutOfStockWithOnlyTheWayToCancelIt() {
+        given(customer.logsIn(), customer.addsToCart(4))
+                .when(customer.checksOut())
+                .then(
+                        expectPageShowing("Out of stock", "Cancel order"),
+                        expectPageNotShowing("Pay now"),
+                        expectNoFailedResponses());
+    }
+
+    @Test
     public void theOrdersPageListsTheCompletedOrder() {
-        given(scenario(paymentPage, customer.paysWithACardThatWorks()))
+        given(scenario(paidOrder, warehouse.sendsThePackageOf(customer), customer.waitsUntilTheOrderIs("Completed")))
                 .when(customer.opensOrders())
                 .then(
                         expectPageAt("/shop/customers/%s/orders".formatted(customer.customerId)),
@@ -116,14 +143,19 @@ public class ShopTelemetryInBrowserTests extends BrowserE2ESpecification {
     }
 
     @Test
-    public void theMenuLinksTheOrdersAndGrafana() {
-        given().when(customer.logsIn()).then(expectLinks("Orders"), expectLink("Grafana", grafana.url()));
+    public void theDeveloperToolsMenuLinksGrafanaTheApiAndTheMessages() {
+        given(customer.logsIn())
+                .when(customer.opensTheDeveloperTools())
+                .then(
+                        expectLinks("Orders", "Swagger UI: the web API", "Springwolf: the messages"),
+                        expectLink("Grafana: traces, metrics, logs", grafana.url()),
+                        expectLink("EventCatalog: modules and messages", "http://localhost:3001"));
     }
 
     @Test
     public void aPurchaseReachesGrafanaAsOneTraceAsMetricsAndAsLogs() {
-        given(paymentPage)
-                .when(customer.paysWithACardThatWorks())
+        given(paidOrder)
+                .when(warehouse.sendsThePackageOf(customer))
                 .then(
                         expectPageShowing("Completed"),
                         flushed(tracerProvider, loggerProvider),

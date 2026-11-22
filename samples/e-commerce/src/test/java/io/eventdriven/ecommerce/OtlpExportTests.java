@@ -1,6 +1,7 @@
 package io.eventdriven.ecommerce;
 
 import static io.eventdriven.ecommerce.orders.OrderRequests.payNow;
+import static io.eventdriven.ecommerce.shipments.Warehouse.sendsThePackage;
 import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartRequests.addProductItem;
 import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartRequests.checkOut;
 import static io.eventdriven.testing.grafana.GrafanaApi.flushed;
@@ -9,6 +10,9 @@ import static org.springframework.http.HttpStatus.ACCEPTED;
 
 import io.eventdriven.ecommerce.orders.Order;
 import io.eventdriven.ecommerce.payments.Payment;
+import io.eventdriven.ecommerce.payments.PaymentCommand.ConfirmPaymentAuthorization;
+import io.eventdriven.ecommerce.payments.PaymentProvider;
+import io.eventdriven.ecommerce.shipments.Shipment;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 import io.eventdriven.testing.TestDatabases;
 import io.eventdriven.testing.api.ApiE2ESpecification;
@@ -62,6 +66,9 @@ public class OtlpExportTests extends ApiE2ESpecification {
     @Autowired
     private Time time;
 
+    @Autowired
+    private PaymentProvider paymentProvider;
+
     private final UUID customerId = UUID.randomUUID();
     private final Order.Id orderId =
             Order.Id.derivedFrom(ShoppingCart.Id.of(customerId, 1).value());
@@ -100,6 +107,15 @@ public class OtlpExportTests extends ApiE2ESpecification {
                         outcome -> assertThat(grafanaApi.dashboardTitles())
                                 .contains("Purchase flow", "Commands and event store", "Purchases"),
                         grafanaApi.expectValidDashboardQueries(),
+                        grafanaApi.expectAlertRules(
+                                "Payments failing",
+                                "Capture failed",
+                                "Money lost",
+                                "Checkout broken",
+                                "Views falling behind",
+                                "Dead letters",
+                                "Commands failing",
+                                "HTTP errors"),
                         grafanaApi.expectDashboardShowing(
                                 "eventdriven-internals",
                                 "Commands handled",
@@ -115,6 +131,28 @@ public class OtlpExportTests extends ApiE2ESpecification {
                                 "Payments",
                                 "Shipments",
                                 "Timeouts",
-                                "Subscription lag"));
+                                "Subscription lag",
+                                "Checkout to order",
+                                "Payment failures",
+                                "Orders in progress"));
+    }
+
+    @Test
+    public void aCaptureThatTheProviderRefusesFiresTheCaptureFailedAlert() {
+        given(
+                        addProductItem(customerId, UUID.randomUUID(), 2),
+                        checkOut(customerId, weakETag(0)),
+                        payNow(customerId, orderId, paymentId),
+                        publish(new ConfirmPaymentAuthorization(
+                                paymentId, time.now().plusDays(7))),
+                        paymentProvider.refusesTheFirstCaptureOf(paymentId))
+                .when(sendsThePackage(Shipment.Id.derivedFrom(orderId.value())))
+                .then(
+                        expectMetric(
+                                "eventdriven.event.appending.count",
+                                Map.of("eventdriven.event.type", "PaymentCaptureFailed"),
+                                1),
+                        flushed(tracerProvider, loggerProvider),
+                        grafanaApi.expectAlertFiring("Capture failed"));
     }
 }

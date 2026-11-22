@@ -36,6 +36,27 @@ a:hover { text-decoration: underline; }
 .topbar nav { display: flex; align-items: center; }
 .topbar .customer { margin-left: 32px; padding-left: 24px; border-left: 1px solid var(--border); font-weight: 600; }
 .topbar .logout { margin-left: 16px; }
+.topbar .menu { position: relative; margin-left: 24px; }
+.topbar .menu summary { list-style: none; color: var(--muted); font-weight: 500; cursor: pointer; }
+.topbar .menu summary::-webkit-details-marker { display: none; }
+.topbar .menu summary::after { content: " ▾"; font-size: 12px; }
+.topbar .menu[open] summary { color: var(--text); }
+.topbar .menu-items {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 260px;
+  padding: 6px 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(26, 31, 54, 0.12);
+}
+.topbar .menu-items a { margin: 0; padding: 8px 16px; color: var(--text); white-space: nowrap; }
+.topbar .menu-items a:hover { background: var(--background); text-decoration: none; }
 
 .page.login { max-width: 440px; }
 .login label { display: block; font-weight: 600; margin-bottom: 8px; }
@@ -99,10 +120,16 @@ h2 { font-size: 18px; margin: 0 0 8px; }
 .badge { display: inline-block; white-space: nowrap; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: #e3e8ee; color: var(--text); }
 .badge.large { font-size: 15px; padding: 4px 14px; }
 .badge.AwaitingPayment { background: #fcedb9; color: #a04100; }
-.badge.PaymentFailed { background: #ffe7f2; color: #b3093c; }
+.badge.PaymentFailed, .badge.OutOfStock { background: #ffe7f2; color: #b3093c; }
 .badge.Processing { background: #e6ebff; color: var(--accent-dark); }
 .badge.Shipped { background: #cbf4c9; color: #0e6245; }
 .badge.Completed { background: #cbf4c9; color: #0e6245; }
 .badge.Canceled, .badge.ClosedUnpaid { background: #e3e8ee; color: var(--muted); }
 
 code { background: var(--background); padding: 2px 6px; border-radius: 4px; }
+
+.nowrap { white-space: nowrap; }
+.badge.sandbox { margin-left: 8px; background: #fcedb9; color: #a04100; font-size: 12px; vertical-align: middle; }
+.actions { white-space: nowrap; }
+.actions form { display: inline-block; margin-left: 8px; }
+.card.notice { border-color: #ffc7dc; background: #fff5f9; }

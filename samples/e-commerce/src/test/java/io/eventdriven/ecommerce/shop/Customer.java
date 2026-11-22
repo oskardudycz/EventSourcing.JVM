@@ -84,7 +84,8 @@ public class Customer {
 
     public TestStep paysWithACardThatWorks() {
         return shop.inBrowser(page -> {
-            button(page, "Pay with a card that works").click();
+            page.locator("#cardNumber").fill("4242 4242 4242 4242");
+            payButton(page).click();
             page.waitForURL(Pattern.compile(".*" + Pattern.quote(order()) + "$"));
         });
     }
@@ -95,15 +96,24 @@ public class Customer {
 
     public TestStep pays() {
         return shop.inBrowser(page -> {
-            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName(Pattern.compile("^Pay \\$")))
-                    .click();
+            payButton(page).click();
             page.waitForURL(Pattern.compile(".*" + Pattern.quote(order()) + "$"));
         });
     }
 
     public TestStep triesADeclinedCard() {
-        return shop.inBrowser(
-                page -> button(page, "Try a card that is declined").click());
+        return shop.inBrowser(page -> {
+            page.locator("#cardNumber").fill("4000 0000 0000 0002");
+            payButton(page).click();
+        });
+    }
+
+    public TestStep waitsUntilTheOrderIs(String progress) {
+        return shop.untilThePageShows(progress);
+    }
+
+    public TestStep opensTheDeveloperTools() {
+        return shop.inBrowser(page -> page.getByText("Developer tools").click());
     }
 
     public TestStep opensOrders() {
@@ -115,6 +125,10 @@ public class Customer {
 
     public TestStep logsOut() {
         return shop.inBrowser(page -> button(page, "Log out").click());
+    }
+
+    private static com.microsoft.playwright.Locator payButton(Page page) {
+        return page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName(Pattern.compile("^Pay \\$")));
     }
 
     private static com.microsoft.playwright.Locator button(Page page, String name) {

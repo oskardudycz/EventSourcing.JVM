@@ -122,6 +122,7 @@ services:
       - ./observability/tempo-config.yaml:/otel-lgtm/tempo-config.yaml:ro
       - ./observability/dashboards:/otel-lgtm/dashboards:ro
       - ./observability/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/e-commerce.yaml:ro
+      - ./observability/alerting/ecommerce.yaml:/otel-lgtm/grafana/conf/provisioning/alerting/e-commerce.yaml:ro
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
       - "${OTEL_GRPC_PORT:-4317}:4317"

@@ -63,14 +63,23 @@ public class ShopPages {
     @ControllerAdvice(basePackages = "io.eventdriven.ecommerce")
     public static class Layout {
         private final String grafanaUrl;
+        private final String eventCatalogUrl;
 
-        public Layout(@Value("${shop.grafana-url:http://localhost:3000}") String grafanaUrl) {
+        public Layout(
+                @Value("${shop.grafana-url:http://localhost:3000}") String grafanaUrl,
+                @Value("${shop.eventcatalog-url:http://localhost:3001}") String eventCatalogUrl) {
             this.grafanaUrl = grafanaUrl;
+            this.eventCatalogUrl = eventCatalogUrl;
         }
 
         @ModelAttribute("grafanaUrl")
         public String grafanaUrl() {
             return grafanaUrl;
+        }
+
+        @ModelAttribute("eventCatalogUrl")
+        public String eventCatalogUrl() {
+            return eventCatalogUrl;
         }
 
         @ModelAttribute("customerName")

@@ -4,6 +4,7 @@ import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertTha
 
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
+import io.eventdriven.ecommerce.shipments.sandbox.WarehouseKeeper;
 import io.eventdriven.testing.browser.BrowserE2ESpecification;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,6 +15,7 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class ShopInBrowserTests extends BrowserE2ESpecification {
     private final Customer marty = new Customer(this, "Marty McFly");
+    private final WarehouseKeeper warehouse = new WarehouseKeeper(this);
 
     @Test
     public void aCustomerLogsInBuysTwoProductsAndPaysOnTheSandboxPage() {
@@ -31,6 +33,8 @@ public class ShopInBrowserTests extends BrowserE2ESpecification {
                         marty.typesTheTestCard(),
                         screenshot("5-sandbox-checkout"),
                         marty.pays(),
+                        warehouse.sendsThePackageOf(marty, "6-sandbox-warehouse"),
+                        marty.waitsUntilTheOrderIs("Completed"),
                         screenshot("6-order-completed"))
                 .when(marty.opensOrders())
                 .then(

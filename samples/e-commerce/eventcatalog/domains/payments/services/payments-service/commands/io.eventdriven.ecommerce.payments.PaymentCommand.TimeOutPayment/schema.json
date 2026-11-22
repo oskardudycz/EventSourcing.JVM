@@ -1,0 +1,24 @@
+{
+  "title": "TimeOutPayment",
+  "type": "object",
+  "properties": {
+    "paymentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-11>"
+    },
+    "timedOutAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-12>"
+    }
+  },
+  "description": "Fails a payment that the customer did not pay in time.",
+  "examples": [
+    {
+      "paymentId": "string",
+      "timedOutAt": "2015-07-20T15:49:04-07:00"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.payments.PaymentCommand.TimeOutPayment"
+}

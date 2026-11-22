@@ -89,15 +89,37 @@ public abstract class BrowserE2ESpecification extends ApiE2ESpecification {
         });
     }
 
+    /** What another person does at the same time, in a tab of their own, so the page of this test stays as it is. */
+    public TestStep inAnotherTab(Consumer<Page> action) {
+        return traced(traceparent -> {
+            var tab = page.context().newPage();
+            try {
+                tab.setExtraHTTPHeaders(Map.of("traceparent", traceparent));
+                action.accept(tab);
+            } finally {
+                tab.close();
+            }
+        });
+    }
+
+    public void screenshotOf(Page tab, String name) {
+        tab.screenshot(new Page.ScreenshotOptions()
+                .setPath(SCREENSHOTS.resolve(name + ".png"))
+                .setFullPage(true));
+    }
+
+    /** Waits until the page shows the text, as a person waits for the page to update. */
+    public TestStep untilThePageShows(String text) {
+        return (TestAction) () -> assertThat(page.getByText(text).first()).isVisible();
+    }
+
     public TestStep opens(String path) {
         return inBrowser(current -> current.navigate(url(path)));
     }
 
     /** Saves a screenshot of the whole page, to {@code build/screenshots} or the {@code screenshots.dir} folder. */
     public TestStep screenshot(String name) {
-        return (TestAction) () -> page.screenshot(new Page.ScreenshotOptions()
-                .setPath(SCREENSHOTS.resolve(name + ".png"))
-                .setFullPage(true));
+        return (TestAction) () -> screenshotOf(page, name);
     }
 
     public Expectation expectScreenshot(String name) {

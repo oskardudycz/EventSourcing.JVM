@@ -21,7 +21,9 @@ import io.eventdriven.core.processing.RetryBackOff;
 import io.eventdriven.core.projections.ProjectionsDatabaseConfig;
 import io.eventdriven.core.subscriptions.SubscriptionCheckpoints;
 import io.eventdriven.ecommerce.payments.sandbox.SandboxPaymentGateway;
-import io.eventdriven.ecommerce.shipments.sandbox.SandboxFulfillmentService;
+import io.eventdriven.ecommerce.shipments.Shipment;
+import io.eventdriven.ecommerce.shipments.sandbox.SandboxWarehouse;
+import io.eventdriven.ecommerce.shop.DemoProducts;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
@@ -33,6 +35,8 @@ import io.swagger.v3.oas.models.info.Info;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.springdoc.core.customizers.GlobalOperationCustomizer;
 import org.springframework.beans.factory.InitializingBean;
@@ -214,7 +218,12 @@ public class ECommerceApplicationConfig {
     }
 
     @Bean
-    SandboxFulfillmentService sandboxFulfillmentService(MessageBus messageBus) {
-        return new SandboxFulfillmentService(messageBus);
+    SandboxWarehouse sandboxWarehouse(MessageBus messageBus) {
+        return new SandboxWarehouse(messageBus, Set.of(DemoProducts.soldOut().id()));
+    }
+
+    @Bean
+    Function<Shipment.ProductItem, Boolean> isProductAvailable(SandboxWarehouse warehouse) {
+        return warehouse::isInStock;
     }
 }

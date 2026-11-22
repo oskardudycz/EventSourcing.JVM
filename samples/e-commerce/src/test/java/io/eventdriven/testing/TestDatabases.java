@@ -169,7 +169,10 @@ public final class TestDatabases {
                 .withCopyFileToContainer(MountableFile.forHostPath("observability/dashboards"), "/otel-lgtm/dashboards")
                 .withCopyFileToContainer(
                         MountableFile.forHostPath("observability/dashboards.yaml"),
-                        "/otel-lgtm/grafana/conf/provisioning/dashboards/e-commerce.yaml");
+                        "/otel-lgtm/grafana/conf/provisioning/dashboards/e-commerce.yaml")
+                .withCopyFileToContainer(
+                        MountableFile.forHostPath("observability/alerting/ecommerce.yaml"),
+                        "/otel-lgtm/grafana/conf/provisioning/alerting/e-commerce.yaml");
 
         static {
             container.start();

@@ -43,6 +43,10 @@ public class OrdersAwaitingPayment extends Projection<OrderAwaitingPayment, Orde
         };
     }
 
+    public long count() {
+        return repository.count();
+    }
+
     public List<Order.Id> overdueAt(OffsetDateTime now) {
         return repository.findByDueAtLessThanEqual(now).stream()
                 .map(OrderAwaitingPayment::getOrderId)

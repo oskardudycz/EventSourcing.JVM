@@ -81,11 +81,6 @@ public class ShipmentsConfig {
     }
 
     @Bean
-    public Function<Shipment.ProductItem, Boolean> isProductAvailable() {
-        return productItem -> true;
-    }
-
-    @Bean
     public ShipmentFacade shipmentFacade(
             EventStore eventStore,
             MessageContext messageContext,

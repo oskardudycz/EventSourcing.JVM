@@ -1,0 +1,86 @@
+{
+  "type": "object",
+  "properties": {
+    "orderId": {
+      "type": "string",
+      "title": "Id"
+    },
+    "customerId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "productItems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unitPrice": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "title": "PricedProductItem"
+      },
+      "title": "PricedProductItem[]"
+    },
+    "totalPrice": {
+      "type": "number",
+      "format": "double"
+    },
+    "placedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "paymentId": {
+      "type": "string",
+      "title": "Id"
+    },
+    "carrier": {
+      "type": "string"
+    },
+    "trackingNumber": {
+      "type": "string"
+    },
+    "progress": {
+      "type": "string",
+      "enum": [
+        "AwaitingPayment",
+        "PaymentFailed",
+        "OutOfStock",
+        "Processing",
+        "Shipped",
+        "Completed",
+        "Canceled",
+        "ClosedUnpaid"
+      ],
+      "title": "Progress"
+    },
+    "version": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "PayNow",
+          "RetryPayment",
+          "CancelOrder"
+        ],
+        "title": "OrderAction"
+      },
+      "title": "List"
+    }
+  },
+  "title": "OrderStatus",
+  "isSchema": true
+}

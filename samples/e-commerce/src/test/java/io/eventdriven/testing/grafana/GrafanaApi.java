@@ -187,6 +187,31 @@ public final class GrafanaApi {
                         assertThat(logLines(logQl)).as("Log lines of %s", logQl).isNotEmpty());
     }
 
+    /** Grafana loaded the alert rules with these titles. */
+    public Expectation expectAlertRules(String... titles) {
+        return outcome -> await().atMost(INGESTION).untilAsserted(() -> {
+            var provisioned = new ArrayList<String>();
+            get("/api/v1/provisioning/alert-rules")
+                    .forEach(rule -> provisioned.add(rule.path("title").asString()));
+            assertThat(provisioned).as("Provisioned alert rules").contains(titles);
+        });
+    }
+
+    /** The alert rule with this title fires, as Grafana evaluates it on the metrics that reached Prometheus. */
+    public Expectation expectAlertFiring(String title) {
+        return outcome -> await().atMost(INGESTION).untilAsserted(() -> {
+            var states = new ArrayList<String>();
+            get("/api/prometheus/grafana/api/v1/rules")
+                    .path("data")
+                    .path("groups")
+                    .forEach(group -> group.path("rules").forEach(rule -> {
+                        if (rule.path("name").asString().equals(title))
+                            states.add(rule.path("state").asString());
+                    }));
+            assertThat(states).as("States of the alert rule %s", title).contains("firing");
+        });
+    }
+
     /** Every query of every dashboard is valid PromQL. */
     public Expectation expectValidDashboardQueries() {
         return outcome -> {

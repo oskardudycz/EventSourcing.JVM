@@ -1,0 +1,31 @@
+{
+  "title": "FailPaymentCapture",
+  "type": "object",
+  "properties": {
+    "now": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-8>"
+    },
+    "paymentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-9>"
+    },
+    "reason": {
+      "title": "CaptureFailureReason",
+      "type": "string",
+      "const": "UnexpectedError",
+      "x-parser-schema-id": "<anonymous-schema-10>"
+    }
+  },
+  "description": "Records that charging the customer failed, and why.",
+  "examples": [
+    {
+      "now": "2015-07-20T15:49:04-07:00",
+      "paymentId": "string",
+      "reason": "UnexpectedError"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.payments.PaymentCommand.FailPaymentCapture"
+}

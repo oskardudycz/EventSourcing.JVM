@@ -24,8 +24,12 @@
       <h1>Pay with card</h1>
       <label for="cardNumber">Card information</label>
       <div class="card-fields">
-        <input id="cardNumber" name="cardNumber" inputmode="numeric" autocomplete="cc-number"
+        <input id="cardNumber" name="cardNumber" inputmode="numeric" autocomplete="off" list="test-cards"
                placeholder="1234 1234 1234 1234" required>
+        <datalist id="test-cards">
+          <option value="4242 4242 4242 4242">Pays</option>
+          <option value="4000 0000 0000 0002">Is declined</option>
+        </datalist>
         <div class="row">
           <input aria-label="Expiration" placeholder="MM / YY" autocomplete="cc-exp">
           <input aria-label="CVC" placeholder="CVC" autocomplete="cc-csc">
@@ -35,19 +39,8 @@
       <input id="name" placeholder="Full name on card" autocomplete="cc-name">
       <p class="error" th:if="${error}" th:text="${error}">Error</p>
       <button class="pay" type="submit" th:text="${'Pay $' + #numbers.formatDecimal(checkout.amount(), 1, 'COMMA', 2, 'POINT')}">Pay</button>
-      <p class="hint">Sandbox: 4242 4242 4242 4242 pays, 4000 0000 0000 0002 is declined.</p>
+      <p class="hint">Sandbox: pick a test card in the card number field. 4242 4242 4242 4242 pays, 4000 0000 0000 0002 is declined.</p>
     </form>
-    <div th:unless="${expired}" class="test-cards">
-      <p class="hint">Or use a test card:</p>
-      <form method="post" th:action="@{/sandbox/checkout/{id}(id=${checkout.id()})}">
-        <input type="hidden" name="cardNumber" value="4242 4242 4242 4242">
-        <button class="link" type="submit">Pay with a card that works</button>
-      </form>
-      <form method="post" th:action="@{/sandbox/checkout/{id}(id=${checkout.id()})}">
-        <input type="hidden" name="cardNumber" value="4000 0000 0000 0002">
-        <button class="link" type="submit">Try a card that is declined</button>
-      </form>
-    </div>
   </section>
 </div>
 </body>

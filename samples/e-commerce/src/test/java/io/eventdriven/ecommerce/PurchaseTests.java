@@ -187,6 +187,7 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                         expectCorrelatedTrace(),
                         expectAppended("PaymentAuthorized", 1),
                         expectAppended("OrderConfirmed", 1),
+                        expectMetric("ecommerce.order.lead.time", Map.of("ecommerce.order.stage", "paid"), 1),
                         outcome ->
                                 assertThat(warehouse.wasAskedToSend(shipmentId)).isTrue());
     }
@@ -212,6 +213,9 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                         expectCorrelatedTrace(),
                         expectAppended("PaymentCaptured", 1),
                         expectAppended("OrderCompleted", 1),
+                        expectMetric("ecommerce.order.revenue", Map.of(), 1),
+                        expectMetric("ecommerce.order.lead.time", Map.of("ecommerce.order.stage", "sent"), 1),
+                        expectMetric("ecommerce.order.lead.time", Map.of("ecommerce.order.stage", "completed"), 1),
                         outcome -> assertThat(paymentProvider.callsFor(paymentId))
                                 .contains("capture:%s".formatted(totalPrice)));
     }

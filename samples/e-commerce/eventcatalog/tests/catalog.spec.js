@@ -15,7 +15,7 @@ const test = base.extend({
 });
 
 const services = {
-  'shopping-carts': {
+  'shopping-carts-service': {
     name: 'Shopping carts',
     owner: { team: 'Shopping carts', member: 'Lorraine Baines' },
     specifications: ['openapi-shopping_carts', 'asyncapi-shopping_carts'],
@@ -23,7 +23,7 @@ const services = {
     outbound: ['ShoppingCartCheckedOut'],
     inbound: ['AddProductItemToShoppingCart', 'RemoveProductItemFromShoppingCart', 'CheckOutShoppingCart', 'Cart'],
   },
-  orders: {
+  'orders-service': {
     name: 'Orders',
     owner: { team: 'Orders', member: 'Marty McFly' },
     specifications: ['openapi-orders', 'asyncapi-orders'],
@@ -73,7 +73,7 @@ const services = {
       'ShipmentFailed',
     ],
   },
-  payments: {
+  'payments-service': {
     name: 'Payments',
     owner: { team: 'Payments', member: 'George McFly' },
     specifications: ['asyncapi-payments'],
@@ -90,7 +90,7 @@ const services = {
       'CancelPayment',
     ],
   },
-  shipments: {
+  'shipments-service': {
     name: 'Shipments',
     owner: { team: 'Shipments', member: 'Emmett Brown' },
     specifications: ['asyncapi-shipments'],
@@ -133,7 +133,8 @@ test('home page shows the e-commerce domain with its services and messages', asy
 
   const counts = page.locator('#content');
   await expect(counts).toContainText('E-Commerce');
-  await expect(counts).toContainText(/Domains\s*1/);
+  await expect(counts).toContainText(/Domains\s*5/);
+  await expect(counts).toContainText(/Flows\s*1/);
   await expect(counts).toContainText(/Services\s*4/);
   await expect(counts).toContainText(/Messages\s*38/);
   await screenshot(page, '10-eventcatalog-home');
@@ -145,10 +146,39 @@ test('header links to the repository', async ({ page }) => {
   await expect(page.locator('a[href="https://github.com/oskardudycz/EventSourcing.JVM"]').first()).toBeVisible();
 });
 
-test('e-commerce domain lists all modules as services', async ({ page }) => {
-  await page.goto('/docs/domains/e-commerce/1.0.0');
+const contexts = ['shopping-carts', 'orders', 'payments', 'shipments'];
+const moduleOf = (serviceId) => serviceId.replace(/-service$/, '');
 
-  expect(await sidebarSection(page, 'Services')).toEqual(sorted(Object.values(services).map((service) => service.name)));
+test('system context map draws the bounded contexts, the customer and the outside systems with their patterns', async ({ page }) => {
+  await page.goto('/visualiser/system-context-map');
+
+  const map = page.locator('.react-flow');
+  for (const node of ['Customer', 'Shopping carts', 'Orders', 'Payments', 'Shipments', 'Payment provider', 'Fulfillment service']) {
+    await expect(map.locator('.react-flow__node').filter({ hasText: node }).first()).toBeAttached();
+  }
+  for (const pattern of ['upstream/downstream', 'supplier → customer', 'OHS + PL', 'ACL (OrderSaga)', 'ACL (PaymentGateway)', 'ACL (FulfillmentService)']) {
+    await expect(map).toContainText(pattern);
+  }
+  await page.setViewportSize({ width: 1800, height: 900 });
+  await page.getByRole('button', { name: /fit view/i }).first().click().catch(() => {});
+  await screenshot(page, '16-eventcatalog-context-map');
+});
+
+for (const service of contexts) {
+  test(`${service} subdomain holds its module's service`, async ({ page }) => {
+    await page.goto(`/docs/domains/${service}/1.0.0`);
+
+    expect(await sidebarSection(page, 'Services')).toEqual([services[`${service}-service`].name]);
+  });
+}
+
+test('purchase flow draws the process across the contexts', async ({ page }) => {
+  await page.goto('/visualiser/flows/purchase/1.0.0');
+
+  const diagram = page.locator('.react-flow');
+  for (const step of ['Customer', 'ShoppingCartCheckedOut', 'Payment provider', 'Fulfillment service', 'CapturePayment', 'ReleaseStock', 'Order completed']) {
+    await expect(diagram.locator('.react-flow__node').filter({ hasText: step }).first()).toBeAttached();
+  }
 });
 
 for (const [id, service] of Object.entries(services)) {
@@ -167,7 +197,7 @@ for (const [id, service] of Object.entries(services)) {
     await expect(owners).toHaveText([service.owner.team]);
 
     await owners.click();
-    await expect(page).toHaveURL(`/docs/teams/${id}`);
+    await expect(page).toHaveURL(`/docs/teams/${moduleOf(id)}`);
     await expect(page.getByText(service.owner.member).first()).toBeVisible();
   });
 
@@ -177,7 +207,7 @@ for (const [id, service] of Object.entries(services)) {
     const diagram = page.locator('.react-flow');
     await expect(diagram).toBeVisible();
     await expect(diagram.locator('.react-flow__node').filter({ hasText: service.name }).first()).toBeVisible();
-    if (id === 'payments') await screenshot(page, '11-eventcatalog-service');
+    if (id === 'payments-service') await screenshot(page, '11-eventcatalog-service');
   });
 
   for (const specification of service.specifications) {
@@ -187,7 +217,7 @@ for (const [id, service] of Object.entries(services)) {
       await page.goto(`/docs/services/${id}/1.0.0/${kind}/${specification}`);
 
       if (kind === 'spec') {
-        await expect(page.getByText(`/customers/{customerId}/${id}`).first()).toBeVisible();
+        await expect(page.getByText(`/customers/{customerId}/${moduleOf(id)}`).first()).toBeVisible();
       } else {
         for (const channel of service.channels) {
           await expect(page.getByText(channel, { exact: true }).filter({ visible: true }).first()).toBeVisible();
@@ -233,11 +263,85 @@ test('events listing shows who produces and who consumes each event', async ({ p
   await screenshot(page, '12-eventcatalog-events');
 });
 
-test('domain visualiser draws all services', async ({ page }) => {
+test('domain diagram draws the bounded contexts and the messages between them', async ({ page }) => {
   await page.goto('/visualiser/domains/e-commerce/1.0.0');
 
   const diagram = page.locator('.react-flow');
-  for (const service of Object.values(services)) {
-    await expect(diagram.locator('.react-flow__node').filter({ hasText: service.name }).first()).toBeVisible();
+  for (const context of ['Shopping carts', 'Orders', 'Payments', 'Shipments']) {
+    await expect(diagram.locator('.react-flow__node').filter({ hasText: context }).first()).toBeVisible();
   }
+  await expect(diagram).toContainText('ShoppingCartCheckedOut');
+  await expect(diagram).toContainText('invokes');
+  await screenshot(page, '17-eventcatalog-domain-diagram');
+});
+
+const aggregates = {
+  'shopping-cart': { name: 'ShoppingCart', properties: ['productItems', 'status'] },
+  order: { name: 'Order', properties: ['paymentId', 'shipmentId', 'dueAt'] },
+  payment: { name: 'Payment', properties: ['referenceId', 'captureBefore'] },
+  shipment: { name: 'Shipment', properties: ['productItems', 'status'] },
+};
+
+for (const [id, aggregate] of Object.entries(aggregates)) {
+  test(`${aggregate.name} entity page lists the aggregate's state`, async ({ page }) => {
+    await page.goto(`/docs/entities/${id}/1.0.0`);
+
+    const content = page.locator('main').first();
+    await expect(content).toContainText(aggregate.name);
+    for (const property of aggregate.properties) await expect(content).toContainText(property);
+  });
+}
+
+test('entity map draws the aggregates and how the order refers to the others', async ({ page }) => {
+  await page.goto('/visualiser/entity-map');
+
+  const map = page.locator('.react-flow');
+  for (const aggregate of Object.values(aggregates)) {
+    await expect(map.locator('.react-flow__node').filter({ hasText: aggregate.name }).first()).toBeAttached();
+  }
+  await expect(map).toContainText('paidBy');
+  await expect(map).toContainText('shippedBy');
+});
+
+test('each bounded context has its ubiquitous language', async ({ page }) => {
+  const terms = { 'shopping-carts': 'Checkout', orders: 'Compensation', payments: 'Capture', shipments: 'Reservation' };
+  for (const [domain, term] of Object.entries(terms)) {
+    await page.goto(`/docs/domains/${domain}/language`);
+    await expect(page.locator('main').first()).toContainText(term);
+  }
+});
+
+test('the event store page shows every module that writes to it', async ({ page }) => {
+  await page.goto('/docs/containers/event-store/1.0.0');
+
+  const content = page.locator('main').first();
+  for (const service of Object.values(services)) await expect(content).toContainText(service.name);
+});
+
+test('a channel page shows its address and the protocols that carry it', async ({ page }) => {
+  await page.goto('/docs/channels/payments-requests/1.0.0');
+
+  const content = page.locator('main').first();
+  await expect(content).toContainText('Address: payments-requests');
+  await expect(content).toContainText('kafka');
+  await expect(content).toContainText('amqp');
+});
+
+for (const [id, state] of Object.entries({ order: 'ClosedUnpaid', payment: 'CaptureRequested', shipment: 'FulfillmentRequested' })) {
+  test(`${id} entity page draws the aggregate's states`, async ({ page }) => {
+    await page.goto(`/docs/entities/${id}/1.0.0`);
+
+    const diagram = page.locator('svg[id^="mermaid"], .mermaid svg').first();
+    await expect(diagram).toBeVisible();
+    await expect(diagram).toContainText(state);
+  });
+}
+
+test('purchase flow page draws the messages in order and what happens when a step fails', async ({ page }) => {
+  await page.goto('/docs/flows/purchase/1.0.0');
+
+  const diagrams = page.locator('svg[aria-roledescription="sequence"]');
+  await expect(diagrams).toHaveCount(2);
+  await expect(diagrams.first()).toContainText('OrderPaymentDue');
+  await expect(diagrams.last()).toContainText('ReleaseStock');
 });

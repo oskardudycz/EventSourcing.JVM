@@ -1,0 +1,34 @@
+{
+  "title": "ConfirmPackageSent",
+  "type": "object",
+  "properties": {
+    "carrier": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-1>"
+    },
+    "now": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-2>"
+    },
+    "shipmentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-3>"
+    },
+    "trackingNumber": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-4>"
+    }
+  },
+  "description": "The fulfillment service's answer: the package was sent, with this carrier and tracking number.",
+  "examples": [
+    {
+      "carrier": "string",
+      "now": "2015-07-20T15:49:04-07:00",
+      "shipmentId": "string",
+      "trackingNumber": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent"
+}
