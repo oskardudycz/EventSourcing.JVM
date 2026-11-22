@@ -38,9 +38,7 @@ public interface MessageBus {
      * Registers processors for the messages that reach the queue. For each message, every processor that can handle it
      * runs, in order.
      */
-    default MessageBus subscribe(String queue, MessageProcessor... processors) {
-        return subscribe(queue, MessageProcessor.canHandle(processors), MessageProcessor.handle(processors));
-    }
+    MessageBus subscribe(String queue, MessageProcessor... processors);
 
     /**
      * Registers a handler for the messages of the given type that reach the queue.

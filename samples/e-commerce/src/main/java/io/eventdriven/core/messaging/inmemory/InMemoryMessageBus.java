@@ -12,6 +12,7 @@ import io.eventdriven.core.messaging.MessageSource;
 import io.eventdriven.core.messaging.MessageValues;
 import io.eventdriven.core.messaging.RoutingPattern;
 import io.eventdriven.core.messaging.RoutingTarget;
+import io.eventdriven.core.processing.MessageProcessor;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -70,6 +71,11 @@ public class InMemoryMessageBus implements MessageBus {
                     }
             }
         }
+    }
+
+    @Override
+    public MessageBus subscribe(String queue, MessageProcessor... processors) {
+        return subscribe(queue, MessageProcessor.canHandle(processors), MessageProcessor.handle(context, processors));
     }
 
     @Override

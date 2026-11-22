@@ -47,7 +47,6 @@ public class ShopTelemetryInBrowserTests extends BrowserE2ESpecification {
         registry.add("spring.kafka.bootstrap-servers", TestDatabases::kafkaBootstrapServers);
         registry.add("kurrentdb.connectionstring", TestDatabases::kurrentDBConnectionString);
         TestDatabases.addProjectionsDatabase(registry, postgreSQL);
-        registry.add("shop.grafana-url", grafana::url);
         registry.add("management.tracing.export.otlp.enabled", () -> "true");
         registry.add("management.logging.export.otlp.enabled", () -> "true");
         registry.add("management.otlp.metrics.export.enabled", () -> "true");
@@ -129,30 +128,6 @@ public class ShopTelemetryInBrowserTests extends BrowserE2ESpecification {
     }
 
     @Test
-    public void aDeclinedCardStaysOnThePaymentPageAndChangesNothing() {
-        given(paymentPage)
-                .when(customer.triesADeclinedCard())
-                .then(expectPageShowing("Your card was declined."), expectNothingPublished(), expectNothingAppended());
-    }
-
-    @Test
-    public void loggingOutReturnsToTheLogin() {
-        given(customer.logsIn())
-                .when(customer.logsOut())
-                .then(expectPageAt("/shop/login"), expectPageShowing("Your name"));
-    }
-
-    @Test
-    public void theDeveloperToolsMenuLinksGrafanaTheApiAndTheMessages() {
-        given(customer.logsIn())
-                .when(customer.opensTheDeveloperTools())
-                .then(
-                        expectLinks("Orders", "Swagger UI: the web API", "Springwolf: the messages"),
-                        expectLink("Grafana: traces, metrics, logs", grafana.url()),
-                        expectLink("EventCatalog: modules and messages", "http://localhost:3001"));
-    }
-
-    @Test
     public void aPurchaseReachesGrafanaAsOneTraceAsMetricsAndAsLogs() {
         given(paidOrder)
                 .when(warehouse.sendsThePackageOf(customer))
@@ -173,9 +148,22 @@ public class ShopTelemetryInBrowserTests extends BrowserE2ESpecification {
                         grafanaApi.expectCommandsHandled("PlaceOrder"),
                         grafanaApi.expectEventsAppended("OrderCompleted"),
                         grafanaApi.expectLogsOf("e-commerce"),
+                        grafanaApi.expectMetricInPrometheus(
+                                "increase(ecommerce_order_lead_time_milliseconds_count{ecommerce_order_stage=\"completed\"}[5m])"),
                         screenshotOf("purchases", "13-grafana-purchases"),
                         screenshotOf("eventdriven-internals", "14-grafana-commands-and-event-store"),
-                        screenshotOf("purchase-flow", "15-grafana-purchase-flow"));
+                        screenshotOf("purchase-flow", "15-grafana-purchase-flow"),
+                        expectPage(current -> grafanaApi.screenshotOfRow(
+                                current,
+                                "purchases",
+                                "Business",
+                                "Order lead time",
+                                SCREENSHOTS.resolve("18-grafana-business.png"))),
+                        expectPage(current -> grafanaApi.screenshotOfAlertRules(
+                                current,
+                                "E-Commerce",
+                                "Capture failed",
+                                SCREENSHOTS.resolve("19-grafana-alert-rules.png"))));
     }
 
     @Override

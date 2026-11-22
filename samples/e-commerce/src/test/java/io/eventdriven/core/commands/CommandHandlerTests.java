@@ -9,6 +9,7 @@ import io.eventdriven.core.eventstore.Subscription;
 import io.eventdriven.core.eventstore.inmemory.InMemoryEventStore;
 import io.eventdriven.core.messaging.MessageContext;
 import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.processing.MessageProcessor;
 import io.eventdriven.testing.messaging.TestMessages;
 import io.eventdriven.testing.tracing.TestTracing;
 import io.micrometer.tracing.Span;
@@ -434,6 +435,11 @@ public class CommandHandlerTests {
         @Override
         public Subscription subscribe(String name, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {
             return store.subscribe(name, types, handler);
+        }
+
+        @Override
+        public Subscription subscribe(String name, MessageProcessor... processors) {
+            return store.subscribe(name, processors);
         }
 
         @Override

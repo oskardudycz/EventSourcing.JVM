@@ -6,6 +6,7 @@ import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -18,6 +19,10 @@ public class MessageContext {
     private static final String MESSAGE_ID_ATTRIBUTE = "messaging.message.id";
     private static final String CORRELATION_ID_ATTRIBUTE = "messaging.message.correlation_id";
     private static final String CAUSATION_ID_ATTRIBUTE = "messaging.message.causation_id";
+    private static final String PROCESSOR_TYPE_ATTRIBUTE = "eventdriven.processor.type";
+    private static final String PROCESSOR_NAME_ATTRIBUTE = "eventdriven.processor.name";
+    private static final Map<String, String> PROCESSOR_VERBS =
+            Map.of("projection", "project", "forwarder", "forward", "reactor", "react");
 
     private final Tracer tracer;
     private final ObservationRegistry observations;
@@ -39,6 +44,16 @@ public class MessageContext {
         baggage(CAUSATION_ID).ifPresent(id -> observation.highCardinalityKeyValue(CAUSATION_ID_ATTRIBUTE, id));
 
         return observation;
+    }
+
+    /** Runs one processor's handling of the current message as its own span, named after what it does. */
+    public void processing(String processorType, String processorName, Runnable handle) {
+        var verb = PROCESSOR_VERBS.getOrDefault(processorType, "process");
+
+        observation("eventdriven.processor.handle", verb + " " + processorName)
+                .lowCardinalityKeyValue(PROCESSOR_TYPE_ATTRIBUTE, processorType)
+                .lowCardinalityKeyValue(PROCESSOR_NAME_ATTRIBUTE, processorName)
+                .observe(handle);
     }
 
     public MessageValues inherit() {

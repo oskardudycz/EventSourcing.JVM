@@ -4,6 +4,7 @@ import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.eventstore.Subscription;
 import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.processing.MessageProcessor;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -43,6 +44,11 @@ public class RecordingEventStore implements EventStore, AutoCloseable {
     @Override
     public Subscription subscribe(String name, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {
         return store.subscribe(name, types, handler);
+    }
+
+    @Override
+    public Subscription subscribe(String name, MessageProcessor... processors) {
+        return store.subscribe(name, processors);
     }
 
     @Override

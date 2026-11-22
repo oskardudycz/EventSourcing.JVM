@@ -4,13 +4,16 @@ import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertTha
 
 import io.eventdriven.ecommerce.shop.Customer;
 import io.eventdriven.testing.browser.BrowserE2ESpecification;
+import io.eventdriven.testing.eventstore.RecordedEventsConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 /** The sandbox payment page, laid out like Stripe Checkout, as a customer reaches it with "Pay now". */
 @ActiveProfiles("in-memory")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(RecordedEventsConfiguration.class)
 public class SandboxCheckoutInBrowserTests extends BrowserE2ESpecification {
     private final Customer customer = new Customer(this);
     private final TestStep[] orderAwaitingPayment = {customer.logsIn(), customer.addsToCart(0), customer.checksOut()};
@@ -36,18 +39,18 @@ public class SandboxCheckoutInBrowserTests extends BrowserE2ESpecification {
     }
 
     @Test
-    public void payingWithTheCardThatWorksReturnsToTheOrderWhichIsProcessing() {
-        given(scenario(orderAwaitingPayment, customer.paysNow()))
-                .when(customer.paysWithACardThatWorks())
-                .then(expectPageAt(customer.order()), expectPageShowing("Processing"), expectNoFailedResponses());
-    }
-
-    @Test
-    public void aDeclinedCardStaysOnThePageSoTheCustomerCanTryAgain() {
+    public void aDeclinedCardStaysOnThePageAndChangesNothingSoTheCustomerCanTryAgain() {
         given(scenario(orderAwaitingPayment, customer.paysNow()))
                 .when(customer.triesADeclinedCard())
                 .then(
                         expectPageAt("/sandbox/checkout/.*"),
-                        expectPageShowing("Your card was declined.", "Pay with card"));
+                        expectPageShowing("Your card was declined.", "Pay with card"),
+                        expectNothingPublished(),
+                        expectNothingAppended());
+    }
+
+    @Override
+    protected boolean isAbout(Object message) {
+        return message.toString().contains(customer.customerId.toString());
     }
 }

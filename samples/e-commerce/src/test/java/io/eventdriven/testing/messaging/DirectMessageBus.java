@@ -4,6 +4,8 @@ import io.eventdriven.core.messaging.MessageBus;
 import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.messaging.MessageMetadata;
 import io.eventdriven.core.messaging.MessageSource;
+import io.eventdriven.core.processing.MessageProcessor;
+import io.eventdriven.testing.tracing.TestTracing;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
@@ -51,6 +53,14 @@ public class DirectMessageBus implements MessageBus {
         subscribers.add(new Subscriber(queue, List.copyOf(types), handler));
 
         return this;
+    }
+
+    @Override
+    public MessageBus subscribe(String queue, MessageProcessor... processors) {
+        return subscribe(
+                queue,
+                MessageProcessor.canHandle(processors),
+                MessageProcessor.handle(TestTracing.untraced(), processors));
     }
 
     @Override

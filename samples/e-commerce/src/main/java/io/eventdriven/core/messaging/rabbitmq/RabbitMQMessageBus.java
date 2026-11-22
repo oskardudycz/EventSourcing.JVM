@@ -14,6 +14,7 @@ import io.eventdriven.core.messaging.MessageValues;
 import io.eventdriven.core.messaging.RoutingTarget;
 import io.eventdriven.core.messaging.UnreadableMessageException;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
+import io.eventdriven.core.processing.MessageProcessor;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
@@ -29,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.core.BindingBuilder;
@@ -180,6 +182,11 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     private record Prepared(RoutingTarget route, Message message, MessageValues values) {}
 
     @Override
+    public MessageBus subscribe(String queue, MessageProcessor... processors) {
+        return subscribe(queue, MessageProcessor.canHandle(processors), MessageProcessor.handle(context, processors));
+    }
+
+    @Override
     public RabbitMQMessageBus subscribe(String queue, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {
         for (var type : types)
             queues.computeIfAbsent(queue, ignored -> new ConcurrentHashMap<>())
@@ -231,9 +238,8 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
 
     @Override
     public void stop() {
-        running = false;
-        var stopped = new CountDownLatch(containers.size());
-        containers.values().forEach(container -> container.stop(stopped::countDown));
+        var stopped = new CountDownLatch(1);
+        stop(stopped::countDown);
 
         try {
             if (!stopped.await(STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS))
@@ -242,6 +248,22 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Stopping the RabbitMQ consumers was interrupted", e);
         }
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        running = false;
+        var remaining = new AtomicInteger(containers.size());
+        if (remaining.get() == 0) {
+            callback.run();
+            return;
+        }
+
+        containers
+                .values()
+                .forEach(container -> container.stop(() -> {
+                    if (remaining.decrementAndGet() == 0) callback.run();
+                }));
     }
 
     @Override

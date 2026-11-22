@@ -13,6 +13,7 @@ import io.eventdriven.core.messaging.MessageQueue;
 import io.eventdriven.core.messaging.inmemory.InMemoryMessageBus;
 import io.eventdriven.core.messaging.kafka.KafkaMessageBus;
 import io.eventdriven.core.messaging.rabbitmq.RabbitMQMessageBus;
+import io.eventdriven.core.projections.LongPolling;
 import io.eventdriven.ecommerce.orders.Order;
 import io.eventdriven.ecommerce.orders.pending.PendingOrder;
 import io.eventdriven.ecommerce.orders.pending.PendingOrderRepository;
@@ -28,6 +29,10 @@ import io.eventdriven.testing.tracing.FinishedSpans;
 import io.eventdriven.testing.tracing.InMemorySpansConfiguration;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.tracing.Tracer;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -44,6 +49,7 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -322,6 +328,42 @@ public class ECommerceSettingsTests {
             try (var connection = dataSource.getConnection()) {
                 assertThat(connection.getMetaData().getDatabaseProductName()).isEqualTo("H2");
             }
+        }
+    }
+
+    @DirtiesContext
+    @SpringBootTest(
+            webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+            properties = "server.tomcat.threads.max=1")
+    @ActiveProfiles("in-memory")
+    public static class RequestThreads {
+        @LocalServerPort
+        private int port;
+
+        @Test
+        public void aRequestWaitingForAViewDoesNotHoldBackOtherRequests() throws Exception {
+            var customerId = UUID.randomUUID();
+            var orders = get("/customers/%s/orders".formatted(customerId));
+            var http = HttpClient.newHttpClient();
+            http.send(orders, HttpResponse.BodyHandlers.discarding());
+
+            var waitingForAView = http.sendAsync(
+                    get("/customers/%s/orders/%s".formatted(customerId, UUID.randomUUID())),
+                    HttpResponse.BodyHandlers.discarding());
+            Thread.sleep(LongPolling.DEADLINE.dividedBy(10));
+            var ordersResponse = http.send(orders, HttpResponse.BodyHandlers.discarding());
+
+            assertThat(ordersResponse.statusCode()).isEqualTo(200);
+            assertThat(waitingForAView)
+                    .as("The request waiting for the view, when the other request was answered")
+                    .isNotDone();
+            assertThat(waitingForAView.get().statusCode()).isEqualTo(404);
+        }
+
+        private HttpRequest get(String path) {
+            return HttpRequest.newBuilder(URI.create("http://localhost:%d%s".formatted(port, path)))
+                    .GET()
+                    .build();
         }
     }
 

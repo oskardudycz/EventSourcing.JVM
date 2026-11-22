@@ -1,5 +1,6 @@
 package io.eventdriven.core.processing;
 
+import io.eventdriven.core.messaging.MessageContext;
 import io.eventdriven.core.messaging.MessageEnvelope;
 import java.util.Arrays;
 import java.util.List;
@@ -14,6 +15,11 @@ public interface MessageProcessor {
 
     void handle(MessageEnvelope<Object> envelope);
 
+    /** What the processor does with a message: {@code projection}, {@code forwarder}, {@code reactor} or {@code processor}. */
+    default String kind() {
+        return "processor";
+    }
+
     static List<Class<?>> canHandle(MessageProcessor... processors) {
         return Arrays.stream(processors)
                 .flatMap(processor -> processor.canHandle().stream())
@@ -21,11 +27,13 @@ public interface MessageProcessor {
                 .toList();
     }
 
-    static Consumer<MessageEnvelope<Object>> handle(MessageProcessor... processors) {
+    /** Calls each processor that can handle the message, in its own span below the span that handles the message. */
+    static Consumer<MessageEnvelope<Object>> handle(MessageContext context, MessageProcessor... processors) {
         return envelope -> {
             for (var processor : processors)
                 if (processor.canHandle().stream().anyMatch(type -> type.isInstance(envelope.message())))
-                    processor.handle(envelope);
+                    context.processing(
+                            processor.kind(), processor.getClass().getSimpleName(), () -> processor.handle(envelope));
         };
     }
 }

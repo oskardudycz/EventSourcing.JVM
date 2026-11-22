@@ -15,9 +15,11 @@ public interface EventStore {
 
     Subscription subscribe(String name, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler);
 
-    default Subscription subscribe(String name, MessageProcessor... processors) {
-        return subscribe(name, MessageProcessor.canHandle(processors), MessageProcessor.handle(processors));
-    }
+    /**
+     * Subscribes processors to the events they can handle. For each event, every processor that can handle it runs, in
+     * order, each in its own span.
+     */
+    Subscription subscribe(String name, MessageProcessor... processors);
 
     /**
      * Waits until every subscription has handled the events of its types that this store appended before the call,
