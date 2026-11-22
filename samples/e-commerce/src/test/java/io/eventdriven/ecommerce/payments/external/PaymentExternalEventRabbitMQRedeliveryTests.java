@@ -1,0 +1,56 @@
+package io.eventdriven.ecommerce.payments.external;
+
+import io.eventdriven.core.messaging.MessageBus;
+import io.eventdriven.core.messaging.MessageChannel;
+import io.eventdriven.core.messaging.MessageRoutes;
+import io.eventdriven.core.messaging.rabbitmq.RabbitMQMessageBus;
+import io.eventdriven.ecommerce.ECommerceMessages;
+import io.eventdriven.testing.TestDatabases;
+import io.eventdriven.testing.messaging.rabbitmq.RabbitMQConnection;
+import io.eventdriven.testing.messaging.rabbitmq.RabbitMQManagement;
+import io.eventdriven.testing.messaging.rabbitmq.RabbitMQQueues;
+import io.eventdriven.testing.messaging.rabbitmq.TestRabbitMQ;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+
+public class PaymentExternalEventRabbitMQRedeliveryTests extends PaymentExternalEventBrokerRedeliveryTests {
+    private final RabbitMQConnection connection = TestDatabases.rabbitMQ();
+
+    @Autowired
+    private ApplicationContext applicationContext;
+
+    private RabbitMQMessageBus messageBus;
+    private RabbitMQQueues queues;
+    private String collector;
+
+    @Override
+    protected MessageBus openBus(List<MessageRoutes> routes, List<MessageChannel> channels) {
+        messageBus = TestRabbitMQ.busOn(
+                connection,
+                messageContext,
+                applicationContext,
+                ECommerceMessages.serializer(),
+                routes,
+                channels,
+                List.of());
+        queues = new RabbitMQQueues(connection);
+        collector = queues.collectEverythingPublishedTo(responses);
+
+        return messageBus;
+    }
+
+    @Override
+    protected List<String> awaitPublishedMessageIds(int count) {
+        return queues.receiveAll(collector, count).stream()
+                .map(message -> message.getMessageProperties().getMessageId())
+                .toList();
+    }
+
+    @Override
+    protected void closeBusAndDeleteChannels() {
+        messageBus.close();
+        queues.close();
+        new RabbitMQManagement(connection).deleteContaining(responses);
+    }
+}

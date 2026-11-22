@@ -1,0 +1,34 @@
+{
+  "title": "RecordOrderPackageSent",
+  "type": "object",
+  "properties": {
+    "carrier": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-12>"
+    },
+    "orderId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-13>"
+    },
+    "sentAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-14>"
+    },
+    "trackingNumber": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-15>"
+    }
+  },
+  "description": "Records that the package left the warehouse, with the carrier and the tracking number.",
+  "examples": [
+    {
+      "carrier": "string",
+      "orderId": "string",
+      "sentAt": "2015-07-20T15:49:04-07:00",
+      "trackingNumber": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.orders.OrderCommand.RecordOrderPackageSent"
+}

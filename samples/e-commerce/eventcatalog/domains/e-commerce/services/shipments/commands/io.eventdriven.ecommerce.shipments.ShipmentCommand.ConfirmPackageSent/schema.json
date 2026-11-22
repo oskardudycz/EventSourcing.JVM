@@ -1,0 +1,28 @@
+{
+  "title": "ConfirmPackageSent",
+  "type": "object",
+  "properties": {
+    "carrier": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-1>"
+    },
+    "shipmentId": {
+      "title": "ShipmentId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-2>"
+    },
+    "trackingNumber": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-3>"
+    }
+  },
+  "description": "The fulfillment service's answer: the package was sent, with this carrier and tracking number.",
+  "examples": [
+    {
+      "carrier": "string",
+      "shipmentId": "string",
+      "trackingNumber": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent"
+}

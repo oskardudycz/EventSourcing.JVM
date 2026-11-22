@@ -1,0 +1,24 @@
+{
+  "title": "ReleaseStock",
+  "type": "object",
+  "properties": {
+    "now": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-70>"
+    },
+    "shipmentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-71>"
+    }
+  },
+  "description": "Puts the products that are set aside back on sale.",
+  "examples": [
+    {
+      "now": "2015-07-20T15:49:04-07:00",
+      "shipmentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.shipments.ShipmentCommand.ReleaseStock"
+}

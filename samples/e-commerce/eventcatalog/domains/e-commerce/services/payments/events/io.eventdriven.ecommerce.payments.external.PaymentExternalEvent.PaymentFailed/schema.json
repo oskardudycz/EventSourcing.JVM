@@ -1,0 +1,29 @@
+{
+  "title": "PaymentFailed",
+  "type": "object",
+  "properties": {
+    "failedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-28>"
+    },
+    "paymentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-29>"
+    },
+    "referenceId": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-30>"
+    }
+  },
+  "description": "The payment failed: the customer did not authorize it in time, the authorization ran out, or charging the customer failed.",
+  "examples": [
+    {
+      "failedAt": "2015-07-20T15:49:04-07:00",
+      "paymentId": "string",
+      "referenceId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.payments.external.PaymentExternalEvent.PaymentFailed"
+}

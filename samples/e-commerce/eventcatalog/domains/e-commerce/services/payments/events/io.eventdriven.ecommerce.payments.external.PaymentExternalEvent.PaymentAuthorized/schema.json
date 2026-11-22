@@ -1,0 +1,29 @@
+{
+  "title": "PaymentAuthorized",
+  "type": "object",
+  "properties": {
+    "authorizedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-22>"
+    },
+    "paymentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-23>"
+    },
+    "referenceId": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-24>"
+    }
+  },
+  "description": "The payment is authorized: the payment provider keeps the amount for the requester. The customer is not charged yet.",
+  "examples": [
+    {
+      "authorizedAt": "2015-07-20T15:49:04-07:00",
+      "paymentId": "string",
+      "referenceId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.payments.external.PaymentExternalEvent.PaymentAuthorized"
+}

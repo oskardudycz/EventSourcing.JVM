@@ -1,0 +1,30 @@
+{
+  "title": "RecordOrderPaymentAuthorization",
+  "type": "object",
+  "properties": {
+    "authorizedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-16>"
+    },
+    "orderId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-17>"
+    },
+    "paymentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-18>"
+    }
+  },
+  "description": "Records that the order's payment is authorized. The customer is not charged yet.",
+  "examples": [
+    {
+      "authorizedAt": "2015-07-20T15:49:04-07:00",
+      "orderId": "string",
+      "paymentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.orders.OrderCommand.RecordOrderPaymentAuthorization"
+}

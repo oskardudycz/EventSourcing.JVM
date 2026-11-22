@@ -8,10 +8,11 @@ The repository groups code by purpose:
 
 ```
 samples/
-├── distributed-processes/                  Distributed process with Event Sourcing
+├── e-commerce/                             Distributed process with compensation: an online shop
 ├── event-sourcing-kurrentdb-aggregates/    Event Sourcing with Spring Boot and KurrentDB using Aggregate pattern
 ├── event-sourcing-kurrentdb-simple/        Event Sourcing with Spring Boot and KurrentDB
 ├── events-versioning/                      Event Schema Versioning
+├── hotel-management/                       Distributed process on a batch operation: hotel group checkout
 ├── stream-metadata/
 ├── talk/
 └── uniqueness/                             Handling Uniqueness in Event Sourcing
@@ -25,7 +26,7 @@ There is no root build. Each sample and each workshop folder is a separate Gradl
 
 The `exercises` folders hold the workshop tasks, and the `solved` folders hold their solutions.
 
-The repository root and each of the 13 folders have their own copies of `.devcontainer/devcontainer.json`, `.vscode/`, `.editorconfig` and `.idea/externalDependencies.xml`. The copies differ only in folder names and paths.
+The repository root and each of the 14 folders have their own copies of `.devcontainer/devcontainer.json`, `.vscode/`, `.editorconfig` and `.idea/externalDependencies.xml`. The copies differ only in folder names and paths.
 
 ## Build environment
 
@@ -35,7 +36,7 @@ The tests need Docker. They start KurrentDB, PostgreSQL and MongoDB with Testcon
 
 In a dev container, the repository root is mounted at `/workspaces/EventSourcing.JVM`, and Docker is the host's Docker, reached through its socket. There, don't run the Kafka tests of `workshops/event-driven-architecture/solved` while the Docker Compose Kafka runs: the tests find it and fail, because it advertises `localhost:9092`, which inside the container is the container itself. Without it, the tests start their own Kafka.
 
-The same limit holds for `samples/distributed-processes`: its Kafka tests find the Compose Kafka the same way, and its `bootRun` starts that Kafka by default. Stop it before you run those tests in a dev container.
+The same limit holds for `samples/e-commerce`: its Kafka tests find the Compose Kafka the same way, and its `bootRun` starts that Kafka by default. Stop it before you run those tests in a dev container.
 
 ### Everyday commands
 
@@ -66,7 +67,9 @@ Don't format code by hand or with another tool. The stop hook runs `./gradlew sp
 
 palantir-java-format can't format an unnamed variable (`_`) inside a record pattern with `var`, for example `case ProductItemAdded(_, var productItem)` ([palantir-java-format#1614](https://github.com/palantir/palantir-java-format/issues/1614)). Spotless then stops with `expected token: '_'`. Name the variable instead: `case ProductItemAdded(var shoppingCartId, var productItem)`. Other unnamed variables, such as `_ -> ...` in a lambda or `case Initial _`, format fine.
 
-Several READMEs show code in Java blocks, for example in `samples/distributed-processes`, `samples/events-versioning` and `samples/uniqueness`. The blocks are copies of the code, so when you change that code, update the block too. Otherwise the README teaches code that no longer exists.
+Group code by business, not by technical role: module, then feature folder, then slice. A module keeps its entity, decider, events, commands, facade, configuration and its web API controller at its root. Each feature or query gets its own folder with everything it needs, for example `orders/getorderstatus` holds the `OrderStatus` document, its repository and its projection. Don't add technical folders such as `api`, `repositories`, `views` or `web`, in code or in tests. Code that knows nothing about the business lives in `io.eventdriven.core`, grouped by concern, with each implementation in its own package, such as `messaging/kafka`, `messaging/rabbitmq` or `eventstore/postgresql`. The application plugs core in through its configuration. Keep small types, such as ids, statuses and reasons, inside the business type they belong to, for example `ShoppingCart.Id` and `Order.Progress`, not each in its own file. Tests mirror the code's folders. See [Emmett's samples](https://github.com/event-driven-io/emmett/tree/main/samples/webApi/expressjs-with-postgresql/src/shoppingCarts) for the same shape.
+
+Several READMEs show code in Java blocks, for example in `samples/e-commerce`, `samples/hotel-management`, `samples/events-versioning` and `samples/uniqueness`. The blocks are copies of the code, so when you change that code, update the block too. Otherwise the README teaches code that no longer exists.
 
 ## Tests
 
@@ -74,8 +77,8 @@ Tests are the specification of the code. Each test describes one usage scenario 
 
 We reach the code from the outside in, through the same entry points that calling code uses, and write each test as Given / When / Then:
 
-- Domain logic goes through `AggregateSpecification` or `EventSourcedSpecification`: given the past events, when a method runs, then these events follow. [`OrderTests`](./samples/distributed-processes/src/test/java/io/eventdriven/distributedprocesses/ecommerce/orders/OrderTests.java) is a good place to start.
-- The web API goes through `ApiSpecification`, which starts the application on a random port and calls the real endpoints. Set up the state through the API too, not by writing into storage. For example, [`CancelOrderTests`](./samples/distributed-processes/src/test/java/io/eventdriven/distributedprocesses/ecommerce/api/CancelOrderTests.java) uses `PurchaseRestBuilder` to check out or pay an order before it cancels it.
+- Domain logic goes through `AggregateSpecification` or `EventSourcedSpecification`: given the past events, when a method runs, then these events follow. [`OrderTests`](./samples/e-commerce/src/test/java/io/eventdriven/ecommerce/orders/OrderTests.java) is a good place to start.
+- The application goes through `ApiE2ESpecification`, a port of [Emmett](https://github.com/event-driven-io/emmett)'s helper of the same name, as a black box: `given(...steps).when(step).then(expectResponse(...), expectPublished(...), expectTrace(...))`. A step is what the outside world does: an HTTP request, a message on the bus from another module or an outside system, or time passing. Never write into storage or call a facade to set up a test. Group the steps into arrays named after the scenario they describe, such as `paidOrder`. Each module keeps one API test class next to its controller, with a `@Nested` class per endpoint, and its requests in a class named after the module, such as `OrderRequests`. A module test sets up only through its own requests and the messages it receives, so [`OrdersApiTests`](./samples/e-commerce/src/test/java/io/eventdriven/ecommerce/orders/OrdersApiTests.java) starts from the cart's `ShoppingCartCheckedOut`, not from the cart's endpoints. Flows across modules are scenarios in `PurchaseTests`, which run on every application setup. Expect failures as error responses (`expectError`), not as thrown exceptions. Older folders still use their own `ApiSpecification`.
 
 Don't use a mocking library. When a test needs another service, write a fake that implements the real interface, and name it after what it does: `SilentPaymentGateway` takes a capture but never answers it, `ThrowingPaymentGateway` fails every call as an unreachable provider, and `FailingFirstCapturePaymentGateway` refuses the first capture and grants the ones that follow. The test then reads as the scenario it checks.
 
@@ -99,7 +102,7 @@ The completion hook runs `./gradlew spotlessApply` and `./gradlew testClasses` a
 
 For documentation or agent-configuration changes, validate only the changed files and configuration. The Gradle build is not required.
 
-While changing code, identify and run the smallest relevant set of tests covering the affected behavior. Before reporting a development phase as complete, run the same commands as the folder's CI workflow in `.github/workflows`. For most folders, that is `./gradlew build`, but some check more: `samples/distributed-processes` also runs `./gradlew eventCatalogTest`. If a build is interrupted, ask before running it again.
+While changing code, identify and run the smallest relevant set of tests covering the affected behavior. Before reporting a development phase as complete, run the same commands as the folder's CI workflow in `.github/workflows`. For most folders, that is `./gradlew build`, but some check more: `samples/e-commerce` also runs `./gradlew eventCatalogTest`. If a build is interrupted, ask before running it again.
 
 Report which verification commands were run, whether they passed, and why any relevant checks were skipped.
 

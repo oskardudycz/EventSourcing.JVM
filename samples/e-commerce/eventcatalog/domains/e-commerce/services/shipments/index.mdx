@@ -1,0 +1,41 @@
+---
+id: shipments
+name: Shipments
+version: 1.0.0
+summary: >-
+  The warehouse. It sets aside products, sends packages through a fulfillment
+  service, puts products back on sale, and answers on shipments-responses.
+badges: []
+sends:
+  - id: >-
+      io.eventdriven.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed
+    version: 1.0.0
+  - id: >-
+      io.eventdriven.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent
+    version: 1.0.0
+  - id: >-
+      io.eventdriven.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved
+    version: 1.0.0
+receives:
+  - id: io.eventdriven.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent
+    version: 1.0.0
+  - id: io.eventdriven.ecommerce.shipments.ShipmentCommand.DeliverPackage
+    version: 1.0.0
+  - id: io.eventdriven.ecommerce.shipments.ShipmentCommand.RejectFulfillment
+    version: 1.0.0
+  - id: io.eventdriven.ecommerce.shipments.ShipmentCommand.ReleaseStock
+    version: 1.0.0
+  - id: io.eventdriven.ecommerce.shipments.ShipmentCommand.RequestFulfillment
+    version: 1.0.0
+  - id: io.eventdriven.ecommerce.shipments.ShipmentCommand.ReserveStock
+    version: 1.0.0
+schemaPath: asyncapi-shipments.json
+specifications:
+  asyncapiPath: asyncapi-shipments.json
+owners:
+  - shipments
+---
+The warehouse. It sets aside products, sends packages through a fulfillment service, puts products back on sale, and answers on shipments-responses.
+
+## Architecture diagram
+<NodeGraph />

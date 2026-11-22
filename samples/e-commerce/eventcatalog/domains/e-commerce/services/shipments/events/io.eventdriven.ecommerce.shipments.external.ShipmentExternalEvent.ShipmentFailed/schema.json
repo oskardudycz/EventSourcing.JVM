@@ -1,0 +1,39 @@
+{
+  "title": "ShipmentFailed",
+  "type": "object",
+  "properties": {
+    "failedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-24>"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string",
+      "enum": [
+        "ProductsOutOfStock",
+        "FulfillmentRejected"
+      ],
+      "x-parser-schema-id": "<anonymous-schema-25>"
+    },
+    "referenceId": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-26>"
+    },
+    "shipmentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-27>"
+    }
+  },
+  "description": "The products cannot ship. The reason tells if they are out of stock or the fulfillment service rejected the request.",
+  "examples": [
+    {
+      "failedAt": "2015-07-20T15:49:04-07:00",
+      "reason": "ProductsOutOfStock",
+      "referenceId": "string",
+      "shipmentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed"
+}

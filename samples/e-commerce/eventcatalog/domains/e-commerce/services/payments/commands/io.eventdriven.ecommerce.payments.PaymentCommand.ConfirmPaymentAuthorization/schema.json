@@ -1,0 +1,24 @@
+{
+  "title": "ConfirmPaymentAuthorization",
+  "type": "object",
+  "properties": {
+    "captureBefore": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-1>"
+    },
+    "paymentId": {
+      "title": "PaymentId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-2>"
+    }
+  },
+  "description": "The payment provider's answer: the payment is authorized. The provider keeps the amount for the shop until the date by which the shop must charge the customer.",
+  "examples": [
+    {
+      "captureBefore": "2015-07-20T15:49:04-07:00",
+      "paymentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.payments.PaymentCommand.ConfirmPaymentAuthorization"
+}

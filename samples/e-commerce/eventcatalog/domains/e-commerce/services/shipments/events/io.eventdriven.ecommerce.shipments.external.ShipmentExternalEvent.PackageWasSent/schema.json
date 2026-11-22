@@ -1,0 +1,39 @@
+{
+  "title": "PackageWasSent",
+  "type": "object",
+  "properties": {
+    "carrier": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-19>"
+    },
+    "referenceId": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-20>"
+    },
+    "sentAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-21>"
+    },
+    "shipmentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-22>"
+    },
+    "trackingNumber": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-23>"
+    }
+  },
+  "description": "The package left the warehouse. It carries the carrier and the tracking number.",
+  "examples": [
+    {
+      "carrier": "string",
+      "referenceId": "string",
+      "sentAt": "2015-07-20T15:49:04-07:00",
+      "shipmentId": "string",
+      "trackingNumber": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent"
+}

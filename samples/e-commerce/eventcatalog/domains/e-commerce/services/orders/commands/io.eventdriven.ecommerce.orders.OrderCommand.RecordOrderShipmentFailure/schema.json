@@ -1,0 +1,36 @@
+{
+  "title": "RecordOrderShipmentFailure",
+  "type": "object",
+  "properties": {
+    "failedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-26>"
+    },
+    "orderId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-27>"
+    },
+    "reason": {
+      "title": "CancellationReason",
+      "type": "string",
+      "enum": [
+        "ProductWasOutOfStock",
+        "CouldNotShip",
+        "PaymentFailed",
+        "Requested"
+      ],
+      "x-parser-schema-id": "<anonymous-schema-28>"
+    }
+  },
+  "description": "Records that the order's products cannot ship, and why.",
+  "examples": [
+    {
+      "failedAt": "2015-07-20T15:49:04-07:00",
+      "orderId": "string",
+      "reason": "ProductWasOutOfStock"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.orders.OrderCommand.RecordOrderShipmentFailure"
+}
