@@ -1,5 +1,6 @@
 package io.eventdriven.ecommerce;
 
+import io.eventdriven.testing.eventstore.RecordedEventsConfiguration;
 import io.eventdriven.testing.tracing.InMemorySpansConfiguration;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -9,5 +10,5 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("in-memory")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTracing
-@Import({OutsideWorld.class, InMemorySpansConfiguration.class})
+@Import({OutsideWorld.class, InMemorySpansConfiguration.class, RecordedEventsConfiguration.class})
 public class PurchaseInMemoryTests extends PurchaseTests {}

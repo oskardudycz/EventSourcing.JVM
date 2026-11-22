@@ -3,6 +3,7 @@ package io.eventdriven.ecommerce.orders;
 import io.eventdriven.ecommerce.payments.Payment;
 import io.eventdriven.testing.api.ApiE2ESpecification.TestRequest;
 import java.util.UUID;
+import org.springframework.http.HttpHeaders;
 
 public final class OrderRequests {
     private OrderRequests() {}
@@ -13,6 +14,12 @@ public final class OrderRequests {
 
     public static TestRequest getOrderStatus(UUID customerId, Order.Id orderId) {
         return request -> request.get().uri("/customers/{customerId}/orders/{orderId}", customerId, orderId.tail());
+    }
+
+    public static TestRequest getOrderStatus(UUID customerId, Order.Id orderId, String seenETag) {
+        return request -> request.get()
+                .uri("/customers/{customerId}/orders/{orderId}", customerId, orderId.tail())
+                .header(HttpHeaders.IF_NONE_MATCH, seenETag);
     }
 
     public static TestRequest cancelOrder(UUID customerId, Order.Id orderId) {
@@ -36,6 +43,13 @@ public final class OrderRequests {
 
     public static TestRequest ordersPage(UUID customerId) {
         return request -> request.get().uri("/shop/customers/{customerId}/orders", customerId);
+    }
+
+    public static TestRequest orderPageNewerThan(UUID customerId, Order.Id orderId, String seenETag) {
+        return request -> request.get()
+                .uri("/shop/customers/{customerId}/orders/{orderId}", customerId, orderId.tail())
+                .header("HX-Request", "true")
+                .header(HttpHeaders.IF_NONE_MATCH, seenETag);
     }
 
     public static TestRequest orderPage(UUID customerId, Order.Id orderId) {

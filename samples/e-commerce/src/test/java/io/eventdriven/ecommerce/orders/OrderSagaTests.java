@@ -44,7 +44,7 @@ public class OrderSagaTests {
     private final OrderSaga saga = new OrderSaga(messageBus);
 
     public OrderSagaTests() {
-        messageBus.use(sent::catchMessage);
+        messageBus.use(envelope -> sent.catchMessage(envelope.message()));
     }
 
     // Hold phase

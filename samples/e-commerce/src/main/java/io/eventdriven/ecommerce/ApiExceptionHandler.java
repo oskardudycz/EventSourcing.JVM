@@ -1,10 +1,14 @@
 package io.eventdriven.ecommerce;
 
+import io.eventdriven.core.projections.LongPolling;
+import io.eventdriven.core.projections.ViewNotCaughtUpException;
 import io.eventdriven.ecommerce.payments.PaymentGateway;
 import java.util.ConcurrentModificationException;
 import java.util.NoSuchElementException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -24,6 +28,13 @@ public class ApiExceptionHandler {
     @ExceptionHandler(NoSuchElementException.class)
     ProblemDetail notFound(NoSuchElementException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(ViewNotCaughtUpException.class)
+    ResponseEntity<ProblemDetail> viewNotCaughtUp(ViewNotCaughtUpException exception) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(LongPolling.DEADLINE.toSeconds()))
+                .body(ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

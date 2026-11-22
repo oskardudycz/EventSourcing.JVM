@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.http.HttpStatus.*;
 
+import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.messaging.MessageMetadata;
+import io.eventdriven.core.messaging.MessageSource;
 import io.eventdriven.testing.messaging.DirectMessageBus;
 import io.eventdriven.testing.tracing.TestTracing;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -132,14 +135,14 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
     public void expectsTheMessagesThatTheWhenMessageCaused() {
         given(addProductItem(cartId))
                 .when(publish(new ConfirmCart(cartId)))
-                .then(expectOnlyPublished(new ConfirmCart(cartId), new CartConfirmed(cartId, 1)));
+                .then(expectPublished(new ConfirmCart(cartId), new CartConfirmed(cartId, 1)));
     }
 
     @Test
-    public void expectsSomeOfThePublishedMessagesInTheirOrder() {
+    public void sendsACommandAsTheWhenStep() {
         given(addProductItem(cartId))
-                .when(publish(new ConfirmCart(cartId)))
-                .then(expectPublished(new CartConfirmed(cartId, 1)));
+                .when(send(new ConfirmCart(cartId)))
+                .then(expectPublished(new ConfirmCart(cartId), new CartConfirmed(cartId, 1)));
     }
 
     @Test
@@ -152,10 +155,10 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
     }
 
     @Test
-    public void failsWhenMoreMessagesWerePublishedThanExpectedOnly() {
+    public void failsNamingTheMessageThatWasPublishedButNotExpected() {
         assertThatThrownBy(() -> given(addProductItem(cartId))
                         .when(publish(new ConfirmCart(cartId)))
-                        .then(expectOnlyPublished(new CartConfirmed(cartId, 1))))
+                        .then(expectPublished(new CartConfirmed(cartId, 1))))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("ConfirmCart");
     }
@@ -175,14 +178,83 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
 
         given(addProductItem(cartId), addProductItem(otherCartId))
                 .when(publish(new ConfirmCart(otherCartId), new ConfirmCart(cartId)))
-                .then(expectOnlyPublished(new ConfirmCart(cartId), new CartConfirmed(cartId, 1)));
+                .then(expectPublished(new ConfirmCart(cartId), new CartConfirmed(cartId, 1)));
+    }
+
+    @Test
+    public void expectsExactlyTheEventsThatTheWhenStepAppended() {
+        expectAppended(new CartConfirmed(cartId, 1))
+                .verify(outcomeWith(List.of(), List.of(appended(new CartConfirmed(cartId, 1), "e-1", "c-1", "m-1"))));
+    }
+
+    @Test
+    public void failsNamingTheEventThatWasAppendedButNotExpected() {
+        assertThatThrownBy(() -> expectNothingAppended()
+                        .verify(outcomeWith(
+                                List.of(), List.of(appended(new CartConfirmed(cartId, 1), "e-1", "c-1", "m-1")))))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("CartConfirmed");
+    }
+
+    @Test
+    public void expectsWhatEachMessageCausedWithOneCorrelation() {
+        var outcome = outcomeWith(
+                List.of(published(new ConfirmCart(cartId), "m-1", "c-1", "c-1")),
+                List.of(appended(new CartConfirmed(cartId, 1), "e-1", "c-1", "m-1")));
+
+        expectCausation(sent(new ConfirmCart(cartId), appended(new CartConfirmed(cartId, 1))))
+                .verify(outcome);
+    }
+
+    @Test
+    public void failsNamingTheMessageThatWasCausedByAnotherOne() {
+        var outcome = outcomeWith(
+                List.of(published(new ConfirmCart(cartId), "m-1", "c-1", "c-1")),
+                List.of(appended(new CartConfirmed(cartId, 1), "e-1", "c-1", "someone-else")));
+
+        assertThatThrownBy(() -> expectCausation(sent(new ConfirmCart(cartId), appended(new CartConfirmed(cartId, 1))))
+                        .verify(outcome))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("CartConfirmed")
+                .hasMessageContaining("m-1");
+    }
+
+    @Test
+    public void failsNamingTheMessageOfAnotherProcess() {
+        var outcome = outcomeWith(
+                List.of(published(new ConfirmCart(cartId), "m-1", "c-1", "c-1")),
+                List.of(appended(new CartConfirmed(cartId, 1), "e-1", "another-process", "m-1")));
+
+        assertThatThrownBy(() -> expectCausation(sent(new ConfirmCart(cartId), appended(new CartConfirmed(cartId, 1))))
+                        .verify(outcome))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("another-process");
+    }
+
+    private static Outcome outcomeWith(
+            List<MessageEnvelope<Object>> published, List<MessageEnvelope<Object>> appended) {
+        return new Outcome(null, published, appended, List::of, (name, tags) -> 0.0);
+    }
+
+    private static MessageEnvelope<Object> published(
+            Object message, String id, String correlationId, String causationId) {
+        return new MessageEnvelope<>(
+                message,
+                new MessageMetadata(id, correlationId, causationId, null, null, new MessageSource.OnChannel("carts")));
+    }
+
+    private static MessageEnvelope<Object> appended(Object event, String id, String correlationId, String causationId) {
+        return new MessageEnvelope<>(
+                event,
+                new MessageMetadata(
+                        id, correlationId, causationId, null, null, new MessageSource.InStream("Cart-1", 0, 0, 0)));
     }
 
     @Test
     public void waitsUntilTheBusCaughtUpWithMessagesPublishedAfterTheResponse() {
         given(addProductItem(cartId))
                 .when(confirmLater(cartId))
-                .then(expectResponse(ACCEPTED), expectPublished(new CartConfirmed(cartId, 1)));
+                .then(expectResponse(ACCEPTED), expectPublished(new ConfirmCart(cartId), new CartConfirmed(cartId, 1)));
     }
 
     @Test

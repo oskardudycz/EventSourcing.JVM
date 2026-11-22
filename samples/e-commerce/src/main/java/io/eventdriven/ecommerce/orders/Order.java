@@ -247,6 +247,10 @@ public record Order(
             this.label = label;
         }
 
+        public boolean isFinal() {
+            return this == Completed || this == Canceled || this == ClosedUnpaid;
+        }
+
         public String label() {
             return label;
         }

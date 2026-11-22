@@ -84,7 +84,7 @@ public class CommandHandler<Id, State, Event> {
 
         try (MessageContext.Scope _ = continuingTrace ? scopeOf(commandType, events) : () -> {}) {
             var observation = messageContext
-                    .observation("command.handle")
+                    .observation("eventdriven.command.handle", "command.handle")
                     .lowCardinalityKeyValue(COMMAND_TYPE, commandType)
                     .highCardinalityKeyValue(STREAM_NAME, streamId)
                     .highCardinalityKeyValue(STREAM_VERSION_BEFORE, String.valueOf(version))

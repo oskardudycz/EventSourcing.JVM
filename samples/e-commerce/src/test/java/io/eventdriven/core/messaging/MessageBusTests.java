@@ -218,7 +218,7 @@ public abstract class MessageBusTests {
 
     @Test
     public void runsMiddlewareAlsoForMessagesWithoutSubscribers() {
-        messageBus.use(messages::catchMessage);
+        messageBus.use(envelope -> messages.catchMessage(envelope.message()));
 
         messageBus.publish(List.of(new OrderPlaced("order-1")));
 
@@ -336,7 +336,7 @@ public abstract class MessageBusTests {
     @Test
     public void middlewareSeesAMessageWithoutARouteBeforeThePublishFails() {
         var bus = newBus(List.of(), List.of(), List.of());
-        bus.use(messages::catchMessage);
+        bus.use(envelope -> messages.catchMessage(envelope.message()));
 
         assertThatThrownBy(() -> bus.publish(List.of(new OrderPlaced("order-1"))))
                 .isInstanceOf(IllegalStateException.class);

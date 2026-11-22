@@ -57,8 +57,8 @@ public class InMemoryMessageBusTests extends MessageBusTests {
 
     @Test
     public void runsMiddlewareForEveryMessageBeforeSubscribersInRegistrationOrder() {
-        messageBus.use(message -> messages.catchMessage(new Handled("first middleware", message)));
-        messageBus.use(message -> messages.catchMessage(new Handled("second middleware", message)));
+        messageBus.use(envelope -> messages.catchMessage(new Handled("first middleware", envelope.message())));
+        messageBus.use(envelope -> messages.catchMessage(new Handled("second middleware", envelope.message())));
         messageBus.subscribe(orders, OrderPlaced.class, event -> messages.catchMessage(new Handled("placed", event)));
         messageBus.subscribe(
                 orders, ConfirmOrder.class, command -> messages.catchMessage(new Handled("confirm", command)));

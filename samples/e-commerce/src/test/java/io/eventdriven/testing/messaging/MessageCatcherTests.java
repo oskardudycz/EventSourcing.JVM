@@ -23,7 +23,7 @@ public class MessageCatcherTests {
 
     @BeforeEach
     public void setUp() {
-        messageBus.use(messages::catchMessage);
+        messageBus.use(envelope -> messages.catchMessage(envelope.message()));
     }
 
     @Test

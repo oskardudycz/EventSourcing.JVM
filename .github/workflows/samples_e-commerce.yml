@@ -60,6 +60,9 @@ jobs:
       - name: Build and test the EventCatalog
         run: ./gradlew eventCatalogTest
 
+      - name: Go through the shop in Chromium and check the telemetry in Grafana
+        run: ./gradlew e2eTest
+
       - name: Check that the API documents and the catalog match the code
         run: |
           git status --porcelain -- eventcatalog/specs eventcatalog/domains
@@ -71,6 +74,13 @@ jobs:
         with:
           name: Test report - Java ${{ matrix.java-version }}
           path: ./samples/e-commerce/build/test-results/test
+
+      - name: Archive end-to-end test report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: End-to-end test report - Java ${{ matrix.java-version }}
+          path: ./samples/e-commerce/build/test-results/e2eTest
 
       - name: Archive EventCatalog test results
         uses: actions/upload-artifact@v7

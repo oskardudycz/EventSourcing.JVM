@@ -49,6 +49,12 @@ public final class ShoppingCartRequests {
         return request -> request.post().uri("/customers/{customerId}/shopping-carts/current/checkout", customerId);
     }
 
+    public static TestRequest getCart(UUID customerId, String seenETag) {
+        return request -> request.get()
+                .uri("/customers/{customerId}/shopping-carts/current", customerId)
+                .header(HttpHeaders.IF_NONE_MATCH, seenETag);
+    }
+
     public static TestRequest getCart(UUID customerId) {
         return request -> request.get().uri("/customers/{customerId}/shopping-carts/current", customerId);
     }

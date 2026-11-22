@@ -174,12 +174,24 @@ The catalog shows one domain, E-Commerce, with each module as a service. A servi
 
 ## 11. Look at the purchase in Grafana
 
-This step needs the default start, because the `in-memory` profile doesn't start Grafana. After a purchase, open Grafana at <http://localhost:3000>. It needs no login.
+The default start runs Grafana LGTM (Grafana with Tempo for traces, Loki for logs and Prometheus for metrics) with the other Docker Compose services. The `in-memory` profile doesn't start it, but it sends to it when it runs: start it with `docker compose --profile otel up -d`. After a purchase, open Grafana at <http://localhost:3000>. It needs no login.
 
-1. Find the purchase's `correlationId`. Every step of a purchase carries it as a span attribute and as a field of its log lines. Open **Explore**, choose the **Loki** data source, and pick a log line of the purchase, for example the one with the order's id. Its `correlationId` field is the one you need. You can also open any `streams.append` span of the purchase in Tempo and read its `correlationId` attribute.
-2. Choose the **Tempo** data source in **Explore**, and search by tag for that `correlationId`. A purchase forms two traces, because **Pay now** is a new HTTP request: the first trace goes from the checkout to the order waiting for the payment, the second from **Pay now** to the completed order. Both have the same `correlationId`, so the search finds both. In each trace you see one span for each step, and inside a step a `streams.append` span for each append to KurrentDB.
-3. Open the **Logs** of a span, or return to the **Loki** data source in **Explore**. Loki has the application's log lines, each with the `traceId` of its span.
-4. Open **Dashboards** and choose **Purchase flow**. It shows the messages published, handled and failed for each channel, the dead letters and the HTTP requests, from Prometheus. Each panel links to the traces.
+1. Find the purchase's correlation id. Every step of a purchase carries it: the spans as the attribute `messaging.message.correlation_id`, the log lines as the field `correlationId`. Open **Explore**, choose the **Tempo** data source and search with TraceQL, for example `{ span.eventdriven.command.type = "PlaceOrder" }` for the orders placed, or `{ span.eventdriven.stream.name = "Order-<order id>" }` for one order.
+2. Open the trace of the checkout. It goes from the HTTP request through every module: each `handle ...` span handles one message, and its `messaging.message.id`, `messaging.message.correlation_id` and `messaging.message.causation_id` say which message it was, which purchase it belongs to and which message caused it. Inside, a `command.handle` span shows the command (`eventdriven.command.type`), the stream, the versions before and after and the events it appended, and the `eventStore.readStream` and `eventStore.appendToStream` spans show the reads and appends. **Pay now** is a new HTTP request, so it starts a second trace with the same correlation id.
+3. Open the **Logs** of a span, or choose the **Loki** data source in **Explore**. Each log line has the `traceId` of its span.
+4. Open **Dashboards**. Three dashboards come with the sample, and each chart links to its traces in Tempo.
+
+**Purchases** counts what customers do and what goes wrong, from the events the modules append: orders placed, completed, canceled and closed unpaid, the payments and shipments, and, under **Watch out**, the failed commands, append conflicts, timeouts, dead letters and failed message handlers.
+
+![The Purchases dashboard](./assets/howto/13-grafana-purchases.png)
+
+**Commands and event store** shows how the command handlers and the event store work: commands by type and status, their latency, and the reads and appends of the event store. It has the same shape as Emmett's dashboard.
+
+![The Commands and event store dashboard](./assets/howto/14-grafana-commands-and-event-store.png)
+
+**Purchase flow** shows the messages published, handled and failed for each channel, and the dead letters.
+
+![The Purchase flow dashboard](./assets/howto/15-grafana-purchase-flow.png)
 
 If Grafana doesn't run, the application works the same.
 
@@ -189,7 +201,13 @@ If Grafana doesn't run, the application works the same.
 ./gradlew build
 ```
 
-The build runs all tests. The tests of the web API and the business logic use the `in-memory` profile. The tests of the Kafka, RabbitMQ, KurrentDB and PostgreSQL implementations, and the tests that run a purchase on real servers, use the Docker Compose services when they run, and start their own servers with Testcontainers when they don't. The browser tests start the application and go through the purchase above in Chromium, which Playwright downloads on the first run. On a Linux machine that lacks the system packages of Chromium, install them once with `./gradlew playwrightInstallDeps`, which uses `sudo`.
+The build runs all tests except the browser tests. The tests of the web API and the business logic use the `in-memory` profile. The tests of the Kafka, RabbitMQ, KurrentDB and PostgreSQL implementations, and the tests that run a purchase on real servers, use the Docker Compose services when they run, and start their own servers with Testcontainers when they don't. The same goes for Grafana LGTM: when the Docker Compose one runs, the tests send their traces, logs and metrics to it, so you can look at a test run there.
+
+```shell
+./gradlew e2eTest
+```
+
+The browser tests start the application and go through the purchase above in Chromium, which Playwright downloads on the first run. One of them shops on Kafka, KurrentDB and PostgreSQL, where the views catch up after the writes. It checks that the pages never show an error while they wait, that the order page updates in place until the order is completed, and that the purchase reaches Grafana as one trace, as metrics and as logs. On a Linux machine that lacks the system packages of Chromium, install them once with `./gradlew playwrightInstallDeps`, which uses `sudo`.
 
 In a dev container, stop the Docker Compose Kafka with `docker compose --profile all down` before you run the Kafka tests. [AGENTS.md](../../AGENTS.md#build-environment) tells why.
 

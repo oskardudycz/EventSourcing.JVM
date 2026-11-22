@@ -17,15 +17,19 @@ import java.util.function.Consumer;
 public class DirectMessageBus implements MessageBus {
     private record Subscriber(String queue, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {}
 
-    private final List<Consumer<Object>> middlewares = new CopyOnWriteArrayList<>();
+    private final List<Consumer<MessageEnvelope<Object>>> middlewares = new CopyOnWriteArrayList<>();
     private final List<Subscriber> subscribers = new CopyOnWriteArrayList<>();
     private final List<CompletableFuture<Void>> pending = new CopyOnWriteArrayList<>();
 
     @Override
     public <Message> void publish(List<Message> messages) {
         for (var message : messages) {
-            middlewares.forEach(middleware -> middleware.accept(message));
             var messageId = UUID.randomUUID().toString();
+            var published = new MessageEnvelope<Object>(
+                    message,
+                    new MessageMetadata(
+                            messageId, messageId, messageId, null, null, new MessageSource.OnChannel("direct")));
+            middlewares.forEach(middleware -> middleware.accept(published));
             subscribers.stream()
                     .filter(subscriber -> subscriber.types().stream().anyMatch(type -> type.isInstance(message)))
                     .forEach(subscriber -> subscriber
@@ -50,7 +54,7 @@ public class DirectMessageBus implements MessageBus {
     }
 
     @Override
-    public void use(Consumer<Object> middleware) {
+    public void use(Consumer<MessageEnvelope<Object>> middleware) {
         middlewares.add(middleware);
     }
 

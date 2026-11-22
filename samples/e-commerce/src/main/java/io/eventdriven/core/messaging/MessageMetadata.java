@@ -10,6 +10,16 @@ public record MessageMetadata(
         @Nullable String spanId,
         MessageSource source) {
 
+    public static MessageMetadata of(MessageValues values, MessageSource source) {
+        return new MessageMetadata(
+                values.messageId(),
+                values.correlationId(),
+                values.causationId(),
+                values.traceId(),
+                values.spanId(),
+                source);
+    }
+
     public MessageSource.InStream stream() {
         if (source instanceof MessageSource.InStream stream) return stream;
 

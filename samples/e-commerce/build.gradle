@@ -59,6 +59,9 @@ dependencies {
   // Web API, shop pages and Swagger UI
   implementation 'org.springframework.boot:spring-boot-starter-webmvc'
   implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+  implementation 'io.github.wimdeblauwe:htmx-spring-boot-thymeleaf:6.0.1'
+  implementation 'org.webjars.npm:htmx.org:4.0.2'
+  implementation 'org.webjars:webjars-locator-lite'
   implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.2.0'
 
   // AsyncAPI documentation of the channels
@@ -102,12 +105,25 @@ dependencies {
 
 tasks.named('test') {
   useJUnitPlatform()
+  filter { excludeTestsMatching '*InBrowserTests' }
   jvmArgs += ["-javaagent:${configurations.mockitoAgent.asPath}", "-Xshare:off"]
   maxParallelForks = 2
   doFirst {
     delete 'logs/test.log'
   }
   testLogging.showStandardStreams = true
+  testLogging.exceptionFormat = 'full'
+}
+
+tasks.register('e2eTest', Test) {
+  group = 'verification'
+  description = 'Goes through the shop in Chromium on Kafka, KurrentDB and PostgreSQL, and checks the telemetry in Grafana.'
+  testClassesDirs = sourceSets.test.output.classesDirs
+  classpath = sourceSets.test.runtimeClasspath
+  useJUnitPlatform()
+  filter { includeTestsMatching '*InBrowserTests' }
+  jvmArgs += ["-javaagent:${configurations.mockitoAgent.asPath}", "-Xshare:off"]
+  shouldRunAfter tasks.named('test')
   testLogging.exceptionFormat = 'full'
 }
 
@@ -121,11 +137,14 @@ tasks.register('playwrightInstallDeps', JavaExec) {
 
 tasks.register('howToScreenshots', Test) {
   group = 'documentation'
-  description = 'Goes through the shop in Chromium and saves the screenshots of HOWTO.md to assets/howto.'
+  description = 'Goes through the shop and Grafana in Chromium and saves the screenshots of HOWTO.md to assets/howto.'
   testClassesDirs = sourceSets.test.output.classesDirs
   classpath = sourceSets.test.runtimeClasspath
   useJUnitPlatform()
-  filter { includeTestsMatching '*ShopInBrowserTests' }
+  filter {
+    includeTestsMatching '*ShopInBrowserTests'
+    includeTestsMatching '*ShopTelemetryInBrowserTests'
+  }
   systemProperty 'screenshots.dir', file('assets/howto').absolutePath
   outputs.upToDateWhen { false }
 }

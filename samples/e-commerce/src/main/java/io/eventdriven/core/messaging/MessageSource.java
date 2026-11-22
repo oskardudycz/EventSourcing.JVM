@@ -11,4 +11,9 @@ public sealed interface MessageSource {
     }
 
     record InQueue(String queue) implements MessageSource {}
+
+    record OnChannel(String channel) implements MessageSource {}
+
+    /** A message published with no declared channel: publishing it fails right after the middleware sees it. */
+    record Unrouted() implements MessageSource {}
 }

@@ -6,6 +6,7 @@ import static org.springframework.http.HttpStatus.*;
 import io.eventdriven.ecommerce.OutsideWorld;
 import io.eventdriven.ecommerce.Time;
 import io.eventdriven.ecommerce.shop.DemoProducts;
+import io.eventdriven.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent;
 import io.eventdriven.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut;
 import io.eventdriven.ecommerce.shoppingcarts.pricing.ChangeablePrices;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
@@ -238,6 +239,20 @@ public class ShoppingCartsApiTests extends ApiE2ESpecification {
         }
 
         @Test
+        public void getCart_succeeds_withTheNewerCart_forAClientThatSawAnOlderOne() {
+            given(cartWhoseCheckoutFoundAChangedPrice())
+                    .when(getCart(customerId, weakETag(0)))
+                    .then(expectResponse(OK, headers(Map.of(HttpHeaders.ETAG, weakETag(1)))));
+        }
+
+        @Test
+        public void getCart_answersNotModified_whenNothingNewerArrivesBeforeTheDeadline() {
+            given(cartWithTwoShoes())
+                    .when(getCart(customerId, weakETag(0)))
+                    .then(expectResponse(NOT_MODIFIED, headers(Map.of(HttpHeaders.ETAG, weakETag(0)))));
+        }
+
+        @Test
         public void getCart_fails_withNotFound_forCustomerWithoutOpenCart() {
             given().when(getCart(customerId)).then(expectError(NOT_FOUND));
         }
@@ -307,5 +322,10 @@ public class ShoppingCartsApiTests extends ApiE2ESpecification {
                     .when(checkOutOnPage(customerId, 0))
                     .then(expectResponse(FOUND, redirectsTo(cart)));
         }
+    }
+
+    @Override
+    protected boolean isAbout(Object message) {
+        return message instanceof ShoppingCartExternalEvent;
     }
 }

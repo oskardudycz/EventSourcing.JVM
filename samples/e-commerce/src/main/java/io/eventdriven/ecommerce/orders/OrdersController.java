@@ -3,7 +3,10 @@ package io.eventdriven.ecommerce.orders;
 import static io.eventdriven.ecommerce.orders.OrderCommand.CancelOrder;
 import static io.eventdriven.ecommerce.orders.OrderCommand.RetryOrderPayment;
 
+import io.eventdriven.core.http.ConditionalRead;
 import io.eventdriven.core.identifiers.Urns;
+import io.eventdriven.core.projections.LongPolling;
+import io.eventdriven.core.projections.ViewNotCaughtUpException;
 import io.eventdriven.ecommerce.orders.getcustomerorders.CustomerOrder;
 import io.eventdriven.ecommerce.orders.getcustomerorders.CustomerOrders;
 import io.eventdriven.ecommerce.orders.getorderstatus.OrderStatus;
@@ -14,10 +17,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
@@ -47,8 +54,12 @@ public class OrdersController {
 
     @GetMapping("/{orderId}")
     @Operation(operationId = "OrderStatus")
-    public OrderStatus status(@PathVariable UUID customerId, @PathVariable String orderId) {
-        return statusOf(customerId, orderId);
+    public ResponseEntity<OrderStatus> status(
+            @PathVariable UUID customerId,
+            @PathVariable String orderId,
+            @RequestHeader(name = HttpHeaders.IF_NONE_MATCH, required = false) @Nullable String ifNoneMatch) {
+        return ConditionalRead.newerThan(
+                ifNoneMatch, () -> findStatus(customerId, orderId), () -> notFoundOrNotCaughtUp(customerId, orderId));
     }
 
     @PostMapping("/{orderId}/cancel")
@@ -91,9 +102,24 @@ public class OrdersController {
     }
 
     private OrderStatus statusOf(UUID customerId, String orderId) {
+        return LongPolling.retryIfNotFound(() -> findStatus(customerId, orderId))
+                .orElseThrow(() -> notFoundOrNotCaughtUp(customerId, orderId));
+    }
+
+    private Optional<OrderStatus> findStatus(UUID customerId, String orderId) {
         return orderStatuses
-                .get(new Order.Id(Urns.of("ecommerce", "order", orderId)))
-                .filter(status -> status.getCustomerId().equals(customerId))
-                .orElseThrow(() -> new NoSuchElementException("Order '%s' was not found".formatted(orderId)));
+                .get(idOf(orderId))
+                .filter(status -> status.getCustomerId().equals(customerId));
+    }
+
+    private RuntimeException notFoundOrNotCaughtUp(UUID customerId, String orderId) {
+        if (orderStatuses.get(idOf(orderId)).isEmpty() && orders.isPlaced(idOf(orderId)))
+            return new ViewNotCaughtUpException("Order '%s' is still being processed".formatted(orderId));
+
+        return new NoSuchElementException("Order '%s' was not found".formatted(orderId));
+    }
+
+    private static Order.Id idOf(String orderId) {
+        return new Order.Id(Urns.of("ecommerce", "order", orderId));
     }
 }

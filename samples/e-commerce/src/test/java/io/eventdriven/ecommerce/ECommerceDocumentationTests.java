@@ -397,7 +397,7 @@ public class ECommerceDocumentationTests {
         public void aMessagePublishedFromTheUiReachesTheBus() throws Exception {
             var shipmentId = Shipment.Id.of(UUID.randomUUID());
             var published = new ArrayList<Object>();
-            messageBus.use(published::add);
+            messageBus.use(envelope -> published.add(envelope.message()));
 
             mvc.perform(post("/springwolf/plugin/x-in-memory/publish")
                             .param("topic", "shipments-internal")

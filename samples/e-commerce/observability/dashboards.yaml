@@ -1,8 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: "Purchase flow"
+  - name: "E-commerce"
     type: file
+    updateIntervalSeconds: 1
     options:
-      path: /otel-lgtm/purchase-flow-dashboard.json
+      path: /otel-lgtm/dashboards
       foldersFromFilesStructure: false

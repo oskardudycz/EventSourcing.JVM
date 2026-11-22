@@ -112,6 +112,8 @@ public class InMemoryEventStore implements EventStore {
         if (types.isEmpty())
             throw new IllegalArgumentException("Subscription '%s' needs at least one event type".formatted(name));
 
+        EventStoreObservations.countAppended(context, types);
+
         if (!subscriptionNames.add(name))
             throw new IllegalArgumentException("Subscription name '%s' is already in use".formatted(name));
 

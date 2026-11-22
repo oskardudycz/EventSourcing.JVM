@@ -75,8 +75,8 @@ public class ShipmentsConfigTests {
     }
 
     private void configure(FulfillmentService fulfillmentService) {
-        messageBus.use(message -> {
-            if (message instanceof ShipmentExternalEvent) externalEvents.catchMessage(message);
+        messageBus.use(envelope -> {
+            if (envelope.message() instanceof ShipmentExternalEvent) externalEvents.catchMessage(envelope.message());
         });
 
         var shipmentsConfig = new ShipmentsConfig();
