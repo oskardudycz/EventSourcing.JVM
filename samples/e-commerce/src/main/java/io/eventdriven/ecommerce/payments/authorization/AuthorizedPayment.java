@@ -25,10 +25,6 @@ public class AuthorizedPayment implements Versioned {
         return paymentId;
     }
 
-    public OffsetDateTime getCaptureBefore() {
-        return captureBefore;
-    }
-
     @Override
     public long getVersion() {
         return version;

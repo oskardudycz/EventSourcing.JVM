@@ -47,11 +47,6 @@ public final class RabbitMQManagement {
     }
 
     @SuppressWarnings("unchecked")
-    public Map<String, Object> messageStatsOfExchange(String name) {
-        var stats = exchange(name).get("message_stats");
-        return stats == null ? Map.of() : (Map<String, Object>) stats;
-    }
-
     public Map<String, Object> queue(String name) {
         return client.get()
                 .uri("/queues/{vhost}/{name}", VHOST, name)
@@ -66,40 +61,6 @@ public final class RabbitMQManagement {
                         new Binding((String) binding.get("source"), (String) binding.get("destination"), (String)
                                 binding.get("routing_key")))
                 .toList();
-    }
-
-    public void deleteBinding(String exchange, String queue, String routingKey) {
-        client.delete()
-                .uri("/bindings/{vhost}/e/{exchange}/q/{queue}/{key}", VHOST, exchange, queue, routingKey)
-                .retrieve()
-                .toBodilessEntity();
-    }
-
-    public void setPolicy(String name, String queuePattern, Map<String, Object> definition) {
-        client.put()
-                .uri("/policies/{vhost}/{name}", VHOST, name)
-                .body(Map.of("pattern", queuePattern, "definition", definition, "apply-to", "queues"))
-                .retrieve()
-                .toBodilessEntity();
-    }
-
-    public void deletePolicy(String name) {
-        client.delete().uri("/policies/{vhost}/{name}", VHOST, name).retrieve().toBodilessEntity();
-    }
-
-    public int connectionCount() {
-        return client.get().uri("/connections").retrieve().body(LIST_OF_MAPS).size();
-    }
-
-    public List<String> connectionStates() {
-        return client.get().uri("/connections").retrieve().body(LIST_OF_MAPS).stream()
-                .map(connection -> (String) connection.get("state"))
-                .toList();
-    }
-
-    public void closeAllConnections() {
-        for (var name : namesOf("/connections"))
-            client.delete().uri("/connections/{name}", name).retrieve().toBodilessEntity();
     }
 
     public void deleteContaining(String text) {

@@ -25,10 +25,6 @@ public class OrderAwaitingPayment implements Versioned {
         return orderId;
     }
 
-    public OffsetDateTime getDueAt() {
-        return dueAt;
-    }
-
     @Override
     public long getVersion() {
         return version;
