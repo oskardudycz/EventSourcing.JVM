@@ -1,6 +1,6 @@
 # Try the e-commerce sample
 
-This guide takes you through one purchase in the sample shop, step by step. After it, you look at the same purchase from the inside: the web API in Swagger UI, the messages in Springwolf UI, and the whole system in EventCatalog. The [README](./README.md) explains what happens in each step and why.
+This guide takes you through one purchase in the sample shop, step by step. After it, you look at the same purchase from the inside: the web API in Swagger UI, the messages in Springwolf UI, the whole system in EventCatalog, and the traces, metrics, logs and alerts in Grafana. The [README](./README.md) explains what happens in each step and why.
 
 - [Try the e-commerce sample](#try-the-e-commerce-sample)
   - [What you need](#what-you-need)
@@ -42,9 +42,9 @@ Three settings change that. Set them on the command line, for example `./gradlew
 | `eventstore.type` | `in-memory`, `kurrentdb`, `postgresql` | `kurrentdb` |
 | `projections.database` | `h2`, `postgresql` | `postgresql` |
 
-With `messaging.bus=rabbitmq`, Spring Boot also starts RabbitMQ. If you ran an older version of the sample with RabbitMQ, remove its old queues once, because the queues now have dead-letter settings that the old ones lack: `docker compose --profile all down -v`, in this folder. This also removes the data of the other Compose services.
+With `messaging.bus=rabbitmq`, Spring Boot also starts RabbitMQ. The views and the subscriptions' positions in the projections database belong to one event store, so after you change `eventstore.type`, start with an empty projections database.
 
-The PostgreSQL event store keeps its events in the tables `streams` and `messages`, and every event is stored under its Java class name (for example `io.eventdriven.ecommerce.orders.OrderEvent$OrderPlaced`). If your local PostgreSQL or KurrentDB volume holds an older version of the sample, which used the table `events` and short type names, reset both once with `docker compose --profile all down -v`, in this folder. This also removes the data of the other Compose services. A projections database belongs to one event store type, so do not point two event store types at the same projections database.
+If you ran an older version of the sample, its queues, tables and stored events have an older shape. Remove the Docker Compose data once with `docker compose --profile all down -v`, in this folder.
 
 To run with no Docker and no database, use the `in-memory` profile. It sets all three settings to in memory and turns the Docker Compose support off. When you stop the application, its data is gone:
 
@@ -66,7 +66,7 @@ Type any name and click **Log in**. There is no password. The shop makes the cus
 
 ## 3. Add products to the cart
 
-The shop opens the **Products** page. The header has links to your **Products**, **Cart** and **Orders**. **Developer tools** opens links to Swagger UI (step 7), Springwolf (step 8), EventCatalog (step 10) and Grafana (step 11). The header also shows your name.
+The shop opens the **Products** page. The header has links to your **Products**, **Cart** and **Orders**. **Developer tools** opens links to the sandbox warehouse (step 6), Swagger UI (step 7), Springwolf (step 8), EventCatalog (step 10) and Grafana (step 11). The header also shows your name.
 
 ![The products page](./assets/howto/2-products.png)
 
@@ -95,9 +95,9 @@ Click **Pay now**. The shop sends you to the payment provider's page. This is th
 
 ![The sandbox payment page](./assets/howto/5-sandbox-checkout.png)
 
-Type the card number `4242 4242 4242 4242` and click the **Pay** button, which shows the amount. You can leave the other fields empty. The card number field suggests both test cards: click it and pick one. With `4000 0000 0000 0002` the page says the card was declined, and you can try again.
+Click the card number field and pick `4242 4242 4242 4242`, the test card that pays, or type it. Then click the **Pay** button, which shows the amount. You can leave the other fields empty.
 
-To see a declined card, use `4000 0000 0000 0002` instead. The page shows the decline and you can try again with another card, as on Stripe's page.
+To see a declined card, pick `4000 0000 0000 0002` instead. The page says the card was declined, and you can try again, as on Stripe's page.
 
 ## 6. Send the package and see the completed order
 
@@ -150,7 +150,7 @@ Each message on the page has a **Publish** button, which sends the message to th
 In a real shop, a payment fails when the customer doesn't pay in time. In the sample, that time is 24 hours. You can make it happen at once, by sending the message that the payments module sends itself when the time runs out.
 
 1. Add a product to the cart and check out, but don't pay.
-2. Copy the order's id from the **Order status** page. It looks like `b7313efd-c0b2-3d42-bdf9-3eb4c7a5c2af-1`. The payment has the same id.
+2. Copy the order's id from the address of the **Order status** page: the part after `/orders/`. It looks like `b7313efd-c0b2-3d42-bdf9-3eb4c7a5c2af-1`. The payment has the same id.
 3. Open Springwolf UI, as in [step 8](#8-read-the-messages-in-springwolf-ui), and find `TimeOutPayment` on the `payments-internal` channel.
 4. In its example payload, set `paymentId` to `urn:ecommerce:payment:` followed by the order's id, and set `timedOutAt` to a date at least 24 hours later than now. The payment ignores a time-out that comes before its deadline.
 5. Click **Publish**.
@@ -178,7 +178,7 @@ The catalog shows the E-Commerce domain with four subdomains, one for each modul
 
 ![The context map in the catalog](./assets/howto/16-eventcatalog-context-map.png)
 
-The domain's **Diagram** draws the same map from the documents: the contexts and the messages between them. **Flows** › **Purchase** walks through the purchase step by step, with what the shop undoes when a step fails.
+The domain's **Diagram** draws the messages between the contexts, from the documents. **Flows** › **Purchase** walks through the purchase step by step, with what the shop undoes when a step fails. Each subdomain also has its dictionary of terms, under **Ubiquitous language**, and a page for its aggregate, such as **Order**, with its state and its state diagram.
 
 ![The domain diagram in the catalog](./assets/howto/17-eventcatalog-domain-diagram.png)
 
@@ -192,27 +192,49 @@ Each module is a service in its subdomain. A service page shows what the module 
 
 ## 11. Look at the purchase in Grafana
 
-The default start runs Grafana LGTM (Grafana with Tempo for traces, Loki for logs and Prometheus for metrics) with the other Docker Compose services. The `in-memory` profile doesn't start it, but it sends to it when it runs: start it with `docker compose --profile otel up -d`. After a purchase, open Grafana at <http://localhost:3000>. It needs no login.
+The application reports what it does as *traces*, *metrics* and *logs*. A trace follows one request through every module, as a tree of *spans*: one span for each step, with the time it took. Metrics count and time what happens. Logs are the application's log lines. [Seeing what happens](./README.md#seeing-what-happens-traces-metrics-and-logs) explains them.
 
-1. Find the purchase's correlation id. Every step of a purchase carries it: the spans as the attribute `messaging.message.correlation_id`, the log lines as the field `correlationId`. Open **Explore**, choose the **Tempo** data source and search with TraceQL, for example `{ span.eventdriven.command.type = "PlaceOrder" }` for the orders placed, or `{ span.eventdriven.stream.name = "Order-<order id>" }` for one order.
-2. Open the trace of the checkout. It goes from the HTTP request through every module: each `handle ...` span handles one message, and its `messaging.message.id`, `messaging.message.correlation_id` and `messaging.message.causation_id` say which message it was, which purchase it belongs to and which message caused it. Inside, a `command.handle` span shows the command (`eventdriven.command.type`), the stream, the versions before and after and the events it appended, and the `eventStore.readStream` and `eventStore.appendToStream` spans show the reads and appends. **Pay now** is a new HTTP request, so it starts a second trace with the same correlation id.
-3. Open the **Logs** of a span, or choose the **Loki** data source in **Explore**. Each log line has the `traceId` of its span.
-4. Open **Dashboards**. Three dashboards come with the sample, and each chart links to its traces in Tempo.
-5. Open **Alerting** › **Alert rules**. The folder **E-Commerce** holds the sample's rules, such as **Capture failed** and **Checkout broken**. Each rule shows **Normal** until what it watches happens, and **Firing** while it lasts.
+The default start runs Grafana LGTM with the other Docker Compose services: Grafana, with Tempo for the traces, Prometheus for the metrics and Loki for the logs. The `in-memory` profile doesn't start it, but it sends to it when it runs: start it with `docker compose --profile otel up -d`. After a purchase, open Grafana at <http://localhost:3000>. It needs no login. If Grafana doesn't run, the application works the same.
 
-**Purchases** counts what customers do and what goes wrong, from the events the modules append: orders placed, completed, canceled and closed unpaid, the payments and shipments, and, under **Watch out**, the failed commands, append conflicts, timeouts, dead letters and failed message handlers.
+### Find the purchase's traces
+
+A purchase has two traces: one from **Check out** and one from **Pay now**, because each click is a new HTTP request. Open **Explore**, choose the **Tempo** data source and search with TraceQL. `{ span.eventdriven.command.type = "PlaceOrder" }` finds the orders placed, and `{ span.eventdriven.stream.name = "Order-<order id>" }` finds both traces of one order.
+
+Open the trace of the checkout. It goes from the HTTP request through every module:
+
+- each `handle ...` span handles one message. Its `messaging.message.id` says which message it was, `messaging.message.correlation_id` which request it came from, and `messaging.message.causation_id` which message caused it;
+- inside it, a `command.handle` span shows the command (`eventdriven.command.type`), the stream, the stream's versions before and after, and the events it appended;
+- the `eventStore.readStream` and `eventStore.appendToStream` spans show each read and append.
+
+To see the log lines of a span, open its **Logs**, or choose the **Loki** data source in **Explore**. Each log line has the `traceId` of its span and the `correlationId` of its request.
+
+### Read the dashboards
+
+Open **Dashboards**. Three dashboards come with the sample, and each chart links to its traces in Tempo.
+
+**Purchases** counts what customers do and what goes wrong, from the events that the modules append: the orders placed, completed, canceled and closed unpaid, and the payments and shipments. Under **Watch out**, it shows the failed commands, append conflicts, timeouts, dead letters and failed message handlers. **Dead letters** and **Failed message handlers** show "No data" until a message fails.
 
 ![The Purchases dashboard](./assets/howto/13-grafana-purchases.png)
 
-**Commands and event store** shows how the command handlers and the event store work: commands by type and status, their latency, and the reads and appends of the event store. It has the same shape as Emmett's dashboard.
+Scroll down to **Business**. It shows the numbers a shop owner asks about: how many checkouts became orders, how many orders got paid, how many payments failed, how many reservations found a product out of stock, the revenue and the average order value, how many orders are still running or wait for the customer to pay again, and how long an order takes to be paid, sent and completed.
+
+![The Business row of the Purchases dashboard](./assets/howto/18-grafana-business.png)
+
+**Commands and event store** shows how the command handlers and the event store work: the commands by type and status, their latency, the reads and appends of the event store, and how far each subscription is behind the appends. It has the same shape as Emmett's dashboard.
 
 ![The Commands and event store dashboard](./assets/howto/14-grafana-commands-and-event-store.png)
 
-**Purchase flow** shows the messages published, handled and failed for each channel, and the dead letters.
+**Purchase flow** shows the messages published, handled and failed in each channel, and the dead letters.
 
 ![The Purchase flow dashboard](./assets/howto/15-grafana-purchase-flow.png)
 
-If Grafana doesn't run, the application works the same.
+### See the alert rules
+
+Open **Alerting** › **Alert rules** and choose **List**. The folder **E-Commerce** holds the sample's eight rules. Each says what it watches, such as **Capture failed**: a package left the warehouse, but the provider refused to charge. A rule shows **Normal** while what it watches doesn't happen. **Capture failed**, **Money lost** and **Dead letters** fire at once, because each of them means one customer or one message needs a person. The other rules watch rates, so they show **Pending** first and fire only when the rate stays bad for 2 or 5 minutes, which a single slow moment doesn't do. The [alerts table](./README.md#seeing-what-happens-traces-metrics-and-logs) in the README lists when each one fires.
+
+![The alert rules](./assets/howto/19-grafana-alert-rules.png)
+
+To see one fire, time out five payments as in [step 9](#9-make-a-payment-or-a-shipment-fail), within 15 minutes. **Payments failing** counts the payments that timed out, failed to capture or expired. It needs at least five payments in the last 15 minutes, with more than 20% of them failed. Then it shows **Pending**, and after 5 more minutes **Firing**.
 
 ## 12. Run the tests
 

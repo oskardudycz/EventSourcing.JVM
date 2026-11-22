@@ -4,10 +4,8 @@ import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertTha
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
-import com.microsoft.playwright.options.AriaRole;
 import io.eventdriven.testing.api.ApiE2ESpecification;
 import java.nio.file.Path;
 import java.util.List;
@@ -140,21 +138,6 @@ public abstract class BrowserE2ESpecification extends ApiE2ESpecification {
         return expectPage(current -> {
             for (var text : texts) assertThat(current.getByText(text)).hasCount(0);
         });
-    }
-
-    public Expectation expectLinks(String... names) {
-        return expectPage(current -> {
-            for (var name : names) assertThat(linkNamed(current, name)).isVisible();
-        });
-    }
-
-    public Expectation expectLink(String name, String href) {
-        return expectPage(current -> assertThat(linkNamed(current, name)).hasAttribute("href", href));
-    }
-
-    private static Locator linkNamed(Page page, String name) {
-        return page.getByRole(
-                AriaRole.LINK, new Page.GetByRoleOptions().setName(name).setExact(true));
     }
 
     public Expectation expectPageAt(String pathPattern) {

@@ -104,6 +104,10 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                                 handled("CheckOutShoppingCart"),
                                 span(
                                         "handle ShoppingCartCheckedOut",
+                                        processed("project", "projection", "ShoppingCartSummaries"),
+                                        processed("forward", "forwarder", "ShoppingCartExternalEventForwarder")),
+                                span(
+                                        "handle ShoppingCartCheckedOut",
                                         span(
                                                 "handle PlaceOrder",
                                                 span(
@@ -401,6 +405,12 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
         given(paidOrder, paymentProvider.refusesEverythingAfterAuthorizing(paymentId), sendsThePackage(shipmentId))
                 .when(time.passes(timeToPay.minusMinutes(1)))
                 .then(expectNothingPublished());
+    }
+
+    private static ExpectedSpan processed(String verb, String processorType, String processorName) {
+        return span(
+                verb + " " + processorName,
+                Map.of("eventdriven.processor.type", processorType, "eventdriven.processor.name", processorName));
     }
 
     private static ExpectedSpan handled(String commandType) {

@@ -16,6 +16,8 @@
     - [Delivering messages reliably](#delivering-messages-reliably)
     - [The payment provider and the fulfillment service](#the-payment-provider-and-the-fulfillment-service)
     - [The web API and the shop](#the-web-api-and-the-shop)
+    - [Running on real infrastructure or in memory](#running-on-real-infrastructure-or-in-memory)
+    - [Testing the application](#testing-the-application)
     - [Seeing what happens: traces, metrics and logs](#seeing-what-happens-traces-metrics-and-logs)
     - [Documenting the messages](#documenting-the-messages)
     - [Where the code lives](#where-the-code-lives)
@@ -32,9 +34,12 @@ The sample shows:
 - a purchase in an online shop, where a later step can fail after earlier steps have finished, and the finished steps have to be undone;
 - how modules send each other commands and events, and why each module keeps the events it shares apart from its own;
 - how to deliver messages without losing them when the application crashes, and without breaking anything when a message arrives twice;
+- a web API and shop pages that read views updated after each write, and that don't show the customer an error while a view catches up;
+- how to test the whole application from the outside, through its web API, its messages and its pages;
+- how to follow one purchase across the modules with traces, metrics and logs, and how to watch the shop with dashboards and alerts;
 - how to document the messages, so that other teams can find and use them.
 
-To try the online shop yourself, follow [HOWTO.md](./HOWTO.md).
+To try the purchase yourself, follow [HOWTO.md](./HOWTO.md). It takes you through the shop, the web API, the messages, the catalog and Grafana, step by step, with screenshots.
 
 ## Cross-module processes with compensation
 
@@ -45,8 +50,6 @@ The e-commerce sample shows such a process. One purchase goes through four modul
 A message is a command or an event. A *command* asks a module to do something, such as `CapturePayment`. The module decides, and it can ignore the command. An *event* records something that already happened, such as `PaymentCaptured`. Each module takes its commands through its *facade*: one class, such as `PaymentFacade`, with one method for each command.
 
 The modules use Event Sourcing: they store every change as an event, in an *event store*, instead of storing the current state. A module keeps its business rules in a *decider*, such as `OrderDecider` or `PaymentDecider`: a function that takes a command and the current state, checks the rules and returns the new events. The state is an immutable *entity*, such as `Order` or `Payment`, and its `evolve` function applies one event to it. Each entity's events form one *stream*, an ordered list, and adding events to it is called *appending*. To handle the next command, a `CommandHandler` reads the stream, rebuilds the entity's state from its events with `evolve`, calls the decider and appends the events that the decider returns.
-
-To try the purchase yourself, follow [HOWTO.md](./HOWTO.md). It takes you through the shop, the web API, the messages and the catalog, step by step, with screenshots.
 
 ### A purchase, from the customer's side
 
@@ -85,7 +88,7 @@ authorize the payment ──┐
 reserve the products  ──┘
 ```
 
-The two reservations end differently. An authorization lasts only for a limited time. Stripe says that an online card authorization is "usually valid for 7 days", and if it expires before the capture, "the funds are released and the payment status changes to `canceled`". So the customer is never charged for an order that the shop forgot. For the shop, the expiry is a deadline: it has to charge before it. The reserved products have no timer. Shopify calls them **committed**: "units that are part of a placed order but aren't yet fulfilled". They stay committed until the order ships or is canceled.
+The two reservations end differently. An authorization lasts only for a limited time. For online card payments, [Stripe](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method) keeps an authorization for 7 days on the major card networks. If it expires before the capture, the funds are released and the payment becomes `canceled`. So the customer is never charged for an order that the shop forgot. For the shop, the expiry is a deadline: it has to charge before it. The reserved products have no timer. Shopify calls them **committed**: "units that are part of a placed order but aren't yet fulfilled". They stay committed until the order ships or is canceled.
 
 The charge comes last on purpose. Shops that sell physical goods charge when the goods leave, not when the order is placed: Amazon charges the card when the item ships, and Shopify can charge when the order is fulfilled, that is, sent. So the customer is never charged for something that didn't ship. And an order that fails before the package leaves only has to release its two reservations. Nobody was charged, so there is nothing to refund. A payment that fails after the package left is a different case, described in [When a step fails](#when-a-step-fails).
 
@@ -237,7 +240,7 @@ The command that completes a step appends a second event in the same batch: `Ord
 Every decision is idempotent: a command that arrives twice, or too late, decides no events, so nothing is appended.
 
 ```java
-private OrderEvent[] recordPaymentAuthorization(RecordOrderPaymentAuthorization command, Order state) {
+public static OrderEvent[] recordPaymentAuthorization(RecordOrderPaymentAuthorization command, Order state) {
     var authorized = new OrderPaymentAuthorized(state.id(), command.paymentId(), command.authorizedAt());
 
     if (state.status() == Status.Opened && state.payment() == PaymentProgress.Pending)
@@ -262,7 +265,6 @@ public void onPackageWasSent(ShipmentExternalEvent.PackageWasSent event) {
             new Order.Id(event.referenceId()), event.carrier(), event.trackingNumber(), event.sentAt())));
 }
 
-// The shipment does not know the payment. The order does, and names it here.
 public void onOrderPaymentDue(OrderEvent.OrderPaymentDue event) {
     messageBus.publish(List.of(new PaymentCommand.CapturePayment(event.paymentId())));
 }
@@ -400,6 +402,10 @@ Each projection extends [Projection](./src/main/java/io/eventdriven/core/project
 
 ```java
 public class PaymentSummaries extends Projection<PaymentSummary, Payment.Id> {
+    public PaymentSummaries(PaymentSummaryRepository repository) {
+        super(repository);
+    }
+
     @Override
     public List<Class<?>> canHandle() {
         return List.of(PaymentAuthorizationRequested.class);
@@ -508,16 +514,15 @@ public class PaymentsConfig {
             PaymentGateway paymentGateway,
             Payment.Validity paymentValidity,
             Supplier<OffsetDateTime> now) {
-        var decider = new PaymentDecider(paymentValidity, now);
-        var commandHandler = new CommandHandler<Payment.Id, Payment, PaymentCommand, PaymentEvent>(
+        var commandHandler = new CommandHandler<Payment.Id, Payment, PaymentEvent>(
                 eventStore,
                 messageContext,
+                PaymentCommand.class,
                 PaymentFacade::mapToStreamId,
                 Payment::initial,
-                Payment::evolve,
-                decider::handle);
+                Payment::evolve);
 
-        var facade = new PaymentFacade(commandHandler, paymentGateway, now);
+        var facade = new PaymentFacade(commandHandler, paymentValidity, paymentGateway, now);
 
         messageBus
                 .subscribe(requests, AuthorizePayment.class, facade::authorizePayment)
@@ -562,7 +567,13 @@ A response goes back to whoever asked, without payments knowing who that is. Its
 
 A module that stores an event and then publishes a message has a problem: a crash between the two steps loses the message, or publishes a message for an event that was never stored. Two writes to two systems can't be made atomic without a distributed transaction. The *outbox pattern* solves this: the module writes the message to its own database in the same transaction as its data, and a separate process publishes it from there.
 
-With Event Sourcing, the event store already is that outbox. A facade only appends events. The subscribers (the projections, the forwarders, the saga, and the clients that call the payment provider and the fulfillment service) read the stored events and publish from there. Appending writes to the stream and to one global log, and every subscriber reads that log from its own checkpoint. [InMemoryEventStore](./src/main/java/io/eventdriven/core/eventstore/inmemory/InMemoryEventStore.java) delivers once the outermost append is done, entry by entry, to every subscriber that is behind. An event appended by a subscriber is delivered after the one it is handling, never in the middle of it. Against KurrentDB, [KurrentDBEventStore](./src/main/java/io/eventdriven/core/eventstore/kurrentdb/KurrentDBEventStore.java) subscribes to `$all`, KurrentDB's stream of all events, filtered by event type. Each subscription stores a checkpoint, the log position of the last event it handled, in the projections database (`processor_checkpoints`), and continues after it when the application starts. A projection saves its document change and its checkpoint in one transaction, so a failed checkpoint rolls the change back too. A forwarder publishes first and then stores the checkpoint, so a crash between the two publishes the message again, which the idempotent handlers absorb. A subscription whose handler fails stops and subscribes again from its checkpoint after a back-off delay. `eventstore.type=kurrentdb` selects this store. [PostgreSQLEventStore](./src/main/java/io/eventdriven/core/eventstore/postgresql/PostgreSQLEventStore.java) keeps the events in the `messages` table and the streams' versions in the `streams` table, and polls `messages`. An append is one call of the SQL function `append_to_stream`: it moves the stream's version only if it still equals the expected one, then writes all events with one insert, so one append is one round trip. Each message row stores the ID of the transaction that wrote it (`pg_current_xact_id()`). The poller reads only rows from transactions older than the oldest running one (`pg_snapshot_xmin(pg_current_snapshot())`), ordered by transaction ID and then global position, so it never passes a transaction that has not committed yet. Its checkpoint holds the transaction ID and the position, and compares the transaction ID first. `eventstore.type=postgresql` selects this store; it connects with its own `eventstore.postgresql.url`, `.username` and `.password`, so it also runs with the projections on H2. With H2 as the projections database the checkpoints are lost on restart, so the subscriptions read the whole log again.
+With Event Sourcing, the event store already is that outbox. A facade only appends events. The subscribers (the projections, the forwarders, the saga, and the clients that call the payment provider and the fulfillment service) read the stored events and publish from there. Appending writes to the stream and to one global log, and every subscriber reads that log from its own checkpoint. Each event store delivers the events in its own way:
+
+- [InMemoryEventStore](./src/main/java/io/eventdriven/core/eventstore/inmemory/InMemoryEventStore.java) delivers once the outermost append is done, entry by entry, to every subscriber that is behind. An event appended by a subscriber is delivered after the one it is handling, never in the middle of it.
+- [KurrentDBEventStore](./src/main/java/io/eventdriven/core/eventstore/kurrentdb/KurrentDBEventStore.java) subscribes to `$all`, KurrentDB's stream of all events, filtered by event type. `eventstore.type=kurrentdb` selects this store.
+- [PostgreSQLEventStore](./src/main/java/io/eventdriven/core/eventstore/postgresql/PostgreSQLEventStore.java) keeps the events in the `messages` table and the streams' versions in the `streams` table, and polls `messages`. An append is one call of the SQL function `append_to_stream`: it moves the stream's version only if it still equals the expected one, then writes all events with one insert, so one append is one round trip. Each message row stores the ID of the transaction that wrote it (`pg_current_xact_id()`). The poller reads only rows from transactions older than the oldest running one (`pg_snapshot_xmin(pg_current_snapshot())`), ordered by transaction ID and then global position, so it never passes a transaction that has not committed yet. Its checkpoint holds the transaction ID and the position, and compares the transaction ID first. `eventstore.type=postgresql` selects this store; it connects with its own `eventstore.postgresql.url`, `.username` and `.password`, so it also runs with the projections on H2. With H2 as the projections database the checkpoints are lost on restart, so the subscriptions read the whole log again.
+
+With KurrentDB and PostgreSQL, each subscription stores its checkpoint, the log position of the last event it handled, in the projections database (`processor_checkpoints`), and continues after it when the application starts. A projection saves its document change and its checkpoint in one transaction, so a failed checkpoint rolls the change back too. A forwarder publishes first and then stores the checkpoint, so a crash between the two publishes the message again, which the idempotent handlers absorb. A subscription whose handler fails stops and subscribes again from its checkpoint after a back-off delay.
 
 A subscriber that throws keeps its checkpoint. It gets nothing more in that run, and the next append delivers the same event to it again, before anything newer. The append itself does not fail: the event is stored, and the subscriber has to catch up. So each event reaches each subscriber at least once, and maybe more than once. That is called *at-least-once delivery*, and it is why every handler has to be idempotent.
 
@@ -588,6 +599,8 @@ public interface PaymentGateway {
     void capture(Payment.Id paymentId, double amount);
 
     void cancel(Payment.Id paymentId);
+
+    // ...
 }
 
 public interface FulfillmentService {
@@ -601,7 +614,9 @@ The rest of the provider's API is called by small clients that react to the paym
 
 [FulfillmentServiceClient](./src/main/java/io/eventdriven/ecommerce/shipments/fulfillment/FulfillmentServiceClient.java) sends the request to the fulfillment service when the shipment records `FulfillmentRequested`. The service answers later by sending a command back: `ConfirmPackageSent` with the carrier and the tracking number, or `RejectFulfillment`, and later `DeliverPackage`. If the call itself fails, nothing is recorded, and the order is canceled when the authorization expires.
 
-**The sandboxes.** When the application runs, sandboxes play both outside systems, so that you can go through a purchase without an account at a real provider. [SandboxPaymentGateway](./src/main/java/io/eventdriven/ecommerce/payments/sandbox/SandboxPaymentGateway.java) serves its own payment page, laid out like Stripe Checkout, and takes Stripe's test cards: 4242 4242 4242 4242 pays, and 4000 0000 0000 0002 is declined and stays on the page, so the customer can try again. The card number field suggests both cards. Paying sends `ConfirmPaymentAuthorization` with a 7-day `captureBefore`, as the webhook would, and sends the browser to the `successUrl`. A charge is confirmed at once. [SandboxWarehouse](./src/main/java/io/eventdriven/ecommerce/shipments/sandbox/SandboxWarehouse.java) plays the warehouse and its fulfillment service. It keeps the stock and the packages it was asked to send, and its page at `/sandbox/warehouse` lets a person decide: **Send** sends `ConfirmPackageSent` with the carrier "Sandbox Express", **Reject** sends `RejectFulfillment`, and **Deliver** sends `DeliverPackage`. A product marked out of stock makes the next reservation fail. The demo product "Limited edition trail shoes" is out of stock from the start. In the tests, test doubles play both systems and send the same commands.
+**The sandboxes.** When the application runs, sandboxes play both outside systems, so that you can go through a purchase without an account at a real provider. [SandboxPaymentGateway](./src/main/java/io/eventdriven/ecommerce/payments/sandbox/SandboxPaymentGateway.java) serves its own payment page, laid out like Stripe Checkout, and takes Stripe's test cards: 4242 4242 4242 4242 pays, and 4000 0000 0000 0002 is declined and stays on the page, so the customer can try again. The card number field suggests both cards. Paying sends `ConfirmPaymentAuthorization` with a 7-day `captureBefore`, as the webhook would, and sends the browser to the `successUrl`. A charge is confirmed at once.
+
+[SandboxWarehouse](./src/main/java/io/eventdriven/ecommerce/shipments/sandbox/SandboxWarehouse.java) plays the warehouse and its fulfillment service. It keeps the stock and the packages it was asked to send, and its page at `/sandbox/warehouse` lets a person play the warehouse: **Send** sends `ConfirmPackageSent` with the carrier "Sandbox Express", **Reject** sends `RejectFulfillment`, and **Deliver** sends `DeliverPackage`. A product marked out of stock makes the next reservation fail. The demo product "Limited edition trail shoes" is out of stock from the start. In the tests, test doubles play both systems and send the same commands.
 
 ### The web API and the shop
 
@@ -633,99 +648,17 @@ The customer's pages read views made only for them, named after Shopify's pages:
 
 `OrderStatus` is also the page that the provider returns the customer to, as both the `successUrl` and the `cancelUrl`. It offers "Pay now" while the payment waits for the customer, "Cancel order" until the order is confirmed, and "Retry payment" when a payment failed and the order can still be paid. "Pay now" carries the id of the payment that waits: the first one is derived from the order id, as the saga derives it, and the id of a payment made again comes in `OrderPaymentRetried`. The checkout-session endpoint sits under the order, so it builds both URLs from its own path and needs no lookup. The view only shows what the order would accept. The order still decides.
 
-**The shop.** The same flow is also served as server-rendered pages, with Thymeleaf. Each module serves its own pages next to its web API: [ShoppingCartPages](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCartPages.java) serves Products and Cart, and [OrderPages](./src/main/java/io/eventdriven/ecommerce/orders/OrderPages.java) serves Orders and Order status. [ShopPages](./src/main/java/io/eventdriven/ecommerce/shop/ShopPages.java) holds only what the modules share: the login and the page layout. The login asks only for a name and makes the customer id from it, so the same name always opens the same orders. A few demo products stand in for a catalog of products. The pages call the same facades and views as the web API. [ECommerceApplicationConfig](./src/main/java/io/eventdriven/ecommerce/ECommerceApplicationConfig.java) wires the running application: 7 days to pay a failed payment again (`OrderFacade.PaymentTerms.within`, Shopify's "Within 7 days"), 24 hours for a payment (`PaymentValidity`), and the three workers every minute.
+**The shop.** The same flow is also served as server-rendered pages, with Thymeleaf. Each module serves its own pages next to its web API: [ShoppingCartPages](./src/main/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCartPages.java) serves Products and Cart, and [OrderPages](./src/main/java/io/eventdriven/ecommerce/orders/OrderPages.java) serves Orders and Order status. [ShopPages](./src/main/java/io/eventdriven/ecommerce/shop/ShopPages.java) holds only what the modules share: the login and the page layout. The login asks only for a name and makes the customer id from it, so the same name always opens the same orders. A few demo products stand in for a catalog of products. The pages call the same facades and views as the web API. The running application gives the customer 7 days to pay a failed payment again (`OrderFacade.PaymentTerms.within`, Shopify's "Within 7 days", in [OrdersConfig](./src/main/java/io/eventdriven/ecommerce/orders/OrdersConfig.java)) and 24 hours for a payment (`Payment.Validity`, in [PaymentsConfig](./src/main/java/io/eventdriven/ecommerce/payments/PaymentsConfig.java)), and runs the three workers every minute.
 
-**Reading what you just wrote.** The views are updated after the write that changed them, so a read right after a write can come before its view has caught up. For example, the order status page opens right after the checkout, but the saga places the order a moment later. The application doesn't make the client try again. It waits on the server instead, as described in [Long-polling, how to make our async API synchronous](https://event-driven.io/en/long_polling_and_eventual_consistency/): [LongPolling](./src/main/java/io/eventdriven/core/projections/LongPolling.java) reads the view again, with a growing delay, for up to one second.
+**Reading what you just wrote.** The views are updated after the write that changed them, so a read right after a write can come before its view has caught up. For example, the order status page opens right after the checkout, but the saga places the order a moment later. The application doesn't make the client try again. It waits on the server instead, as described in [Long-polling, how to make our async API synchronous](https://event-driven.io/en/long_polling_and_eventual_consistency/): [LongPolling](./src/main/java/io/eventdriven/core/projections/LongPolling.java) reads the view again, with a growing delay, for up to one second. The server handles each request on a Java *virtual thread* (`spring.threads.virtual.enabled=true`). A virtual thread that waits gives its operating system thread back, so a request that waits for a view doesn't block the other requests.
 
 The web API uses the `ETag` for that. A read of the cart or the order status can send `If-None-Match` with the `ETag` of the version the client has already seen. The answer is then the first newer version, with its `ETag`, or `304 Not Modified` if nothing newer came within the second ([ConditionalRead](./src/main/java/io/eventdriven/core/http/ConditionalRead.java)). An order that exists, but whose view is still behind after the second, answers `503 Service Unavailable` with `Retry-After: 1`, so the client knows to ask again in a second. An order that doesn't exist answers `404 Not Found`.
 
 Browsers don't follow `Retry-After`, so the pages never answer `503`. The cart page waits for the version that the add, remove or checkout wrote. The order page waits for the order, and if it still isn't there, it says "Your order is being placed". From then on, [htmx](https://htmx.org/) keeps the page up to date: every second it asks for news with `If-None-Match`, and the server answers either the new order status, which htmx swaps into the page without reloading it, or `304`, after which nothing changes. A completed, canceled or closed order is shown without the polling, so the polling stops. The pages use htmx through [htmx-spring-boot](https://github.com/wimdeblauwe/htmx-spring-boot). Without JavaScript, the "being placed" page reloads itself every second instead.
 
-**Alerts.** Grafana loads eight alert rules from [observability/alerting/ecommerce.yaml](./observability/alerting/ecommerce.yaml). They watch the business, not the servers, because a server can look healthy while checkout is broken:
+### Running on real infrastructure or in memory
 
-| Alert | Fires when |
-|---|---|
-| Payments failing | more than 20% of at least 5 payments failed in 15 minutes |
-| Capture failed | a package left, but the provider refused to charge |
-| Money lost | an order closed unpaid, or a payment hold expired before the charge |
-| Checkout broken | customers checked out in 10 minutes, but no order was placed |
-| Views falling behind | the 95th percentile of the subscription lag is above 5 seconds for 5 minutes |
-| Dead letters | a message failed every retry |
-| Commands failing | more than 5% of the commands failed in 10 minutes |
-| HTTP errors | more than 1% of the requests answered with a server error in 5 minutes |
-
-The thresholds are a starting point: set yours from your own traffic. The rules have no contact point, so they show under **Alerting** in Grafana. Add one, such as Slack or e-mail, to be told.
-
-**Testing it.** The tests treat the application as a black box. They reach it the way the outside world does: the customer sends HTTP requests, the other modules, the payment provider and the warehouse send messages on the bus, and time passes for the workers. Then they check what the outside world can see: the response, the messages that the application published, and the trace. [ApiE2ESpecification](./src/test/java/io/eventdriven/testing/api/ApiE2ESpecification.java) is a port of [Emmett](https://github.com/event-driven-io/emmett)'s helper of the same name on Spring's `RestTestClient`, and [ApiE2ESpecificationTests](./src/test/java/io/eventdriven/testing/api/ApiE2ESpecificationTests.java) checks the helper itself.
-
-Each module with endpoints has one test class next to its controller, [ShoppingCartsApiTests](./src/test/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCartsApiTests.java) and [OrdersApiTests](./src/test/java/io/eventdriven/ecommerce/orders/OrdersApiTests.java), with a `@Nested` class per endpoint. A test sets the module up with named scenarios: arrays of steps named after the state they lead to. The orders get their order from the cart's `ShoppingCartCheckedOut`, as in production, not from the cart's endpoints:
-
-```java
-placedOrder = new TestStep[] {publish(checkedOut(customerId, cartId))};
-    orderWithFailedPayment =
-            scenario(placedOrder, publish(new PaymentFailed(orderId.value(), paymentId, time.now())));
-    orderWithOpenCheckout = scenario(placedOrder, payNow(customerId, orderId, paymentId));
-    paidOrder = scenario(
-            orderWithOpenCheckout,
-            publish(new ConfirmPaymentAuthorization(paymentId, time.now().plus(authorizationValidity))));
-    completedOrder = scenario(paidOrder, sendsThePackage(shipmentId));
-```
-
-```java
-@Test
-    public void retryOrderPayment_succeeds_withANewPaymentToAuthorize_afterThePaymentFailed() {
-        given(orderWithFailedPayment)
-                .when(retryOrderPayment(customerId, orderId))
-                .then(
-                        expectResponse(ACCEPTED),
-                        expectPublished(new AuthorizePayment(retriedPaymentId, orderId.value(), totalPrice)));
-    }
-```
-
-`expectResponse` checks the status, and optionally the headers and the part of the JSON body that the test names. `expectError` does the same for problem details. `expectPublished` checks the messages that the `when` step published, all of them and in their order, and `expectAppended` does the same for the events it appended. A test class sees only the messages it is about: `ShoppingCartsApiTests`, for example, looks only at the cart's external events. `send` and `publish` are the same step, a message arriving on the bus; a test uses `send` for a command, so it reads as what happens. A given request that fails stops the test before the `when` step, unless the scenario marks it as an `attempt`. The ids are known up front: the first order of a customer is `{customerId}-1`.
-
-The purchases across the modules are scenarios in [PurchaseTests](./src/test/java/io/eventdriven/ecommerce/PurchaseTests.java). [OutsideWorld](./src/test/java/io/eventdriven/ecommerce/OutsideWorld.java) plugs in a payment provider and a warehouse that a scenario can script, a movable clock and changeable prices. Next to the response and the messages, a scenario checks the trace with `expectTrace`: each expected span must be somewhere below its parent in a trace that the scenario's requests started. This one shows that the provider's confirmation, which arrives without a trace context, continues the trace that "Pay now" started:
-
-```java
-@Test
-    public void theProvidersConfirmationConfirmsTheOrderAndRequestsFulfillmentInThePayNowTrace() {
-        given(orderWithOpenCheckout)
-                .when(providerConfirms(paymentId))
-                .then(
-                        expectOnlyPublished(
-                                new ConfirmPaymentAuthorization(paymentId, now.plus(authorizationValidity)),
-                                new PaymentAuthorized(orderReference, paymentId, now),
-                                new RecordOrderPaymentAuthorization(orderId, paymentId, now),
-                                new RequestFulfillment(shipmentId)),
-                        expectTrace(span(
-                                "http post /customers/{customerId}/orders/{orderId}/payments/{paymentId}/checkout-session",
-                                span("handle ConfirmPaymentAuthorization", span("handle RequestFulfillment")))),
-                        outcome ->
-                                assertThat(warehouse.wasAskedToSend(shipmentId)).isTrue());
-    }
-```
-
-The same scenarios run on three setups: in memory ([PurchaseInMemoryTests](./src/test/java/io/eventdriven/ecommerce/PurchaseInMemoryTests.java)), on Kafka with KurrentDB and PostgreSQL ([PurchaseOnKafkaTests](./src/test/java/io/eventdriven/ecommerce/PurchaseOnKafkaTests.java)), and on RabbitMQ with PostgreSQL ([PurchaseOnRabbitMQTests](./src/test/java/io/eventdriven/ecommerce/PurchaseOnRabbitMQTests.java)). After each step, the test waits until the event store and the bus have caught up, because the handlers run after the request answered. Each round waits for the store, then the bus, then the store again, and the rounds repeat until one publishes nothing new. The workers aren't scheduled in the tests (`workers.scheduled=false`): `time.passes(...)` moves the clock and runs them, as the scheduler would. The browser tests extend [BrowserE2ESpecification](./src/test/java/io/eventdriven/testing/browser/BrowserE2ESpecification.java), the same specification in [Playwright](https://playwright.dev/java/) and Chromium. A step is what a person does on the pages, and [Customer](./src/test/java/io/eventdriven/ecommerce/shop/Customer.java) names those steps. Each browser step sends a `traceparent` header, so `expectTrace` follows the requests it made. Next to the other expectations, a test checks the page, and fails when the browser reports an error:
-
-```java
-given(paymentPage)
-        .when(customer.paysWithACardThatWorks())
-        .then(
-                expectPageShowing("Completed", "Sandbox Express"),
-                expectPageNotShowing("Pay now"),
-                expectUpdatedInPlace(),
-                expectNoFailedResponses());
-```
-
-[ShopInBrowserTests](./src/test/java/io/eventdriven/ecommerce/shop/ShopInBrowserTests.java) goes through the shop and takes the screenshots of [HOWTO.md](./HOWTO.md) with `screenshot(name)` steps. The browser tests run apart from the build, with `./gradlew e2eTest`, because they start Chromium.
-
-The application runs on real infrastructure by default: Kafka, KurrentDB and PostgreSQL. `./gradlew bootRun` starts them with Spring Boot's Docker Compose support, as [the HOWTO](./HOWTO.md#1-start-the-application) describes. The `in-memory` Spring profile switches the application back to the in-memory bus, event store and projections, with no Docker. The module tests and the in-memory purchase scenarios use that profile. The tests of the Kafka, RabbitMQ, KurrentDB and PostgreSQL implementations, and the purchase scenarios on Kafka and RabbitMQ, use the servers of the Docker Compose project when they run, and start them with [Testcontainers](https://testcontainers.com/) when they don't. So running them needs only Docker. A test class that starts the application on shared servers needs `@DirtiesContext` and `TestDatabases.newPostgreSQLDatabase()`, so that its projections and checkpoints don't mix with the ones of another class.
-
-In a dev container, stop the Docker Compose Kafka before you run the Kafka tests. In a dev container, Docker is the host's Docker, and the Compose Kafka advertises `localhost:9092`, which inside the container is the container itself. The tests find that Kafka and fail to reach it. Without it, they start their own Kafka.
-
-#### Three settings and the in-memory profile
-
-Three settings choose the implementations. Each has its default in `application.properties`:
+The application runs on real infrastructure by default: Kafka, KurrentDB and PostgreSQL. `./gradlew bootRun` starts them with Spring Boot's Docker Compose support, as [the HOWTO](./HOWTO.md#1-start-the-application) describes. Three settings choose the implementations. Each has its default in `application.properties`:
 
 | Setting | Values | Default |
 | --- | --- | --- |
@@ -733,7 +666,98 @@ Three settings choose the implementations. Each has its default in `application.
 | `eventstore.type` | `in-memory`, `kurrentdb`, `postgresql` | `kurrentdb` |
 | `projections.database` | `h2`, `postgresql` | `postgresql` |
 
-A value outside the list stops the start and names the setting. The modules don't change with the settings: they call the same `MessageBus` and `EventStore`. The `in-memory` profile sets all three to in memory (`h2` for the projections) and turns the Docker Compose support off.
+A value outside the list stops the start and names the setting. The modules don't change with the settings: they call the same `MessageBus` and `EventStore`. The `in-memory` Spring profile sets all three to in memory (`h2` for the projections) and turns the Docker Compose support off, so the application runs with no Docker.
+
+### Testing the application
+
+#### Module tests
+
+The tests treat the application as a black box. They reach it the way the outside world does: the customer sends HTTP requests, the other modules, the payment provider and the warehouse send messages on the bus, and time passes for the workers. Then they check what the outside world can see: the response, the messages that the application published, and the trace. [ApiE2ESpecification](./src/test/java/io/eventdriven/testing/api/ApiE2ESpecification.java) is a port of [Emmett](https://github.com/event-driven-io/emmett)'s helper of the same name on Spring's `RestTestClient`, and [ApiE2ESpecificationTests](./src/test/java/io/eventdriven/testing/api/ApiE2ESpecificationTests.java) checks the helper itself.
+
+Each module with endpoints has one test class next to its controller, [ShoppingCartsApiTests](./src/test/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCartsApiTests.java) and [OrdersApiTests](./src/test/java/io/eventdriven/ecommerce/orders/OrdersApiTests.java), with a `@Nested` class per endpoint. A test sets the module up with named scenarios: arrays of steps named after the state they lead to. The orders get their order from the cart's `ShoppingCartCheckedOut`, as in production, not from the cart's endpoints:
+
+```java
+placedOrder = new TestStep[] {publish(checkedOut(customerId, cartId))};
+orderWithFailedPayment =
+        scenario(placedOrder, publish(new PaymentFailed(orderId.value(), paymentId, time.now())));
+orderWithOpenCheckout = scenario(placedOrder, payNow(customerId, orderId, paymentId));
+paidOrder = scenario(
+        orderWithOpenCheckout,
+        publish(new ConfirmPaymentAuthorization(paymentId, time.now().plus(authorizationValidity))));
+completedOrder = scenario(paidOrder, sendsThePackage(shipmentId));
+```
+
+```java
+@Test
+public void retryOrderPayment_succeeds_withANewPaymentToAuthorize_afterThePaymentFailed() {
+    given(orderWithFailedPayment)
+            .when(retryOrderPayment(customerId, orderId))
+            .then(
+                    expectResponse(ACCEPTED),
+                    expectPublished(new AuthorizePayment(retriedPaymentId, orderId.value(), totalPrice)));
+}
+```
+
+`expectResponse` checks the status, and optionally the headers and the part of the JSON body that the test names. `expectError` does the same for problem details. `expectPublished` checks the messages that the `when` step published, all of them and in their order, and `expectAppended` does the same for the events it appended. A test class sees only the messages it is about: `ShoppingCartsApiTests`, for example, looks only at the cart's external events. `send` and `publish` are the same step, a message arriving on the bus; a test uses `send` for a command, so it reads as what happens. A given request that fails stops the test before the `when` step, unless the scenario marks it as an `attempt`. The ids are known up front: the first order of a customer is `{customerId}-1`.
+
+#### Purchases across the modules
+
+The purchases across the modules are scenarios in [PurchaseTests](./src/test/java/io/eventdriven/ecommerce/PurchaseTests.java). [OutsideWorld](./src/test/java/io/eventdriven/ecommerce/OutsideWorld.java) plugs in a payment provider and a warehouse that a scenario can script, a movable clock and changeable prices. Next to the response and the messages, a scenario checks the trace with `expectTrace`: each expected span must be somewhere below its parent in a trace that the scenario's requests started. This one shows that the provider's confirmation, which arrives without a trace context, continues the trace that "Pay now" started:
+
+```java
+@Test
+public void theProvidersConfirmationConfirmsTheOrderAndRequestsFulfillmentInThePayNowTrace() {
+    given(orderWithOpenCheckout)
+            .when(providerConfirms(paymentId))
+            .then(
+                    expectPublished(
+                            new ConfirmPaymentAuthorization(paymentId, now.plus(authorizationValidity)),
+                            new PaymentAuthorized(orderReference, paymentId, now),
+                            new RecordOrderPaymentAuthorization(orderId, paymentId, now),
+                            new RequestFulfillment(shipmentId)),
+                    expectTrace(span(
+                            "http post /customers/{customerId}/orders/{orderId}/payments/{paymentId}/checkout-session",
+                            span(
+                                    "handle ConfirmPaymentAuthorization",
+                                    handled("ConfirmPaymentAuthorization"),
+                                    span("handle RequestFulfillment", handled("RequestFulfillment"))))),
+                    expectCorrelatedTrace(),
+                    expectAppended("PaymentAuthorized", 1),
+                    expectAppended("OrderConfirmed", 1),
+                    expectMetric("ecommerce.order.lead.time", Map.of("ecommerce.order.stage", "paid"), 1),
+                    outcome ->
+                            assertThat(warehouse.wasAskedToSend(shipmentId)).isTrue());
+}
+```
+
+`handled(type)` is a shortcut of `PurchaseTests` for the `command.handle` span of a command that succeeded. `expectAppended(type, count)` and `expectMetric` check how much a metric grew during the `when` step: here, one more `PaymentAuthorized` and `OrderConfirmed` appended, and one more order that reached the paid stage. `expectCorrelatedTrace` is described in [Seeing what happens](#seeing-what-happens-traces-metrics-and-logs).
+
+The same scenarios run on three setups: in memory ([PurchaseInMemoryTests](./src/test/java/io/eventdriven/ecommerce/PurchaseInMemoryTests.java)), on Kafka with KurrentDB and PostgreSQL ([PurchaseOnKafkaTests](./src/test/java/io/eventdriven/ecommerce/PurchaseOnKafkaTests.java)), and on RabbitMQ with PostgreSQL ([PurchaseOnRabbitMQTests](./src/test/java/io/eventdriven/ecommerce/PurchaseOnRabbitMQTests.java)). After each step, the test waits until the event store and the bus have caught up, because the handlers run after the request answered. Each round waits for the store, then the bus, then the store again, and the rounds repeat until one publishes nothing new. The workers aren't scheduled in the tests (`workers.scheduled=false`): `time.passes(...)` moves the clock and runs them, as the scheduler would.
+
+#### Browser tests
+
+The browser tests extend [BrowserE2ESpecification](./src/test/java/io/eventdriven/testing/browser/BrowserE2ESpecification.java), the same specification in [Playwright](https://playwright.dev/java/) and Chromium. A step is what a person does on the pages, and [Customer](./src/test/java/io/eventdriven/ecommerce/shop/Customer.java) names those steps. Each browser step sends a `traceparent` header, so `expectTrace` follows the requests it made. Next to the other expectations, a test checks the page, and fails when the browser reports an error. This test, from [ShopTelemetryInBrowserTests](./src/test/java/io/eventdriven/ecommerce/ShopTelemetryInBrowserTests.java), shops on Kafka, KurrentDB and PostgreSQL, where the views catch up after the writes:
+
+```java
+@Test
+public void theWarehouseSendingThePackageCompletesTheOrderOnTheCustomersPageInPlace() {
+    given(paidOrder)
+            .when(warehouse.sendsThePackageOf(customer))
+            .then(
+                    expectPageShowing("Completed", "Sandbox Express"),
+                    expectPageNotShowing("Pay now"),
+                    expectUpdatedInPlace(),
+                    expectNoFailedResponses());
+}
+```
+
+`expectUpdatedInPlace` checks that the page changed without reloading. [ShopInBrowserTests](./src/test/java/io/eventdriven/ecommerce/shop/ShopInBrowserTests.java) goes through the shop and takes the screenshots of [HOWTO.md](./HOWTO.md) with `screenshot(name)` steps, and `ShopTelemetryInBrowserTests` takes the screenshots of the Grafana dashboards and alerts. The browser tests run apart from the build, with `./gradlew e2eTest`, because they start Chromium.
+
+#### Where the tests run
+
+The module tests and the in-memory purchase scenarios use the `in-memory` profile. The tests of the Kafka, RabbitMQ, KurrentDB and PostgreSQL implementations, and the purchase scenarios on Kafka and RabbitMQ, use the servers of the Docker Compose project when they run, and start them with [Testcontainers](https://testcontainers.com/) when they don't. So running them needs only Docker. A test class that starts the application on shared servers needs `@DirtiesContext` and `TestDatabases.newPostgreSQLDatabase()`, so that its projections and checkpoints don't mix with the ones of another class.
+
+In a dev container, stop the Docker Compose Kafka before you run the Kafka tests. In a dev container, Docker is the host's Docker, and the Compose Kafka advertises `localhost:9092`, which inside the container is the container itself. The tests find that Kafka and fail to reach it. Without it, they start their own Kafka.
 
 ### Seeing what happens: traces, metrics and logs
 
@@ -745,31 +769,69 @@ A purchase goes through four modules and two brokers, so the log of one module t
 
 The application sends all three over OTLP, OpenTelemetry's protocol. The Docker Compose services include Grafana LGTM, which receives them: Tempo keeps the traces, Prometheus the metrics and Loki the logs, and Grafana, at <http://localhost:3000>, shows them. If Grafana doesn't run, the application works the same, and the exporters stay quiet. [HOWTO.md](./HOWTO.md#11-look-at-the-purchase-in-grafana) walks through a purchase in Grafana.
 
-**What a trace shows.** The trace of a checkout starts with the HTTP request and goes through every module that the purchase reaches. Three kinds of spans come from this sample. Their names and attributes follow [Emmett](https://github.com/event-driven-io/emmett)'s, with the prefix `eventdriven.`:
+**What a trace shows.** The trace of a checkout starts with the HTTP request and goes through every module that the purchase reaches. Four kinds of spans come from this sample. Their names and attributes follow [Emmett](https://github.com/event-driven-io/emmett)'s, with the prefix `eventdriven.`:
 
 - `handle <message type>`, for each message that a subscription or a queue handles. Its attributes say which message it was (`messaging.message.id`), which purchase it belongs to (`messaging.message.correlation_id`) and which message caused it (`messaging.message.causation_id`).
+- `project <name>`, `forward <name>` and `react <name>`, below `handle <message type>`, for each processor that the subscription calls with that message, such as `project ShoppingCartSummaries` and then `forward ShoppingCartExternalEventForwarder`. `eventdriven.processor.type` says whether it is a projection, a forwarder or a reactor, and `eventdriven.processor.name` names its class. When one processor of a subscription fails, its own span shows the error.
 - `command.handle`, for each command that [CommandHandler](./src/main/java/io/eventdriven/core/commands/CommandHandler.java) handles: the command type, the stream, the stream's version before and after, the events it appended, and whether it succeeded. A failed command also marks its span as an error, with the exception.
 - `eventStore.readStream` and `eventStore.appendToStream`, for each read and append, in every event store: the stream, the events read or appended, and whether it succeeded or hit a version conflict.
 
-The same steps give the metrics:
+**Correlation and causation ids.** These ids are for tracing and diagnostics only. No business decision reads them. Each message and event carries three ids in its metadata:
+
+- its own *message id*;
+- a *correlation id*, shared by every message and event that one HTTP request led to, so you can find all of them;
+- a *causation id*: the id of the message that was being handled when this one was written, so you can see which message led to which.
+
+An HTTP request gets a new correlation id. So does a message that arrives without ids, with one exception: the commands that come from outside the application, the payment provider's answers, the warehouse's answers and the workers' timeouts, take over the ids of the last event in the stream they change. So one purchase has two correlation ids. **Check out** starts the first one. **Pay now** is a new HTTP request and starts the second one, and the provider's confirmation and everything after it continue that second one.
+
+While a message is handled, [MessageContext](./src/main/java/io/eventdriven/core/messaging/MessageContext.java) keeps its correlation and causation ids in the tracing *baggage*: values that travel with the trace context. Every event that the handler appends and every message that it publishes gets them from there. The event stores save them in each event's metadata (KurrentDB as `$correlationId` and `$causationId`), the brokers carry them in the message headers, and the next handler reads them back. Only the ids travel, not where an event is stored: the stream and its positions stay inside the module that owns them. A handler that runs again after a redelivery writes its messages with the same message ids, because each id is derived from the id of the message it handles.
+
+**Metrics.** The same steps also count and time what happens:
 
 - `eventdriven.command.handling.count` counts the commands by type and status, and the `eventdriven.command.handle` timer times them;
-- `eventdriven.eventstore.read.count` and `eventdriven.eventstore.append.count` count the reads and appends by status (`success`, `conflict` or `failure`), and timers of the same names without `.count` time them;
-- `eventdriven.event.appending.count` counts the appended events of each type. Counting the events is how the dashboards count orders, payments and shipments;
-- `eventdriven.subscription.lag` is the time from appending an event to a subscription handling it, for each subscription;
-- the orders module adds its business metrics, in [OrderMetrics](./src/main/java/io/eventdriven/ecommerce/orders/OrderMetrics.java): `ecommerce.order.revenue`, the amounts charged; `ecommerce.order.lead.time`, the time from placing an order to its payment, its package leaving and its completion, measured in the orders' own time; and two gauges that count the orders still running (`ecommerce.orders.in.progress`) and the orders waiting for the customer to pay again (`ecommerce.orders.awaiting.payment`).
+- `eventdriven.eventstore.read.count` and `eventdriven.eventstore.append.count` count the reads and appends by status (`success`, `conflict` or `failure`), and the timers of the same names without `.count` time them;
+- `eventdriven.event.appending.count` counts the appended events of each type. The dashboards count orders, payments and shipments with it;
+- `eventdriven.processor.handle` times each processor, by type and name;
+- `eventdriven.subscription.lag` is the time from appending an event to a subscription handling it.
 
-Prometheus computes `increase()` and `rate()` from the difference between two samples of a series. A series that starts at 1 has no earlier sample, so its first count doesn't show. That's why the counters register all their statuses at 0 the first time they count: the first conflict or failed command then shows as an increase, and an alert on it fires. [Axon](https://docs.axoniq.io/axon-framework-reference/4.10/monitoring/metrics/) does the same. The very first command of each type still starts at 1, so the totals since the start, such as **Commands handled**, use the counter's value itself, not `increase()`.
+**Business metrics.** The orders module adds the numbers a shop owner asks about, in [OrderMetrics](./src/main/java/io/eventdriven/ecommerce/orders/OrderMetrics.java):
 
-**How a purchase stays together.** Every message of a purchase carries the same *correlation id*. Each message also carries a *causation id*: the id of the message that was being handled when it was written. An HTTP request starts a new correlation id. While a message is handled, [MessageContext](./src/main/java/io/eventdriven/core/messaging/MessageContext.java) keeps both ids next to the trace context, as tracing *baggage*: values that travel with the trace. So every event the handler appends and every message it publishes takes them over. The event stores keep them in each event's metadata (KurrentDB as `$correlationId` and `$causationId`), the brokers carry them in the message headers, and the handler of the next message reads them back. Only the ids travel, not where an event is stored: the stream and its positions stay inside the module that owns them. A handler that runs again after a redelivery publishes its messages with the same ids, because each id is derived from the id of the message it handles, so the receivers can tell the repeat apart.
+- `ecommerce.order.revenue`: the amount charged for each order;
+- `ecommerce.order.lead.time`: how long an order took from being placed to being paid, to its package leaving, and to being completed;
+- `ecommerce.orders.in.progress`: how many orders are still running;
+- `ecommerce.orders.awaiting.payment`: how many orders wait for the customer to pay again.
+
+**Why the counters start at 0.** Prometheus shows how much a counter grew between two of its readings. A counter that appears for the first time at 1 has no earlier reading, so that first 1 never shows as growth. For a failed command, that would hide the first failure from the dashboards and the alerts. So the command and event store counters create all their statuses at 0 the first time they count anything, as [Axon](https://docs.axoniq.io/axon-framework-reference/4.10/monitoring/metrics/)'s `MessageCountingMonitor` creates its success, failure and ignored counters on the first message. The count of appended events of each type that a subscription handles also starts at 0, when the subscription starts, so the first `PaymentCaptureFailed` already fires **Capture failed**. The first command of each type still starts at 1, so the "since the start" totals, such as **Commands handled**, show the counter's value instead of its growth, as Emmett's dashboard does.
 
 **Dashboards.** Three dashboards come with the sample, from [observability/dashboards](./observability/dashboards):
 
-- **Purchases** counts what customers do and what goes wrong: orders, payments and shipments, and, under **Watch out**, the failed commands, version conflicts, timeouts, dead letters and failed message handlers. Under **Business**, it shows the numbers that payment and retail teams watch: how many checkouts became orders and how many orders got paid, the payment failures counted once per payment, the reservations that found a product out of stock, the revenue and the average order value, the orders still running, and how long an order takes to be paid, sent and completed;
+- **Purchases** counts what customers do and what goes wrong: orders, payments and shipments, and, under **Watch out**, the failed commands, version conflicts, timeouts, dead letters and failed message handlers. Under **Business**, it shows the business metrics: how many checkouts became orders and how many orders got paid, the payment failures counted once per payment, the reservations that found a product out of stock, the revenue and the average order value, the orders still running, and how long an order takes to be paid, sent and completed;
 - **Commands and event store** shows the command handlers, the event store and how far each subscription lags behind the appends, in the same shape as Emmett's dashboard;
 - **Purchase flow** shows the messages published, handled and failed in each channel.
 
-**Testing it.** [PurchaseTests](./src/test/java/io/eventdriven/ecommerce/PurchaseTests.java) checks the telemetry of the important purchases, on every setup. `expectTrace` checks the spans and their attributes, `expectCorrelatedTrace()` checks that the trace has one correlation id and that each span sits below the handling of the message that caused it, and `expectMetric` checks how much a metric grew. `expectCausation` checks the ids themselves, as the messages and events carry them: given a tree such as `published(cartCheckedOut(), sent(placeOrder(), appended(orderPlaced(), ...)))`, it checks that every message in it has the correlation id of the first one, and that each one's causation id is the id of the message above it. [OtlpExportTests](./src/test/java/io/eventdriven/ecommerce/OtlpExportTests.java) sends a purchase to a real Grafana LGTM and checks it with the expectations of [GrafanaApi](./src/test/java/io/eventdriven/testing/grafana/GrafanaApi.java). They wait until Grafana has the data, because the export is asynchronous:
+**Alerts.** Grafana loads eight alert rules from [observability/alerting/ecommerce.yaml](./observability/alerting/ecommerce.yaml). The first four watch the purchases themselves, because the servers can look healthy while customers can't buy. The other four watch the application: its views, its messages, its commands and its web API.
+
+| Alert | Fires when | Fires |
+|---|---|---|
+| Payments failing | more than 20% of at least 5 payments failed in 15 minutes | after 5 minutes |
+| Capture failed | a package left, but the provider refused to charge | at once |
+| Money lost | an order closed unpaid, or a payment hold expired before the charge | at once |
+| Checkout broken | customers checked out in 10 minutes, but no order was placed | after 2 minutes |
+| Views falling behind | the 95th percentile of the subscription lag is above 5 seconds | after 5 minutes |
+| Dead letters | a message failed every retry | at once |
+| Commands failing | more than 5% of the commands failed in 10 minutes | after 5 minutes |
+| HTTP errors | more than 1% of the requests answered with a server error in 5 minutes | after 5 minutes |
+
+A rule that fires at once watches something that needs a person every time it happens. A rule that waits watches a rate, and fires only when the rate stays bad, not on one slow moment. The thresholds are a starting point: set yours from your own traffic. The rules have no contact point, so they show only under **Alerting** in Grafana, as in [step 11 of the how-to](./HOWTO.md#see-the-alert-rules). Add a contact point, such as Slack or e-mail, to be told.
+
+**Testing it.** [PurchaseTests](./src/test/java/io/eventdriven/ecommerce/PurchaseTests.java) checks the telemetry of the important purchases, on every setup. `expectTrace` checks the spans and their attributes, and `expectMetric` checks how much a metric grew.
+
+Two more checks look at the correlation and causation ids, each from another side:
+
+- `expectCausation` reads the ids that the messages and events carry. Given a tree such as `published(cartCheckedOut(), sent(placeOrder(), appended(orderPlaced(), ...)))`, it checks that every message has the correlation id of the first one, and that each one's causation id is the id of the message above it.
+- `expectCorrelatedTrace()` reads the spans. It checks that all of them carry one correlation id, and that the span that handled each message sits below the span that handled the message that caused it.
+
+They catch different mistakes. If a broker loses the trace context but keeps the id headers, the ids are still right, and only the trace check fails. If an event store loses the ids when it saves an event, for example by not writing KurrentDB's `$causationId`, no span shows it, and only the id check fails, because it reads the events back from the store. [OtlpExportTests](./src/test/java/io/eventdriven/ecommerce/OtlpExportTests.java) sends a purchase to a real Grafana LGTM and checks it with the expectations of [GrafanaApi](./src/test/java/io/eventdriven/testing/grafana/GrafanaApi.java). They wait until Grafana has the data, because the export is asynchronous:
 
 ```java
 given(addProductItem(customerId, UUID.randomUUID(), 2))
@@ -796,7 +858,7 @@ given(addProductItem(customerId, UUID.randomUUID(), 2))
 **When something looks wrong.**
 
 - *Grafana shows nothing.* Check that the `otel-lgtm` service runs (`docker compose --profile otel up -d`) and that the application reaches it on port 4318 (`OTEL_HTTP_PORT`). The application sends metrics every 5 seconds.
-- *A purchase forms two traces.* That is expected: **Pay now** is a new HTTP request. Both traces have the same correlation id, so search for it.
+- *A purchase forms two traces.* That is expected: **Pay now** is a new HTTP request, with its own trace and its own correlation id. To find both, search by the order's stream: `{ span.eventdriven.stream.name = "Order-<order id>" }`.
 - *A trace stops at a broker.* The trace context travels in the message headers. In a `@SpringBootTest`, Spring Boot turns tracing off unless the test has `@AutoConfigureTracing`, and the trace then starts again at every broker.
 - *The API answers `503` with `Retry-After`.* A view is behind its write by more than a second. Ask again after the given seconds, and look at the failed commands and the append latency on **Commands and event store**.
 - *A panel shows no data after one purchase.* Prometheus needs two samples of a series to show an increase. The timers, such as the HTTP requests, start at 1, so their first request doesn't show. The next one does.
@@ -898,11 +960,43 @@ The generators connect the documents like this:
 - Each message's page is stored under the service that sends it: `AuthorizePayment` is in `orders-service/commands`, because the saga sends it.
 - **Each channel gets a page**, in [channels](./eventcatalog/channels/), with its address and the protocols that carry it: `parseChannels: true` in the configuration turns this on.
 
-Some pages are written by hand, because no document can say them. The [E-Commerce domain](./eventcatalog/domains/e-commerce/index.mdx) lists the four subdomains and explains the *context map*: which context publishes a language for the others, which one is the customer and which the supplier, and where an anti-corruption layer keeps an outside system's model out. EventCatalog draws the map itself, as its *system context map*, from a system page for each context, such as [orders-system](./eventcatalog/domains/orders/systems/orders-system/index.mdx), and for each [outside system](./eventcatalog/systems/). Each system names its service, its data stores in `containers`, its `relationships` with the pattern as the label, and the `actors` that use it. The domain's diagram draws the messages between the contexts, from the documents. The [purchase flow](./eventcatalog/domains/orders/flows/purchase/index.mdx) shows the steps of a purchase across the contexts, with the compensation when a step fails. Each subdomain's page starts with a short overview, which the generators keep, and has a *ubiquitous language*: a dictionary of the context's terms, such as hold, capture or compensation, in `ubiquitous-language.mdx` next to the subdomain. Each subdomain also has an *entity* page for its aggregate, such as [order](./eventcatalog/domains/orders/entities/order/index.mdx), with the aggregate's state. The order's `paymentId` and `shipmentId` refer to the other aggregates, so the *entity map* draws those links. The two [containers](./eventcatalog/containers/) are the data stores: the event store and the projections database. Each service names them in `writesTo` and `readsFrom`. The four modules run in one application and share both stores, but each module writes only its own streams and views.
+#### How the modules fit together
+
+The generated pages describe each module on its own: its endpoints and its messages. They don't say how the modules depend on each other, how a purchase goes through them, or what their words mean. No document in the code holds that, so this sample writes those pages by hand, in the same `eventcatalog` folder.
+
+**The context map.** Each module is a *bounded context*: a part of the shop with its own model and its own words. A *context map* shows how the contexts depend on each other. The sample uses the terms of [DDD-Crew's context mapping](https://github.com/ddd-crew/context-mapping):
+
+- *upstream* and *downstream*: the upstream context's changes affect the downstream one, and not the other way round;
+- *open host service* with a *published language* (OHS + PL): the upstream context offers a documented contract that anyone can use. Here that's each module's commands and external events, documented in its AsyncAPI document;
+- *anti-corruption layer* (ACL): the downstream context translates the upstream model into its own, so the upstream model doesn't leak in. Here that's `OrderSaga` for the orders module, and `PaymentGateway` and `FulfillmentService` for the outside systems;
+- *customer and supplier*: two teams where the downstream team's needs go into the upstream team's plans. Here the orders team is the customer of the payments and shipments teams.
+
+EventCatalog draws the map itself, as its *system context map*. Each context has a system page, such as [orders-system](./eventcatalog/domains/orders/systems/orders-system/index.mdx), and so does each [outside system](./eventcatalog/systems/). A system page names its service, its `relationships`, with the pattern as the label, and the `actors` that use it. The [E-Commerce domain](./eventcatalog/domains/e-commerce/index.mdx) page explains each relationship.
+
+![The context map in EventCatalog](./assets/howto/16-eventcatalog-context-map.png)
+
+**The purchase flow.** The [purchase flow](./eventcatalog/domains/orders/flows/purchase/index.mdx) shows the steps of a purchase across the contexts, with what the shop undoes when a step fails. Its page also has the sequence diagrams from this README.
+
+**Each context's own pages.** Each subdomain's page starts with a short overview, which the generators keep. Next to it:
+
+- `ubiquitous-language.mdx` is the context's dictionary: its words, such as *hold*, *capture* or *compensation*, and what each one means there;
+- an *entity* page describes the context's aggregate, such as [order](./eventcatalog/domains/orders/entities/order/index.mdx): its state and its state diagram. The order's `paymentId` and `shipmentId` point to the other aggregates, so EventCatalog's entity map draws those links.
+
+**The data stores.** EventCatalog calls data stores *containers*. The [two of them](./eventcatalog/containers/) are the event store and the projections database. The four modules run in one application and share both, but each module writes only its own streams and views. Each service lists them in `writesTo` and `readsFrom`, and each system in `containers`.
+
+#### Changing and checking the catalog
 
 The catalog is documentation as code: the pages in `domains` are kept in the repository, next to the hand-written [teams](./eventcatalog/teams/) and [users](./eventcatalog/users/) that own the services. Each service's `owners` in `eventcatalog.config.js` names its team. When the generators run again, they update the pages from the documents, but keep what the pages already have: each service's owners, each message's badges, and messages that are no longer in the documents. So after you change a service's `owners` or a controller's `@Tag`, or rename or remove a message, delete that service's folder, such as `domains/payments/services/payments-service`, and generate it again. Then add its `writesTo` and `readsFrom` back, as the other services have them. Don't delete the whole `domains` folder: it holds the hand-written pages too.
 
-`./gradlew eventCatalogTest` builds the catalog and checks it in Chromium with [Playwright](https://playwright.dev/): that the context map and the domain diagram draw the four contexts, that each subdomain holds its module and has its language, that each entity page lists the aggregate's state and the entity map links them, that the event store shows every module, that a channel page shows its address, that the purchase flow has its steps, that each service lists what it sends and receives and shows its team, that the listings have every command, event and query, that each document's page shows its endpoints or channels, and that the browser reports no errors. The CI build runs it and fails when the saved documents or the pages in `domains` don't match the code.
+`./gradlew eventCatalogTest` builds the catalog and checks it in Chromium with [Playwright](https://playwright.dev/). It checks that:
+
+- the context map and the domain diagram draw the four contexts, and each subdomain holds its module and has its dictionary;
+- each entity page lists the aggregate's state and draws its states, and the entity map links the aggregates;
+- the event store shows every module, a channel page shows its address, and the purchase flow has its steps and diagrams;
+- each service lists what it sends and receives and shows its team, and the listings have every command, event and query;
+- each document's page shows its endpoints or channels, and the browser reports no errors.
+
+The CI build runs it and fails when the saved documents or the pages in `domains` don't match the code.
 
 ### Where the code lives
 
@@ -928,5 +1022,4 @@ Each module keeps its entity, its decider, its events, its commands, its facade,
 - **A sent package has no return path.** Returns and refunds are a process of their own.
 - **Partial reservations do not exist.** A reservation covers every product or none.
 - **Money is a `double`.** Prices and totals are rounded to whole cents. A real shop would use a decimal type and a currency.
-- **The application is not built for many users.** The sample runs one purchase at a time on one Kafka, one KurrentDB and one PostgreSQL, with no cluster, no security and no scaling. It is for one person trying the flow, not for many users at once.
 - **A view can come back after a replay.** `Projection.handle` skips an event that a stored document has already applied, but a deleted document keeps no version. Replay an `OrderPaymentFailed` after its `OrderCompleted`, and the order is listed as awaiting payment again. Nothing breaks, because the worker wakes the order at its `dueAt` and a completed order appends nothing. But a versioned delete would keep it off the list.

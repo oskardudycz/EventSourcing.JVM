@@ -54,8 +54,7 @@ public class ShoppingCartsConfig {
             EventStore eventStore, CustomerShoppingCartRepository customerShoppingCartRepository) {
         var customerShoppingCarts = new CustomerShoppingCarts(customerShoppingCartRepository);
 
-        eventStore.subscribe(
-                "customer-shopping-carts", customerShoppingCarts.canHandle(), customerShoppingCarts::handle);
+        eventStore.subscribe("customer-shopping-carts", customerShoppingCarts);
 
         return customerShoppingCarts;
     }

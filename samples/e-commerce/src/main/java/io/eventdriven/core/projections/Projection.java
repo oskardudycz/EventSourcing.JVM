@@ -8,6 +8,11 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 public abstract class Projection<Document extends Versioned, Id extends EntityId> implements MessageProcessor {
+    @Override
+    public String kind() {
+        return "projection";
+    }
+
     private final ProjectionRepository<Document, Id> repository;
 
     protected Projection(ProjectionRepository<Document, Id> repository) {

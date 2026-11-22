@@ -35,6 +35,8 @@ Tutorial, practical samples and other resources about Event Sourcing in JVM. See
     - [Uniqueness](#uniqueness)
     - [Hotel Management: Group Checkout](#hotel-management-group-checkout)
     - [E-Commerce: Purchase with Compensation](#e-commerce-purchase-with-compensation)
+    - [Stream Metadata](#stream-metadata)
+    - [Talk: Shopping Cart](#talk-shopping-cart)
   - [Articles](#articles)
   - [Working on this repository](#working-on-this-repository)
     - [Dev container](#dev-container)
@@ -318,7 +320,7 @@ The workshop teaches the event store basics by showing how to build your own Eve
 
 ## Samples
 
-See also fully working, real-world samples of Event Sourcing and CQRS applications in [Samples folder](./samples/event-sourcing-kurrentdb-simple).
+See also fully working, real-world samples of Event Sourcing and CQRS applications in the [samples folder](./samples/). Each sample is a separate Gradle build with its own README.
 
 Samples are using CQRS architecture. They're sliced based on the business modules and operations. Read more about the assumptions in ["How to slice the codebase effectively?"](https://event-driven.io/en/how_to_slice_the_codebase_effectively/?utm_source=event_sourcing_jvm).
 
@@ -401,11 +403,19 @@ Shows how to handle a distributed process across modules of an online shop, wher
 - compensating failures,
 - internal vs external events,
 - channels and queues on Kafka and RabbitMQ,
-- delivering messages reliably with the event store as outbox,
-- tracing a purchase in Grafana,
-- documenting the messages in EventCatalog.
+- delivering messages reliably with the event store as outbox, on KurrentDB, PostgreSQL or in memory,
+- a web API and shop pages that read eventually consistent views without showing errors,
+- testing the whole application from the outside: its web API, its messages and its pages in a browser,
+- tracing a purchase in Grafana, with dashboards, business metrics and alerts,
+- documenting the messages and the context map in EventCatalog.
 
-Read more in [No, it can never happen!](https://event-driven.io/en/no_it_can_never_happen/?utm_source=event_sourcing_jvm).
+[HOWTO.md](./samples/e-commerce/HOWTO.md) takes you through one purchase, step by step. Read more in [No, it can never happen!](https://event-driven.io/en/no_it_can_never_happen/?utm_source=event_sourcing_jvm).
+
+### [Stream Metadata](./samples/stream-metadata/)
+Shows, as tests, how KurrentDB's stream metadata limits what a stream read returns: `$maxCount` keeps the last events, `$maxAge` keeps the events younger than a given age, and `$tb` (truncate before) hides the events before a position.
+
+### [Talk: Shopping Cart](./samples/talk/)
+The shopping cart code used in a talk: its commands, events and command handler, stored in KurrentDB.
 
 ## Articles
 

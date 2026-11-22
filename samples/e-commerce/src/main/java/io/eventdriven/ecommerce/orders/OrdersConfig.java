@@ -139,8 +139,7 @@ public class OrdersConfig {
             EventStore eventStore, OrderAwaitingPaymentRepository orderAwaitingPaymentRepository) {
         var ordersAwaitingPayment = new OrdersAwaitingPayment(orderAwaitingPaymentRepository);
 
-        eventStore.subscribe(
-                "orders-awaiting-payment", ordersAwaitingPayment.canHandle(), ordersAwaitingPayment::handle);
+        eventStore.subscribe("orders-awaiting-payment", ordersAwaitingPayment);
 
         return ordersAwaitingPayment;
     }

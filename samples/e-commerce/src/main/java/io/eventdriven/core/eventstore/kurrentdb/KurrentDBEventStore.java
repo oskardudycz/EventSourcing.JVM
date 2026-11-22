@@ -13,6 +13,7 @@ import io.eventdriven.core.messaging.MessageMetadata;
 import io.eventdriven.core.messaging.MessageSource;
 import io.eventdriven.core.messaging.MessageValues;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
+import io.eventdriven.core.processing.MessageProcessor;
 import io.eventdriven.core.subscriptions.SubscriptionCheckpoints;
 import io.kurrent.dbclient.*;
 import io.micrometer.observation.Observation;
@@ -116,6 +117,11 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
         } finally {
             observation.stop();
         }
+    }
+
+    @Override
+    public Subscription subscribe(String name, MessageProcessor... processors) {
+        return subscribe(name, MessageProcessor.canHandle(processors), MessageProcessor.handle(context, processors));
     }
 
     @Override

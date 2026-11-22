@@ -14,6 +14,7 @@ import io.eventdriven.core.messaging.MessageSource;
 import io.eventdriven.core.messaging.MessageValues;
 import io.eventdriven.core.messaging.UnreadableMessageException;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
+import io.eventdriven.core.processing.MessageProcessor;
 import io.eventdriven.core.subscriptions.SubscriptionCheckpoints;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
@@ -214,6 +215,11 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
         } catch (SQLException e) {
             return new AppendResult.UnexpectedFailure(e);
         }
+    }
+
+    @Override
+    public Subscription subscribe(String name, MessageProcessor... processors) {
+        return subscribe(name, MessageProcessor.canHandle(processors), MessageProcessor.handle(context, processors));
     }
 
     @Override

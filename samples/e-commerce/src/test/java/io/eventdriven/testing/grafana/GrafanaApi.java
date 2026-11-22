@@ -52,13 +52,13 @@ public final class GrafanaApi {
         return body == null ? json.missingNode() : json.readTree(body);
     }
 
-    public List<JsonNode> prometheus(String query) {
+    private List<JsonNode> prometheus(String query) {
         var found = new ArrayList<JsonNode>();
         prometheusResponse(query).path("data").path("result").forEach(found::add);
         return found;
     }
 
-    public JsonNode prometheusResponse(String query) {
+    private JsonNode prometheusResponse(String query) {
         return get(proxied("prometheus", "/api/v1/query", "query", query));
     }
 
@@ -76,7 +76,7 @@ public final class GrafanaApi {
         return ids;
     }
 
-    public List<String> logLines(String logQl) {
+    private List<String> logLines(String logQl) {
         var lines = new ArrayList<String>();
         get(proxied("loki", "/loki/api/v1/query_range", "query", logQl))
                 .path("data")
@@ -94,7 +94,7 @@ public final class GrafanaApi {
                 .toUriString();
     }
 
-    public List<RecordedSpan> spansOf(String traceId) {
+    private List<RecordedSpan> spansOf(String traceId) {
         var spans = new ArrayList<RecordedSpan>();
         get("/api/datasources/proxy/uid/tempo/api/traces/" + traceId)
                 .path("batches")
@@ -167,10 +167,36 @@ public final class GrafanaApi {
     /** Saves a screenshot of the dashboard once its charts are drawn. */
     public void screenshotOf(Page page, String dashboardUid, Path file) {
         page.setViewportSize(1400, 1700);
+        openDashboard(page, dashboardUid);
+        page.screenshot(new Page.ScreenshotOptions().setPath(file));
+    }
+
+    /** Takes the screenshot of one row of the dashboard, with the row at the top of the view. */
+    public void screenshotOfRow(Page page, String dashboardUid, String rowTitle, String aPanel, Path file) {
+        page.setViewportSize(1400, 900);
+        openDashboard(page, dashboardUid);
+        page.getByText(rowTitle, new Page.GetByTextOptions().setExact(true))
+                .first()
+                .evaluate("row => row.scrollIntoView({block: 'start'})");
+        page.getByText(aPanel).first().waitFor();
+        page.getByText("Refresh", new Page.GetByTextOptions().setExact(true)).waitFor();
+        page.waitForLoadState(LoadState.NETWORKIDLE);
+        page.screenshot(new Page.ScreenshotOptions().setPath(file));
+    }
+
+    /** Takes the screenshot of the alert rules in the given folder. */
+    public void screenshotOfAlertRules(Page page, String folder, String aRule, Path file) {
+        page.setViewportSize(1400, 980);
+        page.navigate(grafana.url() + "/alerting/list?view=list&search=namespace:" + folder);
+        page.getByText(aRule).first().waitFor();
+        page.waitForLoadState(LoadState.NETWORKIDLE);
+        page.screenshot(new Page.ScreenshotOptions().setPath(file));
+    }
+
+    private void openDashboard(Page page, String dashboardUid) {
         page.navigate(grafana.url() + "/d/" + dashboardUid + "?orgId=1&from=now-15m&to=now&kiosk");
         page.waitForLoadState(LoadState.NETWORKIDLE);
         page.locator("canvas").first().waitFor();
-        page.screenshot(new Page.ScreenshotOptions().setPath(file));
     }
 
     /** The PromQL query answers a value above zero. */

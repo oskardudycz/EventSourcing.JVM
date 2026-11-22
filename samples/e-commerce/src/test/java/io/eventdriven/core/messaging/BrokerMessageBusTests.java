@@ -15,11 +15,14 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -233,5 +236,30 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
 
         messageBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
+    }
+
+    @Test
+    public void stoppingWhileAConsumerIsHandlingAMessageReturnsAtOnceAndCallsBackWhenTheConsumerHasFinished()
+            throws InterruptedException {
+        var handling = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        messageBus.subscribe(orders, OrderPlaced.class, event -> {
+            handling.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        messageBus.publish(List.of(new OrderPlaced("order-1")));
+        assertThat(handling.await(30, TimeUnit.SECONDS)).isTrue();
+        var stopped = new CountDownLatch(1);
+
+        ((SmartLifecycle) messageBus).stop(stopped::countDown);
+
+        assertThat(stopped.getCount()).isEqualTo(1);
+        release.countDown();
+        assertThat(stopped.await(30, TimeUnit.SECONDS)).isTrue();
+        assertThat(((SmartLifecycle) messageBus).isRunning()).isFalse();
     }
 }

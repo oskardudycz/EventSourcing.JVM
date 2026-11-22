@@ -22,6 +22,7 @@ import io.eventdriven.ecommerce.shipments.external.ShipmentExternalEvent;
 import io.eventdriven.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed;
 import io.eventdriven.testing.api.ApiE2ESpecification;
 import io.eventdriven.testing.eventstore.RecordedEventsConfiguration;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -87,6 +88,13 @@ public class ShipmentsApiTests extends ApiE2ESpecification {
         }
 
         @Test
+        public void reserveStock_doesNotAskTheFulfillmentServiceYet() {
+            given().when(send(new ReserveStock(referenceId, products)))
+                    .then(outcome ->
+                            assertThat(warehouse.requestsFor(shipmentId)).isEmpty());
+        }
+
+        @Test
         public void reserveStock_changesNothing_forTheSameReferenceAgain() {
             given(reservedStock)
                     .when(send(new ReserveStock(referenceId, products)))
@@ -103,8 +111,39 @@ public class ShipmentsApiTests extends ApiE2ESpecification {
                     .then(
                             expectAppended(new FulfillmentRequested(shipmentId, products, time.now())),
                             expectNothingPublished(),
-                            outcome -> assertThat(warehouse.wasAskedToSend(shipmentId))
-                                    .isTrue());
+                            outcome -> assertThat(warehouse.requestsFor(shipmentId))
+                                    .containsExactly(List.of(products)));
+        }
+
+        @Test
+        public void requestFulfillment_keepsTheRequestWithoutTellingAnyone_whenTheFulfillmentServiceIsUnreachable() {
+            given(reservedStock, warehouse.isUnreachableFor(shipmentId))
+                    .when(send(new RequestFulfillment(shipmentId)))
+                    .then(
+                            expectAppended(new FulfillmentRequested(shipmentId, products, time.now())),
+                            expectNothingPublished());
+        }
+
+        @Test
+        public void requestFulfillment_changesNothing_forARequestedFulfillment() {
+            given(requestedFulfillment)
+                    .when(send(new RequestFulfillment(shipmentId)))
+                    .then(
+                            expectNothingAppended(),
+                            expectNothingPublished(),
+                            outcome -> assertThat(warehouse.requestsFor(shipmentId))
+                                    .hasSize(1));
+        }
+
+        @Test
+        public void requestFulfillment_changesNothing_whenAProductWasOutOfStock() {
+            given(warehouse.isOutOf(shoes.productId()), send(new ReserveStock(referenceId, products)))
+                    .when(send(new RequestFulfillment(shipmentId)))
+                    .then(
+                            expectNothingAppended(),
+                            expectNothingPublished(),
+                            outcome -> assertThat(warehouse.requestsFor(shipmentId))
+                                    .isEmpty());
         }
 
         @Test
@@ -160,6 +199,13 @@ public class ShipmentsApiTests extends ApiE2ESpecification {
         @Test
         public void releaseStock_putsTheProductsBackWithoutTellingAnyone_forReservedStock() {
             given(reservedStock)
+                    .when(send(new ReleaseStock(shipmentId)))
+                    .then(expectAppended(new StockReleased(shipmentId, time.now())), expectNothingPublished());
+        }
+
+        @Test
+        public void releaseStock_putsTheProductsBack_whenTheFulfillmentServiceWasUnreachable() {
+            given(reservedStock, warehouse.isUnreachableFor(shipmentId), send(new RequestFulfillment(shipmentId)))
                     .when(send(new ReleaseStock(shipmentId)))
                     .then(expectAppended(new StockReleased(shipmentId, time.now())), expectNothingPublished());
         }

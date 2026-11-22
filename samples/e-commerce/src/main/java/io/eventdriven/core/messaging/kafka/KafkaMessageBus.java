@@ -15,6 +15,7 @@ import io.eventdriven.core.messaging.RoutingPattern;
 import io.eventdriven.core.messaging.RoutingTarget;
 import io.eventdriven.core.messaging.UnreadableMessageException;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
+import io.eventdriven.core.processing.MessageProcessor;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import java.nio.charset.StandardCharsets;
@@ -34,6 +35,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
@@ -234,6 +236,11 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     private record Prepared(ProducerRecord<String, byte[]> record, MessageValues values) {}
 
     @Override
+    public MessageBus subscribe(String queue, MessageProcessor... processors) {
+        return subscribe(queue, MessageProcessor.canHandle(processors), MessageProcessor.handle(context, processors));
+    }
+
+    @Override
     public KafkaMessageBus subscribe(String queue, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {
         for (var type : types)
             queues.computeIfAbsent(queue, ignored -> new ConcurrentHashMap<>())
@@ -269,9 +276,8 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
 
     @Override
     public void stop() {
-        running = false;
-        var stopped = new CountDownLatch(containers.size());
-        containers.forEach(container -> container.stop(stopped::countDown));
+        var stopped = new CountDownLatch(1);
+        stop(stopped::countDown);
 
         try {
             if (!stopped.await(STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS))
@@ -280,6 +286,20 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Stopping the Kafka consumers was interrupted", e);
         }
+    }
+
+    @Override
+    public void stop(Runnable callback) {
+        running = false;
+        var remaining = new AtomicInteger(containers.size());
+        if (remaining.get() == 0) {
+            callback.run();
+            return;
+        }
+
+        containers.forEach(container -> container.stop(() -> {
+            if (remaining.decrementAndGet() == 0) callback.run();
+        }));
     }
 
     @Override

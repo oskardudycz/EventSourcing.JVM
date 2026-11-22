@@ -112,19 +112,11 @@ public class Customer {
         return shop.untilThePageShows(progress);
     }
 
-    public TestStep opensTheDeveloperTools() {
-        return shop.inBrowser(page -> page.getByText("Developer tools").click());
-    }
-
     public TestStep opensOrders() {
         return shop.inBrowser(page -> page.getByRole(
                         AriaRole.LINK,
                         new Page.GetByRoleOptions().setName("Orders").setExact(true))
                 .click());
-    }
-
-    public TestStep logsOut() {
-        return shop.inBrowser(page -> button(page, "Log out").click());
     }
 
     private static com.microsoft.playwright.Locator payButton(Page page) {

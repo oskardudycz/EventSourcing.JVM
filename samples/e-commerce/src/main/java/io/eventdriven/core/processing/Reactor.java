@@ -1,4 +1,9 @@
 package io.eventdriven.core.processing;
 
 /** Reacts to messages with side effects, for example by calling an outside service. */
-public interface Reactor extends MessageProcessor {}
+public interface Reactor extends MessageProcessor {
+    @Override
+    default String kind() {
+        return "reactor";
+    }
+}
