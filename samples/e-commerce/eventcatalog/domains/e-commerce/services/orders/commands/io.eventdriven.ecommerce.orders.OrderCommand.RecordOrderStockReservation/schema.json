@@ -1,0 +1,30 @@
+{
+  "title": "RecordOrderStockReservation",
+  "type": "object",
+  "properties": {
+    "orderId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-29>"
+    },
+    "reservedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-30>"
+    },
+    "shipmentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-31>"
+    }
+  },
+  "description": "Records that the warehouse set aside the order's products.",
+  "examples": [
+    {
+      "orderId": "string",
+      "reservedAt": "2015-07-20T15:49:04-07:00",
+      "shipmentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.orders.OrderCommand.RecordOrderStockReservation"
+}

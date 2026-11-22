@@ -1,0 +1,83 @@
+{
+  "title": "PlaceOrder",
+  "type": "object",
+  "properties": {
+    "cartId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-3>"
+    },
+    "customerId": {
+      "type": "string",
+      "format": "uuid",
+      "x-parser-schema-id": "<anonymous-schema-4>"
+    },
+    "now": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-5>"
+    },
+    "orderId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-6>"
+    },
+    "productItems": {
+      "title": "PricedProductItem[]",
+      "type": "array",
+      "items": {
+        "title": "PricedProductItem",
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid",
+            "x-parser-schema-id": "<anonymous-schema-8>"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "x-parser-schema-id": "<anonymous-schema-9>"
+          },
+          "unitPrice": {
+            "type": "number",
+            "format": "double",
+            "x-parser-schema-id": "<anonymous-schema-10>"
+          }
+        },
+        "examples": [
+          {
+            "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "quantity": 0,
+            "unitPrice": 1.1
+          }
+        ],
+        "x-parser-schema-id": "io.eventdriven.ecommerce.orders.Order.PricedProductItem"
+      },
+      "x-parser-schema-id": "<anonymous-schema-7>"
+    },
+    "totalPrice": {
+      "type": "number",
+      "format": "double",
+      "x-parser-schema-id": "<anonymous-schema-11>"
+    }
+  },
+  "description": "Places an order for the products of a checked-out shopping cart, at the prices of the checkout.",
+  "examples": [
+    {
+      "cartId": "string",
+      "customerId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "now": "2015-07-20T15:49:04-07:00",
+      "orderId": "string",
+      "productItems": [
+        {
+          "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+          "quantity": 0,
+          "unitPrice": 1.1
+        }
+      ],
+      "totalPrice": 1.1
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.orders.OrderCommand.PlaceOrder"
+}

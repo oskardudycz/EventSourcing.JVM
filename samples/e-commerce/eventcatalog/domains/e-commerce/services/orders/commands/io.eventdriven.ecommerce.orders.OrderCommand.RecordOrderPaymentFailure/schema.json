@@ -1,0 +1,36 @@
+{
+  "title": "RecordOrderPaymentFailure",
+  "type": "object",
+  "properties": {
+    "dueAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-22>"
+    },
+    "failedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-23>"
+    },
+    "orderId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-24>"
+    },
+    "paymentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-25>"
+    }
+  },
+  "description": "Records that the order's payment failed.",
+  "examples": [
+    {
+      "dueAt": "2015-07-20T15:49:04-07:00",
+      "failedAt": "2015-07-20T15:49:04-07:00",
+      "orderId": "string",
+      "paymentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.orders.OrderCommand.RecordOrderPaymentFailure"
+}

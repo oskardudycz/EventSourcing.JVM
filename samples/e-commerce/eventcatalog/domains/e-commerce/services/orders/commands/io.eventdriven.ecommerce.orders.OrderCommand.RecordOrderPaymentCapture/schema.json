@@ -1,0 +1,30 @@
+{
+  "title": "RecordOrderPaymentCapture",
+  "type": "object",
+  "properties": {
+    "capturedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-19>"
+    },
+    "orderId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-20>"
+    },
+    "paymentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-21>"
+    }
+  },
+  "description": "Records that the customer was charged for the order.",
+  "examples": [
+    {
+      "capturedAt": "2015-07-20T15:49:04-07:00",
+      "orderId": "string",
+      "paymentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.orders.OrderCommand.RecordOrderPaymentCapture"
+}

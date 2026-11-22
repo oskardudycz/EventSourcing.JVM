@@ -10,7 +10,7 @@ To add a skill, write `SKILL.md` with `name` and `description` in the front matt
 
 ## Change check
 
-Each sample and each workshop folder is a separate Gradle build, for example `samples/distributed-processes` or `workshops/introduction-to-event-sourcing/solved`. When the agent edits a file, the hook finds the nearest folder with `gradlew` below the repository root, for example `samples/distributed-processes` for a file in `samples/distributed-processes/src/main/java`, and records it for the session. When the agent stops, the hook runs `./gradlew spotlessApply` and then `./gradlew testClasses` in each recorded folder. Edits outside any Gradle build, such as the root `README.md` or `.agents`, do not trigger a check. The hooks do not use `git diff`, because you can have your own uncommitted changes that the agent did not make.
+Each sample and each workshop folder is a separate Gradle build, for example `samples/e-commerce` or `workshops/introduction-to-event-sourcing/solved`. When the agent edits a file, the hook finds the nearest folder with `gradlew` below the repository root, for example `samples/e-commerce` for a file in `samples/distributed-processes/src/main/java`, and records it for the session. When the agent stops, the hook runs `./gradlew spotlessApply` and then `./gradlew testClasses` in each recorded folder. Edits outside any Gradle build, such as the root `README.md` or `.agents`, do not trigger a check. The hooks do not use `git diff`, because you can have your own uncommitted changes that the agent did not make.
 
 ```mermaid
 flowchart TD

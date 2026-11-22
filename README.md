@@ -33,7 +33,8 @@ Tutorial, practical samples and other resources about Event Sourcing in JVM. See
       - [Tools used](#tools-used)
     - [Event Versioning](#event-versioning)
     - [Uniqueness](#uniqueness)
-    - [Distributed Processes](#distributed-processes)
+    - [Hotel Management: Group Checkout](#hotel-management-group-checkout)
+    - [E-Commerce: Purchase with Compensation](#e-commerce-purchase-with-compensation)
   - [Articles](#articles)
   - [Working on this repository](#working-on-this-repository)
     - [Dev container](#dev-container)
@@ -387,16 +388,24 @@ Shows how to handle unique constraint checks in an event-sources system. Explain
 
 Read more in [How to ensure uniqueness in Event Sourcing](https://event-driven.io/en/uniqueness-in-event-sourcing/?utm_source=event_sourcing_jvm).
 
-### [Distributed Processes](./samples/distributed-processes/)
-Shows how to handle distributed processes in Event Sourcing in practice. Explains various use cases, like:
-- batch processing,
-- saga vs process managers,
-- distributed processes in the single module and across boundaries,
-- internal vs external events,
-- compensating failures,
-- implementation of command and event bus in KurrentDB.
+### [Hotel Management: Group Checkout](./samples/hotel-management/)
+Shows how to handle a distributed process in Event Sourcing on a batch operation, the group checkout of hotel guests. Compares three styles:
+- saga,
+- process manager,
+- choreography.
 
-Read more in [How to ensure uniqueness in Event Sourcing](https://event-driven.io/en/uniqueness-in-event-sourcing/?utm_source=event_sourcing_jvm).
+Read more in [Saga and Process Manager - distributed processes in practice](https://event-driven.io/en/saga_process_manager_distributed_transactions/?utm_source=event_sourcing_jvm).
+
+### [E-Commerce: Purchase with Compensation](./samples/e-commerce/)
+Shows how to handle a distributed process across modules of an online shop, where a later step can fail after earlier steps have finished. Explains:
+- compensating failures,
+- internal vs external events,
+- channels and queues on Kafka and RabbitMQ,
+- delivering messages reliably with the event store as outbox,
+- tracing a purchase in Grafana,
+- documenting the messages in EventCatalog.
+
+Read more in [No, it can never happen!](https://event-driven.io/en/no_it_can_never_happen/?utm_source=event_sourcing_jvm).
 
 ## Articles
 
@@ -435,7 +444,7 @@ Read also more on the **Event Sourcing** and **CQRS** topics in my [blog](https:
 
 ## Working on this repository
 
-Each sample and each workshop folder is a separate Gradle build. You can open the whole repository or just one of those folders, for example `samples/distributed-processes`: each folder has its own dev container and editor setup, so it works the same on its own.
+Each sample and each workshop folder is a separate Gradle build. You can open the whole repository or just one of those folders, for example `samples/e-commerce`: each folder has its own dev container and editor setup, so it works the same on its own.
 
 ### Dev container
 

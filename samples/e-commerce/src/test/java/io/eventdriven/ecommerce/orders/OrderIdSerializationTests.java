@@ -1,0 +1,90 @@
+package io.eventdriven.ecommerce.orders;
+
+import static io.eventdriven.ecommerce.orders.OrderEvent.OrderPlaced;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import io.eventdriven.core.eventstore.EventStore;
+import io.eventdriven.core.eventstore.inmemory.InMemoryEventStore;
+import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.ecommerce.ECommerceMessages;
+import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
+import io.eventdriven.testing.tracing.TestTracing;
+import java.time.OffsetDateTime;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.json.JsonMapper;
+
+public class OrderIdSerializationTests {
+    // The same Jackson configuration InMemoryEventStore builds. Field visibility is set to ANY
+    // there, which is what would out-rank @JsonValue and store a nested object instead of the urn.
+    private static final JsonMapper mapper = JsonMapper.builder()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            .configure(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+            .configure(DateTimeFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
+            .changeDefaultVisibility(visibility -> visibility.withFieldVisibility(JsonAutoDetect.Visibility.ANY))
+            .build();
+
+    private final ShoppingCart.Id cartId = ShoppingCart.Id.of(UUID.randomUUID());
+    private final Order.Id orderId = Order.Id.derivedFrom(cartId.value());
+    private final UUID customerId = UUID.randomUUID();
+    private final OffsetDateTime now = OffsetDateTime.parse("2026-09-16T10:00:00Z");
+
+    private final OrderPlaced event = new OrderPlaced(
+            orderId,
+            cartId,
+            customerId,
+            new Order.PricedProductItem[] {new Order.PricedProductItem(UUID.randomUUID(), 2, 10)},
+            20,
+            now);
+
+    @Test
+    public void aTypedIdIsStoredAsABareUrnString() throws Exception {
+        var json = mapper.writeValueAsString(event);
+
+        assertThat(json).contains("\"orderId\":\"%s\"".formatted(orderId.value()));
+        assertThat(json).doesNotContain("\"value\"");
+    }
+
+    @Test
+    public void aStoredEventRoundTripsThroughTheEventStore() {
+        var eventStore = new InMemoryEventStore(TestTracing.untraced(), ECommerceMessages.serializer());
+        var streamId = OrderFacade.mapToStreamId(orderId);
+
+        eventStore.append(streamId, event);
+
+        var read = switch (eventStore.read(streamId)) {
+            case EventStore.ReadResult.Success success ->
+                success.events().stream().map(EventEnvelope::data).toArray();
+            default -> new Object[0];
+        };
+
+        assertThat(read).usingRecursiveFieldByFieldElementComparator().containsExactly(event);
+        assertThat(((OrderPlaced) read[0]).orderId()).isEqualTo(orderId);
+    }
+
+    @Test
+    public void anIdOfTheWrongTypeIsRejectedWhileReading() throws Exception {
+        var json = mapper.writeValueAsString(event)
+                .replace(orderId.value(), "urn:ecommerce:payment:%s".formatted(orderId.tail()));
+
+        assertThatThrownBy(() -> mapper.readValue(json, OrderPlaced.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void anIdCarryingAnotherEntitysTypeIsRejected() {
+        assertThatThrownBy(() -> new Order.Id("urn:ecommerce:payment:%s".formatted(UUID.randomUUID())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("order");
+    }
+
+    @Test
+    public void theStreamNameUsesTheTailNotTheWholeUrn() {
+        assertThat(OrderFacade.mapToStreamId(orderId)).isEqualTo("Order-%s".formatted(orderId.tail()));
+        assertThat(OrderFacade.mapToStreamId(orderId)).doesNotContain("urn:");
+    }
+}

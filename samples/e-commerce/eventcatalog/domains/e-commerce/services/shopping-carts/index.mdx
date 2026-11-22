@@ -1,0 +1,36 @@
+---
+id: shopping-carts
+name: Shopping carts
+version: 1.0.0
+summary: >-
+  The customer's shopping cart. When the customer checks out, it publishes
+  ShoppingCartCheckedOut for other modules.
+badges:
+  - content: Shopping carts
+    textColor: blue
+    backgroundColor: blue
+sends:
+  - id: >-
+      io.eventdriven.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut
+    version: 1.0.0
+receives:
+  - id: AddProductItemToShoppingCart
+    version: 1.0.0
+  - id: RemoveProductItemFromShoppingCart
+    version: 1.0.0
+  - id: CheckOutShoppingCart
+    version: 1.0.0
+  - id: Cart
+    version: 1.0.0
+schemaPath: asyncapi-shopping_carts.json
+specifications:
+  - type: openapi
+    path: openapi-shopping_carts.json
+    name: E-Commerce
+  - type: asyncapi
+    path: asyncapi-shopping_carts.json
+owners:
+  - shopping-carts
+---
+## Architecture diagram
+<NodeGraph />

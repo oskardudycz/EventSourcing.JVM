@@ -1,0 +1,24 @@
+{
+  "title": "CancelPayment",
+  "type": "object",
+  "properties": {
+    "now": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-66>"
+    },
+    "paymentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-67>"
+    }
+  },
+  "description": "Cancels an authorized payment before the customer is charged.",
+  "examples": [
+    {
+      "now": "2015-07-20T15:49:04-07:00",
+      "paymentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.payments.PaymentCommand.CancelPayment"
+}

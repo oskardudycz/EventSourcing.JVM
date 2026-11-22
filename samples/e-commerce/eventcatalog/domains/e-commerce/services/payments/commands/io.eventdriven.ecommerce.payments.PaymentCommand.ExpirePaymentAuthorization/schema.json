@@ -1,0 +1,24 @@
+{
+  "title": "ExpirePaymentAuthorization",
+  "type": "object",
+  "properties": {
+    "expiredAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-4>"
+    },
+    "paymentId": {
+      "title": "PaymentId",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-5>"
+    }
+  },
+  "description": "Fails a payment whose authorization ran out before the shop charged the customer.",
+  "examples": [
+    {
+      "expiredAt": "2015-07-20T15:49:04-07:00",
+      "paymentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.payments.PaymentCommand.ExpirePaymentAuthorization"
+}

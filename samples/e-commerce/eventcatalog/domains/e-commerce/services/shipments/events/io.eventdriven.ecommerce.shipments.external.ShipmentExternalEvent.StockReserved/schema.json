@@ -1,0 +1,29 @@
+{
+  "title": "StockReserved",
+  "type": "object",
+  "properties": {
+    "referenceId": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-28>"
+    },
+    "reservedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-29>"
+    },
+    "shipmentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-30>"
+    }
+  },
+  "description": "The warehouse set aside the products for the requester.",
+  "examples": [
+    {
+      "referenceId": "string",
+      "reservedAt": "2015-07-20T15:49:04-07:00",
+      "shipmentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved"
+}

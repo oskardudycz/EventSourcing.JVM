@@ -1,0 +1,62 @@
+{
+  "title": "ReserveStock",
+  "type": "object",
+  "properties": {
+    "now": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-74>"
+    },
+    "productItems": {
+      "title": "ProductItem[]",
+      "type": "array",
+      "items": {
+        "title": "ProductItem",
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid",
+            "x-parser-schema-id": "<anonymous-schema-76>"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "x-parser-schema-id": "<anonymous-schema-77>"
+          }
+        },
+        "examples": [
+          {
+            "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "quantity": 0
+          }
+        ],
+        "x-parser-schema-id": "io.eventdriven.ecommerce.shipments.Shipment.ProductItem"
+      },
+      "x-parser-schema-id": "<anonymous-schema-75>"
+    },
+    "productsAvailable": {
+      "type": "boolean",
+      "x-parser-schema-id": "<anonymous-schema-78>"
+    },
+    "referenceId": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-79>"
+    }
+  },
+  "description": "Asks the warehouse to set aside the products, so that nobody else can buy them.",
+  "examples": [
+    {
+      "now": "2015-07-20T15:49:04-07:00",
+      "productItems": [
+        {
+          "productId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+          "quantity": 0
+        }
+      ],
+      "productsAvailable": true,
+      "referenceId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.shipments.ShipmentCommand.ReserveStock"
+}

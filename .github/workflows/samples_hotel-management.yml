@@ -1,0 +1,62 @@
+name: Samples - Hotel Management Group Checkout with Event Sourcing
+
+on:
+  # run it on push to the default repository branch
+  push:
+    branches: [main]
+    paths:
+      - "samples/hotel-management/**"
+  # run it during pull request
+  pull_request:
+    paths:
+      - "samples/hotel-management/**"
+
+defaults:
+  run:
+    working-directory: samples/hotel-management
+
+jobs:
+  build-and-test-code:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      # define the test matrix
+      matrix:
+        java-version: [22, 25, 27]
+
+    steps:
+      - name: Check Out Repo
+        uses: actions/checkout@v7
+
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v6
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: "temurin"
+          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Download dependencies
+        run: |
+          for attempt in 1 2 3; do
+            ./gradlew testClasses --refresh-dependencies && exit 0
+            echo "Attempt $attempt failed, retrying in 30 seconds"
+            sleep 30
+          done
+          exit 1
+
+      - name: Build with Gradle
+        run: ./gradlew build
+
+      - name: Archive test report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: Test report - Java ${{ matrix.java-version }}
+          path: ./samples/hotel-management/build/test-results/test

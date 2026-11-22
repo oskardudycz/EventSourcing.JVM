@@ -1,0 +1,29 @@
+{
+  "title": "PaymentCaptured",
+  "type": "object",
+  "properties": {
+    "capturedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-25>"
+    },
+    "paymentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-26>"
+    },
+    "referenceId": {
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-27>"
+    }
+  },
+  "description": "The customer was charged.",
+  "examples": [
+    {
+      "capturedAt": "2015-07-20T15:49:04-07:00",
+      "paymentId": "string",
+      "referenceId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.payments.external.PaymentExternalEvent.PaymentCaptured"
+}
