@@ -121,6 +121,7 @@ public class OrderStatus implements Versioned {
         if (stage == Stage.Ended) return this;
 
         if (payment == Payment.Failed) progress = Order.Progress.PaymentFailed;
+        else if (shipment == Shipment.Failed) progress = Order.Progress.OutOfStock;
         else if (shipment == Shipment.Sent) progress = Order.Progress.Shipped;
         else if (stage == Stage.Confirmed || payment == Payment.Authorized || payment == Payment.Captured)
             progress = Order.Progress.Processing;

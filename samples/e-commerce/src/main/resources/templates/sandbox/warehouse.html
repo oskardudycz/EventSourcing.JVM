@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Warehouse · Sandbox</title>
+  <link rel="stylesheet" th:href="@{/css/shop.css}">
+</head>
+<body>
+<header class="topbar">
+  <span class="brand">Warehouse <span class="badge sandbox">Sandbox</span></span>
+</header>
+<main class="page">
+  <h1>Stock</h1>
+  <p class="muted">A product out of stock makes the next reservation of it fail: the order shows "Out of stock", and the customer can only cancel it.</p>
+  <section class="card">
+    <table class="lines">
+      <thead><tr><th>Product</th><th>Stock</th><th></th></tr></thead>
+      <tbody>
+      <tr th:each="product : ${products}">
+        <td th:text="${product.name()}">Product</td>
+        <td><span class="badge" th:classappend="${product.inStock()} ? 'Completed' : 'PaymentFailed'"
+                  th:text="${product.inStock()} ? 'In stock' : 'Out of stock'">In stock</span></td>
+        <td class="number">
+          <form method="post" th:action="@{/sandbox/warehouse/products/{p}/stock(p=${product.productId()})}">
+            <input type="hidden" name="inStock" th:value="${!product.inStock()}">
+            <button class="button" type="submit" th:text="${product.inStock()} ? 'Mark out of stock' : 'Restock'">Toggle</button>
+          </form>
+        </td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <h1>Packages</h1>
+  <p class="muted">The shop asks the warehouse to send a package once the customer paid. The customer is charged when you send it.</p>
+  <section class="card empty" th:if="${#lists.isEmpty(packages)}">
+    <p>No packages yet. Pay for an order in the shop.</p>
+  </section>
+  <section class="card" th:unless="${#lists.isEmpty(packages)}">
+    <table class="lines">
+      <thead><tr><th>Shipment</th><th>Products</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      <tr th:each="pack : ${packages}">
+        <td th:title="${pack.shipmentTail()}" th:text="${pack.order()}">Order</td>
+        <td th:text="${pack.products()}">Products</td>
+        <td><span class="badge" th:text="${pack.status().name()}">Waiting</span></td>
+        <td class="number actions">
+          <form th:if="${pack.status().name() == 'Waiting'}" method="post"
+                th:action="@{/sandbox/warehouse/shipments/{s}/send(s=${pack.shipmentTail()})}">
+            <button class="button primary" type="submit">Send</button>
+          </form>
+          <form th:if="${pack.status().name() == 'Waiting'}" method="post"
+                th:action="@{/sandbox/warehouse/shipments/{s}/reject(s=${pack.shipmentTail()})}">
+            <button class="button" type="submit">Reject</button>
+          </form>
+          <form th:if="${pack.status().name() == 'Sent'}" method="post"
+                th:action="@{/sandbox/warehouse/shipments/{s}/deliver(s=${pack.shipmentTail()})}">
+            <button class="button" type="submit">Deliver</button>
+          </form>
+        </td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

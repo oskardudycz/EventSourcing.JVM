@@ -16,7 +16,7 @@
   <div class="page-title">
     <div>
       <h1>Order status</h1>
-      <p class="muted" th:text="'Order ' + ${orderTail}">Order</p>
+      <p class="muted" th:title="${orderTail}" th:text="'Order #' + ${orderNumber}">Order</p>
     </div>
   </div>
   <section class="card">

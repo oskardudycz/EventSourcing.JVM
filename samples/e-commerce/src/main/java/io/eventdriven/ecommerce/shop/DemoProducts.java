@@ -24,9 +24,17 @@ public final class DemoProducts {
             new Product(
                     UUID.fromString("6f1d3a52-0c5e-4b8a-9d61-1f3c2a7e9b04"),
                     "Hiking socks",
-                    "Cushioned socks, two pairs."));
+                    "Cushioned socks, two pairs."),
+            new Product(
+                    UUID.fromString("6f1d3a52-0c5e-4b8a-9d61-1f3c2a7e9b05"),
+                    "Limited edition trail shoes",
+                    "Sold out at the warehouse: buy them to see an order canceled for lack of stock."));
 
     private DemoProducts() {}
+
+    public static Product soldOut() {
+        return products.getLast();
+    }
 
     public static List<Product> all() {
         return products;

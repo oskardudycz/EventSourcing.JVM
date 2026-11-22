@@ -1,0 +1,240 @@
+# Grafana alert rules for the e-commerce sample. Grafana loads them at start from provisioning/alerting.
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: e-commerce
+    folder: E-Commerce
+    interval: 10s
+    rules:
+      - uid: payments-failing
+        title: Payments failing
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: '(sum(increase(eventdriven_event_appending_count_total{eventdriven_event_type=~"PaymentTimedOut|PaymentCaptureFailed|PaymentAuthorizationExpired"}[15m])) / clamp_min(sum(increase(eventdriven_event_appending_count_total{eventdriven_event_type=~"PaymentAuthorizationRequested"}[15m])), 1) * 100) and on() (sum(increase(eventdriven_event_appending_count_total{eventdriven_event_type=~"PaymentAuthorizationRequested"}[15m])) >= 5)'
+              instant: true
+              range: false
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [20]
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "More than 20% of the payments failed in the last 15 minutes: timed out, failed to capture or expired."
+        labels:
+          severity: critical
+      - uid: capture-failed
+        title: Capture failed
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: 'sum(increase(eventdriven_event_appending_count_total{eventdriven_event_type=~"PaymentCaptureFailed"}[5m]))'
+              instant: true
+              range: false
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "A package left the warehouse, but the provider refused to charge the customer. The order waits for the customer to pay again."
+        labels:
+          severity: critical
+      - uid: money-lost
+        title: Money lost
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: 'sum(increase(eventdriven_event_appending_count_total{eventdriven_event_type=~"OrderClosedUnpaid|PaymentAuthorizationExpired"}[15m]))'
+              instant: true
+              range: false
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "An order closed unpaid after its package was sent, or a payment hold expired before the charge."
+        labels:
+          severity: critical
+      - uid: checkout-broken
+        title: Checkout broken
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: '(sum(increase(eventdriven_event_appending_count_total{eventdriven_event_type=~"ShoppingCartCheckedOut"}[10m])) > 0) and on() (sum(increase(eventdriven_event_appending_count_total{eventdriven_event_type=~"OrderPlaced"}[10m])) == 0)'
+              instant: true
+              range: false
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Customers checked out in the last 10 minutes, but the orders module placed no order."
+        labels:
+          severity: critical
+      - uid: views-behind
+        title: Views falling behind
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: 'histogram_quantile(0.95, sum by (le) (rate(eventdriven_subscription_lag_milliseconds_bucket[5m])))'
+              instant: true
+              range: false
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [5000]
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "The 95th percentile of the time from an append to a subscription handling it is above 5 seconds."
+        labels:
+          severity: warning
+      - uid: dead-letters
+        title: Dead letters
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: 'sum(increase(messaging_dead_lettered_total[5m]))'
+              instant: true
+              range: false
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "A message failed every retry and went to a dead-letter queue."
+        labels:
+          severity: warning
+      - uid: commands-failing
+        title: Commands failing
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: 'sum(increase(eventdriven_command_handling_count_total{eventdriven_command_status="failure"}[10m])) / clamp_min(sum(increase(eventdriven_command_handling_count_total[10m])), 1) * 100'
+              instant: true
+              range: false
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [5]
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "More than 5% of the commands failed in the last 10 minutes."
+        labels:
+          severity: warning
+      - uid: http-errors
+        title: HTTP errors
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: 'sum(rate(http_server_requests_milliseconds_count{status=~"5.."}[5m])) / clamp_min(sum(rate(http_server_requests_milliseconds_count[5m])), 0.001) * 100'
+              instant: true
+              range: false
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [1]
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "More than 1% of the HTTP requests answered with a server error in the last 5 minutes."
+        labels:
+          severity: warning

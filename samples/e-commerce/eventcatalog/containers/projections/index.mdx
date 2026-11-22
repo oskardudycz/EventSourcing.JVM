@@ -1,0 +1,15 @@
+---
+id: projections
+name: Projections database
+version: 1.0.0
+summary: The views that the projections build from the events, such as the order status, the customer's orders and the cart.
+container_type: database
+technology: PostgreSQL or H2
+classification: internal
+---
+
+## Overview
+
+The views are read models: each one is rebuilt from the events, so it can be dropped and built again. The `projections.database` setting picks PostgreSQL or H2.
+
+<NodeGraph />

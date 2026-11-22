@@ -1,0 +1,24 @@
+{
+  "title": "ConfirmPaymentCapture",
+  "type": "object",
+  "properties": {
+    "now": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-4>"
+    },
+    "paymentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-5>"
+    }
+  },
+  "description": "The payment provider's answer: the customer was charged.",
+  "examples": [
+    {
+      "now": "2015-07-20T15:49:04-07:00",
+      "paymentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.payments.PaymentCommand.ConfirmPaymentCapture"
+}

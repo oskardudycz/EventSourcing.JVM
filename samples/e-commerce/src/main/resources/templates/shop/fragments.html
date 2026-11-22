@@ -14,7 +14,16 @@
     <a th:href="@{/shop/customers/{c}/products(c=${customerId})}" th:classappend="${current == 'products'} ? 'active'">Products</a>
     <a th:href="@{/shop/customers/{c}/cart(c=${customerId})}" th:classappend="${current == 'cart'} ? 'active'">Cart</a>
     <a th:href="@{/shop/customers/{c}/orders(c=${customerId})}" th:classappend="${current == 'orders'} ? 'active'">Orders</a>
-    <a th:href="${grafanaUrl}" target="_blank" rel="noopener">Grafana</a>
+    <details class="menu">
+      <summary>Developer tools</summary>
+      <div class="menu-items">
+        <a th:href="${grafanaUrl}" target="_blank" rel="noopener">Grafana: traces, metrics, logs</a>
+        <a href="/swagger-ui/index.html" target="_blank" rel="noopener">Swagger UI: the web API</a>
+        <a href="/springwolf/asyncapi-ui.html" target="_blank" rel="noopener">Springwolf: the messages</a>
+        <a th:href="${eventCatalogUrl}" target="_blank" rel="noopener">EventCatalog: modules and messages</a>
+        <a href="/sandbox/warehouse" target="_blank" rel="noopener">Sandbox warehouse: stock and packages</a>
+      </div>
+    </details>
     <span class="customer" th:if="${customerName}" th:text="${customerName}">Name</span>
     <form class="logout" th:if="${customerName}" method="post" th:action="@{/shop/logout}">
       <button class="link" type="submit">Log out</button>

@@ -21,6 +21,7 @@ import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.testing.api.ApiE2ESpecification;
 import io.eventdriven.testing.eventstore.RecordedEventsConfiguration;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -49,6 +50,9 @@ public class OrdersApiTests extends ApiE2ESpecification {
 
     @Autowired
     private PaymentProvider paymentProvider;
+
+    @Autowired
+    private Warehouse warehouse;
 
     @LocalServerPort
     private int port;
@@ -251,6 +255,14 @@ public class OrdersApiTests extends ApiE2ESpecification {
     @Nested
     public class GettingOrderStatus {
         @Test
+        public void getOrderStatus_succeeds_withOutOfStockAndOnlyCancel_whenAProductIsOutOfStock() {
+            given(warehouse.isOutOf(shoes.productId()), publish(checkedOut(customerId, cartId)))
+                    .when(getOrderStatus(customerId, orderId))
+                    .then(expectResponse(
+                            OK, body(Map.of("progress", "OutOfStock", "actions", List.of("CancelOrder")))));
+        }
+
+        @Test
         public void getOrderStatus_succeeds_withPayNowAndCancel_forUnpaidOrder() {
             given(placedOrder)
                     .when(getOrderStatus(customerId, orderId))
@@ -446,6 +458,16 @@ public class OrdersApiTests extends ApiE2ESpecification {
         }
 
         @Test
+        public void theOrderPageOfAnOrderOutOfStockSaysSoAndOffersOnlyToCancel() {
+            given(warehouse.isOutOf(shoes.productId()), publish(checkedOut(customerId, cartId)))
+                    .when(orderPage(customerId, orderId))
+                    .then(expectResponse(
+                            OK,
+                            htmlContaining("Out of stock", "can't send", "Cancel order"),
+                            htmlNotContaining("Pay now")));
+        }
+
+        @Test
         public void theOrderPageOfACompletedOrderShowsItsCarrier() {
             given(completedOrder)
                     .when(orderPage(customerId, orderId))
@@ -457,6 +479,47 @@ public class OrdersApiTests extends ApiE2ESpecification {
             given(completedOrder)
                     .when(ordersPage(customerId))
                     .then(expectResponse(OK, htmlContaining("Completed", "href=\"%s\"".formatted(order))));
+        }
+
+        @Test
+        public void theOrdersPageNamesEachOrderByTheCustomersOrderNumber() {
+            given(completedOrder)
+                    .when(ordersPage(customerId))
+                    .then(expectResponse(
+                            OK, htmlContaining("Order #1"), htmlNotContaining(">%s<".formatted(orderId.tail()))));
+        }
+
+        @Test
+        public void theOrderPageNamesTheOrderByTheCustomersOrderNumber() {
+            given(completedOrder)
+                    .when(orderPage(customerId, orderId))
+                    .then(expectResponse(OK, htmlContaining("Order #1"), htmlNotContaining("Order " + orderId.tail())));
+        }
+    }
+
+    @Nested
+    public class OrderGauges {
+        @Autowired
+        private MeterRegistry meters;
+
+        @Test
+        public void aPlacedOrderCountsAsInProgress() {
+            given(placedOrder)
+                    .when(getOrderStatus(customerId, orderId))
+                    .then(outcome -> assertThat(meters.get("ecommerce.orders.in.progress")
+                                    .gauge()
+                                    .value())
+                            .isGreaterThanOrEqualTo(1));
+        }
+
+        @Test
+        public void anOrderWithAFailedPaymentCountsAsAwaitingPayment() {
+            given(orderWithFailedPayment)
+                    .when(getOrderStatus(customerId, orderId))
+                    .then(outcome -> assertThat(meters.get("ecommerce.orders.awaiting.payment")
+                                    .gauge()
+                                    .value())
+                            .isGreaterThanOrEqualTo(1));
         }
     }
 }

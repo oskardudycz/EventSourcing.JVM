@@ -12,7 +12,7 @@
   <div class="page-title">
     <div>
       <h1>Order status</h1>
-      <p class="muted" th:text="'Order ' + ${orderTail}">Order</p>
+      <p class="muted" th:title="${orderTail}" th:text="'Order #' + ${orderNumber}">Order</p>
     </div>
     <span class="badge large" th:classappend="${order.progress.name()}" th:text="${order.progress.label()}">Status</span>
   </div>
@@ -33,6 +33,9 @@
       <span>Total</span>
       <strong th:text="${'$' + #numbers.formatDecimal(order.totalPrice, 1, 'COMMA', 2, 'POINT')}">$0.00</strong>
     </div>
+  </section>
+  <section class="card notice" th:if="${order.progress.name() == 'OutOfStock'}">
+    <p>The warehouse doesn't have all the products, so the shop can't send this order. Cancel it and order again without the missing products.</p>
   </section>
   <section class="card" th:if="${order.carrier != null}">
     <h2>Shipping</h2>

@@ -146,6 +146,19 @@ public class OrdersConfig {
     }
 
     @Bean
+    public OrderMetrics orderMetrics(
+            EventStore eventStore,
+            MessageContext messageContext,
+            PendingOrders pendingOrders,
+            OrdersAwaitingPayment ordersAwaitingPayment) {
+        var orderMetrics = new OrderMetrics(eventStore, messageContext.meters(), pendingOrders, ordersAwaitingPayment);
+
+        eventStore.subscribe("order-metrics", orderMetrics);
+
+        return orderMetrics;
+    }
+
+    @Bean
     public CustomerOrders customerOrders(EventStore eventStore, CustomerOrderRepository customerOrderRepository) {
         var customerOrders = new CustomerOrders(customerOrderRepository);
 

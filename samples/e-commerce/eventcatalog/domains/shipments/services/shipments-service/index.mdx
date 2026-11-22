@@ -1,0 +1,65 @@
+---
+id: shipments-service
+name: Shipments
+version: 1.0.0
+summary: >-
+  The warehouse. It sets aside products, sends packages through a fulfillment
+  service, puts products back on sale, and answers on shipments-responses.
+badges: []
+sends:
+  - id: >-
+      io.eventdriven.ecommerce.shipments.external.ShipmentExternalEvent.ShipmentFailed
+    version: 1.0.0
+    to:
+      - id: shipments-responses
+  - id: >-
+      io.eventdriven.ecommerce.shipments.external.ShipmentExternalEvent.PackageWasSent
+    version: 1.0.0
+    to:
+      - id: shipments-responses
+  - id: >-
+      io.eventdriven.ecommerce.shipments.external.ShipmentExternalEvent.StockReserved
+    version: 1.0.0
+    to:
+      - id: shipments-responses
+receives:
+  - id: io.eventdriven.ecommerce.shipments.ShipmentCommand.ConfirmPackageSent
+    version: 1.0.0
+    from:
+      - id: shipments-internal
+  - id: io.eventdriven.ecommerce.shipments.ShipmentCommand.DeliverPackage
+    version: 1.0.0
+    from:
+      - id: shipments-internal
+  - id: io.eventdriven.ecommerce.shipments.ShipmentCommand.RejectFulfillment
+    version: 1.0.0
+    from:
+      - id: shipments-internal
+  - id: io.eventdriven.ecommerce.shipments.ShipmentCommand.ReleaseStock
+    version: 1.0.0
+    from:
+      - id: shipments-requests
+  - id: io.eventdriven.ecommerce.shipments.ShipmentCommand.RequestFulfillment
+    version: 1.0.0
+    from:
+      - id: shipments-requests
+  - id: io.eventdriven.ecommerce.shipments.ShipmentCommand.ReserveStock
+    version: 1.0.0
+    from:
+      - id: shipments-requests
+schemaPath: asyncapi-shipments.json
+specifications:
+  asyncapiPath: asyncapi-shipments.json
+owners:
+  - shipments
+writesTo:
+  - id: event-store
+  - id: projections
+readsFrom:
+  - id: event-store
+  - id: projections
+---
+The warehouse. It sets aside products, sends packages through a fulfillment service, puts products back on sale, and answers on shipments-responses.
+
+## Architecture diagram
+<NodeGraph />

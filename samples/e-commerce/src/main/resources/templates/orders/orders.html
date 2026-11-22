@@ -15,8 +15,8 @@
       </thead>
       <tbody>
       <tr th:each="order : ${orders}">
-        <td><a th:href="@{/shop/customers/{c}/orders/{o}(c=${customerId}, o=${order.orderId.tail()})}" th:text="${order.orderId.tail()}">Order</a></td>
-        <td th:text="${#temporals.format(order.placedAt, 'yyyy-MM-dd HH:mm')}">Placed</td>
+        <td><a th:href="@{/shop/customers/{c}/orders/{o}(c=${customerId}, o=${order.orderId.tail()})}" th:title="${order.orderId.tail()}" th:text="${'Order #' + order.orderId.number()}">Order</a></td>
+        <td class="nowrap" th:text="${#temporals.format(order.placedAt, 'yyyy-MM-dd HH:mm')}">Placed</td>
         <td><span class="badge" th:classappend="${order.progress.name()}" th:text="${order.progress.label()}">Status</span></td>
         <td class="number" th:text="${'$' + #numbers.formatDecimal(order.totalPrice, 1, 'COMMA', 2, 'POINT')}">$0.00</td>
       </tr>

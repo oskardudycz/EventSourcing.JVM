@@ -1,0 +1,24 @@
+{
+  "title": "DeliverPackage",
+  "type": "object",
+  "properties": {
+    "now": {
+      "type": "string",
+      "format": "date-time",
+      "x-parser-schema-id": "<anonymous-schema-5>"
+    },
+    "shipmentId": {
+      "title": "Id",
+      "type": "string",
+      "x-parser-schema-id": "<anonymous-schema-6>"
+    }
+  },
+  "description": "Records that the carrier delivered the package.",
+  "examples": [
+    {
+      "now": "2015-07-20T15:49:04-07:00",
+      "shipmentId": "string"
+    }
+  ],
+  "x-parser-schema-id": "io.eventdriven.ecommerce.shipments.ShipmentCommand.DeliverPackage"
+}

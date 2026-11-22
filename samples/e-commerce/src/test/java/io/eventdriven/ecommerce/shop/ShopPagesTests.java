@@ -1,94 +1,89 @@
 package io.eventdriven.ecommerce.shop;
 
+import static io.eventdriven.ecommerce.shop.ShopRequests.*;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.http.HttpStatus.FOUND;
+import static org.springframework.http.HttpStatus.OK;
 
-import jakarta.servlet.http.Cookie;
-import java.util.UUID;
+import io.eventdriven.testing.api.ApiE2ESpecification;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.mock.web.MockHttpSession;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 
 @ActiveProfiles("in-memory")
-@SpringBootTest
-@AutoConfigureMockMvc
-public class ShopPagesTests {
-    @Autowired
-    private MockMvc mvc;
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+public class ShopPagesTests extends ApiE2ESpecification {
+    private static final String marty = "Marty McFly";
 
-    private final UUID customerId = UUID.randomUUID();
-    private final String shop = "/shop/customers/%s".formatted(customerId);
+    @Nested
+    public class LoggingIn {
+        @Test
+        public void aVisitorWhoIsNotLoggedInIsSentToTheLogin() {
+            given().when(openShop()).then(expectResponse(FOUND, redirectsTo("/shop/login")));
+        }
 
-    @Test
-    public void aVisitorWhoIsNotLoggedInIsAskedForTheirName() throws Exception {
-        mvc.perform(get("/shop")).andExpect(redirectedUrl("/shop/login"));
+        @Test
+        public void theLoginPageAsksForTheCustomersName() {
+            given().when(loginPage()).then(expectResponse(OK, htmlContaining("Your name", "Log in")));
+        }
 
-        mvc.perform(get("/shop/login"))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Your name")))
-                .andExpect(content().string(containsString("Log in")));
+        @Test
+        public void loggingInOpensTheProductsPageAndRemembersTheCustomer() {
+            given().when(logIn(marty))
+                    .then(expectResponse(FOUND, redirectsTo(productsOf(marty)), settingCookie("customer=")));
+        }
+
+        @Test
+        public void theSameNameInAnyCaseLogsInAsTheSameCustomer() {
+            given().when(logIn("  marty mcfly ")).then(expectResponse(FOUND, redirectsTo(productsOf(marty))));
+        }
+
+        @Test
+        public void aLoggedInCustomerReturnsToTheirShop() {
+            given().when(openShopAs(marty)).then(expectResponse(FOUND, redirectsTo(productsOf(marty))));
+        }
     }
 
-    @Test
-    public void loggingInOpensTheProductsPageAndRemembersTheCustomer() throws Exception {
-        mvc.perform(post("/shop/login").param("name", "Marty McFly"))
-                .andExpect(redirectedUrlPattern("/shop/customers/*/products"))
-                .andExpect(cookie().exists("customer"));
+    @Nested
+    public class Header {
+        @Test
+        public void theHeaderShowsWhoIsLoggedInAndHowToLogOut() {
+            given().when(productsPageAs(marty)).then(expectResponse(OK, htmlContaining(marty, "Log out")));
+        }
+
+        @Test
+        public void theHeaderLinksTheOrdersAndTheDeveloperTools() {
+            given().when(productsPageAs(marty))
+                    .then(expectResponse(
+                            OK,
+                            htmlContaining(
+                                    "/shop/customers/%s/orders".formatted(customerIdOf(marty)),
+                                    "Developer tools",
+                                    "href=\"http://localhost:3000\"",
+                                    "href=\"/swagger-ui/index.html\"",
+                                    "href=\"/springwolf/asyncapi-ui.html\"",
+                                    "href=\"http://localhost:3001\"",
+                                    "href=\"/sandbox/warehouse\"")));
+        }
     }
 
-    @Test
-    public void theSameNameAlwaysLogsInAsTheSameCustomer() throws Exception {
-        var first = logIn("Marty McFly");
-
-        assertThat(logIn("Marty McFly")).isEqualTo(first);
-        assertThat(logIn("Lorraine Baines")).isNotEqualTo(first);
+    @Nested
+    public class LoggingOut {
+        @Test
+        public void loggingOutForgetsTheCustomerAndReturnsToTheLogin() {
+            given().when(logOut(marty))
+                    .then(expectResponse(
+                            FOUND,
+                            redirectsTo("/shop/login"),
+                            settingCookie("customer=;", "Expires=Thu, 01 Jan 1970")));
+        }
     }
 
-    @Test
-    public void aLoggedInCustomerReturnsToTheirShop() throws Exception {
-        var products = logIn("Marty McFly");
-
-        mvc.perform(get("/shop").cookie(new Cookie("customer", "Marty%20McFly")))
-                .andExpect(redirectedUrl(products));
-    }
-
-    @Test
-    public void theHeaderShowsWhoIsLoggedInAndHowToLogOut() throws Exception {
-        mvc.perform(get(shop + "/products").cookie(new Cookie("customer", "Marty%20McFly")))
-                .andExpect(content().string(containsString("Marty McFly")))
-                .andExpect(content().string(containsString("Log out")));
-    }
-
-    @Test
-    public void theHeaderLinksTheOrdersAndGrafana() throws Exception {
-        mvc.perform(get(shop + "/products").cookie(new Cookie("customer", "Marty%20McFly")))
-                .andExpect(content().string(containsString(shop + "/orders")))
-                .andExpect(content().string(containsString("href=\"http://localhost:3000\"")))
-                .andExpect(content().string(containsString("Grafana")));
-    }
-
-    @Test
-    public void loggingOutForgetsTheCustomerAndEndsTheSession() throws Exception {
-        var session = new MockHttpSession();
-
-        mvc.perform(post("/shop/logout").session(session).cookie(new Cookie("customer", "Marty%20McFly")))
-                .andExpect(redirectedUrl("/shop/login"))
-                .andExpect(cookie().maxAge("customer", 0));
-
-        assertThat(session.isInvalid()).isTrue();
-    }
-
-    private String logIn(String name) throws Exception {
-        return mvc.perform(post("/shop/login").param("name", name))
-                .andReturn()
-                .getResponse()
-                .getRedirectedUrl();
+    private static ResponseExpectation settingCookie(String... parts) {
+        return satisfying(response -> assertThat(response.headers().get(HttpHeaders.SET_COOKIE))
+                .as("Set-Cookie")
+                .anySatisfy(cookie -> assertThat(cookie).contains(parts)));
     }
 }

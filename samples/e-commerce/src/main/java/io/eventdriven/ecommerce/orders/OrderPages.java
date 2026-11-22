@@ -48,6 +48,7 @@ public class OrderPages {
     public String orderStatus(@PathVariable UUID customerId, @PathVariable String orderId, Model model) {
         model.addAttribute("customerId", customerId);
         model.addAttribute("orderTail", orderId);
+        model.addAttribute("orderNumber", orderIdOf(orderId).number());
 
         if (LongPolling.retryIfNotFound(() -> orderStatusOf(orderId)).isEmpty()) return "orders/order-placing";
 
@@ -65,6 +66,7 @@ public class OrderPages {
             Model model) {
         model.addAttribute("customerId", customerId);
         model.addAttribute("orderTail", orderId);
+        model.addAttribute("orderNumber", orderIdOf(orderId).number());
         var seen = ifNoneMatch == null
                 ? Long.MIN_VALUE
                 : Long.parseLong(ETag.parse(ifNoneMatch).getFirst().tag());
@@ -106,7 +108,11 @@ public class OrderPages {
     }
 
     private Optional<OrderStatus> orderStatusOf(String orderId) {
-        return orderStatuses.get(new Order.Id(Urns.of("ecommerce", "order", orderId)));
+        return orderStatuses.get(orderIdOf(orderId));
+    }
+
+    private static Order.Id orderIdOf(String orderTail) {
+        return new Order.Id(Urns.of("ecommerce", "order", orderTail));
     }
 
     private OrderStatus statusOf(UUID customerId, String orderId) {

@@ -1,6 +1,7 @@
 package io.eventdriven.ecommerce.payments;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 import io.eventdriven.core.identifiers.Urns;
 import io.eventdriven.ecommerce.OutsideWorld;
@@ -254,6 +255,15 @@ public class PaymentsApiTests extends ApiE2ESpecification {
             given(scenario(authorizedPayment, time.passes(authorizationValidity)))
                     .when(send(new CapturePayment(paymentId)))
                     .then(expectNothingAppended(), expectNothingPublished());
+        }
+    }
+
+    @Nested
+    public class SandboxCheckoutPage {
+        @Test
+        public void aCheckoutSessionThatDoesNotExistIsNotFound() {
+            given().when(PaymentRequests.sandboxCheckoutPage(UUID.randomUUID().toString()))
+                    .then(expectResponse(NOT_FOUND));
         }
     }
 

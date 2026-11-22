@@ -1,0 +1,15 @@
+---
+id: event-store
+name: Event store
+version: 1.0.0
+summary: The streams of events, one stream for each cart, order, payment and shipment. The source of truth of every module.
+container_type: database
+technology: KurrentDB or PostgreSQL
+classification: internal
+---
+
+## Overview
+
+Each module appends its events to its own streams, and reads a stream to rebuild an aggregate's state. Subscriptions read the events again to update the views and to forward the external events. The `eventstore.type` setting picks KurrentDB, PostgreSQL or an in-memory store.
+
+<NodeGraph />
