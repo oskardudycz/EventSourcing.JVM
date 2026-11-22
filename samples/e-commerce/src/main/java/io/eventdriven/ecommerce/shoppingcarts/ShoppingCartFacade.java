@@ -45,7 +45,7 @@ public class ShoppingCartFacade {
                 prices.calculate(productItem).unitPrice(),
                 now.get());
 
-        return commandHandler.handle(shoppingCartId, state -> ShoppingCartDecider.addProductItem(command, state));
+        return commandHandler.handle(shoppingCartId, command, ShoppingCartDecider::addProductItem);
     }
 
     public long removeProductItem(RemoveProductItemFromShoppingCart request) {
@@ -53,9 +53,7 @@ public class ShoppingCartFacade {
                 request.shoppingCartId(), request.productItem(), request.expectedVersion(), now.get());
 
         return commandHandler.handle(
-                command.shoppingCartId(),
-                command.expectedVersion(),
-                state -> ShoppingCartDecider.removeProductItem(command, state));
+                command.shoppingCartId(), command.expectedVersion(), command, ShoppingCartDecider::removeProductItem);
     }
 
     public long checkOut(CheckOutShoppingCart request) {
@@ -64,10 +62,11 @@ public class ShoppingCartFacade {
         return commandHandler.handle(
                 request.shoppingCartId(),
                 request.expectedVersion(),
-                state -> ShoppingCartDecider.checkOut(
+                request,
+                (command, state) -> ShoppingCartDecider.checkOut(
                         new CheckOutShoppingCart(
-                                request.shoppingCartId(),
-                                request.expectedVersion(),
+                                command.shoppingCartId(),
+                                command.expectedVersion(),
                                 currentUnitPricesOf(state),
                                 checkedOutAt),
                         state));

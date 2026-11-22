@@ -3,6 +3,7 @@ package io.eventdriven.core.eventstore.postgresql;
 import com.zaxxer.hikari.HikariDataSource;
 import io.eventdriven.core.eventstore.Checkpoint;
 import io.eventdriven.core.eventstore.EventStore;
+import io.eventdriven.core.eventstore.EventStoreObservations;
 import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.eventstore.Subscription;
 import io.eventdriven.core.eventstore.SubscriptionsCatchUp;
@@ -170,6 +171,10 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
 
     @Override
     public ReadResult read(String streamId) {
+        return EventStoreObservations.observeRead(context, streamId, () -> readStream(streamId));
+    }
+
+    private ReadResult readStream(String streamId) {
         try (var connection = dataSource.getConnection();
                 var statement = connection.prepareStatement(
                         "select %s from messages where stream_id = ? order by stream_position".formatted(COLUMNS))) {
@@ -193,6 +198,11 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
 
     @Override
     public AppendResult append(String streamId, ExpectedStreamVersion expectedVersion, Object... events) {
+        return EventStoreObservations.observeAppend(
+                context, streamId, events, () -> appendToStream(streamId, expectedVersion, events));
+    }
+
+    private AppendResult appendToStream(String streamId, ExpectedStreamVersion expectedVersion, Object... events) {
         if (events.length == 0)
             throw new IllegalArgumentException("Cannot append no events to stream %s".formatted(streamId));
 

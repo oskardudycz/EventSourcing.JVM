@@ -51,8 +51,11 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
     @Override
     protected MessageBus createBus(
             List<MessageRoutes> routes, List<MessageChannel> channels, List<MessageQueue> queues) {
-        return TestRabbitMQ.busOn(
+        var bus = TestRabbitMQ.busOn(
                 connection, messageContext, applicationContext, serializer(), routes, channels, queues);
+        bus.start();
+
+        return bus;
     }
 
     @Override
@@ -76,11 +79,6 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
         if (typeId != null) properties.setHeader(RabbitMQMessageBus.TYPE_ID, typeId);
 
         queues.send(orders, KEY, new Message(body, properties.build()));
-    }
-
-    @Override
-    protected void beforePublish(MessageBus bus) {
-        start((RabbitMQMessageBus) bus);
     }
 
     @Override
@@ -115,7 +113,7 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
                 List.of(new MessageChannel(requests)),
                 List.of());
 
-        assertThatThrownBy(() -> publish(bus, new ConfirmOrder("order-1")))
+        assertThatThrownBy(() -> bus.publish(List.of(new ConfirmOrder("order-1"))))
                 .isInstanceOf(AmqpException.class)
                 .hasMessageContaining(requests);
     }
@@ -134,9 +132,9 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
         bus.subscribe(requests, ConfirmOrder.class, messages::catchMessage);
         bus.subscribe(internal, OrderCanceled.class, canceled::catchMessage);
 
-        publish(bus, new ConfirmOrder("order-1"), new OrderCanceled("order-1"));
+        bus.publish(List.of(new ConfirmOrder("order-1"), new OrderCanceled("order-1")));
 
-        whenCaughtUp();
+        bus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new ConfirmOrder("order-1"));
         canceled.shouldReceiveSingleEvent(new OrderCanceled("order-1"));
     }
@@ -149,7 +147,7 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
                 List.of(new MessageChannel(responses)),
                 List.of());
 
-        publish(bus, new OrderPlaced("order-1"), new OrderPlaced("order-2"));
+        bus.publish(List.of(new OrderPlaced("order-1"), new OrderPlaced("order-2")));
     }
 
     @Test
@@ -159,11 +157,12 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
                 List.of(new MessageRoutes().routeTarget(OrderPlaced.class, event -> deleted)),
                 List.of(new MessageChannel(deleted)),
                 List.of());
-        publish(bus, new OrderPlaced("order-1"));
+        bus.publish(List.of(new OrderPlaced("order-1")));
         management.deleteContaining(deleted);
         var startedAt = System.nanoTime();
 
-        assertThatThrownBy(() -> publish(bus, new OrderPlaced("order-2"))).isInstanceOf(AmqpException.class);
+        assertThatThrownBy(() -> bus.publish(List.of(new OrderPlaced("order-2"))))
+                .isInstanceOf(AmqpException.class);
 
         assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(TestRabbitMQ.PUBLISH_TIMEOUT);
     }
@@ -172,7 +171,7 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
     public void publishedMessageIsPersistentAndWrittenUnderItsStableTypeName() {
         var collector = queues.collectEverythingPublishedTo(orders);
 
-        publish(messageBus, new OrderPlaced("order-1"));
+        messageBus.publish(List.of(new OrderPlaced("order-1")));
 
         var properties = queues.receiveAll(collector, 1).getFirst().getMessageProperties();
         assertThat(properties.<String>getHeader(RabbitMQMessageBus.TYPE_ID)).isEqualTo("test.OrderPlaced");
@@ -190,7 +189,7 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
                 Thread.currentThread().interrupt();
             }
         });
-        publish(messageBus, new OrderPlaced("order-1"));
+        messageBus.publish(List.of(new OrderPlaced("order-1")));
 
         try {
             assertThatThrownBy(() -> messageBus.whenCaughtUp(Duration.ofSeconds(1)))
@@ -199,9 +198,5 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
         } finally {
             release.countDown();
         }
-    }
-
-    private void start(RabbitMQMessageBus bus) {
-        if (!bus.isRunning()) bus.start();
     }
 }

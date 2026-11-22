@@ -2,6 +2,7 @@ package io.eventdriven.core.eventstore.inmemory;
 
 import io.eventdriven.core.eventstore.Checkpoint;
 import io.eventdriven.core.eventstore.EventStore;
+import io.eventdriven.core.eventstore.EventStoreObservations;
 import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.eventstore.Subscription;
 import io.eventdriven.core.eventstore.SubscriptionProgress;
@@ -45,7 +46,11 @@ public class InMemoryEventStore implements EventStore {
     }
 
     @Override
-    public synchronized ReadResult read(String streamId) {
+    public ReadResult read(String streamId) {
+        return EventStoreObservations.observeRead(context, streamId, () -> readStream(streamId));
+    }
+
+    private synchronized ReadResult readStream(String streamId) {
         var stream = streams.get(streamId);
 
         if (stream == null || stream.isEmpty()) return new ReadResult.StreamDoesNotExist();
@@ -59,7 +64,13 @@ public class InMemoryEventStore implements EventStore {
     }
 
     @Override
-    public synchronized AppendResult append(String streamId, ExpectedStreamVersion expectedVersion, Object... events) {
+    public AppendResult append(String streamId, ExpectedStreamVersion expectedVersion, Object... events) {
+        return EventStoreObservations.observeAppend(
+                context, streamId, events, () -> appendToStream(streamId, expectedVersion, events));
+    }
+
+    private synchronized AppendResult appendToStream(
+            String streamId, ExpectedStreamVersion expectedVersion, Object... events) {
         if (events.length == 0)
             throw new IllegalArgumentException("Cannot append no events to stream %s".formatted(streamId));
 

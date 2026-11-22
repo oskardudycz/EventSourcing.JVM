@@ -41,8 +41,7 @@ public class ShipmentFacade {
                 Arrays.stream(command.productItems()).allMatch(isProductAvailable::apply),
                 now.get());
 
-        commandHandler.handle(
-                Shipment.Id.derivedFrom(command.referenceId()), state -> ShipmentDecider.reserveStock(decided, state));
+        commandHandler.handle(Shipment.Id.derivedFrom(command.referenceId()), decided, ShipmentDecider::reserveStock);
     }
 
     @AsyncListener(
@@ -53,7 +52,7 @@ public class ShipmentFacade {
     public void requestFulfillment(RequestFulfillment command) {
         var decided = new RequestFulfillment(command.shipmentId(), now.get());
 
-        commandHandler.handle(command.shipmentId(), state -> ShipmentDecider.requestFulfillment(decided, state));
+        commandHandler.handle(command.shipmentId(), decided, ShipmentDecider::requestFulfillment);
     }
 
     @AsyncListener(
@@ -65,8 +64,7 @@ public class ShipmentFacade {
         var decided =
                 new ConfirmPackageSent(command.shipmentId(), command.carrier(), command.trackingNumber(), now.get());
 
-        commandHandler.handleContinuingTrace(
-                command.shipmentId(), ConfirmPackageSent.class.getSimpleName(), state -> confirmSent(decided, state));
+        commandHandler.handleContinuingTrace(command.shipmentId(), decided, ShipmentDecider::confirmSent);
     }
 
     @AsyncListener(
@@ -77,10 +75,7 @@ public class ShipmentFacade {
     public void rejectFulfillment(RejectFulfillment command) {
         var decided = new RejectFulfillment(command.shipmentId(), now.get());
 
-        commandHandler.handleContinuingTrace(
-                command.shipmentId(),
-                RejectFulfillment.class.getSimpleName(),
-                state -> ShipmentDecider.rejectFulfillment(decided, state));
+        commandHandler.handleContinuingTrace(command.shipmentId(), decided, ShipmentDecider::rejectFulfillment);
     }
 
     @AsyncListener(
@@ -91,8 +86,7 @@ public class ShipmentFacade {
     public void deliverPackage(DeliverPackage command) {
         var decided = new DeliverPackage(command.shipmentId(), now.get());
 
-        commandHandler.handleContinuingTrace(
-                command.shipmentId(), DeliverPackage.class.getSimpleName(), state -> deliver(decided, state));
+        commandHandler.handleContinuingTrace(command.shipmentId(), decided, ShipmentDecider::deliver);
     }
 
     @AsyncListener(
@@ -103,6 +97,6 @@ public class ShipmentFacade {
     public void releaseStock(ReleaseStock command) {
         var decided = new ReleaseStock(command.shipmentId(), now.get());
 
-        commandHandler.handle(command.shipmentId(), state -> ShipmentDecider.releaseStock(decided, state));
+        commandHandler.handle(command.shipmentId(), decided, ShipmentDecider::releaseStock);
     }
 }

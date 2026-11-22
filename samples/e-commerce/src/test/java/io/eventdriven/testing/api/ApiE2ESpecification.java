@@ -5,6 +5,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.messaging.MessageBus;
 import io.eventdriven.testing.Transcript;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.FunctionCounter;
+import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import java.net.URI;
@@ -17,10 +22,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -45,6 +52,9 @@ import tools.jackson.databind.json.JsonMapper;
 public abstract class ApiE2ESpecification {
     private static final JsonMapper json = JsonMapper.builder().build();
     private static final Duration traceTimeout = Duration.ofSeconds(3);
+    private static final String MESSAGE_ID = "messaging.message.id";
+    private static final String CORRELATION_ID = "messaging.message.correlation_id";
+    private static final String CAUSATION_ID = "messaging.message.causation_id";
     private static final Map<MessageBus, List<Object>> publishedOn = Collections.synchronizedMap(new WeakHashMap<>());
 
     @Autowired
@@ -58,6 +68,9 @@ public abstract class ApiE2ESpecification {
 
     @Autowired(required = false)
     protected @Nullable EventStore eventStore;
+
+    @Autowired(required = false)
+    protected @Nullable MeterRegistry meters;
 
     public interface TestStep {}
 
@@ -79,7 +92,11 @@ public abstract class ApiE2ESpecification {
         }
     }
 
-    public record Outcome(@Nullable TestResponse response, List<Object> published, Supplier<List<SpanData>> spans) {}
+    public record Outcome(
+            @Nullable TestResponse response,
+            List<Object> published,
+            Supplier<List<SpanData>> spans,
+            BiFunction<String, Map<String, String>, Double> metricIncrease) {}
 
     @FunctionalInterface
     public interface Expectation {
@@ -94,7 +111,7 @@ public abstract class ApiE2ESpecification {
         record Satisfies(Consumer<TestResponse> check) implements ResponseExpectation {}
     }
 
-    public record ExpectedSpan(String name, List<ExpectedSpan> children) {}
+    public record ExpectedSpan(String name, Map<String, String> attributes, List<ExpectedSpan> children) {}
 
     protected boolean isAbout(Object message) {
         return true;
@@ -130,6 +147,7 @@ public abstract class ApiE2ESpecification {
 
             var published = specification.published();
             var messagesBefore = published.size();
+            var metricsBefore = specification.metricCounts();
 
             var response = specification.run(step, traceIds);
 
@@ -140,7 +158,8 @@ public abstract class ApiE2ESpecification {
                             .toList(),
                     () -> specification.finishedSpans().stream()
                             .filter(span -> traceIds.contains(span.getTraceId()))
-                            .toList());
+                            .toList(),
+                    (name, tags) -> specification.metricIncrease(metricsBefore, name, tags));
 
             for (var expectation : expectations) {
                 expectation.verify(outcome);
@@ -245,7 +264,35 @@ public abstract class ApiE2ESpecification {
     }
 
     public static ExpectedSpan span(String name, ExpectedSpan... children) {
-        return new ExpectedSpan(name, List.of(children));
+        return new ExpectedSpan(name, Map.of(), List.of(children));
+    }
+
+    public static ExpectedSpan span(String name, Map<String, String> attributes, ExpectedSpan... children) {
+        return new ExpectedSpan(name, attributes, List.of(children));
+    }
+
+    public static Expectation expectCorrelatedTrace() {
+        return outcome -> {
+            var deadline = System.nanoTime() + traceTimeout.toNanos();
+            var mismatch = correlationMismatchOf(outcome.spans().get());
+
+            while (mismatch.isPresent() && System.nanoTime() < deadline) {
+                sleep();
+                mismatch = correlationMismatchOf(outcome.spans().get());
+            }
+
+            assertThat(mismatch)
+                    .as(
+                            "%s%nFinished spans:%n%s",
+                            mismatch.orElse(""), describe(outcome.spans().get()))
+                    .isEmpty();
+        };
+    }
+
+    public static Expectation expectMetric(String name, Map<String, String> tags, double increase) {
+        return outcome -> assertThat(outcome.metricIncrease().apply(name, tags))
+                .as("Increase of metric %s%s", name, tags)
+                .isEqualTo(increase);
     }
 
     public static ResponseExpectation body(Object expected) {
@@ -370,11 +417,22 @@ public abstract class ApiE2ESpecification {
     }
 
     private static Optional<String> mismatchOf(ExpectedSpan expected, List<SpanData> spans) {
-        var candidates = spans.stream()
+        var named = spans.stream()
                 .filter(span -> span.getName().equals(expected.name()))
                 .toList();
 
-        if (candidates.isEmpty()) return Optional.of("No span '%s'".formatted(expected.name()));
+        if (named.isEmpty()) return Optional.of("No span '%s'".formatted(expected.name()));
+
+        var candidates = named.stream().filter(span -> matches(span, expected)).toList();
+
+        if (candidates.isEmpty())
+            return Optional.of("No span '%s' with attributes %s, the spans of that name have %s"
+                    .formatted(
+                            expected.name(),
+                            expected.attributes(),
+                            named.stream()
+                                    .map(ApiE2ESpecification::attributesOf)
+                                    .toList()));
 
         Optional<String> firstMismatch = Optional.empty();
         for (var candidate : candidates) {
@@ -387,12 +445,23 @@ public abstract class ApiE2ESpecification {
 
     private static Optional<String> mismatchBelow(ExpectedSpan expected, SpanData parent, List<SpanData> spans) {
         for (var child : expected.children()) {
-            var candidates = spans.stream()
+            var named = spans.stream()
                     .filter(span -> span.getName().equals(child.name()) && isBelow(span, parent, spans))
                     .toList();
 
+            if (named.isEmpty()) return Optional.of("No span '%s' below '%s'".formatted(child.name(), expected.name()));
+
+            var candidates = named.stream().filter(span -> matches(span, child)).toList();
+
             if (candidates.isEmpty())
-                return Optional.of("No span '%s' below '%s'".formatted(child.name(), expected.name()));
+                return Optional.of("No span '%s' with attributes %s below '%s', the spans of that name have %s"
+                        .formatted(
+                                child.name(),
+                                child.attributes(),
+                                expected.name(),
+                                named.stream()
+                                        .map(ApiE2ESpecification::attributesOf)
+                                        .toList()));
 
             Optional<String> firstMismatch = Optional.empty();
             var matched = false;
@@ -407,6 +476,91 @@ public abstract class ApiE2ESpecification {
             if (!matched) return firstMismatch;
         }
         return Optional.empty();
+    }
+
+    private static boolean matches(SpanData span, ExpectedSpan expected) {
+        return attributesOf(span).entrySet().containsAll(expected.attributes().entrySet());
+    }
+
+    private static Map<String, String> attributesOf(SpanData span) {
+        var attributes = new TreeMap<String, String>();
+        span.getAttributes().forEach((key, value) -> attributes.put(key.getKey(), String.valueOf(value)));
+        return attributes;
+    }
+
+    private static Optional<String> correlationMismatchOf(List<SpanData> spans) {
+        var correlated = spans.stream()
+                .filter(span -> attributesOf(span).containsKey(CORRELATION_ID))
+                .toList();
+
+        if (correlated.isEmpty()) return Optional.of("No span carries the attribute " + CORRELATION_ID);
+
+        var traces = correlated.stream().collect(Collectors.groupingBy(SpanData::getTraceId));
+
+        for (var trace : traces.values()) {
+            var correlationId = trace.stream()
+                    .collect(Collectors.groupingBy(
+                            span -> attributesOf(span).get(CORRELATION_ID), Collectors.counting()))
+                    .entrySet()
+                    .stream()
+                    .max(Map.Entry.comparingByValue())
+                    .orElseThrow()
+                    .getKey();
+
+            for (var span : trace) {
+                var spanCorrelationId = attributesOf(span).get(CORRELATION_ID);
+                if (!spanCorrelationId.equals(correlationId))
+                    return Optional.of("Span '%s' carries correlation '%s', but its trace carries '%s'"
+                            .formatted(span.getName(), spanCorrelationId, correlationId));
+            }
+        }
+
+        var handlersOf = spans.stream()
+                .filter(span -> attributesOf(span).containsKey(MESSAGE_ID))
+                .collect(Collectors.groupingBy(span -> attributesOf(span).get(MESSAGE_ID)));
+
+        for (var span : spans) {
+            var causationId = attributesOf(span).get(CAUSATION_ID);
+            if (causationId == null || causationId.equals(attributesOf(span).get(CORRELATION_ID))) continue;
+
+            var handlers = handlersOf.getOrDefault(causationId, List.of());
+
+            if (handlers.isEmpty())
+                return Optional.of("Span '%s' was caused by message %s, but no span handled that message"
+                        .formatted(span.getName(), causationId));
+
+            if (handlers.stream().noneMatch(handler -> handler == span || isBelow(span, handler, spans)))
+                return Optional.of("Span '%s' was caused by message %s, but is not below '%s' that handled it"
+                        .formatted(
+                                span.getName(), causationId, handlers.getFirst().getName()));
+        }
+        return Optional.empty();
+    }
+
+    private Map<Meter.Id, Double> metricCounts() {
+        if (meters == null) return Map.of();
+
+        return meters.getMeters().stream().collect(Collectors.toMap(Meter::getId, ApiE2ESpecification::countOf));
+    }
+
+    private double metricIncrease(Map<Meter.Id, Double> before, String name, Map<String, String> tags) {
+        assertThat(meters).as("Checking metrics needs a meter registry").isNotNull();
+
+        return meters.getMeters().stream()
+                .filter(meter -> meter.getId().getName().equals(name))
+                .filter(meter -> tags.entrySet().stream()
+                        .allMatch(tag -> tag.getValue().equals(meter.getId().getTag(tag.getKey()))))
+                .mapToDouble(meter -> countOf(meter) - before.getOrDefault(meter.getId(), 0.0))
+                .sum();
+    }
+
+    private static double countOf(Meter meter) {
+        return switch (meter) {
+            case Counter counter -> counter.count();
+            case Timer timer -> timer.count();
+            case FunctionCounter counter -> counter.count();
+            default -> 0;
+        };
     }
 
     private static boolean isBelow(SpanData span, SpanData ancestor, List<SpanData> spans) {
@@ -427,8 +581,13 @@ public abstract class ApiE2ESpecification {
     private static String describe(List<SpanData> spans) {
         var lines = new ArrayList<String>();
         for (var span : spans) {
-            lines.add("  %s (trace %s, span %s, parent %s)"
-                    .formatted(span.getName(), span.getTraceId(), span.getSpanId(), span.getParentSpanId()));
+            lines.add("  %s (trace %s, span %s, parent %s) %s"
+                    .formatted(
+                            span.getName(),
+                            span.getTraceId(),
+                            span.getSpanId(),
+                            span.getParentSpanId(),
+                            attributesOf(span)));
         }
         return String.join("\n", lines);
     }

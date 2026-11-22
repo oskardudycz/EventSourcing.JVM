@@ -47,7 +47,7 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
     @Override
     protected MessageBus createBus(
             List<MessageRoutes> routes, List<MessageChannel> channels, List<MessageQueue> queues) {
-        return KafkaMessageBus.connectingTo(
+        var bus = KafkaMessageBus.connectingTo(
                 bootstrapServers,
                 messageContext,
                 observations,
@@ -57,6 +57,9 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
                 routes,
                 channels,
                 queues);
+        bus.start();
+
+        return bus;
     }
 
     @Override
@@ -80,11 +83,6 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
     }
 
     @Override
-    protected void beforePublish(MessageBus bus) {
-        start((KafkaMessageBus) bus);
-    }
-
-    @Override
     protected void dispose(MessageBus bus) {
         ((KafkaMessageBus) bus).close();
         KafkaTopics.deleteContaining(bootstrapServers, id);
@@ -98,7 +96,7 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
                 List.of(new MessageChannel(responses)),
                 List.of());
 
-        publish(bus, new OrderPlaced("order-1"), new OrderPlaced("order-2"));
+        bus.publish(List.of(new OrderPlaced("order-1"), new OrderPlaced("order-2")));
 
         assertThat(recordsOf(responses, 2)).hasSize(2);
     }
@@ -158,7 +156,7 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
         var bus = newBus(
                 List.of(new MessageRoutes().routeTarget(OrderPlaced.class, event -> undeclared)), List.of(), List.of());
 
-        assertThatThrownBy(() -> publish(bus, new OrderPlaced("order-1")))
+        assertThatThrownBy(() -> bus.publish(List.of(new OrderPlaced("order-1"))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(undeclared);
 
@@ -167,16 +165,15 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
 
     @Test
     public void newConsumerGroupReadsFromTheEarliestOffset() {
-        publish(messageBus, new OrderPlaced("order-1"));
+        messageBus.publish(List.of(new OrderPlaced("order-1")));
         var late = "late-" + id;
         var lateBus = newBus(
                 List.of(ordersRoutes()),
                 List.of(new MessageChannel(orders)),
                 List.of(new MessageQueue(late, orders, "#")));
         lateBus.subscribe(late, OrderPlaced.class, messages::catchMessage);
-        start((KafkaMessageBus) lateBus);
 
-        whenCaughtUp();
+        lateBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
@@ -190,7 +187,7 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
                 Thread.currentThread().interrupt();
             }
         });
-        publish(messageBus, new OrderPlaced("order-1"));
+        messageBus.publish(List.of(new OrderPlaced("order-1")));
 
         try {
             assertThatThrownBy(() -> messageBus.whenCaughtUp(Duration.ofSeconds(1)))
@@ -203,7 +200,7 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
 
     @Test
     public void twoMessagesAboutOneEntityShareTheRecordKeyAndPartition() {
-        publish(messageBus, new OrderPlaced("order-1"), new ConfirmOrder("order-1"));
+        messageBus.publish(List.of(new OrderPlaced("order-1"), new ConfirmOrder("order-1")));
 
         var records = recordsOf(orders, 2);
 
@@ -225,7 +222,7 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
                 List.of(new MessageChannel(requests)),
                 List.of());
 
-        publish(bus, new PaymentCommand.CapturePayment(paymentId), new PaymentCommand.CancelPayment(paymentId));
+        bus.publish(List.of(new PaymentCommand.CapturePayment(paymentId), new PaymentCommand.CancelPayment(paymentId)));
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
             var records = KafkaTopics.recordsOf(bootstrapServers, requests).stream()
@@ -245,7 +242,7 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
         var queue = "orders-responses-" + id;
         var bus = routedBus(responses, queue, null);
 
-        publish(bus, new OrderPlaced("ecommerce.order.9"));
+        bus.publish(List.of(new OrderPlaced("ecommerce.order.9")));
 
         var original = recordsOf(responses, 1).getFirst();
         var copy = recordsOf(queue, 1).getFirst();
@@ -264,16 +261,15 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
                 KafkaMessageBus.producerFactory(bootstrapServers, TestKafka.PUBLISH_TIMEOUT));
         var bus = routedBus(responses, queue, failingFirstSend);
 
-        publish(bus, new OrderPlaced("ecommerce.order.9"));
+        bus.publish(List.of(new OrderPlaced("ecommerce.order.9")));
 
-        whenCaughtUp();
+        bus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("ecommerce.order.9"));
         assertThat(recordsOf(queue, 1)).hasSize(1);
     }
 
     @Test
     public void publishOnAnInterruptedThreadFailsWithAnInterrupt() {
-        start((KafkaMessageBus) messageBus);
         Thread.currentThread().interrupt();
 
         try {
@@ -289,25 +285,23 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
                 new MessageRoutes().route(OrderPlaced.class, event -> new RoutingTarget(responses, event.id())));
         var channels = List.of(new MessageChannel(responses));
         var queues = List.of(new MessageQueue(queue, responses, "ecommerce.order.*"));
-        var bus = routingTemplate == null
-                ? newBus(routes, channels, queues)
-                : track(new KafkaMessageBus(
-                        bootstrapServers,
-                        messageContext,
-                        observations,
-                        serializer(),
-                        TestKafka.PUBLISH_TIMEOUT,
-                        TestKafka.failureHandling(bootstrapServers, observations),
-                        routingTemplate,
-                        routes,
-                        channels,
-                        queues));
+        if (routingTemplate == null)
+            return newBus(routes, channels, queues).subscribe(queue, OrderPlaced.class, messages::catchMessage);
+
+        var bus = track(new KafkaMessageBus(
+                bootstrapServers,
+                messageContext,
+                observations,
+                serializer(),
+                TestKafka.PUBLISH_TIMEOUT,
+                TestKafka.failureHandling(bootstrapServers, observations),
+                routingTemplate,
+                routes,
+                channels,
+                queues));
+        bus.start();
 
         return bus.subscribe(queue, OrderPlaced.class, messages::catchMessage);
-    }
-
-    private void start(KafkaMessageBus bus) {
-        if (!bus.isRunning()) bus.start();
     }
 
     private void publishRaw(ProducerRecord<String, byte[]> record) {

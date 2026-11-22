@@ -8,31 +8,39 @@ import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.eventstore.Subscription;
 import io.eventdriven.core.eventstore.inmemory.InMemoryEventStore;
 import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageContext;
 import io.eventdriven.testing.messaging.TestMessages;
 import io.eventdriven.testing.tracing.TestTracing;
+import io.micrometer.tracing.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 
 public class CommandHandlerTests {
-    private final InMemoryEventStore inMemoryEventStore = new InMemoryEventStore(
-            TestTracing.untraced(), TestMessages.serializerTrustingPackageOf(CommandHandlerTests.class));
+    private final TestTracing tracing = new TestTracing();
+    private final MessageContext messageContext = tracing.messageContext();
+    private final InMemoryEventStore inMemoryEventStore =
+            new InMemoryEventStore(messageContext, TestMessages.serializerTrustingPackageOf(CommandHandlerTests.class));
     private final CompetingWriterEventStore eventStore = new CompetingWriterEventStore(inMemoryEventStore);
     private final List<Counter> statesDecidedOn = new ArrayList<>();
     private final CommandHandler<UUID, Counter, CounterEvent> handler = new CommandHandler<>(
-            eventStore, TestTracing.untraced(), CommandHandlerTests::mapToStreamId, Counter::initial, Counter::evolve);
+            eventStore, messageContext, CommandHandlerTests::mapToStreamId, Counter::initial, Counter::evolve);
 
     private final UUID counterId = UUID.randomUUID();
 
     @Test
     public void handlingACommandFoldsTheStreamAndAppendsWithTheVersionRead() {
-        var afterOpen = handler.handle(counterId, state -> decide(new CounterCommand.Open("clicks"), state));
+        var afterOpen = handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
 
-        var afterIncrement = handler.handle(counterId, state -> decide(new CounterCommand.Increment(3), state));
+        var afterIncrement = handler.handle(counterId, new CounterCommand.Increment(3), this::decide);
 
         assertThat(afterOpen).isEqualTo(0);
         assertThat(afterIncrement).isEqualTo(1);
@@ -43,9 +51,9 @@ public class CommandHandlerTests {
 
     @Test
     public void aCommandThatDecidesNothingAppendsNothing() {
-        handler.handle(counterId, state -> decide(new CounterCommand.Open("clicks"), state));
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
 
-        var version = handler.handle(counterId, state -> decide(new CounterCommand.Open("clicks"), state));
+        var version = handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
 
         assertThat(version).isEqualTo(0);
         assertThat(eventsIn(counterId)).hasSize(1);
@@ -53,7 +61,7 @@ public class CommandHandlerTests {
 
     @Test
     public void aCommandOnAnUnknownStreamThatDecidesNothingReportsNoStream() {
-        var version = handler.handle(counterId, state -> decide(new CounterCommand.Increment(0), state));
+        var version = handler.handle(counterId, new CounterCommand.Increment(0), this::decide);
 
         assertThat(version).isEqualTo(-1);
         assertThat(eventsIn(counterId)).isEmpty();
@@ -61,11 +69,11 @@ public class CommandHandlerTests {
 
     @Test
     public void aConflictWithoutAClientVersionIsRetriedUpToThreeAttempts() {
-        handler.handle(counterId, state -> decide(new CounterCommand.Open("clicks"), state));
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
         statesDecidedOn.clear();
         eventStore.competeBeforeTheNextAppends(2);
 
-        var version = handler.handle(counterId, state -> decide(new CounterCommand.Increment(10), state));
+        var version = handler.handle(counterId, new CounterCommand.Increment(10), this::decide);
 
         assertThat(statesDecidedOn).hasSize(3);
         assertThat(version).isEqualTo(3);
@@ -74,11 +82,11 @@ public class CommandHandlerTests {
 
     @Test
     public void aThirdConflictWithoutAClientVersionFailsTheCommand() {
-        handler.handle(counterId, state -> decide(new CounterCommand.Open("clicks"), state));
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
         statesDecidedOn.clear();
         eventStore.competeBeforeTheNextAppends(3);
 
-        assertThatThrownBy(() -> handler.handle(counterId, state -> decide(new CounterCommand.Increment(10), state)))
+        assertThatThrownBy(() -> handler.handle(counterId, new CounterCommand.Increment(10), this::decide))
                 .isInstanceOf(ConcurrentModificationException.class)
                 .hasMessageContaining(mapToStreamId(counterId));
 
@@ -88,11 +96,11 @@ public class CommandHandlerTests {
 
     @Test
     public void aConflictWithAClientVersionIsNotRetried() {
-        handler.handle(counterId, state -> decide(new CounterCommand.Open("clicks"), state));
-        handler.handle(counterId, state -> decide(new CounterCommand.Increment(1), state));
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+        handler.handle(counterId, new CounterCommand.Increment(1), this::decide);
         statesDecidedOn.clear();
 
-        assertThatThrownBy(() -> handler.handle(counterId, 0, state -> decide(new CounterCommand.Increment(10), state)))
+        assertThatThrownBy(() -> handler.handle(counterId, 0, new CounterCommand.Increment(10), this::decide))
                 .isInstanceOf(ConcurrentModificationException.class);
 
         assertThat(statesDecidedOn).hasSize(1);
@@ -101,9 +109,9 @@ public class CommandHandlerTests {
 
     @Test
     public void aCommandWithTheCurrentClientVersionIsAppendedAndReturnsTheNextVersion() {
-        handler.handle(counterId, state -> decide(new CounterCommand.Open("clicks"), state));
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
 
-        var version = handler.handle(counterId, 0, state -> decide(new CounterCommand.Increment(10), state));
+        var version = handler.handle(counterId, 0, new CounterCommand.Increment(10), this::decide);
 
         assertThat(version).isEqualTo(1);
         assertThat(handler.get(counterId).total()).isEqualTo(10);
@@ -111,10 +119,10 @@ public class CommandHandlerTests {
 
     @Test
     public void aCommandWithAClientVersionThatDecidesNothingReturnsThatVersion() {
-        handler.handle(counterId, state -> decide(new CounterCommand.Open("clicks"), state));
-        handler.handle(counterId, state -> decide(new CounterCommand.Increment(1), state));
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+        handler.handle(counterId, new CounterCommand.Increment(1), this::decide);
 
-        var version = handler.handle(counterId, 1, state -> decide(new CounterCommand.Increment(0), state));
+        var version = handler.handle(counterId, 1, new CounterCommand.Increment(0), this::decide);
 
         assertThat(version).isEqualTo(1);
         assertThat(eventsIn(counterId)).hasSize(2);
@@ -122,11 +130,10 @@ public class CommandHandlerTests {
 
     @Test
     public void aNegativeClientVersionIsAConflictAndDecidesNothing() {
-        handler.handle(counterId, state -> decide(new CounterCommand.Open("clicks"), state));
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
         statesDecidedOn.clear();
 
-        assertThatThrownBy(
-                        () -> handler.handle(counterId, -1, state -> decide(new CounterCommand.Increment(10), state)))
+        assertThatThrownBy(() -> handler.handle(counterId, -1, new CounterCommand.Increment(10), this::decide))
                 .isInstanceOf(ConcurrentModificationException.class);
 
         assertThat(statesDecidedOn).isEmpty();
@@ -137,7 +144,7 @@ public class CommandHandlerTests {
     public void startingAStreamThatSomebodyElseStartedFirstIsRetriedOnTheirStream() {
         eventStore.competeBeforeTheNextAppends(1, new CounterEvent.Opened("views"));
 
-        handler.handle(counterId, state -> decide(new CounterCommand.Open("clicks"), state));
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
 
         assertThat(handler.get(counterId).name()).isEqualTo("views");
         assertThat(eventsIn(counterId)).hasSize(1);
@@ -145,9 +152,9 @@ public class CommandHandlerTests {
 
     @Test
     public void readingAnEntityReturnsItsStateAfterAllEvents() {
-        handler.handle(counterId, state -> decide(new CounterCommand.Open("clicks"), state));
-        handler.handle(counterId, state -> decide(new CounterCommand.Increment(1), state));
-        handler.handle(counterId, state -> decide(new CounterCommand.Increment(2), state));
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+        handler.handle(counterId, new CounterCommand.Increment(1), this::decide);
+        handler.handle(counterId, new CounterCommand.Increment(2), this::decide);
 
         assertThat(handler.get(counterId)).isEqualTo(new Counter("clicks", 3));
     }
@@ -155,6 +162,130 @@ public class CommandHandlerTests {
     @Test
     public void readingAnUnknownEntityReturnsItsInitialState() {
         assertThat(handler.get(UUID.randomUUID())).isEqualTo(Counter.initial());
+    }
+
+    @Test
+    public void handlingACommandRecordsItsTypeStreamVersionsAndEventsOnASpan() {
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+
+        handler.handle(counterId, new CounterCommand.Increment(3), this::decide);
+
+        assertThat(attributesOf(commandSpans().getLast()))
+                .containsEntry("eventdriven.command.type", "Increment")
+                .containsEntry("eventdriven.command.status", "success")
+                .containsEntry("eventdriven.stream.name", mapToStreamId(counterId))
+                .containsEntry("eventdriven.stream.version.before", "0")
+                .containsEntry("eventdriven.stream.version.after", "1")
+                .containsEntry("eventdriven.command.event_count", "1")
+                .containsEntry("eventdriven.command.event_types", "Incremented");
+    }
+
+    @Test
+    public void aCommandThatDecidesNothingRecordsNoEventsOnItsSpan() {
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+
+        assertThat(attributesOf(commandSpans().getLast()))
+                .containsEntry("eventdriven.command.status", "success")
+                .containsEntry("eventdriven.stream.version.before", "0")
+                .containsEntry("eventdriven.stream.version.after", "0")
+                .containsEntry("eventdriven.command.event_count", "0")
+                .containsEntry("eventdriven.command.event_types", "");
+    }
+
+    @Test
+    public void aCommandOnANewStreamStartsItsSpanFromNoStream() {
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+
+        assertThat(attributesOf(commandSpans().getLast()))
+                .containsEntry("eventdriven.stream.version.before", "-1")
+                .containsEntry("eventdriven.stream.version.after", "0");
+    }
+
+    @Test
+    public void aFailedCommandMarksItsSpanAsFailedWithTheException() {
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+        handler.handle(counterId, new CounterCommand.Increment(1), this::decide);
+
+        assertThatThrownBy(() -> handler.handle(counterId, 0, new CounterCommand.Increment(10), this::decide))
+                .isInstanceOf(ConcurrentModificationException.class);
+
+        var span = commandSpans().getLast();
+        assertThat(attributesOf(span)).containsEntry("eventdriven.command.status", "failure");
+        assertThat(span.getStatus().getStatusCode()).isEqualTo(StatusCode.ERROR);
+        assertThat(span.getEvents())
+                .anySatisfy(event -> assertThat(event.getName()).isEqualTo("exception"));
+    }
+
+    @Test
+    public void eachAttemptOfARetriedConflictHasItsOwnSpan() {
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+        eventStore.competeBeforeTheNextAppends(2);
+
+        handler.handle(counterId, new CounterCommand.Increment(10), this::decide);
+
+        assertThat(commandSpans().subList(1, 4))
+                .extracting(span -> attributesOf(span).get("eventdriven.command.status"))
+                .containsExactly("failure", "failure", "success");
+    }
+
+    @Test
+    public void aCommandHandledForAMessageCarriesItsCorrelationAndCausationIds() {
+        try (var _ = messageContext.handling("message-1", "correlation-1")) {
+            handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+        }
+
+        assertThat(attributesOf(commandSpans().getLast()))
+                .containsEntry("messaging.message.correlation_id", "correlation-1")
+                .containsEntry("messaging.message.causation_id", "message-1");
+    }
+
+    @Test
+    public void aCommandContinuingATraceIsHandledInTheTraceOfTheStreamsLastEvent() {
+        Span opening = tracing.tracer().nextSpan().name("opening").start();
+        try (var _ = tracing.tracer().withSpan(opening);
+                var _ = messageContext.handling("message-1", "correlation-1")) {
+            handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+        } finally {
+            opening.end();
+        }
+
+        handler.handleContinuingTrace(counterId, new CounterCommand.Increment(1), this::decide);
+
+        var span = commandSpans().getLast();
+        assertThat(span.getTraceId()).isEqualTo(opening.context().traceId());
+        assertThat(attributesOf(span))
+                .containsEntry("eventdriven.command.type", "Increment")
+                .containsEntry("messaging.message.correlation_id", "correlation-1");
+    }
+
+    @Test
+    public void aCommandContinuingATraceForAMessageIsHandledBelowAStepNamingThatMessage() {
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+
+        try (var _ = messageContext.handling("callback-1", "callback-correlation")) {
+            handler.handleContinuingTrace(counterId, new CounterCommand.Increment(1), this::decide);
+        }
+
+        var step = tracing.finishedSpans().stream()
+                .filter(span -> span.getName().equals("handle Increment"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(attributesOf(step)).containsEntry("messaging.message.id", "callback-1");
+        assertThat(commandSpans().getLast().getParentSpanId()).isEqualTo(step.getSpanId());
+    }
+
+    private List<SpanData> commandSpans() {
+        return tracing.finishedSpans().stream()
+                .filter(span -> span.getName().equals("command.handle"))
+                .toList();
+    }
+
+    private static Map<String, String> attributesOf(SpanData span) {
+        var attributes = new HashMap<String, String>();
+        span.getAttributes().forEach((key, value) -> attributes.put(key.getKey(), String.valueOf(value)));
+        return attributes;
     }
 
     private CounterEvent[] decide(CounterCommand command, Counter state) {

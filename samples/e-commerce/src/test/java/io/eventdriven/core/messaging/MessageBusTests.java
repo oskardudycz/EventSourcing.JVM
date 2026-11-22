@@ -9,12 +9,15 @@ import io.eventdriven.core.messaging.versioning.MessageMapping;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.testing.messaging.MessageCatcher;
 import io.eventdriven.testing.messaging.TestMessages;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,8 +34,6 @@ public abstract class MessageBusTests {
 
     protected abstract MessageBus createBus(
             List<MessageRoutes> routes, List<MessageChannel> channels, List<MessageQueue> queues);
-
-    protected void beforePublish(MessageBus bus) {}
 
     protected void dispose(MessageBus bus) {}
 
@@ -77,24 +78,15 @@ public abstract class MessageBusTests {
         return bus;
     }
 
-    protected void publish(MessageBus bus, Object... messages) {
-        beforePublish(bus);
-        bus.publish(List.of(messages));
-    }
-
-    protected void whenCaughtUp() {
-        buses.forEach(bus -> bus.whenCaughtUp());
-    }
-
     protected abstract List<SpanData> finishedSpans();
 
     @Test
     public void consumerOpensAStepSpanNamedAfterTheMessageType() {
         messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
 
-        publish(messageBus, new OrderPlaced("order-1"));
+        messageBus.publish(List.of(new OrderPlaced("order-1")));
 
-        whenCaughtUp();
+        messageBus.whenCaughtUp();
         await().atMost(CATCH_UP_TIMEOUT)
                 .untilAsserted(() -> assertThat(finishedSpans())
                         .extracting(SpanData::getName)
@@ -102,13 +94,42 @@ public abstract class MessageBusTests {
     }
 
     @Test
+    public void theStepSpanCarriesTheMessageIdAndTheProcessItBelongsTo() {
+        var handlerSpanIds = new CopyOnWriteArrayList<String>();
+        messageBus.subscribe(
+                orders,
+                OrderPlaced.class,
+                message -> handlerSpanIds.add(Span.current().getSpanContext().getSpanId()));
+
+        messageBus.publish(List.of(new OrderPlaced("order-1")));
+
+        messageBus.whenCaughtUp();
+        await().atMost(CATCH_UP_TIMEOUT)
+                .untilAsserted(() -> assertThat(finishedSpans())
+                        .filteredOn(span -> handlerSpanIds.contains(span.getSpanId()))
+                        .singleElement()
+                        .satisfies(span -> {
+                            var messageId = attributeOf(span, "messaging.message.id");
+                            var correlationId = attributeOf(span, "messaging.message.correlation_id");
+                            assertThat(messageId).isNotBlank();
+                            assertThat(correlationId).isNotBlank().isNotEqualTo(messageId);
+                            assertThat(attributeOf(span, "messaging.message.causation_id"))
+                                    .isEqualTo(correlationId);
+                        }));
+    }
+
+    private static String attributeOf(SpanData span, String key) {
+        return span.getAttributes().get(AttributeKey.stringKey(key));
+    }
+
+    @Test
     public void deliversToAllSubscribersOfTheTypeInRegistrationOrder() {
         messageBus.subscribe(orders, OrderPlaced.class, event -> messages.catchMessage(new Handled("first", event)));
         messageBus.subscribe(orders, OrderPlaced.class, event -> messages.catchMessage(new Handled("second", event)));
 
-        publish(messageBus, new OrderPlaced("order-1"));
+        messageBus.publish(List.of(new OrderPlaced("order-1")));
 
-        whenCaughtUp();
+        messageBus.whenCaughtUp();
         messages.shouldReceiveMessages(
                 new Handled("first", new OrderPlaced("order-1")), new Handled("second", new OrderPlaced("order-1")));
     }
@@ -118,9 +139,9 @@ public abstract class MessageBusTests {
         messageBus.subscribe(orders, ConfirmOrder.class, messages::catchMessage);
         messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
 
-        publish(messageBus, new ConfirmOrder("order-1"), new OrderPlaced("order-1"));
+        messageBus.publish(List.of(new ConfirmOrder("order-1"), new OrderPlaced("order-1")));
 
-        whenCaughtUp();
+        messageBus.whenCaughtUp();
         messages.shouldReceiveMessages(new ConfirmOrder("order-1"), new OrderPlaced("order-1"));
     }
 
@@ -129,9 +150,9 @@ public abstract class MessageBusTests {
         messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
 
         assertThatNoException()
-                .isThrownBy(() -> publish(messageBus, new ConfirmOrder("order-1"), new OrderPlaced("order-1")));
+                .isThrownBy(() -> messageBus.publish(List.of(new ConfirmOrder("order-1"), new OrderPlaced("order-1"))));
 
-        whenCaughtUp();
+        messageBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
@@ -141,9 +162,9 @@ public abstract class MessageBusTests {
         messageBus.subscribe(orders, OrderMessage.class, supertypeSubscriber::catchMessage);
         messageBus.subscribe(orders, OrderCanceled.class, messages::catchMessage);
 
-        publish(messageBus, new OrderPlaced("order-1"), new OrderCanceled("order-1"));
+        messageBus.publish(List.of(new OrderPlaced("order-1"), new OrderCanceled("order-1")));
 
-        whenCaughtUp();
+        messageBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderCanceled("order-1"));
         supertypeSubscriber.shouldNotReceiveAnyEvent();
     }
@@ -152,7 +173,7 @@ public abstract class MessageBusTests {
     public void runsMiddlewareAlsoForMessagesWithoutSubscribers() {
         messageBus.use(messages::catchMessage);
 
-        publish(messageBus, new OrderPlaced("order-1"));
+        messageBus.publish(List.of(new OrderPlaced("order-1")));
 
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
@@ -168,18 +189,19 @@ public abstract class MessageBusTests {
 
     @Test
     public void everyQueueBoundToTheChannelGetsTheMessage() {
+        var ownOrders = "own-orders-" + id;
         var billing = "billing-" + id;
         var bus = newBus(
                 List.of(ordersRoutes()),
                 List.of(new MessageChannel(orders)),
-                List.of(ordersQueue(), new MessageQueue(billing, orders, "#")));
+                List.of(new MessageQueue(ownOrders, orders, "#"), new MessageQueue(billing, orders, "#")));
         var billingMessages = new MessageCatcher();
-        bus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
+        bus.subscribe(ownOrders, OrderPlaced.class, messages::catchMessage);
         bus.subscribe(billing, OrderPlaced.class, billingMessages::catchMessage);
 
-        publish(bus, new OrderPlaced("order-1"));
+        bus.publish(List.of(new OrderPlaced("order-1")));
 
-        whenCaughtUp();
+        bus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
         billingMessages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
@@ -198,9 +220,9 @@ public abstract class MessageBusTests {
         bus.subscribe("orders-responses-" + id, OrderPlaced.class, messages::catchMessage);
         bus.subscribe("invoices-responses-" + id, OrderPlaced.class, invoices::catchMessage);
 
-        publish(bus, new OrderPlaced("ecommerce.order.1"), new OrderPlaced("ecommerce.invoice.7"));
+        bus.publish(List.of(new OrderPlaced("ecommerce.order.1"), new OrderPlaced("ecommerce.invoice.7")));
 
-        whenCaughtUp();
+        bus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("ecommerce.order.1"));
         invoices.shouldReceiveSingleEvent(new OrderPlaced("ecommerce.invoice.7"));
     }
@@ -219,13 +241,12 @@ public abstract class MessageBusTests {
         bus.subscribe("star-" + id, OrderPlaced.class, messages::catchMessage);
         bus.subscribe("hash-" + id, OrderPlaced.class, hash::catchMessage);
 
-        publish(
-                bus,
+        bus.publish(List.of(
                 new OrderPlaced("ecommerce"),
                 new OrderPlaced("ecommerce.order"),
-                new OrderPlaced("ecommerce.order.1"));
+                new OrderPlaced("ecommerce.order.1")));
 
-        whenCaughtUp();
+        bus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("ecommerce.order"));
         assertThat(hash.published)
                 .containsExactlyInAnyOrder(
@@ -236,6 +257,7 @@ public abstract class MessageBusTests {
 
     @Test
     public void aQueueBoundToAnotherChannelGetsNothing() {
+        var ownOrders = "own-orders-" + id;
         var payments = "payments-" + id;
         var paymentsMessages = new MessageCatcher();
         var bus = newBus(
@@ -243,14 +265,14 @@ public abstract class MessageBusTests {
                         .routeTarget(ConfirmOrder.class, command -> payments)
                         .routeTarget(OrderPlaced.class, event -> orders)),
                 List.of(new MessageChannel(orders), new MessageChannel(payments)),
-                List.of(ordersQueue(), new MessageQueue(payments, payments, "#")));
-        bus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
+                List.of(new MessageQueue(ownOrders, orders, "#"), new MessageQueue(payments, payments, "#")));
+        bus.subscribe(ownOrders, OrderPlaced.class, messages::catchMessage);
         bus.subscribe(payments, OrderPlaced.class, paymentsMessages::catchMessage);
         bus.subscribe(payments, ConfirmOrder.class, paymentsMessages::catchMessage);
 
-        publish(bus, new OrderPlaced("order-1"), new ConfirmOrder("order-1"));
+        bus.publish(List.of(new OrderPlaced("order-1"), new ConfirmOrder("order-1")));
 
-        whenCaughtUp();
+        bus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
         paymentsMessages.shouldReceiveSingleEvent(new ConfirmOrder("order-1"));
     }
@@ -259,7 +281,7 @@ public abstract class MessageBusTests {
     public void publishingAMessageWithoutARouteFailsNamingItsType() {
         var bus = newBus(List.of(), List.of(new MessageChannel(orders)), List.of(ordersQueue()));
 
-        assertThatThrownBy(() -> publish(bus, new OrderPlaced("order-1")))
+        assertThatThrownBy(() -> bus.publish(List.of(new OrderPlaced("order-1"))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(OrderPlaced.class.getName());
     }
@@ -269,7 +291,8 @@ public abstract class MessageBusTests {
         var bus = newBus(List.of(), List.of(), List.of());
         bus.use(messages::catchMessage);
 
-        assertThatThrownBy(() -> publish(bus, new OrderPlaced("order-1"))).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> bus.publish(List.of(new OrderPlaced("order-1"))))
+                .isInstanceOf(IllegalStateException.class);
 
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
@@ -279,13 +302,14 @@ public abstract class MessageBusTests {
         var bus = newBus(
                 List.of(new MessageRoutes().routeTarget(OrderPlaced.class, event -> orders)), List.of(), List.of());
 
-        assertThatThrownBy(() -> publish(bus, new OrderPlaced("order-1")))
+        assertThatThrownBy(() -> bus.publish(List.of(new OrderPlaced("order-1"))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(orders);
     }
 
     @Test
     public void routesGivenByEachModuleAreAllUsed() {
+        var ownOrders = "own-orders-" + id;
         var commands = "commands-" + id;
         var commandMessages = new MessageCatcher();
         var bus = newBus(
@@ -293,13 +317,13 @@ public abstract class MessageBusTests {
                         new MessageRoutes().routeTarget(OrderPlaced.class, event -> orders),
                         new MessageRoutes().routeTarget(ConfirmOrder.class, command -> commands)),
                 List.of(new MessageChannel(orders), new MessageChannel(commands)),
-                List.of(ordersQueue(), new MessageQueue(commands, commands, "#")));
-        bus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
+                List.of(new MessageQueue(ownOrders, orders, "#"), new MessageQueue(commands, commands, "#")));
+        bus.subscribe(ownOrders, OrderPlaced.class, messages::catchMessage);
         bus.subscribe(commands, ConfirmOrder.class, commandMessages::catchMessage);
 
-        publish(bus, new OrderPlaced("order-1"), new ConfirmOrder("order-1"));
+        bus.publish(List.of(new OrderPlaced("order-1"), new ConfirmOrder("order-1")));
 
-        whenCaughtUp();
+        bus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
         commandMessages.shouldReceiveSingleEvent(new ConfirmOrder("order-1"));
     }

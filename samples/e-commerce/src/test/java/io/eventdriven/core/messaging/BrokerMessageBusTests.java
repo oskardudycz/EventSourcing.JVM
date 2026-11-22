@@ -62,9 +62,8 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
         messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
 
         sendRaw("test.OrderPlaced", "{\"id\":\"order-1\"}".getBytes(StandardCharsets.UTF_8));
-        beforePublish(messageBus);
 
-        whenCaughtUp();
+        messageBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
@@ -83,7 +82,7 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
                 List.of(ordersQueue()));
         var published = collectFirstPublishedTo(orders);
 
-        publish(bus, authorized);
+        bus.publish(List.of(authorized));
 
         assertThat(published.get().typeId())
                 .isEqualTo("io.eventdriven.core.messaging.MessageBusTests$PaymentEvent$PaymentAuthorized");
@@ -104,9 +103,9 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
                 List.of(new MessageQueue(responsesForOrders, responses, "ecommerce.order.*")));
         bus.subscribe(responsesForOrders, PaymentEvent.PaymentAuthorized.class, messages::catchMessage);
 
-        publish(bus, authorized);
+        bus.publish(List.of(authorized));
 
-        whenCaughtUp();
+        bus.whenCaughtUp();
         assertThat(messages.published).contains(authorized);
     }
 
@@ -115,15 +114,16 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
         messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
         var published = collectFirstPublishedTo(orders);
 
-        publish(messageBus, new OrderPlaced("order-1"));
+        messageBus.publish(List.of(new OrderPlaced("order-1")));
 
         assertThat(published.get().typeId()).isEqualTo("test.OrderPlaced");
-        whenCaughtUp();
+        messageBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
     @Test
     public void anOffsetDateTimeKeepsItsOffset() {
+        var ownOrders = "own-orders-" + id;
         var referenceId = Urns.of("ecommerce", "order", UUID.randomUUID());
         var authorizedAt = OffsetDateTime.of(2024, 5, 1, 10, 15, 30, 0, ZoneOffset.ofHours(2));
         var authorized = new PaymentEvent.PaymentAuthorized(referenceId, authorizedAt);
@@ -133,12 +133,12 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
                                 PaymentEvent.class,
                                 event -> new RoutingTarget(orders, Urns.routingKeyOf(event.referenceId())))),
                 List.of(new MessageChannel(orders)),
-                List.of(ordersQueue()));
-        bus.subscribe(orders, PaymentEvent.PaymentAuthorized.class, messages::catchMessage);
+                List.of(new MessageQueue(ownOrders, orders, "#")));
+        bus.subscribe(ownOrders, PaymentEvent.PaymentAuthorized.class, messages::catchMessage);
 
-        publish(bus, authorized);
+        bus.publish(List.of(authorized));
 
-        whenCaughtUp();
+        bus.whenCaughtUp();
         assertThat(messages.published).hasSize(1);
         assertThat(((PaymentEvent.PaymentAuthorized) messages.published.getFirst()).authorizedAt())
                 .isEqualTo(authorizedAt)
@@ -149,7 +149,7 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
     public void messageStartingAProcessCarriesAMessageIdAndAGeneratedCorrelationId() {
         var published = collectFirstPublishedTo(orders);
 
-        publish(messageBus, new OrderPlaced("order-1"));
+        messageBus.publish(List.of(new OrderPlaced("order-1")));
 
         var message = published.get();
         assertThat(UUID.fromString(message.messageId())).isNotNull();
@@ -164,7 +164,7 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
 
         for (var delivery = 0; delivery < 2; delivery++)
             try (var _ = messageContext.handling("redelivered-message-id", "process-correlation-id")) {
-                publish(messageBus, new ConfirmOrder("order-1"), new OrderCanceled("order-1"));
+                messageBus.publish(List.of(new ConfirmOrder("order-1"), new OrderCanceled("order-1")));
             }
 
         var messageIds =
@@ -179,7 +179,7 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
         var published = collectFirstPublishedTo(orders);
 
         try (var _ = messageContext.handling("handled-message-id", "process-correlation-id")) {
-            publish(messageBus, new OrderPlaced("order-1"));
+            messageBus.publish(List.of(new OrderPlaced("order-1")));
         }
 
         var message = published.get();
@@ -203,13 +203,13 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
 
         try (var _ = tracer.withSpan(publisherSpan);
                 var _ = messageContext.handling("handled-message-id", "process-correlation-id")) {
-            publish(messageBus, new OrderPlaced("order-1"));
+            messageBus.publish(List.of(new OrderPlaced("order-1")));
         } finally {
             publisherSpan.end();
         }
 
         var messageId = published.get().messageId();
-        whenCaughtUp();
+        messageBus.whenCaughtUp();
         assertThat(seen).hasSize(4);
         assertThat(seen.subList(0, 3))
                 .containsExactly(
@@ -229,9 +229,9 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
         messageBus.subscribe(orders, OrderPlaced.class, messages::catchMessage);
         sendRaw(null, "{}".getBytes(StandardCharsets.UTF_8));
 
-        publish(messageBus, new OrderPlaced("order-1"));
+        messageBus.publish(List.of(new OrderPlaced("order-1")));
 
-        whenCaughtUp();
+        messageBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 }

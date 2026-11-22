@@ -1,6 +1,9 @@
 package io.eventdriven.testing.tracing;
 
 import io.eventdriven.core.messaging.MessageContext;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.observation.DefaultMeterObservationHandler;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.Tracer;
 import io.micrometer.tracing.handler.DefaultTracingObservationHandler;
@@ -17,6 +20,7 @@ import java.util.List;
 
 public final class TestTracing {
     private final InMemorySpanExporter spanExporter = InMemorySpanExporter.create();
+    private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final Tracer tracer;
 
     public TestTracing() {
@@ -41,7 +45,7 @@ public final class TestTracing {
     }
 
     public static MessageContext untraced() {
-        return new MessageContext(Tracer.NOOP);
+        return new MessageContext(Tracer.NOOP, ObservationRegistry.NOOP, new SimpleMeterRegistry());
     }
 
     public List<SpanData> finishedSpans() {
@@ -52,18 +56,25 @@ public final class TestTracing {
         return spanExporter;
     }
 
+    public MeterRegistry meters() {
+        return meters;
+    }
+
     public Tracer tracer() {
         return tracer;
     }
 
     public ObservationRegistry observations() {
         var observations = ObservationRegistry.create();
-        observations.observationConfig().observationHandler(new DefaultTracingObservationHandler(tracer));
+        observations
+                .observationConfig()
+                .observationHandler(new DefaultTracingObservationHandler(tracer))
+                .observationHandler(new DefaultMeterObservationHandler(meters));
 
         return observations;
     }
 
     public MessageContext messageContext() {
-        return new MessageContext(tracer);
+        return new MessageContext(tracer, observations(), meters);
     }
 }
