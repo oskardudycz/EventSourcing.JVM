@@ -1,6 +1,7 @@
 package io.eventdriven.core.eventstore;
 
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.processing.MessageProcessor;
 import java.time.Duration;
 import java.util.List;
 import java.util.function.Consumer;
@@ -12,10 +13,15 @@ public interface EventStore {
 
     AppendResult append(String streamId, ExpectedStreamVersion expectedVersion, Object... events);
 
-    Subscription subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler);
+    Subscription subscribe(String name, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler);
+
+    default Subscription subscribe(String name, MessageProcessor... processors) {
+        return subscribe(name, MessageProcessor.canHandle(processors), MessageProcessor.handle(processors));
+    }
 
     /**
-     * Waits until every subscription has handled the events of its types that this store appended before the call.
+     * Waits until every subscription has handled the events of its types that this store appended before the call,
+     * and the events that subscriptions appended while it waited.
      * Fails when the wait takes longer than the timeout.
      */
     void whenCaughtUp(Duration timeout);
@@ -25,7 +31,7 @@ public interface EventStore {
     }
 
     sealed interface ReadResult {
-        record Success(List<EventEnvelope<Object>> events) implements ReadResult {}
+        record Success(List<MessageEnvelope<Object>> events) implements ReadResult {}
 
         record StreamDoesNotExist() implements ReadResult {}
 

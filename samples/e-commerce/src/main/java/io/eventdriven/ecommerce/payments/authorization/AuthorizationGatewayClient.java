@@ -2,19 +2,36 @@ package io.eventdriven.ecommerce.payments.authorization;
 
 import static io.eventdriven.ecommerce.payments.PaymentEvent.*;
 
+import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.processing.Reactor;
 import io.eventdriven.ecommerce.payments.Payment;
 import io.eventdriven.ecommerce.payments.PaymentGateway;
+import java.util.List;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class AuthorizationGatewayClient {
+public class AuthorizationGatewayClient implements Reactor {
     private static final Logger logger = LoggerFactory.getLogger(AuthorizationGatewayClient.class);
 
     private final PaymentGateway paymentGateway;
 
     public AuthorizationGatewayClient(PaymentGateway paymentGateway) {
         this.paymentGateway = paymentGateway;
+    }
+
+    @Override
+    public List<Class<?>> canHandle() {
+        return List.of(PaymentCanceled.class, PaymentTimedOut.class);
+    }
+
+    @Override
+    public void handle(MessageEnvelope<Object> envelope) {
+        switch (envelope.message()) {
+            case PaymentCanceled event -> on(event);
+            case PaymentTimedOut event -> on(event);
+            default -> throw new IllegalArgumentException("Unexpected message %s".formatted(envelope.message()));
+        }
     }
 
     public void on(PaymentCanceled event) {

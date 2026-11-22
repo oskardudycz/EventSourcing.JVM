@@ -4,7 +4,7 @@ import static io.eventdriven.ecommerce.shipments.ShipmentEvent.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.core.identifiers.Urns;
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.ecommerce.shipments.Shipment;
 import io.eventdriven.ecommerce.shipments.ShipmentFacade;
 import io.eventdriven.testing.messaging.Metadata;
@@ -58,7 +58,7 @@ public class ShipmentSummariesTests {
         assertThat(summaries.get(shipmentId)).isEmpty();
     }
 
-    private <Event> EventEnvelope<Event> at(long streamPosition, Event event) {
-        return new EventEnvelope<>(event, Metadata.at(streamId, streamPosition));
+    private <Event> MessageEnvelope<Event> at(long streamPosition, Event event) {
+        return new MessageEnvelope<>(event, Metadata.at(streamId, streamPosition));
     }
 }

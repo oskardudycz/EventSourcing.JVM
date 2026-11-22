@@ -7,9 +7,10 @@ import io.eventdriven.core.eventstore.EventStoreObservations;
 import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.eventstore.Subscription;
 import io.eventdriven.core.eventstore.SubscriptionsCatchUp;
-import io.eventdriven.core.messaging.EventEnvelope;
-import io.eventdriven.core.messaging.EventMetadata;
 import io.eventdriven.core.messaging.MessageContext;
+import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.messaging.MessageMetadata;
+import io.eventdriven.core.messaging.MessageSource;
 import io.eventdriven.core.messaging.MessageValues;
 import io.eventdriven.core.messaging.UnreadableMessageException;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
@@ -180,7 +181,7 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
                         "select %s from messages where stream_id = ? order by stream_position".formatted(COLUMNS))) {
             statement.setString(1, streamId);
 
-            var events = new ArrayList<EventEnvelope<Object>>();
+            var events = new ArrayList<MessageEnvelope<Object>>();
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) events.add(eventOf(StoredMessage.of(rows), serializer));
             }
@@ -214,7 +215,7 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
     }
 
     @Override
-    public Subscription subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler) {
+    public Subscription subscribe(String name, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {
         if (types.isEmpty())
             throw new IllegalArgumentException("Subscription '%s' needs at least one event type".formatted(name));
 
@@ -366,7 +367,7 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
         }
     }
 
-    static EventEnvelope<Object> eventOf(StoredMessage message, MessageSerializer serializer) {
+    static MessageEnvelope<Object> eventOf(StoredMessage message, MessageSerializer serializer) {
         Map<String, String> metadata;
         try {
             metadata = serializer.jsonMapper().readValue(message.metadata(), METADATA_TYPE);
@@ -377,18 +378,19 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
         var correlationId = metadata.getOrDefault(MessageContext.CORRELATION_ID, message.messageId());
         var event = serializer.read(message.type(), message.data().getBytes(StandardCharsets.UTF_8));
 
-        return new EventEnvelope<>(
+        return new MessageEnvelope<>(
                 event,
-                new EventMetadata(
-                        message.streamId(),
-                        message.streamPosition(),
-                        message.globalPosition(),
-                        message.transactionId(),
+                new MessageMetadata(
                         message.messageId(),
                         correlationId,
                         metadata.getOrDefault(MessageContext.CAUSATION_ID, correlationId),
                         metadata.get(TRACE_ID),
-                        metadata.get(SPAN_ID)));
+                        metadata.get(SPAN_ID),
+                        new MessageSource.InStream(
+                                message.streamId(),
+                                message.streamPosition(),
+                                message.globalPosition(),
+                                message.transactionId())));
     }
 
     private static final String TRACE_ID = "traceId";

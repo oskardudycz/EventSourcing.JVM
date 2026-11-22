@@ -2,8 +2,8 @@ package io.eventdriven.core.commands;
 
 import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.eventstore.ExpectedStreamVersion;
-import io.eventdriven.core.messaging.EventEnvelope;
 import io.eventdriven.core.messaging.MessageContext;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
@@ -118,7 +118,7 @@ public class CommandHandler<Id, State, Event> {
         }
     }
 
-    private MessageContext.Scope scopeOf(String commandType, List<EventEnvelope<Object>> events) {
+    private MessageContext.Scope scopeOf(String commandType, List<MessageEnvelope<Object>> events) {
         if (commandType == null || events.isEmpty()) return () -> {};
 
         return messageContext.continuing(
@@ -139,7 +139,7 @@ public class CommandHandler<Id, State, Event> {
         };
     }
 
-    private List<EventEnvelope<Object>> eventsOf(Id id) {
+    private List<MessageEnvelope<Object>> eventsOf(Id id) {
         return switch (eventStore.read(mapToStreamId.apply(id))) {
             case EventStore.ReadResult.StreamDoesNotExist ignored -> List.of();
             case EventStore.ReadResult.Success success -> success.events();
@@ -148,11 +148,11 @@ public class CommandHandler<Id, State, Event> {
     }
 
     @SuppressWarnings("unchecked")
-    private State fold(List<EventEnvelope<Object>> events) {
+    private State fold(List<MessageEnvelope<Object>> events) {
         var state = initial.get();
 
         for (var envelope : events) {
-            state = evolve.apply(state, (Event) envelope.data());
+            state = evolve.apply(state, (Event) envelope.message());
         }
 
         return state;

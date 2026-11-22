@@ -3,7 +3,7 @@ package io.eventdriven.ecommerce.shoppingcarts.external;
 import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartFacade;
@@ -140,7 +140,7 @@ public class ShoppingCartSummariesTests {
     }
 
     private void republishAt(long position, ShoppingCartEvent event) {
-        summaries.handle(new EventEnvelope<>(event, Metadata.at(streamId, position)));
+        summaries.handle(new MessageEnvelope<>(event, Metadata.at(streamId, position)));
     }
 
     private ShoppingCartSummary summary() {

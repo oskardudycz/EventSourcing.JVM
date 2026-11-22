@@ -4,7 +4,7 @@ import static io.eventdriven.ecommerce.payments.PaymentEvent.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.core.identifiers.Urns;
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.ecommerce.payments.Payment;
 import io.eventdriven.ecommerce.payments.PaymentFacade;
 import io.eventdriven.testing.messaging.Metadata;
@@ -59,7 +59,7 @@ public class PaymentSummariesTests {
         return summaries.get(paymentId).orElseThrow();
     }
 
-    private <Event> EventEnvelope<Event> at(long streamPosition, Event event) {
-        return new EventEnvelope<>(event, Metadata.at(streamId, streamPosition));
+    private <Event> MessageEnvelope<Event> at(long streamPosition, Event event) {
+        return new MessageEnvelope<>(event, Metadata.at(streamId, streamPosition));
     }
 }

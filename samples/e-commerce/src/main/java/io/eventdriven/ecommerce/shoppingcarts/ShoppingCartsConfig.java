@@ -21,7 +21,6 @@ import io.eventdriven.ecommerce.shoppingcarts.getcart.CartRepository;
 import io.eventdriven.ecommerce.shoppingcarts.getcart.Carts;
 import io.eventdriven.ecommerce.shoppingcarts.pricing.ProductPriceCalculator;
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.function.Supplier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -83,8 +82,6 @@ public class ShoppingCartsConfig {
             EventStore eventStore, ShoppingCartSummaryRepository shoppingCartSummaryRepository) {
         var summaries = new ShoppingCartSummaries(shoppingCartSummaryRepository);
 
-        eventStore.subscribe("shopping-cart-summaries", summaries.canHandle(), summaries::handle);
-
         return summaries;
     }
 
@@ -93,8 +90,7 @@ public class ShoppingCartsConfig {
             EventStore eventStore, ShoppingCartSummaries summaries, MessageBus messageBus) {
         var forwarder = new ShoppingCartExternalEventForwarder(summaries, messageBus);
 
-        eventStore.subscribe(
-                "shopping-carts-external-forwarder", List.of(ShoppingCartCheckedOut.class), forwarder::handle);
+        eventStore.subscribe("shopping-carts-external", summaries, forwarder);
 
         return forwarder;
     }
@@ -103,7 +99,7 @@ public class ShoppingCartsConfig {
     public Carts carts(EventStore eventStore, CartRepository cartRepository) {
         var carts = new Carts(cartRepository);
 
-        eventStore.subscribe("carts", carts.canHandle(), carts::handle);
+        eventStore.subscribe("carts", carts);
 
         return carts;
     }

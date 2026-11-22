@@ -3,7 +3,7 @@ package io.eventdriven.ecommerce.shoppingcarts.getcart;
 import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartEvent.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCartFacade;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
@@ -100,7 +100,7 @@ public class CartsTests {
                 cartId, new PricedProductItem(new ProductItem(productId, quantity), unitPrice), now);
     }
 
-    private <Event> EventEnvelope<Event> at(long streamPosition, Event event) {
-        return new EventEnvelope<>(event, Metadata.at(streamId, streamPosition));
+    private <Event> MessageEnvelope<Event> at(long streamPosition, Event event) {
+        return new MessageEnvelope<>(event, Metadata.at(streamId, streamPosition));
     }
 }

@@ -17,11 +17,11 @@ import io.eventdriven.testing.messaging.TestMessages;
 import io.eventdriven.testing.messaging.kafka.FailingFirstSendKafkaTemplate;
 import io.eventdriven.testing.messaging.kafka.KafkaTopics;
 import io.eventdriven.testing.messaging.kafka.TestKafka;
+import io.eventdriven.testing.tracing.FinishedSpans;
 import io.eventdriven.testing.tracing.InMemorySpansConfiguration;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.Tracer;
-import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -70,7 +70,7 @@ public class KafkaMessageBusFailureTests {
     private Tracer tracer;
 
     @Autowired
-    private InMemorySpanExporter spans;
+    private FinishedSpans spans;
 
     private KafkaMessageBus messageBus;
 

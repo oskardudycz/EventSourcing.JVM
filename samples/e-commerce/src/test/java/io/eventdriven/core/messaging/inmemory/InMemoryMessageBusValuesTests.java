@@ -4,10 +4,11 @@ import static io.eventdriven.core.messaging.MessageContext.CAUSATION_ID;
 import static io.eventdriven.core.messaging.MessageContext.CORRELATION_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.core.messaging.EventMetadata;
 import io.eventdriven.core.messaging.MessageChannel;
+import io.eventdriven.core.messaging.MessageMetadata;
 import io.eventdriven.core.messaging.MessageQueue;
 import io.eventdriven.core.messaging.MessageRoutes;
+import io.eventdriven.core.messaging.MessageSource;
 import io.eventdriven.testing.tracing.TestTracing;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,7 +61,8 @@ public class InMemoryMessageBusValuesTests {
 
     @Test
     public void aHandledEventWithoutStoredCorrelationGivesTheSamePublishedIdsOnRedelivery() {
-        var legacyEvent = new EventMetadata("Stream-1", 0, 0, 0, "m-1", "m-1", "m-1", null, null);
+        var legacyEvent =
+                new MessageMetadata("m-1", "m-1", "m-1", null, null, new MessageSource.InStream("Stream-1", 0, 0, 0));
 
         for (var delivery = 0; delivery < 2; delivery++)
             try (var _ = tracing.messageContext().handling("handle First", legacyEvent)) {
@@ -73,7 +75,8 @@ public class InMemoryMessageBusValuesTests {
 
     @Test
     public void aContinuingScopeWithoutAHandledMessageGivesRandomPublishedIds() {
-        var lastEvent = new EventMetadata("Stream-1", 0, 0, 0, "m-1", "c-1", "c-1", null, null);
+        var lastEvent =
+                new MessageMetadata("m-1", "c-1", "c-1", null, null, new MessageSource.InStream("Stream-1", 0, 0, 0));
 
         for (var attempt = 0; attempt < 2; attempt++)
             try (var _ = tracing.messageContext().continuing("continue", lastEvent)) {

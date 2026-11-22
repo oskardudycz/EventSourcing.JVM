@@ -3,10 +3,12 @@ package io.eventdriven.core.messaging.rabbitmq;
 import io.eventdriven.core.messaging.MessageBus;
 import io.eventdriven.core.messaging.MessageChannel;
 import io.eventdriven.core.messaging.MessageContext;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.messaging.MessageFailureStrategy;
 import io.eventdriven.core.messaging.MessageQueue;
 import io.eventdriven.core.messaging.MessageRouter;
 import io.eventdriven.core.messaging.MessageRoutes;
+import io.eventdriven.core.messaging.MessageSource;
 import io.eventdriven.core.messaging.MessageValues;
 import io.eventdriven.core.messaging.RoutingTarget;
 import io.eventdriven.core.messaging.UnreadableMessageException;
@@ -15,6 +17,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -55,6 +58,8 @@ import org.springframework.core.retry.RetryPolicy;
 import org.springframework.util.backoff.BackOff;
 
 public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoCloseable {
+    private static final Duration STOP_TIMEOUT = Duration.ofSeconds(30);
+
     public static final String TYPE_ID = DefaultClassMapper.DEFAULT_CLASSID_FIELD_NAME;
 
     public static final String DEAD_LETTERED = "messaging.dead_lettered";
@@ -79,7 +84,8 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     private final MessageRouter router;
     private final Set<String> channels = ConcurrentHashMap.newKeySet();
     private final List<Consumer<Object>> middlewares = new CopyOnWriteArrayList<>();
-    private final Map<String, Map<Class<?>, List<Consumer<Object>>>> queues = new ConcurrentHashMap<>();
+    private final Map<String, Map<Class<?>, List<Consumer<MessageEnvelope<Object>>>>> queues =
+            new ConcurrentHashMap<>();
     private final Map<String, SimpleMessageListenerContainer> containers = new ConcurrentHashMap<>();
     private final Map<String, CountDownLatch> catchUpProbes = new ConcurrentHashMap<>();
     private volatile boolean running;
@@ -171,11 +177,11 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     private record Prepared(RoutingTarget route, Message message, MessageValues values) {}
 
     @Override
-    public <Message> RabbitMQMessageBus subscribe(
-            String queue, Class<Message> messageClass, Consumer<Message> handler) {
-        queues.computeIfAbsent(queue, ignored -> new ConcurrentHashMap<>())
-                .computeIfAbsent(messageClass, ignored -> new CopyOnWriteArrayList<>())
-                .add(message -> handler.accept(messageClass.cast(message)));
+    public RabbitMQMessageBus subscribe(String queue, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {
+        for (var type : types)
+            queues.computeIfAbsent(queue, ignored -> new ConcurrentHashMap<>())
+                    .computeIfAbsent(type, ignored -> new CopyOnWriteArrayList<>())
+                    .add(handler);
         return this;
     }
 
@@ -191,23 +197,26 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
         if (!running) return;
 
         var deadline = Instant.now().plus(timeout);
+        var probes = new LinkedHashMap<String, String>();
 
-        for (var queue : containers.keySet()) {
-            var probeId = UUID.randomUUID().toString();
-            var probe = new CountDownLatch(1);
-            catchUpProbes.put(probeId, probe);
-
-            try {
+        try {
+            for (var queue : containers.keySet()) {
+                var probeId = UUID.randomUUID().toString();
+                catchUpProbes.put(probeId, new CountDownLatch(1));
+                probes.put(queue, probeId);
                 send(new RoutingTarget("", queue), catchUpProbe(probeId));
-
-                if (!probe.await(Duration.between(Instant.now(), deadline).toMillis(), TimeUnit.MILLISECONDS))
-                    throw new IllegalStateException("Queue '%s' didn't catch up in time".formatted(queue));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("Waiting for queue '%s' to catch up was interrupted".formatted(queue));
-            } finally {
-                catchUpProbes.remove(probeId);
             }
+
+            for (var probe : probes.entrySet())
+                if (!catchUpProbes
+                        .get(probe.getValue())
+                        .await(Duration.between(Instant.now(), deadline).toMillis(), TimeUnit.MILLISECONDS))
+                    throw new IllegalStateException("Queue '%s' didn't catch up in time".formatted(probe.getKey()));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Waiting for the queues to catch up was interrupted", e);
+        } finally {
+            probes.values().forEach(catchUpProbes::remove);
         }
     }
 
@@ -220,7 +229,16 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     @Override
     public void stop() {
         running = false;
-        containers.values().forEach(SimpleMessageListenerContainer::stop);
+        var stopped = new CountDownLatch(containers.size());
+        containers.values().forEach(container -> container.stop(stopped::countDown));
+
+        try {
+            if (!stopped.await(STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS))
+                throw new IllegalStateException("RabbitMQ consumers didn't stop within %s".formatted(STOP_TIMEOUT));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Stopping the RabbitMQ consumers was interrupted", e);
+        }
     }
 
     @Override
@@ -286,8 +304,10 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
                 amqpMessage.getMessageProperties().getMessageId(),
                 () -> UUID.randomUUID().toString());
 
-        try (var _ = context.consuming("handle " + message.getClass().getSimpleName(), messageId)) {
-            for (var handle : handlers) handle.accept(message);
+        var metadata = context.received(messageId, new MessageSource.InQueue(queue));
+
+        try (var _ = context.handling("handle " + message.getClass().getSimpleName(), metadata)) {
+            for (var handle : handlers) handle.accept(new MessageEnvelope<>(message, metadata));
         }
     }
 

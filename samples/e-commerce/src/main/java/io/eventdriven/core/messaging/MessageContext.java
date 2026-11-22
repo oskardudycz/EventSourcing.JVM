@@ -76,7 +76,7 @@ public class MessageContext {
         return baggageScope(values.correlationId(), values.causationId());
     }
 
-    public Scope handling(String stepName, EventMetadata metadata) {
+    public Scope handling(String stepName, MessageMetadata metadata) {
         var step = startStep(stepName, metadata)
                 .tag(MESSAGE_ID_ATTRIBUTE, metadata.messageId())
                 .tag(CORRELATION_ID_ATTRIBUTE, metadata.correlationId())
@@ -85,7 +85,7 @@ public class MessageContext {
         return stepScope(step, metadata.messageId(), metadata.correlationId());
     }
 
-    public Scope continuing(String stepName, EventMetadata lastEvent) {
+    public Scope continuing(String stepName, MessageMetadata lastEvent) {
         var handledMessageId = baggage(HANDLED_MESSAGE_ID);
         var step = startStep(stepName, lastEvent).tag(CORRELATION_ID_ATTRIBUTE, lastEvent.correlationId());
         handledMessageId.ifPresent(messageId -> step.tag(MESSAGE_ID_ATTRIBUTE, messageId));
@@ -96,16 +96,17 @@ public class MessageContext {
                         stepScope(step, () -> baggageScope(lastEvent.correlationId(), lastEvent.correlationId())));
     }
 
-    public Scope consuming(String stepName, String messageId) {
+    public MessageMetadata received(String messageId, MessageSource source) {
         var correlationId = baggage(CORRELATION_ID).orElseGet(MessageContext::newId);
-        var step = tracer.nextSpan()
-                .name(stepName)
-                .tag(MESSAGE_ID_ATTRIBUTE, messageId)
-                .tag(CORRELATION_ID_ATTRIBUTE, correlationId)
-                .tag(CAUSATION_ID_ATTRIBUTE, baggage(CAUSATION_ID).orElse(correlationId))
-                .start();
+        var span = tracer.currentSpan();
 
-        return stepScope(step, messageId, correlationId);
+        return new MessageMetadata(
+                messageId,
+                correlationId,
+                baggage(CAUSATION_ID).orElse(correlationId),
+                span != null ? nonBlank(span.context().traceId()) : null,
+                span != null ? nonBlank(span.context().spanId()) : null,
+                source);
     }
 
     private Scope stepScope(Span step, String messageId, String correlationId) {
@@ -138,7 +139,7 @@ public class MessageContext {
         void close();
     }
 
-    private Span startStep(String stepName, EventMetadata metadata) {
+    private Span startStep(String stepName, MessageMetadata metadata) {
         if (metadata.traceId() == null || metadata.spanId() == null)
             return tracer.nextSpan().name(stepName).start();
 

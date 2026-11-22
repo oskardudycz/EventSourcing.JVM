@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -38,7 +39,7 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
         var tracing = new TestTracing();
         var bus = new DirectMessageBus();
         messageBus = bus;
-        spans = tracing.spanExporter();
+        spans = tracing.spans();
         meters = tracing.meters();
         restTestClient = RestTestClient.bindToController(
                         new CountingCartController(bus, tracing.tracer(), tracing.meters()))
@@ -189,6 +190,26 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
         given(addProductItem(cartId), confirm(cartId, 1))
                 .when(getCart(cartId))
                 .then(expectResponse(OK), expectNothingPublished());
+    }
+
+    @Test
+    public void givesUpAtTheCatchUpTimeoutWhenTheSystemKeepsPublishing() {
+        var keepEchoing = new AtomicBoolean(true);
+        var bus = (DirectMessageBus) messageBus;
+        bus.subscribe("echoes", Echo.class, echo -> {
+            if (keepEchoing.get()) bus.publishLater(echo, Duration.ofMillis(10));
+        });
+        catchUpTimeout = Duration.ofSeconds(1);
+
+        var startedAt = System.nanoTime();
+
+        try {
+            assertThatThrownBy(() -> given().when(publish(new Echo())).then(expectResponse(OK)))
+                    .isNotNull();
+            assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(Duration.ofSeconds(3));
+        } finally {
+            keepEchoing.set(false);
+        }
     }
 
     @Test
@@ -445,6 +466,8 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
     record ProductItemAdded(UUID cartId) {}
 
     record ConfirmCart(UUID cartId) {}
+
+    record Echo() {}
 
     record CartConfirmed(UUID cartId, int productItemsCount) {}
 

@@ -1,8 +1,12 @@
 package io.eventdriven.testing.messaging;
 
 import io.eventdriven.core.messaging.MessageBus;
+import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.messaging.MessageMetadata;
+import io.eventdriven.core.messaging.MessageSource;
 import java.time.Duration;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -11,7 +15,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 public class DirectMessageBus implements MessageBus {
-    private record Subscriber(Class<?> messageClass, Consumer<Object> handler) {}
+    private record Subscriber(String queue, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {}
 
     private final List<Consumer<Object>> middlewares = new CopyOnWriteArrayList<>();
     private final List<Subscriber> subscribers = new CopyOnWriteArrayList<>();
@@ -21,16 +25,26 @@ public class DirectMessageBus implements MessageBus {
     public <Message> void publish(List<Message> messages) {
         for (var message : messages) {
             middlewares.forEach(middleware -> middleware.accept(message));
+            var messageId = UUID.randomUUID().toString();
             subscribers.stream()
-                    .filter(subscriber -> subscriber.messageClass().isInstance(message))
-                    .forEach(subscriber -> subscriber.handler().accept(message));
+                    .filter(subscriber -> subscriber.types().stream().anyMatch(type -> type.isInstance(message)))
+                    .forEach(subscriber -> subscriber
+                            .handler()
+                            .accept(new MessageEnvelope<>(
+                                    message,
+                                    new MessageMetadata(
+                                            messageId,
+                                            messageId,
+                                            messageId,
+                                            null,
+                                            null,
+                                            new MessageSource.InQueue(subscriber.queue())))));
         }
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public <Message> MessageBus subscribe(String queue, Class<Message> messageClass, Consumer<Message> handler) {
-        subscribers.add(new Subscriber(messageClass, message -> handler.accept((Message) message)));
+    public MessageBus subscribe(String queue, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {
+        subscribers.add(new Subscriber(queue, List.copyOf(types), handler));
 
         return this;
     }

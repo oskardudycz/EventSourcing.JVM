@@ -8,7 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.eventstore.inmemory.InMemoryEventStore;
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.messaging.inmemory.InMemoryMessageBus;
 import io.eventdriven.ecommerce.ECommerceMessages;
 import io.eventdriven.ecommerce.orders.getcustomerorders.CustomerOrderRepository;
@@ -295,7 +295,7 @@ public class OrderFacadeTests {
     private List<Object> storedEvents() {
         return switch (eventStore.read(OrderFacade.mapToStreamId(orderId))) {
             case EventStore.ReadResult.Success success ->
-                success.events().stream().map(EventEnvelope::data).toList();
+                success.events().stream().map(MessageEnvelope::message).toList();
             default -> List.of();
         };
     }

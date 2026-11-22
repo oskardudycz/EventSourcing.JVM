@@ -114,7 +114,7 @@ public class PostgreSQLEventStoreTests extends DurableEventStoreTests {
         var otherStreamId = "ShoppingCart-%s".formatted(UUID.randomUUID());
         var received = new CopyOnWriteArrayList<Object>();
         var subscription = eventStore.subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) received.add(envelope.message());
         });
         eventStore.append(
                 otherStreamId,
@@ -134,8 +134,8 @@ public class PostgreSQLEventStoreTests extends DurableEventStoreTests {
         var otherStreamId = "ShoppingCart-%s".formatted(UUID.randomUUID());
         var received = new CopyOnWriteArrayList<Object>();
         store.subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            var streamOfEvent = envelope.metadata().streamId();
-            if (streamOfEvent.equals(streamId) || streamOfEvent.equals(otherStreamId)) received.add(envelope.data());
+            var streamOfEvent = envelope.metadata().stream().streamId();
+            if (streamOfEvent.equals(streamId) || streamOfEvent.equals(otherStreamId)) received.add(envelope.message());
         });
 
         try (var slow = dataSource.getConnection();
@@ -245,7 +245,7 @@ public class PostgreSQLEventStoreTests extends DurableEventStoreTests {
         var store = newStore(ProjectionsDatabase.H2, POLL_INTERVAL);
         var handlerSpan = new AtomicReference<io.micrometer.tracing.TraceContext>();
         store.subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId))
+            if (envelope.metadata().stream().streamId().equals(streamId))
                 handlerSpan.set(tracing.tracer().currentSpan().context());
         });
         var appendSpan = tracing.tracer().nextSpan().name("append").start();

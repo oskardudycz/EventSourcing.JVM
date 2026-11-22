@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import io.eventdriven.core.identifiers.Urns;
+import io.eventdriven.testing.tracing.FinishedSpans;
 import io.eventdriven.testing.tracing.InMemorySpansConfiguration;
 import io.micrometer.tracing.Tracer;
-import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -40,7 +40,7 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
     protected Tracer tracer;
 
     @Autowired
-    protected InMemorySpanExporter spans;
+    protected FinishedSpans spans;
 
     @Override
     protected List<SpanData> finishedSpans() {

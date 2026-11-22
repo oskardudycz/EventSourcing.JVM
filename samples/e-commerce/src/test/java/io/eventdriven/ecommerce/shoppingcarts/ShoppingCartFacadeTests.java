@@ -8,7 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.eventstore.inmemory.InMemoryEventStore;
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.messaging.inmemory.InMemoryMessageBus;
 import io.eventdriven.ecommerce.ECommerceMessages;
 import io.eventdriven.ecommerce.shoppingcarts.currentcart.CustomerShoppingCartRepository;
@@ -204,7 +204,7 @@ public class ShoppingCartFacadeTests {
     private List<Object> storedEvents(ShoppingCart.Id shoppingCartId) {
         return switch (eventStore.read(ShoppingCartFacade.mapToStreamId(shoppingCartId))) {
             case EventStore.ReadResult.Success success ->
-                success.events().stream().map(EventEnvelope::data).toList();
+                success.events().stream().map(MessageEnvelope::message).toList();
             default -> List.of();
         };
     }

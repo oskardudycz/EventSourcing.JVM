@@ -3,8 +3,8 @@ package io.eventdriven.core.eventstore.postgresql;
 import io.eventdriven.core.eventstore.Checkpoint;
 import io.eventdriven.core.eventstore.SubscriptionProgress;
 import io.eventdriven.core.eventstore.postgresql.PostgreSQLEventStore.StoredMessage;
-import io.eventdriven.core.messaging.EventEnvelope;
 import io.eventdriven.core.messaging.MessageContext;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.core.subscriptions.SubscriptionCheckpoints;
 import java.sql.SQLException;
@@ -36,7 +36,7 @@ final class PostgreSQLSubscription {
     private final DataSource dataSource;
     private final String name;
     private final Set<String> typeNames;
-    private final Consumer<EventEnvelope<Object>> handler;
+    private final Consumer<MessageEnvelope<Object>> handler;
     private final MessageContext context;
     private final MessageSerializer serializer;
     private final SubscriptionCheckpoints checkpoints;
@@ -51,7 +51,7 @@ final class PostgreSQLSubscription {
             DataSource dataSource,
             String name,
             List<Class<?>> types,
-            Consumer<EventEnvelope<Object>> handler,
+            Consumer<MessageEnvelope<Object>> handler,
             MessageContext context,
             MessageSerializer serializer,
             SubscriptionCheckpoints checkpoints,
@@ -112,12 +112,16 @@ final class PostgreSQLSubscription {
         return stored.orElse(new Checkpoint(0, 0));
     }
 
-    private void handle(EventEnvelope<Object> envelope) {
+    private void handle(MessageEnvelope<Object> envelope) {
         var metadata = envelope.metadata();
 
         try (var _ = context.handling(
-                "handle %s".formatted(envelope.data().getClass().getSimpleName()), metadata)) {
-            checkpoints.handle(name, metadata.transactionId(), metadata.logPosition(), () -> handler.accept(envelope));
+                "handle %s".formatted(envelope.message().getClass().getSimpleName()), metadata)) {
+            checkpoints.handle(
+                    name,
+                    metadata.stream().transactionId(),
+                    metadata.stream().logPosition(),
+                    () -> handler.accept(envelope));
         }
     }
 

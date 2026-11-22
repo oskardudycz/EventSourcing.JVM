@@ -1,7 +1,7 @@
 package io.eventdriven.core.eventstore;
 
-import io.eventdriven.core.messaging.EventEnvelope;
 import io.eventdriven.core.messaging.MessageContext;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -31,7 +31,7 @@ public final class EventStoreObservations {
             var result = read.get();
             var events = result instanceof EventStore.ReadResult.Success success
                     ? success.events()
-                    : List.<EventEnvelope<Object>>of();
+                    : List.<MessageEnvelope<Object>>of();
 
             observation
                     .lowCardinalityKeyValue(READ_STATUS, statusOf(result))
@@ -39,7 +39,7 @@ public final class EventStoreObservations {
                     .highCardinalityKeyValue(
                             READ_EVENT_TYPES,
                             events.stream()
-                                    .map(event -> event.data().getClass().getSimpleName())
+                                    .map(event -> event.message().getClass().getSimpleName())
                                     .distinct()
                                     .collect(Collectors.joining(",")));
             if (result instanceof EventStore.ReadResult.UnexpectedFailure(var failure)) observation.error(failure);

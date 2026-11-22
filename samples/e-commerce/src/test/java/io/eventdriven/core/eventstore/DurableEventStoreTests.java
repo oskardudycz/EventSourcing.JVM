@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.messaging.UnreadableMessageException;
 import io.eventdriven.core.messaging.versioning.MessageMapping;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
@@ -89,7 +89,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
 
         assertThat(result).isInstanceOf(EventStore.ReadResult.Success.class);
         assertThat(((EventStore.ReadResult.Success) result).events())
-                .extracting(EventEnvelope::data)
+                .extracting(MessageEnvelope::message)
                 .containsExactly(new ItemAdded(cartId, "t-shirt"));
     }
 
@@ -99,7 +99,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         var store = newStore(ProjectionsDatabase.H2, serializerWithOldNameOfItemAdded(oldName));
         var received = new CopyOnWriteArrayList<Object>();
         var subscription = store.subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) received.add(envelope.message());
         });
         appendRawEvent(streamId, oldName, "{\"cart\":\"%s\",\"item\":\"t-shirt\"}".formatted(cartId));
 
@@ -113,7 +113,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
     public void aSubscriptionPassesOverAnEventWithAnUnknownName() {
         var received = new CopyOnWriteArrayList<Object>();
         var subscription = eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) received.add(envelope.message());
         });
         appendRawEvent(
                 streamId,
@@ -146,7 +146,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         appendRawEvent(streamId, UnreadableOnPurpose.class.getName(), "{\"count\":\"not a number\"}");
 
         var subscription = store.subscribe(name, List.of(ItemAdded.class, UnreadableOnPurpose.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) received.add(envelope.message());
         });
 
         subscription.whenProcessed(((EventStore.AppendResult.Success) readable).lastEvent());
@@ -162,7 +162,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         var store = newStore(ProjectionsDatabase.H2);
         var failures = new AtomicInteger();
         store.subscribe(name, List.of(ItemAdded.class), envelope -> {
-            if (!envelope.metadata().streamId().equals(streamId)) return;
+            if (!envelope.metadata().stream().streamId().equals(streamId)) return;
 
             failures.incrementAndGet();
             throw new IllegalStateException("projection is down");
@@ -174,7 +174,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         var restarted = newStore(ProjectionsDatabase.H2);
         var received = new CopyOnWriteArrayList<Object>();
         restarted.subscribe(name, List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) received.add(envelope.message());
         });
 
         await().atMost(Duration.ofSeconds(10))
@@ -187,10 +187,10 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         var attempts = new AtomicInteger();
         var received = new CopyOnWriteArrayList<Object>();
         store.subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (!envelope.metadata().streamId().equals(streamId)) return;
+            if (!envelope.metadata().stream().streamId().equals(streamId)) return;
 
             if (attempts.incrementAndGet() < 4) throw new IllegalStateException("projection is down");
-            received.add(envelope.data());
+            received.add(envelope.message());
         });
 
         store.append(streamId, new ItemAdded(cartId, "t-shirt"));
@@ -205,7 +205,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         var store = newStore(ProjectionsDatabase.H2);
         var attempts = new AtomicInteger();
         store.subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (!envelope.metadata().streamId().equals(streamId)) return;
+            if (!envelope.metadata().stream().streamId().equals(streamId)) return;
 
             attempts.incrementAndGet();
             throw new IllegalStateException("projection is down");
@@ -226,7 +226,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         var release = new CountDownLatch(1);
         var handlerFinished = new AtomicBoolean(false);
         store.subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (!envelope.metadata().streamId().equals(streamId)) return;
+            if (!envelope.metadata().stream().streamId().equals(streamId)) return;
 
             entered.countDown();
             awaitUninterruptibly(release);
@@ -287,7 +287,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         var store = newStore(ProjectionsDatabase.POSTGRESQL);
         var forwarded = new CopyOnWriteArrayList<Object>();
         var subscription = store.subscribe(name, List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) forwarded.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) forwarded.add(envelope.message());
         });
         store.append(
                 streamId,
@@ -301,7 +301,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
 
         var restarted = newStore(ProjectionsDatabase.POSTGRESQL);
         var restartedSubscription = restarted.subscribe(name, List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) forwarded.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) forwarded.add(envelope.message());
         });
         var gloves = restarted.append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "gloves"));
 
@@ -389,8 +389,8 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         return "Counter-%s".formatted(counterId.value());
     }
 
-    private static boolean isCounterOf(EventEnvelope<?> envelope, CounterId counterId) {
-        return envelope.metadata().streamId().equals(streamOf(counterId));
+    private static boolean isCounterOf(MessageEnvelope<?> envelope, CounterId counterId) {
+        return envelope.metadata().stream().streamId().equals(streamOf(counterId));
     }
 
     private static void failCheckpointStoreOf(JdbcTemplate jdbc, String processorId) {
@@ -413,5 +413,26 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
 
     private static String functionOf(String processorId) {
         return "fail_%s".formatted(processorId.replace("-", "_"));
+    }
+
+    @Test
+    public void awaitingCatchUpGivesUpAtTheTimeoutWhenSubscriptionsKeepAppending() {
+        var itemsStreamId = streamId + "-items";
+        var keepAppending = new AtomicBoolean(true);
+        eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
+            if (keepAppending.get() && envelope.metadata().stream().streamId().equals(itemsStreamId))
+                eventStore().append(itemsStreamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "t-shirt"));
+        });
+        eventStore().append(itemsStreamId, new ItemAdded(cartId, "t-shirt"));
+
+        var startedAt = System.nanoTime();
+
+        try {
+            assertThatThrownBy(() -> eventStore().whenCaughtUp(Duration.ofSeconds(1)))
+                    .isInstanceOf(IllegalStateException.class);
+            assertThat(Duration.ofNanos(System.nanoTime() - startedAt)).isLessThan(Duration.ofSeconds(3));
+        } finally {
+            keepAppending.set(false);
+        }
     }
 }

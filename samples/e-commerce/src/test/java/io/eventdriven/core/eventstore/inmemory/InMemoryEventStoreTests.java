@@ -6,8 +6,8 @@ import io.eventdriven.core.eventstore.Checkpoint;
 import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.eventstore.EventStoreTests;
 import io.eventdriven.core.eventstore.ExpectedStreamVersion;
-import io.eventdriven.core.messaging.EventEnvelope;
-import io.eventdriven.core.messaging.EventMetadata;
+import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.messaging.MessageMetadata;
 import io.eventdriven.core.messaging.UnreadableMessageException;
 import io.eventdriven.core.messaging.versioning.MessageMapping;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
@@ -76,7 +76,7 @@ public class InMemoryEventStoreTests extends EventStoreTests {
 
     @Test
     public void subscribersGetTheStreamAndLogPositionOfEachEvent() {
-        var metadata = new ArrayList<EventMetadata>();
+        var metadata = new ArrayList<MessageMetadata>();
         eventStore.subscribe(
                 "ShoppingCartOpened", List.of(ShoppingCartOpened.class), envelope -> metadata.add(envelope.metadata()));
         eventStore.subscribe(
@@ -87,7 +87,10 @@ public class InMemoryEventStoreTests extends EventStoreTests {
         eventStore.append("ShoppingCart-cart-2", new ShoppingCartOpened("cart-2", openedAt()));
 
         assertThat(metadata)
-                .extracting(EventMetadata::streamId, EventMetadata::streamPosition, EventMetadata::logPosition)
+                .extracting(
+                        each -> each.stream().streamId(),
+                        each -> each.stream().streamPosition(),
+                        each -> each.stream().logPosition())
                 .containsExactly(
                         tuple(streamId, 0L, 0L), tuple(streamId, 1L, 1L), tuple("ShoppingCart-cart-2", 0L, 2L));
     }
@@ -97,11 +100,11 @@ public class InMemoryEventStoreTests extends EventStoreTests {
         eventStore.subscribe(
                 "ShoppingCartOpened",
                 List.of(ShoppingCartOpened.class),
-                envelope -> log.add("opened:" + ((ShoppingCartOpened) envelope.data()).cartId()));
+                envelope -> log.add("opened:" + ((ShoppingCartOpened) envelope.message()).cartId()));
         eventStore.subscribe(
                 "ProductItemAdded",
                 List.of(ProductItemAdded.class),
-                envelope -> log.add("added:" + ((ProductItemAdded) envelope.data()).productId()));
+                envelope -> log.add("added:" + ((ProductItemAdded) envelope.message()).productId()));
 
         eventStore.append(
                 streamId, new ShoppingCartOpened(cartId, openedAt()), new ProductItemAdded(cartId, "t-shirt"));
@@ -144,7 +147,7 @@ public class InMemoryEventStoreTests extends EventStoreTests {
         eventStore.subscribe(
                 "ProductItemAdded",
                 List.of(ProductItemAdded.class),
-                envelope -> log.add("added:" + ((ProductItemAdded) envelope.data()).cartId()));
+                envelope -> log.add("added:" + ((ProductItemAdded) envelope.message()).cartId()));
 
         eventStore.append(streamId, new ShoppingCartOpened(cartId, openedAt()), new ProductItemAdded(cartId, "hoodie"));
 
@@ -170,7 +173,7 @@ public class InMemoryEventStoreTests extends EventStoreTests {
         eventStore.subscribe("ProductItemAdded", List.of(ProductItemAdded.class), envelope -> {
             if (attempts[0]++ == 0) throw new IllegalStateException("broker is down");
 
-            log.add("added:" + ((ProductItemAdded) envelope.data()).productId());
+            log.add("added:" + ((ProductItemAdded) envelope.message()).productId());
         });
 
         eventStore.append(streamId, new ProductItemAdded(cartId, "hoodie"), new ProductItemAdded(cartId, "t-shirt"));
@@ -224,7 +227,7 @@ public class InMemoryEventStoreTests extends EventStoreTests {
         assertThat(result).isInstanceOf(EventStore.ReadResult.Success.class);
 
         return ((EventStore.ReadResult.Success) result)
-                .events().stream().map(EventEnvelope::data).toArray();
+                .events().stream().map(MessageEnvelope::message).toArray();
     }
 
     sealed interface ShoppingCartEvent {}

@@ -4,13 +4,15 @@ import static io.eventdriven.ecommerce.payments.PaymentCommand.FailPaymentCaptur
 import static io.eventdriven.ecommerce.payments.PaymentEvent.*;
 
 import io.eventdriven.core.messaging.MessageBus;
+import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.processing.Reactor;
 import io.eventdriven.ecommerce.payments.Payment;
 import io.eventdriven.ecommerce.payments.PaymentGateway;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CaptureGatewayClient {
+public class CaptureGatewayClient implements Reactor {
     private static final Logger logger = LoggerFactory.getLogger(CaptureGatewayClient.class);
 
     private final PaymentGateway paymentGateway;
@@ -19,6 +21,19 @@ public class CaptureGatewayClient {
     public CaptureGatewayClient(PaymentGateway paymentGateway, MessageBus messageBus) {
         this.paymentGateway = paymentGateway;
         this.messageBus = messageBus;
+    }
+
+    @Override
+    public List<Class<?>> canHandle() {
+        return List.of(PaymentCaptureRequested.class);
+    }
+
+    @Override
+    public void handle(MessageEnvelope<Object> envelope) {
+        switch (envelope.message()) {
+            case PaymentCaptureRequested event -> on(event);
+            default -> throw new IllegalArgumentException("Unexpected message %s".formatted(envelope.message()));
+        }
     }
 
     public void on(PaymentCaptureRequested event) {
