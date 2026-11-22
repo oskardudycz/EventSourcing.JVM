@@ -4,7 +4,7 @@ import static io.eventdriven.ecommerce.payments.PaymentEvent.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.eventdriven.core.identifiers.Urns;
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.ecommerce.payments.Payment;
 import io.eventdriven.ecommerce.payments.PaymentFacade;
 import io.eventdriven.testing.messaging.Metadata;
@@ -67,7 +67,7 @@ public class PendingPaymentsTests {
 
         assertThat(pendingPayments.timedOutAt(timesOutAt)).containsOnlyOnce(paymentId);
 
-        var authorized = at(new PaymentAuthorized(paymentId, requestedAt, captureBefore), 1);
+        MessageEnvelope<Object> authorized = at(new PaymentAuthorized(paymentId, requestedAt, captureBefore), 1);
         pendingPayments.handle(authorized);
         pendingPayments.handle(authorized);
 
@@ -79,7 +79,7 @@ public class PendingPaymentsTests {
                 at(new PaymentAuthorizationRequested(paymentId, referenceId, amount, requestedAt, timesOutAt), 0));
     }
 
-    private <Event> EventEnvelope<Event> at(Event event, long streamPosition) {
-        return new EventEnvelope<>(event, Metadata.at(streamId, streamPosition));
+    private <Event> MessageEnvelope<Event> at(Event event, long streamPosition) {
+        return new MessageEnvelope<>(event, Metadata.at(streamId, streamPosition));
     }
 }

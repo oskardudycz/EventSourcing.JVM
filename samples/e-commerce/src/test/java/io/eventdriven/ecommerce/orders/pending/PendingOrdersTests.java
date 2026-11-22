@@ -3,7 +3,7 @@ package io.eventdriven.ecommerce.orders.pending;
 import static io.eventdriven.ecommerce.orders.OrderEvent.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.ecommerce.orders.Order;
 import io.eventdriven.ecommerce.orders.OrderFacade;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
@@ -87,7 +87,7 @@ public class PendingOrdersTests {
                 at(orderId, 0, new OrderPlaced(orderId, cartId, customerId, productItems, totalPrice, placedAt)));
     }
 
-    private <Event> EventEnvelope<Event> at(Order.Id orderId, long position, Event event) {
-        return new EventEnvelope<>(event, Metadata.at(OrderFacade.mapToStreamId(orderId), position));
+    private <Event> MessageEnvelope<Event> at(Order.Id orderId, long position, Event event) {
+        return new MessageEnvelope<>(event, Metadata.at(OrderFacade.mapToStreamId(orderId), position));
     }
 }

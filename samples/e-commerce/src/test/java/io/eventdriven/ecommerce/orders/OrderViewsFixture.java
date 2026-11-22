@@ -2,7 +2,7 @@ package io.eventdriven.ecommerce.orders;
 
 import static io.eventdriven.ecommerce.orders.OrderEvent.*;
 
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.projections.Projection;
 import io.eventdriven.ecommerce.payments.Payment;
 import io.eventdriven.ecommerce.shipments.Shipment;
@@ -87,7 +87,7 @@ public class OrderViewsFixture {
     private OrderViewsFixture apply(Object event) {
         var position = streamPosition++;
         if (view.canHandle().contains(event.getClass()))
-            view.handle(new EventEnvelope<>(event, Metadata.at(OrderFacade.mapToStreamId(orderId), position)));
+            view.handle(new MessageEnvelope<>(event, Metadata.at(OrderFacade.mapToStreamId(orderId), position)));
         return this;
     }
 }

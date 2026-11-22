@@ -1,5 +1,6 @@
 package io.eventdriven.core.messaging;
 
+import io.eventdriven.core.processing.MessageProcessor;
 import java.time.Duration;
 import java.util.List;
 import java.util.function.Consumer;
@@ -29,9 +30,25 @@ public interface MessageBus {
     <Message> void publish(List<Message> messages);
 
     /**
-     * Registers a handler for messages of the given type that reach the queue.
+     * Registers a handler for the messages of the given types that reach the queue.
      */
-    <Message> MessageBus subscribe(String queue, Class<Message> messageClass, Consumer<Message> handler);
+    MessageBus subscribe(String queue, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler);
+
+    /**
+     * Registers processors for the messages that reach the queue. For each message, every processor that can handle it
+     * runs, in order.
+     */
+    default MessageBus subscribe(String queue, MessageProcessor... processors) {
+        return subscribe(queue, MessageProcessor.canHandle(processors), MessageProcessor.handle(processors));
+    }
+
+    /**
+     * Registers a handler for the messages of the given type that reach the queue.
+     */
+    default <Message> MessageBus subscribe(String queue, Class<Message> messageClass, Consumer<Message> handler) {
+        return subscribe(
+                queue, List.of(messageClass), envelope -> handler.accept(messageClass.cast(envelope.message())));
+    }
 
     /**
      * Registers middleware called for every published message before subscribers.

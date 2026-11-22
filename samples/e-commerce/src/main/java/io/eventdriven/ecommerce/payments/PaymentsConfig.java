@@ -29,7 +29,6 @@ import io.eventdriven.ecommerce.payments.external.PaymentSummaries;
 import io.eventdriven.ecommerce.payments.external.PaymentSummaryRepository;
 import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.function.Supplier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -121,8 +120,6 @@ public class PaymentsConfig {
     public PaymentSummaries paymentSummaries(EventStore eventStore, PaymentSummaryRepository paymentSummaryRepository) {
         var paymentSummaries = new PaymentSummaries(paymentSummaryRepository);
 
-        eventStore.subscribe("payment-summaries", paymentSummaries.canHandle(), paymentSummaries::handle);
-
         return paymentSummaries;
     }
 
@@ -130,7 +127,7 @@ public class PaymentsConfig {
     public PendingPayments pendingPayments(EventStore eventStore, PendingPaymentRepository pendingPaymentRepository) {
         var pendingPayments = new PendingPayments(pendingPaymentRepository);
 
-        eventStore.subscribe("pending-payments", pendingPayments.canHandle(), pendingPayments::handle);
+        eventStore.subscribe("pending-payments", pendingPayments);
 
         return pendingPayments;
     }
@@ -140,7 +137,7 @@ public class PaymentsConfig {
             EventStore eventStore, AuthorizedPaymentRepository authorizedPaymentRepository) {
         var authorizedPayments = new AuthorizedPayments(authorizedPaymentRepository);
 
-        eventStore.subscribe("authorized-payments", authorizedPayments.canHandle(), authorizedPayments::handle);
+        eventStore.subscribe("authorized-payments", authorizedPayments);
 
         return authorizedPayments;
     }
@@ -150,15 +147,7 @@ public class PaymentsConfig {
             EventStore eventStore, PaymentSummaries paymentSummaries, MessageBus messageBus) {
         var forwarder = new PaymentExternalEventForwarder(paymentSummaries, messageBus);
 
-        eventStore.subscribe(
-                "payments-external-forwarder",
-                List.of(
-                        PaymentAuthorized.class,
-                        PaymentCaptured.class,
-                        PaymentCaptureFailed.class,
-                        PaymentTimedOut.class,
-                        PaymentAuthorizationExpired.class),
-                forwarder::handle);
+        eventStore.subscribe("payments-external", paymentSummaries, forwarder);
 
         return forwarder;
     }
@@ -168,10 +157,7 @@ public class PaymentsConfig {
             EventStore eventStore, PaymentGateway paymentGateway, MessageBus messageBus) {
         var captureGatewayClient = new CaptureGatewayClient(paymentGateway, messageBus);
 
-        eventStore.subscribe(
-                "capture-gateway-client",
-                List.of(PaymentCaptureRequested.class),
-                envelope -> captureGatewayClient.on((PaymentCaptureRequested) envelope.data()));
+        eventStore.subscribe("capture-gateway-client", captureGatewayClient);
 
         return captureGatewayClient;
     }
@@ -180,14 +166,7 @@ public class PaymentsConfig {
     public AuthorizationGatewayClient authorizationGatewayClient(EventStore eventStore, PaymentGateway paymentGateway) {
         var authorizationGatewayClient = new AuthorizationGatewayClient(paymentGateway);
 
-        eventStore.subscribe(
-                "authorization-gateway-client", List.of(PaymentCanceled.class, PaymentTimedOut.class), envelope -> {
-                    switch (envelope.data()) {
-                        case PaymentCanceled event -> authorizationGatewayClient.on(event);
-                        case PaymentTimedOut event -> authorizationGatewayClient.on(event);
-                        default -> throw new IllegalArgumentException("Unexpected event %s".formatted(envelope.data()));
-                    }
-                });
+        eventStore.subscribe("authorization-gateway-client", authorizationGatewayClient);
 
         return authorizationGatewayClient;
     }

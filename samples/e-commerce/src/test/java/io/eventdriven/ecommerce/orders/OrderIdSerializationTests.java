@@ -7,7 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.eventstore.inmemory.InMemoryEventStore;
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.ecommerce.ECommerceMessages;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 import io.eventdriven.testing.tracing.TestTracing;
@@ -58,7 +58,7 @@ public class OrderIdSerializationTests {
 
         var read = switch (eventStore.read(streamId)) {
             case EventStore.ReadResult.Success success ->
-                success.events().stream().map(EventEnvelope::data).toArray();
+                success.events().stream().map(MessageEnvelope::message).toArray();
             default -> new Object[0];
         };
 

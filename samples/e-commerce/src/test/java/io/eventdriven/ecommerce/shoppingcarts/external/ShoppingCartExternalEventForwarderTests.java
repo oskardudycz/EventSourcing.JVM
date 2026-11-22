@@ -5,8 +5,8 @@ import static io.eventdriven.testing.projections.ProjectionsDatabase.H2;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.eventdriven.core.eventstore.inmemory.InMemoryEventStore;
-import io.eventdriven.core.messaging.EventEnvelope;
 import io.eventdriven.core.messaging.MessageChannel;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.messaging.MessageRoutes;
 import io.eventdriven.core.messaging.inmemory.InMemoryMessageBus;
 import io.eventdriven.ecommerce.ECommerceMessages;
@@ -131,17 +131,17 @@ public class ShoppingCartExternalEventForwarderTests {
         var forwarder = new ShoppingCartExternalEventForwarder(summaries, bus);
         var streamId = ShoppingCartFacade.mapToStreamId(shoppingCartId);
 
-        summaries.handle(new EventEnvelope<>(
+        summaries.handle(new MessageEnvelope<>(
                 new ShoppingCartEvent.ProductItemAddedToShoppingCart(shoppingCartId, customerId, pricedShoes, now),
                 Metadata.at(streamId, 0)));
-        var checkedOut = new EventEnvelope<>(
+        MessageEnvelope<Object> checkedOut = new MessageEnvelope<>(
                 new ShoppingCartEvent.ShoppingCartCheckedOut(shoppingCartId, now), Metadata.at(streamId, 1));
 
-        assertThatThrownBy(() -> forwarder.onCheckedOut(checkedOut)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> forwarder.handle(checkedOut)).isInstanceOf(IllegalStateException.class);
         published.shouldNotReceiveAnyEvent();
 
         summaries.handle(checkedOut);
-        forwarder.onCheckedOut(checkedOut);
+        forwarder.handle(checkedOut);
 
         published.shouldReceiveMessages(new ShoppingCartExternalEvent.ShoppingCartCheckedOut(
                 shoppingCartId, customerId, new PricedProductItem[] {pricedShoes}, 25, now));

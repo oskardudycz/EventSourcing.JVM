@@ -24,10 +24,10 @@ import io.eventdriven.testing.TestDatabases;
 import io.eventdriven.testing.messaging.kafka.KafkaTopics;
 import io.eventdriven.testing.messaging.rabbitmq.RabbitMQManagement;
 import io.eventdriven.testing.messaging.rabbitmq.RabbitMQQueues;
+import io.eventdriven.testing.tracing.FinishedSpans;
 import io.eventdriven.testing.tracing.InMemorySpansConfiguration;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.tracing.Tracer;
-import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -221,7 +221,7 @@ public class ECommerceSettingsTests {
         private Tracer tracer;
 
         @Autowired
-        private InMemorySpanExporter spans;
+        private FinishedSpans spans;
 
         @Test
         public void deadLetterPublishHasASpanInTheTraceAndTheHandlerIsRetried() {

@@ -3,10 +3,12 @@ package io.eventdriven.core.messaging.kafka;
 import io.eventdriven.core.messaging.MessageBus;
 import io.eventdriven.core.messaging.MessageChannel;
 import io.eventdriven.core.messaging.MessageContext;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.messaging.MessageFailureStrategy;
 import io.eventdriven.core.messaging.MessageQueue;
 import io.eventdriven.core.messaging.MessageRouter;
 import io.eventdriven.core.messaging.MessageRoutes;
+import io.eventdriven.core.messaging.MessageSource;
 import io.eventdriven.core.messaging.MessageValues;
 import io.eventdriven.core.messaging.RoutingPattern;
 import io.eventdriven.core.messaging.UnreadableMessageException;
@@ -17,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -25,6 +28,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -32,9 +36,11 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.Admin;
+import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsSpec;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.KafkaFuture;
@@ -82,6 +88,7 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     private static final String ALL_MESSAGES = "#";
     private static final long ROUTING_RETRY_INTERVAL_MILLIS = 1000;
     private static final Duration CATCH_UP_CHECK_INTERVAL = Duration.ofMillis(50);
+    private static final Duration STOP_TIMEOUT = Duration.ofSeconds(30);
 
     public record FailureHandling(
             MessageFailureStrategy strategy,
@@ -97,6 +104,7 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     private final Duration publishTimeout;
     private final FailureHandling failures;
     private final KafkaAdmin admin;
+    private final Admin catchUpClient;
     private final Map<String, Object> consumerConfig;
     private final DefaultKafkaProducerFactory<String, byte[]> producerFactory;
     private final KafkaTemplate<String, byte[]> template;
@@ -105,7 +113,8 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     private final MessageRouter router;
     private final Set<String> channels = ConcurrentHashMap.newKeySet();
     private final List<Consumer<Object>> middlewares = new CopyOnWriteArrayList<>();
-    private final Map<String, Map<Class<?>, List<Consumer<Object>>>> queues = new ConcurrentHashMap<>();
+    private final Map<String, Map<Class<?>, List<Consumer<MessageEnvelope<Object>>>>> queues =
+            new ConcurrentHashMap<>();
     private final List<ConcurrentMessageListenerContainer<String, byte[]>> containers = new CopyOnWriteArrayList<>();
     private final List<ConcurrentMessageListenerContainer<String, byte[]>> routingContainers =
             new CopyOnWriteArrayList<>();
@@ -131,6 +140,7 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
         this.publishTimeout = publishTimeout;
         this.failures = failures;
         this.admin = new KafkaAdmin(Map.of(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers));
+        this.catchUpClient = Admin.create(admin.getConfigurationProperties());
         this.consumerConfig = Map.of(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                 bootstrapServers,
@@ -220,10 +230,11 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     private record Prepared(ProducerRecord<String, byte[]> record, MessageValues values) {}
 
     @Override
-    public <Message> KafkaMessageBus subscribe(String queue, Class<Message> messageClass, Consumer<Message> handler) {
-        queues.computeIfAbsent(queue, ignored -> new ConcurrentHashMap<>())
-                .computeIfAbsent(messageClass, ignored -> new CopyOnWriteArrayList<>())
-                .add(message -> handler.accept(messageClass.cast(message)));
+    public KafkaMessageBus subscribe(String queue, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {
+        for (var type : types)
+            queues.computeIfAbsent(queue, ignored -> new ConcurrentHashMap<>())
+                    .computeIfAbsent(type, ignored -> new CopyOnWriteArrayList<>())
+                    .add(handler);
         return this;
     }
 
@@ -238,12 +249,12 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
 
         var deadline = Instant.now().plus(timeout);
 
-        try (var client = Admin.create(admin.getConfigurationProperties())) {
-            for (var container : routingContainers) whenCaughtUp(client, container, deadline);
-
-            for (var container : containers)
-                if (!routingContainers.contains(container)) whenCaughtUp(client, container, deadline);
-        }
+        whenCaughtUp(routingContainers, deadline);
+        whenCaughtUp(
+                containers.stream()
+                        .filter(container -> !routingContainers.contains(container))
+                        .toList(),
+                deadline);
     }
 
     @Override
@@ -255,7 +266,16 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     @Override
     public void stop() {
         running = false;
-        containers.forEach(ConcurrentMessageListenerContainer::stop);
+        var stopped = new CountDownLatch(containers.size());
+        containers.forEach(container -> container.stop(stopped::countDown));
+
+        try {
+            if (!stopped.await(STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS))
+                throw new IllegalStateException("Kafka consumers didn't stop within %s".formatted(STOP_TIMEOUT));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Stopping the Kafka consumers was interrupted", e);
+        }
     }
 
     @Override
@@ -266,6 +286,7 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     @Override
     public void close() {
         stop();
+        catchUpClient.close();
         producerFactory.destroy();
         routingTemplate.destroy();
     }
@@ -298,8 +319,10 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
             var messageId = Objects.requireNonNullElseGet(
                     header(record, MESSAGE_ID), () -> UUID.randomUUID().toString());
 
-            try (var _ = context.consuming("handle " + message.getClass().getSimpleName(), messageId)) {
-                for (var handle : handlers) handle.accept(message);
+            var metadata = context.received(messageId, new MessageSource.InQueue(queue));
+
+            try (var _ = context.handling("handle " + message.getClass().getSimpleName(), metadata)) {
+                for (var handle : handlers) handle.accept(new MessageEnvelope<>(message, metadata));
             }
         };
     }
@@ -432,11 +455,17 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
 
     // A consumer has caught up when its group's committed offsets reach the end offsets taken at the start of the wait.
     // Kafka has no push notification for that, so the check is retried after a short delay until the deadline.
-    private static void whenCaughtUp(
-            Admin client, ConcurrentMessageListenerContainer<String, byte[]> container, Instant deadline) {
-        var group = container.getGroupId();
-        var topic = container.getContainerProperties().getTopics()[0];
-        var endOffsets = endOffsetsOf(client, topic);
+    // One request reads the end offsets of every topic and one reads the committed offsets of every group.
+    private void whenCaughtUp(List<ConcurrentMessageListenerContainer<String, byte[]>> containers, Instant deadline) {
+        if (containers.isEmpty()) return;
+
+        var topicsByGroup = containers.stream()
+                .collect(Collectors.toMap(
+                        ConcurrentMessageListenerContainer::getGroupId,
+                        container -> container.getContainerProperties().getTopics()[0],
+                        (first, second) -> first,
+                        LinkedHashMap::new));
+        var endOffsets = endOffsetsOf(catchUpClient, Set.copyOf(topicsByGroup.values()));
         var checks = new RetryTemplate(RetryPolicy.builder()
                 .includes(NotCaughtUpException.class)
                 .backOff(new FixedBackOff(CATCH_UP_CHECK_INTERVAL.toMillis(), FixedBackOff.UNLIMITED_ATTEMPTS))
@@ -445,7 +474,9 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
 
         try {
             checks.invoke(() -> {
-                if (!hasCommitted(client, group, endOffsets)) throw new NotCaughtUpException(group, topic);
+                var behind = groupsBehind(catchUpClient, topicsByGroup, endOffsets);
+                if (!behind.isEmpty())
+                    throw new NotCaughtUpException(behind.getFirst(), topicsByGroup.get(behind.getFirst()));
             });
         } catch (NotCaughtUpException e) {
             throw new IllegalStateException(e.getMessage(), e);
@@ -458,24 +489,38 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
         }
     }
 
-    private static Map<TopicPartition, Long> endOffsetsOf(Admin client, String topic) {
-        var partitions = valueOf(client.describeTopics(List.of(topic)).allTopicNames()).get(topic).partitions().stream()
-                .collect(Collectors.toMap(
-                        partition -> new TopicPartition(topic, partition.partition()),
-                        partition -> OffsetSpec.latest()));
+    private static Map<TopicPartition, Long> endOffsetsOf(Admin client, Set<String> topics) {
+        var partitions = valueOf(client.describeTopics(topics).allTopicNames()).values().stream()
+                .flatMap(topic -> topic.partitions().stream()
+                        .map(partition -> new TopicPartition(topic.name(), partition.partition())))
+                .collect(Collectors.toMap(partition -> partition, partition -> OffsetSpec.latest()));
 
         return valueOf(client.listOffsets(partitions).all()).entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey, entry -> entry.getValue().offset()));
     }
 
-    private static boolean hasCommitted(Admin client, String group, Map<TopicPartition, Long> endOffsets) {
-        var committed = valueOf(client.listConsumerGroupOffsets(group).partitionsToOffsetAndMetadata());
+    private static List<String> groupsBehind(
+            Admin client, Map<String, String> topicsByGroup, Map<TopicPartition, Long> endOffsets) {
+        var committed = valueOf(client.listConsumerGroupOffsets(topicsByGroup.keySet().stream()
+                        .collect(Collectors.toMap(group -> group, group -> new ListConsumerGroupOffsetsSpec())))
+                .all());
 
-        return endOffsets.entrySet().stream().allMatch(end -> {
-            var offset = committed.get(end.getKey());
-            return end.getValue() == 0 || (offset != null && offset.offset() >= end.getValue());
-        });
+        return topicsByGroup.entrySet().stream()
+                .filter(group ->
+                        !hasCommitted(committed.getOrDefault(group.getKey(), Map.of()), group.getValue(), endOffsets))
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    private static boolean hasCommitted(
+            Map<TopicPartition, OffsetAndMetadata> committed, String topic, Map<TopicPartition, Long> endOffsets) {
+        return endOffsets.entrySet().stream()
+                .filter(end -> end.getKey().topic().equals(topic))
+                .allMatch(end -> {
+                    var offset = committed.get(end.getKey());
+                    return end.getValue() == 0 || (offset != null && offset.offset() >= end.getValue());
+                });
     }
 
     private static <T> T valueOf(KafkaFuture<T> future) {

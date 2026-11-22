@@ -7,10 +7,11 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.awaitility.Awaitility.await;
 
 import io.eventdriven.core.eventstore.EventStore.AppendResult;
-import io.eventdriven.core.messaging.EventEnvelope;
-import io.eventdriven.core.messaging.EventMetadata;
+import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.messaging.MessageMetadata;
 import io.eventdriven.core.messaging.versioning.MessageMapping;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
+import io.eventdriven.core.processing.MessageProcessor;
 import io.eventdriven.core.projections.CounterEvent;
 import io.eventdriven.testing.messaging.TestMessages;
 import java.time.Duration;
@@ -72,8 +73,8 @@ public abstract class EventStoreTests {
         assertThat(result).isInstanceOf(AppendResult.Success.class);
         assertThat(((AppendResult.Success) result).nextStreamVersion()).isEqualTo(1);
         assertThat(((AppendResult.Success) result).lastEvent().position())
-                .isEqualTo(metadata.getLast().logPosition());
-        assertThat(metadata).extracting(EventMetadata::streamPosition).containsExactly(0L, 1L);
+                .isEqualTo(metadata.getLast().stream().logPosition());
+        assertThat(metadata).extracting(each -> each.stream().streamPosition()).containsExactly(0L, 1L);
         assertThat(eventsOf(streamId)).containsExactly(opened, added);
     }
 
@@ -110,7 +111,7 @@ public abstract class EventStoreTests {
 
         assertThat(((AppendResult.Success) result).nextStreamVersion()).isEqualTo(3);
         assertThat(metadataOf(streamId))
-                .extracting(EventMetadata::streamPosition)
+                .extracting(each -> each.stream().streamPosition())
                 .containsExactly(0L, 1L, 2L, 3L);
     }
 
@@ -127,7 +128,7 @@ public abstract class EventStoreTests {
 
         assertThat(((AppendResult.Success) result).nextStreamVersion()).isEqualTo(3);
         assertThat(metadataOf(streamId))
-                .extracting(EventMetadata::streamPosition)
+                .extracting(each -> each.stream().streamPosition())
                 .containsExactly(0L, 1L, 2L, 3L);
     }
 
@@ -179,7 +180,7 @@ public abstract class EventStoreTests {
                         new ItemAdded(cartId, "hoodie"));
 
         assertThat(((AppendResult.Success) result).lastEvent())
-                .isEqualTo(metadataOf(streamId).getLast().checkpoint());
+                .isEqualTo(metadataOf(streamId).getLast().stream().checkpoint());
     }
 
     @Test
@@ -223,7 +224,7 @@ public abstract class EventStoreTests {
     public void aSubscriptionNotifiesByTheExactClassOfTheEventNotByItsSupertype() {
         var received = new CopyOnWriteArrayList<Object>();
         eventStore().subscribe(subscriptionName(), List.of(CartEvent.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) received.add(envelope.message());
         });
         var marker = eventStore().subscribe(subscriptionName(), List.of(CartOpened.class), envelope -> {});
 
@@ -238,7 +239,7 @@ public abstract class EventStoreTests {
         eventStore().append(streamId, new CartOpened(cartId));
         var received = new CopyOnWriteArrayList<Object>();
         var subscription = eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) received.add(envelope.message());
         });
 
         var failed = eventStore().append(streamId, ExpectedStreamVersion.at(4), new ItemAdded(cartId, "t-shirt"));
@@ -253,7 +254,7 @@ public abstract class EventStoreTests {
     public void awaitingAnAppendedCheckpointReturnsOnceTheSubscriberHandledIt() {
         var received = new CopyOnWriteArrayList<Object>();
         var subscription = eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) received.add(envelope.message());
         });
 
         var result = eventStore().append(streamId, new CartOpened(cartId), new ItemAdded(cartId, "t-shirt"));
@@ -293,10 +294,10 @@ public abstract class EventStoreTests {
         var openedCarts = new CopyOnWriteArrayList<Object>();
         var addedItems = new CopyOnWriteArrayList<Object>();
         eventStore().subscribe(subscriptionName(), List.of(CartOpened.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) openedCarts.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) openedCarts.add(envelope.message());
         });
         eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) addedItems.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) addedItems.add(envelope.message());
         });
 
         eventStore().append(streamId, new CartOpened(cartId), new ItemAdded(cartId, "t-shirt"));
@@ -307,10 +308,60 @@ public abstract class EventStoreTests {
     }
 
     @Test
+    public void aSubscriptionRunsInOrderEachProcessorThatCanHandleTheEvent() {
+        var handled = new CopyOnWriteArrayList<String>();
+        eventStore()
+                .subscribe(
+                        subscriptionName(),
+                        processor("opened carts", handled, CartOpened.class),
+                        processor("cart items", handled, CartOpened.class, ItemAdded.class));
+
+        eventStore().append(streamId, new CartOpened(cartId), new ItemAdded(cartId, "t-shirt"));
+
+        eventStore().whenCaughtUp();
+        assertThat(handled)
+                .containsExactly("opened carts: CartOpened", "cart items: CartOpened", "cart items: ItemAdded");
+    }
+
+    private MessageProcessor processor(String name, List<String> handled, Class<?>... types) {
+        return new MessageProcessor() {
+            @Override
+            public List<Class<?>> canHandle() {
+                return List.of(types);
+            }
+
+            @Override
+            public void handle(MessageEnvelope<Object> envelope) {
+                if (envelope.metadata().stream().streamId().equals(streamId))
+                    handled.add(name + ": " + envelope.message().getClass().getSimpleName());
+            }
+        };
+    }
+
+    @Test
+    public void awaitingCatchUpAlsoWaitsForWhatSubscriptionsAppendedWhileItWaited() {
+        var itemsStreamId = streamId + "-items";
+        var addedItems = new CopyOnWriteArrayList<Object>();
+        eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
+            if (envelope.metadata().stream().streamId().equals(itemsStreamId)) addedItems.add(envelope.message());
+        });
+        eventStore().subscribe(subscriptionName(), List.of(CartOpened.class), envelope -> {
+            if (envelope.metadata().stream().streamId().equals(streamId))
+                eventStore().append(itemsStreamId, new ItemAdded(cartId, "t-shirt"));
+        });
+
+        eventStore().append(streamId, new CartOpened(cartId));
+
+        eventStore().whenCaughtUp();
+        assertThat(addedItems).containsExactly(new ItemAdded(cartId, "t-shirt"));
+    }
+
+    @Test
     public void awaitingCatchUpFailsNamingTheSubscriptionThatDidNotHandleItsEventsInTime() {
         var name = subscriptionName();
         eventStore().subscribe(name, List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) throw new IllegalStateException("Handler is down");
+            if (envelope.metadata().stream().streamId().equals(streamId))
+                throw new IllegalStateException("Handler is down");
         });
 
         eventStore().append(streamId, new CartOpened(cartId), new ItemAdded(cartId, "t-shirt"));
@@ -323,7 +374,8 @@ public abstract class EventStoreTests {
     @Test
     public void awaitingCatchUpDoesNotWaitForASubscriptionWhoseTypesWereNotAppended() {
         eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) throw new IllegalStateException("Handler is down");
+            if (envelope.metadata().stream().streamId().equals(streamId))
+                throw new IllegalStateException("Handler is down");
         });
 
         eventStore().append(streamId, new CartOpened(cartId));
@@ -336,9 +388,9 @@ public abstract class EventStoreTests {
         var attempts = new AtomicInteger();
         var received = new CopyOnWriteArrayList<Object>();
         eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (!envelope.metadata().streamId().equals(streamId)) return;
+            if (!envelope.metadata().stream().streamId().equals(streamId)) return;
 
-            received.add(envelope.data());
+            received.add(envelope.message());
             if (attempts.getAndIncrement() == 0) throw new IllegalStateException("projection is down");
         });
 
@@ -359,7 +411,7 @@ public abstract class EventStoreTests {
         var received = new CopyOnWriteArrayList<Object>();
 
         eventStore().subscribe(subscriptionName(), List.of(CartOpened.class, ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) received.add(envelope.message());
         });
 
         await().atMost(Duration.ofSeconds(10))
@@ -369,21 +421,21 @@ public abstract class EventStoreTests {
 
     @Test
     public void subscriberGetsAppendedEventsOfItsTypeWithTheirStreamAndLogPositions() {
-        var received = new CopyOnWriteArrayList<EventEnvelope<Object>>();
+        var received = new CopyOnWriteArrayList<MessageEnvelope<Object>>();
         eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope);
+            if (envelope.metadata().stream().streamId().equals(streamId)) received.add(envelope);
         });
 
         var result = eventStore().append(streamId, new CartOpened(cartId), new ItemAdded(cartId, "t-shirt"));
 
         var logPosition = ((AppendResult.Success) result).lastEvent().position();
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
-            assertThat(received).extracting(EventEnvelope::data).containsExactly(new ItemAdded(cartId, "t-shirt"));
+            assertThat(received).extracting(MessageEnvelope::message).containsExactly(new ItemAdded(cartId, "t-shirt"));
             assertThat(received)
                     .extracting(
-                            envelope -> envelope.metadata().streamId(),
-                            envelope -> envelope.metadata().streamPosition(),
-                            envelope -> envelope.metadata().logPosition())
+                            envelope -> envelope.metadata().stream().streamId(),
+                            envelope -> envelope.metadata().stream().streamPosition(),
+                            envelope -> envelope.metadata().stream().logPosition())
                     .containsExactly(tuple(streamId, 1L, logPosition));
         });
     }
@@ -392,7 +444,7 @@ public abstract class EventStoreTests {
     public void aSubscriptionGetsEveryEventOfItsTypesInLogOrder() {
         var received = new CopyOnWriteArrayList<Object>();
         eventStore().subscribe(subscriptionName(), List.of(CartOpened.class, ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) received.add(envelope.message());
         });
 
         eventStore().append(streamId, new CartOpened(cartId), new ItemAdded(cartId, "t-shirt"), new CartOpened(cartId));
@@ -431,16 +483,16 @@ public abstract class EventStoreTests {
         assertThat(result).isInstanceOf(EventStore.ReadResult.Success.class);
 
         return ((EventStore.ReadResult.Success) result)
-                .events().stream().<Object>map(EventEnvelope::data).toList();
+                .events().stream().<Object>map(MessageEnvelope::message).toList();
     }
 
-    protected List<EventMetadata> metadataOf(String streamId) {
+    protected List<MessageMetadata> metadataOf(String streamId) {
         var result = eventStore().read(streamId);
 
         assertThat(result).isInstanceOf(EventStore.ReadResult.Success.class);
 
         return ((EventStore.ReadResult.Success) result)
-                .events().stream().map(EventEnvelope::metadata).toList();
+                .events().stream().map(MessageEnvelope::metadata).toList();
     }
 
     public sealed interface CartEvent {}

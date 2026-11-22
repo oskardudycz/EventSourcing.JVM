@@ -3,9 +3,9 @@ package io.eventdriven.core.eventstore;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import io.eventdriven.core.messaging.EventEnvelope;
-import io.eventdriven.core.messaging.EventMetadata;
 import io.eventdriven.core.messaging.MessageContext;
+import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.messaging.MessageMetadata;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.testing.messaging.TestMessages;
 import io.eventdriven.testing.tracing.TestTracing;
@@ -91,9 +91,9 @@ public abstract class EventStoreMetadataTests {
 
     @Test
     public void deliveredAndReadEventsHaveTheSameMessageId() {
-        var delivered = new CopyOnWriteArrayList<EventEnvelope<Object>>();
+        var delivered = new CopyOnWriteArrayList<MessageEnvelope<Object>>();
         eventStore().subscribe("Opened", List.of(Opened.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) delivered.add(envelope);
+            if (envelope.metadata().stream().streamId().equals(streamId)) delivered.add(envelope);
         });
 
         eventStore().append(streamId, new Opened("cart"));
@@ -109,10 +109,10 @@ public abstract class EventStoreMetadataTests {
 
         var metadata = readMetadata(streamId);
 
-        assertThat(metadata).extracting(EventMetadata::streamId).containsOnly(streamId);
-        assertThat(metadata).extracting(EventMetadata::streamPosition).containsExactly(0L, 1L);
-        assertThat(metadata).extracting(EventMetadata::messageId).doesNotHaveDuplicates();
-        assertThat(metadata).extracting(EventMetadata::correlationId).doesNotContainNull();
+        assertThat(metadata).extracting(each -> each.stream().streamId()).containsOnly(streamId);
+        assertThat(metadata).extracting(each -> each.stream().streamPosition()).containsExactly(0L, 1L);
+        assertThat(metadata).extracting(MessageMetadata::messageId).doesNotHaveDuplicates();
+        assertThat(metadata).extracting(MessageMetadata::correlationId).doesNotContainNull();
     }
 
     @Test
@@ -123,18 +123,18 @@ public abstract class EventStoreMetadataTests {
 
         assertThat(metadata.getFirst().correlationId()).isNotBlank();
         assertThat(metadata)
-                .extracting(EventMetadata::correlationId)
+                .extracting(MessageMetadata::correlationId)
                 .containsOnly(metadata.getFirst().correlationId());
         assertThat(metadata)
-                .extracting(EventMetadata::causationId)
+                .extracting(MessageMetadata::causationId)
                 .containsOnly(metadata.getFirst().correlationId());
     }
 
     @Test
     public void aHandledMessagePassesItsCorrelationIdOnAndBecomesTheCause() {
-        var received = new CopyOnWriteArrayList<EventEnvelope<Object>>();
+        var received = new CopyOnWriteArrayList<MessageEnvelope<Object>>();
         eventStore().subscribe("Opened", List.of(Opened.class), envelope -> {
-            if (!envelope.metadata().streamId().equals(streamId)) return;
+            if (!envelope.metadata().stream().streamId().equals(streamId)) return;
             received.add(envelope);
             eventStore().append(otherStreamId, new Added("cart", "caused"));
         });
@@ -154,7 +154,7 @@ public abstract class EventStoreMetadataTests {
     public void aMessagePublishedAgainWhileHandlingARedeliveredEventKeepsItsId() {
         var publishedIds = new CopyOnWriteArrayList<String>();
         eventStore().subscribe("redelivered-" + UUID.randomUUID(), List.of(Opened.class), envelope -> {
-            if (!envelope.metadata().streamId().equals(streamId)) return;
+            if (!envelope.metadata().stream().streamId().equals(streamId)) return;
 
             publishedIds.add(context.inheritForPublished("test.Confirm", 0).messageId());
 
@@ -256,11 +256,11 @@ public abstract class EventStoreMetadataTests {
         return attributes;
     }
 
-    protected List<EventMetadata> readMetadata(String streamId) {
+    protected List<MessageMetadata> readMetadata(String streamId) {
         assertThat(eventStore().read(streamId)).isInstanceOf(EventStore.ReadResult.Success.class);
 
         return ((EventStore.ReadResult.Success) eventStore().read(streamId))
-                .events().stream().map(EventEnvelope::metadata).toList();
+                .events().stream().map(MessageEnvelope::metadata).toList();
     }
 
     public record Opened(String cartId) {}

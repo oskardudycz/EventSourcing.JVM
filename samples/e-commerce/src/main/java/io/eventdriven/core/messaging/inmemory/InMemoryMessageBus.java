@@ -3,9 +3,11 @@ package io.eventdriven.core.messaging.inmemory;
 import io.eventdriven.core.messaging.MessageBus;
 import io.eventdriven.core.messaging.MessageChannel;
 import io.eventdriven.core.messaging.MessageContext;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.messaging.MessageQueue;
 import io.eventdriven.core.messaging.MessageRouter;
 import io.eventdriven.core.messaging.MessageRoutes;
+import io.eventdriven.core.messaging.MessageSource;
 import io.eventdriven.core.messaging.RoutingPattern;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -22,7 +24,7 @@ public class InMemoryMessageBus implements MessageBus {
     private final MessageRouter router;
     private final Set<String> channels = new HashSet<>();
     private final Map<String, List<Binding>> bindings = new LinkedHashMap<>();
-    private final Map<String, Map<String, List<Consumer<Object>>>> queues = new LinkedHashMap<>();
+    private final Map<String, Map<String, List<Consumer<MessageEnvelope<Object>>>>> queues = new LinkedHashMap<>();
     private final List<Consumer<Object>> middlewares = new ArrayList<>();
     private final MessageContext context;
 
@@ -54,22 +56,24 @@ public class InMemoryMessageBus implements MessageBus {
                         .get(message.getClass().getTypeName());
 
                 if (handlers != null)
-                    try (var _ = context.publishing(values);
-                            var _ = context.consuming(
-                                    "handle " + message.getClass().getSimpleName(), values.messageId())) {
-                        for (var handle : handlers) {
-                            handle.accept(message);
+                    try (var _ = context.publishing(values)) {
+                        var metadata = context.received(values.messageId(), new MessageSource.InQueue(binding.queue()));
+
+                        try (var _ =
+                                context.handling("handle " + message.getClass().getSimpleName(), metadata)) {
+                            for (var handle : handlers) handle.accept(new MessageEnvelope<>(message, metadata));
                         }
                     }
             }
         }
     }
 
-    public <Message> InMemoryMessageBus subscribe(
-            String queue, Class<Message> messageClass, Consumer<Message> handler) {
-        queues.computeIfAbsent(queue, ignored -> new LinkedHashMap<>())
-                .computeIfAbsent(messageClass.getTypeName(), ignored -> new ArrayList<>())
-                .add(message -> handler.accept(messageClass.cast(message)));
+    @Override
+    public InMemoryMessageBus subscribe(String queue, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {
+        for (var type : types)
+            queues.computeIfAbsent(queue, ignored -> new LinkedHashMap<>())
+                    .computeIfAbsent(type.getTypeName(), ignored -> new ArrayList<>())
+                    .add(handler);
         return this;
     }
 

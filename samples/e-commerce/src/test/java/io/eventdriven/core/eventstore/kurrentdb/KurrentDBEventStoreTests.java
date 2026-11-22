@@ -103,7 +103,7 @@ public class KurrentDBEventStoreTests extends DurableEventStoreTests {
         var received = new CopyOnWriteArrayList<Object>();
         checkpoints.handle(name, 1, () -> {});
         var subscription = store.subscribe(name, List.of(ItemAdded.class), envelope -> {
-            if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
+            if (envelope.metadata().stream().streamId().equals(streamId)) received.add(envelope.message());
         });
 
         checkpoints.handle(

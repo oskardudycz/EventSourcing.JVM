@@ -129,7 +129,7 @@ public class OrdersConfig {
     public PendingOrders pendingOrders(EventStore eventStore, PendingOrderRepository pendingOrderRepository) {
         var pendingOrders = new PendingOrders(pendingOrderRepository);
 
-        eventStore.subscribe("pending-orders", pendingOrders.canHandle(), pendingOrders::handle);
+        eventStore.subscribe("pending-orders", pendingOrders);
 
         return pendingOrders;
     }
@@ -149,7 +149,7 @@ public class OrdersConfig {
     public CustomerOrders customerOrders(EventStore eventStore, CustomerOrderRepository customerOrderRepository) {
         var customerOrders = new CustomerOrders(customerOrderRepository);
 
-        eventStore.subscribe("customer-orders", customerOrders.canHandle(), customerOrders::handle);
+        eventStore.subscribe("customer-orders", customerOrders);
 
         return customerOrders;
     }
@@ -158,7 +158,7 @@ public class OrdersConfig {
     public OrderStatuses orderStatuses(EventStore eventStore, OrderStatusRepository orderStatusRepository) {
         var orderStatuses = new OrderStatuses(orderStatusRepository);
 
-        eventStore.subscribe("order-statuses", orderStatuses.canHandle(), orderStatuses::handle);
+        eventStore.subscribe("order-statuses", orderStatuses);
 
         return orderStatuses;
     }
@@ -186,13 +186,14 @@ public class OrdersConfig {
                         OrderPaymentRetried.class,
                         OrderCanceled.class),
                 envelope -> {
-                    switch (envelope.data()) {
+                    switch (envelope.message()) {
                         case OrderPlaced event -> saga.onOrderPlaced(event);
                         case OrderConfirmed event -> saga.onOrderConfirmed(event);
                         case OrderPaymentDue event -> saga.onOrderPaymentDue(event);
                         case OrderPaymentRetried event -> saga.onOrderPaymentRetried(event);
                         case OrderCanceled event -> saga.onOrderCanceled(event);
-                        default -> throw new IllegalArgumentException("Unexpected event %s".formatted(envelope.data()));
+                        default ->
+                            throw new IllegalArgumentException("Unexpected event %s".formatted(envelope.message()));
                     }
                 });
 

@@ -5,12 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.messaging.MessageBus;
 import io.eventdriven.testing.Transcript;
+import io.eventdriven.testing.tracing.FinishedSpans;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -51,7 +51,6 @@ import tools.jackson.databind.json.JsonMapper;
 @AutoConfigureRestTestClient
 public abstract class ApiE2ESpecification {
     private static final JsonMapper json = JsonMapper.builder().build();
-    private static final Duration traceTimeout = Duration.ofSeconds(3);
     private static final String MESSAGE_ID = "messaging.message.id";
     private static final String CORRELATION_ID = "messaging.message.correlation_id";
     private static final String CAUSATION_ID = "messaging.message.causation_id";
@@ -64,13 +63,15 @@ public abstract class ApiE2ESpecification {
     protected @Nullable MessageBus messageBus;
 
     @Autowired(required = false)
-    protected @Nullable InMemorySpanExporter spans;
+    protected @Nullable FinishedSpans spans;
 
     @Autowired(required = false)
     protected @Nullable EventStore eventStore;
 
     @Autowired(required = false)
     protected @Nullable MeterRegistry meters;
+
+    protected Duration catchUpTimeout = Duration.ofSeconds(30);
 
     public interface TestStep {}
 
@@ -247,13 +248,7 @@ public abstract class ApiE2ESpecification {
 
     public static Expectation expectTrace(ExpectedSpan root) {
         return outcome -> {
-            var deadline = System.nanoTime() + traceTimeout.toNanos();
             var mismatch = mismatchOf(root, outcome.spans().get());
-
-            while (mismatch.isPresent() && System.nanoTime() < deadline) {
-                sleep();
-                mismatch = mismatchOf(root, outcome.spans().get());
-            }
 
             assertThat(mismatch)
                     .as(
@@ -273,13 +268,7 @@ public abstract class ApiE2ESpecification {
 
     public static Expectation expectCorrelatedTrace() {
         return outcome -> {
-            var deadline = System.nanoTime() + traceTimeout.toNanos();
             var mismatch = correlationMismatchOf(outcome.spans().get());
-
-            while (mismatch.isPresent() && System.nanoTime() < deadline) {
-                sleep();
-                mismatch = correlationMismatchOf(outcome.spans().get());
-            }
 
             assertThat(mismatch)
                     .as(
@@ -346,14 +335,25 @@ public abstract class ApiE2ESpecification {
         return response;
     }
 
+    // Store processors may still be publishing when a message is recorded, and bus handlers may still be appending, so
+    // each round waits for the store, then the bus, then the store again, until a round publishes nothing new.
     private void whenCaughtUp() {
+        var deadline = System.nanoTime() + catchUpTimeout.toNanos();
         var published = published();
         int seen;
         do {
+            assertThat(System.nanoTime())
+                    .as("The application kept publishing messages for longer than %s", catchUpTimeout)
+                    .isLessThan(deadline);
             seen = published.size();
-            if (messageBus != null) messageBus.whenCaughtUp();
-            if (eventStore != null) eventStore.whenCaughtUp();
+            if (eventStore != null) eventStore.whenCaughtUp(remainingUntil(deadline));
+            if (messageBus != null) messageBus.whenCaughtUp(remainingUntil(deadline));
+            if (eventStore != null) eventStore.whenCaughtUp(remainingUntil(deadline));
         } while (published.size() != seen);
+    }
+
+    private static Duration remainingUntil(long deadline) {
+        return Duration.ofNanos(Math.max(0, deadline - System.nanoTime()));
     }
 
     private @Nullable TestResponse runOnly(TestStep step, Set<String> traceIds) {
@@ -596,18 +596,5 @@ public abstract class ApiE2ESpecification {
         var random = new byte[bytes];
         ThreadLocalRandom.current().nextBytes(random);
         return HexFormat.of().formatHex(random);
-    }
-
-    private static void sleep() {
-        pause(Duration.ofMillis(50));
-    }
-
-    private static void pause(Duration duration) {
-        try {
-            Thread.sleep(duration);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException(e);
-        }
     }
 }

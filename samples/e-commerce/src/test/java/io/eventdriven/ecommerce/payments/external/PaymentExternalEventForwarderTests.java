@@ -7,8 +7,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.eventdriven.core.eventstore.inmemory.InMemoryEventStore;
 import io.eventdriven.core.identifiers.Urns;
-import io.eventdriven.core.messaging.EventEnvelope;
 import io.eventdriven.core.messaging.MessageChannel;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.messaging.MessageRoutes;
 import io.eventdriven.core.messaging.inmemory.InMemoryMessageBus;
 import io.eventdriven.ecommerce.ECommerceMessages;
@@ -167,12 +167,13 @@ public class PaymentExternalEventForwarderTests {
         bus.use(published::catchMessage);
         var forwarder = new PaymentExternalEventForwarder(summaries, bus);
         var streamId = PaymentFacade.mapToStreamId(paymentId);
-        var timedOut = new EventEnvelope<>(new PaymentEvent.PaymentTimedOut(paymentId, now), Metadata.at(streamId, 1));
+        var timedOut =
+                new MessageEnvelope<>(new PaymentEvent.PaymentTimedOut(paymentId, now), Metadata.at(streamId, 1));
 
         assertThatThrownBy(() -> forwarder.onTimedOut(timedOut)).isInstanceOf(IllegalStateException.class);
         published.shouldNotReceiveAnyEvent();
 
-        summaries.handle(new EventEnvelope<>(
+        summaries.handle(new MessageEnvelope<>(
                 new PaymentEvent.PaymentAuthorizationRequested(
                         paymentId, referenceId, amount, now, now.plus(paymentTimeout)),
                 Metadata.at(streamId, 0)));

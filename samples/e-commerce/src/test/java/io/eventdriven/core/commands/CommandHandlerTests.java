@@ -7,8 +7,8 @@ import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.eventstore.Subscription;
 import io.eventdriven.core.eventstore.inmemory.InMemoryEventStore;
-import io.eventdriven.core.messaging.EventEnvelope;
 import io.eventdriven.core.messaging.MessageContext;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.testing.messaging.TestMessages;
 import io.eventdriven.testing.tracing.TestTracing;
 import io.micrometer.tracing.Span;
@@ -304,7 +304,7 @@ public class CommandHandlerTests {
     private List<Object> eventsIn(UUID id) {
         return switch (inMemoryEventStore.read(mapToStreamId(id))) {
             case EventStore.ReadResult.Success success ->
-                success.events().stream().map(EventEnvelope::data).toList();
+                success.events().stream().map(MessageEnvelope::message).toList();
             default -> List.of();
         };
     }
@@ -378,7 +378,7 @@ public class CommandHandlerTests {
         }
 
         @Override
-        public Subscription subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler) {
+        public Subscription subscribe(String name, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {
             return store.subscribe(name, types, handler);
         }
 

@@ -3,7 +3,7 @@ package io.eventdriven.ecommerce.orders.unpaid;
 import static io.eventdriven.ecommerce.orders.OrderEvent.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.ecommerce.orders.Order;
 import io.eventdriven.ecommerce.orders.OrderFacade;
 import io.eventdriven.testing.messaging.Metadata;
@@ -80,7 +80,7 @@ public class OrdersAwaitingPaymentTests {
 
         assertThat(ordersAwaitingPayment.overdueAt(dueAt)).containsOnlyOnce(orderId);
 
-        var completed = at(new OrderCompleted(orderId, failedAt), 1);
+        MessageEnvelope<Object> completed = at(new OrderCompleted(orderId, failedAt), 1);
         ordersAwaitingPayment.handle(completed);
         ordersAwaitingPayment.handle(completed);
 
@@ -91,7 +91,7 @@ public class OrdersAwaitingPaymentTests {
         ordersAwaitingPayment.handle(at(new OrderPaymentFailed(orderId, failedAt, dueAt), 0));
     }
 
-    private <Event> EventEnvelope<Event> at(Event event, long streamPosition) {
-        return new EventEnvelope<>(event, Metadata.at(streamId, streamPosition));
+    private <Event> MessageEnvelope<Event> at(Event event, long streamPosition) {
+        return new MessageEnvelope<>(event, Metadata.at(streamId, streamPosition));
     }
 }

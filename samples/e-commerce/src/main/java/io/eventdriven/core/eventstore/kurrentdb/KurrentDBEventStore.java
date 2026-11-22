@@ -7,9 +7,10 @@ import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.eventstore.Subscription;
 import io.eventdriven.core.eventstore.SubscriptionProgress;
 import io.eventdriven.core.eventstore.SubscriptionsCatchUp;
-import io.eventdriven.core.messaging.EventEnvelope;
-import io.eventdriven.core.messaging.EventMetadata;
 import io.eventdriven.core.messaging.MessageContext;
+import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.messaging.MessageMetadata;
+import io.eventdriven.core.messaging.MessageSource;
 import io.eventdriven.core.messaging.MessageValues;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.core.subscriptions.SubscriptionCheckpoints;
@@ -55,7 +56,7 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
                     eventStore.readStream(streamId, ReadStreamOptions.get()).get();
 
             var events = result.getEvents().stream()
-                    .map(resolvedEvent -> new EventEnvelope<>(deserialize(resolvedEvent), metadataOf(resolvedEvent)))
+                    .map(resolvedEvent -> new MessageEnvelope<>(deserialize(resolvedEvent), metadataOf(resolvedEvent)))
                     .toList();
 
             return new ReadResult.Success(events);
@@ -118,7 +119,7 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
     }
 
     @Override
-    public Subscription subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler) {
+    public Subscription subscribe(String name, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {
         if (types.isEmpty())
             throw new IllegalArgumentException("Subscription '%s' needs at least one event type".formatted(name));
 
@@ -148,11 +149,11 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
                             "handle %s".formatted(event.getClass().getSimpleName()), metadata)) {
                         checkpoints.handle(
                                 name,
-                                metadata.logPosition(),
-                                () -> handler.accept(new EventEnvelope<>(event, metadata)));
+                                metadata.stream().logPosition(),
+                                () -> handler.accept(new MessageEnvelope<>(event, metadata)));
                     }
 
-                    progress.handled(metadata.checkpoint());
+                    progress.handled(metadata.stream().checkpoint());
                 },
                 backOff,
                 scheduler);
@@ -260,22 +261,23 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
         return values;
     }
 
-    private EventMetadata metadataOf(ResolvedEvent resolvedEvent) {
+    private MessageMetadata metadataOf(ResolvedEvent resolvedEvent) {
         var recorded = resolvedEvent.getEvent();
         var userMetadata = userMetadataOf(resolvedEvent);
         var messageId = recorded.getEventId().toString();
         var correlationId = userMetadata.getOrDefault(CORRELATION_ID, messageId);
 
-        return new EventMetadata(
-                recorded.getStreamId(),
-                recorded.getRevision(),
-                recorded.getPosition().getCommitUnsigned(),
-                0,
+        return new MessageMetadata(
                 messageId,
                 correlationId,
                 userMetadata.getOrDefault(CAUSATION_ID, correlationId),
                 userMetadata.get(TRACE_ID),
-                userMetadata.get(SPAN_ID));
+                userMetadata.get(SPAN_ID),
+                new MessageSource.InStream(
+                        recorded.getStreamId(),
+                        recorded.getRevision(),
+                        recorded.getPosition().getCommitUnsigned(),
+                        0));
     }
 
     private final KurrentDBClient eventStore;
@@ -345,14 +347,16 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
 
     @Override
     public void whenCaughtUp(Duration timeout) {
+        catchUp.whenCaughtUp(timeout, this::recordAppendedRanges);
+    }
+
+    private void recordAppendedRanges() {
         for (var range = appendedRanges.poll(); range != null; range = appendedRanges.poll()) {
             for (var resolvedEvent : appendedEventsOf(range)) {
                 var recorded = resolvedEvent.getEvent();
                 catchUp.appended(recorded.getEventType(), checkpointOf(recorded.getPosition()));
             }
         }
-
-        catchUp.whenCaughtUp(timeout);
     }
 
     private List<ResolvedEvent> appendedEventsOf(AppendedRange range) {

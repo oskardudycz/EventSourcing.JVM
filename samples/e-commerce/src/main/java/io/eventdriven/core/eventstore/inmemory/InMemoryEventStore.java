@@ -7,9 +7,10 @@ import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.eventstore.Subscription;
 import io.eventdriven.core.eventstore.SubscriptionProgress;
 import io.eventdriven.core.eventstore.SubscriptionsCatchUp;
-import io.eventdriven.core.messaging.EventEnvelope;
-import io.eventdriven.core.messaging.EventMetadata;
 import io.eventdriven.core.messaging.MessageContext;
+import io.eventdriven.core.messaging.MessageEnvelope;
+import io.eventdriven.core.messaging.MessageMetadata;
+import io.eventdriven.core.messaging.MessageSource;
 import io.eventdriven.core.messaging.MessageValues;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
 import java.time.Duration;
@@ -107,7 +108,7 @@ public class InMemoryEventStore implements EventStore {
 
     @Override
     public synchronized Subscription subscribe(
-            String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler) {
+            String name, List<Class<?>> types, Consumer<MessageEnvelope<Object>> handler) {
         if (types.isEmpty())
             throw new IllegalArgumentException("Subscription '%s' needs at least one event type".formatted(name));
 
@@ -150,7 +151,7 @@ public class InMemoryEventStore implements EventStore {
                 if (position > lastMiddlewarePosition) {
                     lastMiddlewarePosition = position;
                     if (!middlewares.isEmpty()) {
-                        var data = toEnvelope(entry).data();
+                        var data = toEnvelope(entry).message();
                         for (var middleware : middlewares) middleware.accept(data);
                     }
                 }
@@ -164,8 +165,9 @@ public class InMemoryEventStore implements EventStore {
 
                             try (var _ = context.handling(
                                     "handle %s"
-                                            .formatted(
-                                                    envelope.data().getClass().getSimpleName()),
+                                            .formatted(envelope.message()
+                                                    .getClass()
+                                                    .getSimpleName()),
                                     envelope.metadata())) {
                                 subscriber.handler.accept(envelope);
                                 subscriber.progress.handled(new Checkpoint(0, position));
@@ -198,21 +200,18 @@ public class InMemoryEventStore implements EventStore {
                 .getAsInt();
     }
 
-    private EventEnvelope<Object> toEnvelope(LogEntry entry) {
+    private MessageEnvelope<Object> toEnvelope(LogEntry entry) {
         var values = entry.values();
 
-        return new EventEnvelope<>(
+        return new MessageEnvelope<>(
                 deserialize(entry.storedEvent()),
-                new EventMetadata(
-                        entry.streamId(),
-                        entry.streamPosition(),
-                        entry.logPosition(),
-                        0,
+                new MessageMetadata(
                         values.messageId(),
                         values.correlationId(),
                         values.causationId(),
                         values.traceId(),
-                        values.spanId()));
+                        values.spanId(),
+                        new MessageSource.InStream(entry.streamId(), entry.streamPosition(), entry.logPosition(), 0)));
     }
 
     private long versionOf(String streamId) {
@@ -248,14 +247,14 @@ public class InMemoryEventStore implements EventStore {
     private static final class Subscriber {
         private final String name;
         private final Set<String> eventTypes;
-        private final Consumer<EventEnvelope<Object>> handler;
+        private final Consumer<MessageEnvelope<Object>> handler;
         private final SubscriptionProgress progress;
         private int checkpoint = -1;
 
         private Subscriber(
                 String name,
                 Set<String> eventTypes,
-                Consumer<EventEnvelope<Object>> handler,
+                Consumer<MessageEnvelope<Object>> handler,
                 SubscriptionProgress progress) {
             this.name = name;
             this.eventTypes = eventTypes;

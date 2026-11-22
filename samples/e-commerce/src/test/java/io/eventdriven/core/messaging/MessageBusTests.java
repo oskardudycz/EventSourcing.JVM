@@ -7,6 +7,7 @@ import static org.awaitility.Awaitility.await;
 
 import io.eventdriven.core.messaging.versioning.MessageMapping;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
+import io.eventdriven.core.processing.MessageProcessor;
 import io.eventdriven.testing.messaging.MessageCatcher;
 import io.eventdriven.testing.messaging.TestMessages;
 import io.opentelemetry.api.common.AttributeKey;
@@ -120,6 +121,52 @@ public abstract class MessageBusTests {
 
     private static String attributeOf(SpanData span, String key) {
         return span.getAttributes().get(AttributeKey.stringKey(key));
+    }
+
+    @Test
+    public void aQueueRunsInOrderEachProcessorThatCanHandleTheMessage() {
+        var handled = new CopyOnWriteArrayList<String>();
+        messageBus.subscribe(
+                orders,
+                processor("placed orders", handled, OrderPlaced.class),
+                processor("all orders", handled, OrderPlaced.class, OrderCanceled.class));
+
+        messageBus.publish(List.of(new OrderPlaced("order-1"), new OrderCanceled("order-1")));
+
+        messageBus.whenCaughtUp();
+        assertThat(handled)
+                .containsExactly("placed orders: OrderPlaced", "all orders: OrderPlaced", "all orders: OrderCanceled");
+    }
+
+    @Test
+    public void aHandlerGetsTheMessageWithItsIdAndTheQueueItCameFrom() {
+        var received = new CopyOnWriteArrayList<MessageEnvelope<Object>>();
+        messageBus.subscribe(orders, List.of(OrderPlaced.class), received::add);
+
+        messageBus.publish(List.of(new OrderPlaced("order-1")));
+
+        messageBus.whenCaughtUp();
+        assertThat(received).singleElement().satisfies(envelope -> {
+            assertThat(envelope.message()).isEqualTo(new OrderPlaced("order-1"));
+            assertThat(envelope.metadata().messageId()).isNotBlank();
+            assertThat(envelope.metadata().causationId())
+                    .isEqualTo(envelope.metadata().correlationId());
+            assertThat(envelope.metadata().source()).isEqualTo(new MessageSource.InQueue(orders));
+        });
+    }
+
+    private static MessageProcessor processor(String name, List<String> handled, Class<?>... types) {
+        return new MessageProcessor() {
+            @Override
+            public List<Class<?>> canHandle() {
+                return List.of(types);
+            }
+
+            @Override
+            public void handle(MessageEnvelope<Object> envelope) {
+                handled.add(name + ": " + envelope.message().getClass().getSimpleName());
+            }
+        };
     }
 
     @Test

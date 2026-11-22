@@ -20,7 +20,6 @@ import io.eventdriven.ecommerce.shipments.external.ShipmentSummaryRepository;
 import io.eventdriven.ecommerce.shipments.fulfillment.FulfillmentService;
 import io.eventdriven.ecommerce.shipments.fulfillment.FulfillmentServiceClient;
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.springframework.context.annotation.Bean;
@@ -114,8 +113,6 @@ public class ShipmentsConfig {
             EventStore eventStore, ShipmentSummaryRepository shipmentSummaryRepository) {
         var shipmentSummaries = new ShipmentSummaries(shipmentSummaryRepository);
 
-        eventStore.subscribe("shipment-summaries", shipmentSummaries.canHandle(), shipmentSummaries::handle);
-
         return shipmentSummaries;
     }
 
@@ -124,14 +121,7 @@ public class ShipmentsConfig {
             EventStore eventStore, ShipmentSummaries shipmentSummaries, MessageBus messageBus) {
         var forwarder = new ShipmentExternalEventForwarder(shipmentSummaries, messageBus);
 
-        eventStore.subscribe(
-                "shipments-external-forwarder",
-                List.of(
-                        StockReserved.class,
-                        ProductWasOutOfStock.class,
-                        PackageWasSent.class,
-                        FulfillmentRejected.class),
-                forwarder::handle);
+        eventStore.subscribe("shipments-external", shipmentSummaries, forwarder);
 
         return forwarder;
     }
@@ -141,10 +131,7 @@ public class ShipmentsConfig {
             EventStore eventStore, FulfillmentService fulfillmentService) {
         var fulfillmentServiceClient = new FulfillmentServiceClient(fulfillmentService);
 
-        eventStore.subscribe(
-                "fulfillment-service-client",
-                List.of(FulfillmentRequested.class),
-                envelope -> fulfillmentServiceClient.on((FulfillmentRequested) envelope.data()));
+        eventStore.subscribe("fulfillment-service-client", fulfillmentServiceClient);
 
         return fulfillmentServiceClient;
     }

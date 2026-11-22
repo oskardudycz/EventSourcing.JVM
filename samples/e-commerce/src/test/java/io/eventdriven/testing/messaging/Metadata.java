@@ -1,12 +1,13 @@
 package io.eventdriven.testing.messaging;
 
-import io.eventdriven.core.messaging.EventMetadata;
+import io.eventdriven.core.messaging.MessageMetadata;
+import io.eventdriven.core.messaging.MessageSource;
 import java.util.UUID;
 
 public final class Metadata {
-    public static EventMetadata at(String streamId, long position) {
+    public static MessageMetadata at(String streamId, long position) {
         var id = UUID.randomUUID().toString();
 
-        return new EventMetadata(streamId, position, position, 0, id, id, id, null, null);
+        return new MessageMetadata(id, id, id, null, null, new MessageSource.InStream(streamId, position, position, 0));
     }
 }

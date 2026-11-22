@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.eventstore.inmemory.InMemoryEventStore;
 import io.eventdriven.core.identifiers.Urns;
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.messaging.inmemory.InMemoryMessageBus;
 import io.eventdriven.ecommerce.ECommerceMessages;
 import io.eventdriven.ecommerce.payments.authorization.AuthorizedPaymentRepository;
@@ -355,7 +355,7 @@ public class PaymentFacadeTests {
     private List<Object> storedEvents() {
         return switch (eventStore.read(PaymentFacade.mapToStreamId(paymentId))) {
             case EventStore.ReadResult.Success success ->
-                success.events().stream().map(EventEnvelope::data).toList();
+                success.events().stream().map(MessageEnvelope::message).toList();
             default -> List.of();
         };
     }

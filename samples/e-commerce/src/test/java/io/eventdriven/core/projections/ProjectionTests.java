@@ -2,7 +2,7 @@ package io.eventdriven.core.projections;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.eventdriven.core.messaging.EventEnvelope;
+import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.core.projections.CounterEvent.*;
 import io.eventdriven.testing.messaging.Metadata;
 import io.eventdriven.testing.projections.ProjectionsDatabase;
@@ -49,7 +49,7 @@ public class ProjectionTests {
     @Test
     public void anEventTheDocumentAlreadyAppliedChangesNothing() {
         projection.handle(at(0, new Started(counterId)));
-        var incremented = at(1, new Incremented(counterId));
+        MessageEnvelope<Object> incremented = at(1, new Incremented(counterId));
 
         projection.handle(incremented);
         projection.handle(incremented);
@@ -130,7 +130,7 @@ public class ProjectionTests {
         assertThat(statistics.getPrepareStatementCount() - statementsBefore).isEqualTo(2);
     }
 
-    private <Event> EventEnvelope<Event> at(long streamPosition, Event event) {
-        return new EventEnvelope<>(event, Metadata.at("Counter", streamPosition));
+    private <Event> MessageEnvelope<Event> at(long streamPosition, Event event) {
+        return new MessageEnvelope<>(event, Metadata.at("Counter", streamPosition));
     }
 }
