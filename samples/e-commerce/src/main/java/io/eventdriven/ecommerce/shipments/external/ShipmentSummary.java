@@ -20,10 +20,6 @@ public class ShipmentSummary implements Versioned {
         this.referenceId = referenceId;
     }
 
-    public Shipment.Id getShipmentId() {
-        return shipmentId;
-    }
-
     public String getReferenceId() {
         return referenceId;
     }

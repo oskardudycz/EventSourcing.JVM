@@ -25,10 +25,6 @@ public class PendingPayment implements Versioned {
         return paymentId;
     }
 
-    public OffsetDateTime getTimesOutAt() {
-        return timesOutAt;
-    }
-
     @Override
     public long getVersion() {
         return version;
