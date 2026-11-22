@@ -51,7 +51,7 @@ public class PaymentFacade {
                 requestedAt,
                 paymentValidity.timesOutAt(requestedAt));
 
-        commandHandler.handle(command.paymentId(), state -> requestAuthorization(decided, state));
+        commandHandler.handle(command.paymentId(), decided, PaymentDecider::requestAuthorization);
     }
 
     public PaymentGateway.CheckoutSession createCheckoutSession(CreateCheckoutSession command) {
@@ -86,8 +86,8 @@ public class PaymentFacade {
 
         commandHandler.handle(
                 command.paymentId(),
-                state -> recordCheckoutSession(
-                        new RecordCheckoutSession(command.paymentId(), session, createdAt), state));
+                new RecordCheckoutSession(command.paymentId(), session, createdAt),
+                PaymentDecider::recordCheckoutSession);
 
         return session;
     }
@@ -101,10 +101,7 @@ public class PaymentFacade {
     public void confirmPaymentAuthorization(ConfirmPaymentAuthorization command) {
         var decided = new ConfirmPaymentAuthorization(command.paymentId(), command.captureBefore(), now.get());
 
-        commandHandler.handleContinuingTrace(
-                command.paymentId(),
-                ConfirmPaymentAuthorization.class.getSimpleName(),
-                state -> confirmAuthorization(decided, state));
+        commandHandler.handleContinuingTrace(command.paymentId(), decided, PaymentDecider::confirmAuthorization);
     }
 
     @AsyncListener(
@@ -115,7 +112,7 @@ public class PaymentFacade {
     public void capturePayment(CapturePayment command) {
         var decided = new CapturePayment(command.paymentId(), now.get());
 
-        commandHandler.handle(command.paymentId(), state -> requestCapture(decided, state));
+        commandHandler.handle(command.paymentId(), decided, PaymentDecider::requestCapture);
     }
 
     @AsyncListener(
@@ -126,10 +123,7 @@ public class PaymentFacade {
     public void confirmPaymentCapture(ConfirmPaymentCapture command) {
         var decided = new ConfirmPaymentCapture(command.paymentId(), now.get());
 
-        commandHandler.handleContinuingTrace(
-                command.paymentId(),
-                ConfirmPaymentCapture.class.getSimpleName(),
-                state -> confirmCapture(decided, state));
+        commandHandler.handleContinuingTrace(command.paymentId(), decided, PaymentDecider::confirmCapture);
     }
 
     @AsyncListener(
@@ -140,8 +134,7 @@ public class PaymentFacade {
     public void failPaymentCapture(FailPaymentCapture command) {
         var decided = new FailPaymentCapture(command.paymentId(), command.reason(), now.get());
 
-        commandHandler.handleContinuingTrace(
-                command.paymentId(), FailPaymentCapture.class.getSimpleName(), state -> failCapture(decided, state));
+        commandHandler.handleContinuingTrace(command.paymentId(), decided, PaymentDecider::failCapture);
     }
 
     @AsyncListener(
@@ -152,7 +145,7 @@ public class PaymentFacade {
     public void cancelPayment(CancelPayment command) {
         var decided = new CancelPayment(command.paymentId(), now.get());
 
-        commandHandler.handle(command.paymentId(), state -> cancel(decided, state));
+        commandHandler.handle(command.paymentId(), decided, PaymentDecider::cancel);
     }
 
     @AsyncListener(
@@ -161,8 +154,7 @@ public class PaymentFacade {
                             channelName = PaymentsConfig.internal,
                             description = "Fails the payment, because the customer did not pay in time."))
     public void timeOutPayment(TimeOutPayment command) {
-        commandHandler.handleContinuingTrace(
-                command.paymentId(), TimeOutPayment.class.getSimpleName(), state -> timeOut(command, state));
+        commandHandler.handleContinuingTrace(command.paymentId(), command, PaymentDecider::timeOut);
     }
 
     @AsyncListener(
@@ -172,10 +164,7 @@ public class PaymentFacade {
                             description =
                                     "Fails the payment, because its authorization ran out before the shop charged the customer."))
     public void expirePaymentAuthorization(ExpirePaymentAuthorization command) {
-        commandHandler.handleContinuingTrace(
-                command.paymentId(),
-                ExpirePaymentAuthorization.class.getSimpleName(),
-                state -> expireAuthorization(command, state));
+        commandHandler.handleContinuingTrace(command.paymentId(), command, PaymentDecider::expireAuthorization);
     }
 
     @Schema(description = "Opens the payment provider's page, where the customer pays.")

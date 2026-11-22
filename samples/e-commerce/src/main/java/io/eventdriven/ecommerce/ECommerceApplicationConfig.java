@@ -23,6 +23,7 @@ import io.eventdriven.core.subscriptions.SubscriptionCheckpoints;
 import io.eventdriven.ecommerce.payments.sandbox.SandboxPaymentGateway;
 import io.eventdriven.ecommerce.shipments.sandbox.SandboxFulfillmentService;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.Tracer;
 import io.opentelemetry.api.OpenTelemetry;
@@ -81,8 +82,12 @@ public class ECommerceApplicationConfig {
     }
 
     @Bean
-    MessageContext messageContext(Tracer tracer) {
-        return new MessageContext(tracer);
+    MessageContext messageContext(
+            Tracer tracer, ObjectProvider<ObservationRegistry> observations, ObjectProvider<MeterRegistry> meters) {
+        return new MessageContext(
+                tracer,
+                observations.getIfAvailable(() -> ObservationRegistry.NOOP),
+                meters.getIfAvailable(SimpleMeterRegistry::new));
     }
 
     @Bean

@@ -7,6 +7,7 @@ import static org.springframework.http.HttpStatus.*;
 
 import io.eventdriven.testing.messaging.DirectMessageBus;
 import io.eventdriven.testing.tracing.TestTracing;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.TraceContext;
 import io.micrometer.tracing.Tracer;
@@ -38,7 +39,9 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
         var bus = new DirectMessageBus();
         messageBus = bus;
         spans = tracing.spanExporter();
-        restTestClient = RestTestClient.bindToController(new CountingCartController(bus, tracing.tracer()))
+        meters = tracing.meters();
+        restTestClient = RestTestClient.bindToController(
+                        new CountingCartController(bus, tracing.tracer(), tracing.meters()))
                 .build();
     }
 
@@ -228,6 +231,96 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
     }
 
     @Test
+    public void matchesTheAttributesOfAnExpectedSpan() {
+        given(addProductItem(cartId))
+                .when(confirm(cartId, 1))
+                .then(expectTrace(span("confirm cart", Map.of("cart.id", cartId.toString()), span("store cart"))));
+    }
+
+    @Test
+    public void failsNamingTheAttributeThatAnExpectedSpanDoesNotHave() {
+        assertThatThrownBy(() -> given(addProductItem(cartId))
+                        .when(confirm(cartId, 1))
+                        .then(expectTrace(span("confirm cart", Map.of("cart.id", "another-cart")))))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("cart.id=another-cart");
+    }
+
+    @Test
+    public void expectsOneCorrelationAcrossTheTraceAndEachCauseAboveWhatItCaused() {
+        given(addProductItem(cartId)).when(confirm(cartId, 1)).then(expectCorrelatedTrace());
+    }
+
+    @Test
+    public void checksTheCorrelationOfEachTraceOnItsOwn() {
+        var otherCartId = UUID.randomUUID();
+
+        given(addProductItem(otherCartId), confirm(otherCartId, 1), addProductItem(cartId))
+                .when(confirm(cartId, 1))
+                .then(expectCorrelatedTrace());
+    }
+
+    @Test
+    public void failsNamingTheSpanThatCarriesAnotherCorrelation() {
+        assertThatThrownBy(() -> given(addProductItem(cartId))
+                        .when(confirm(cartId, 1, "foreign-correlation"))
+                        .then(expectCorrelatedTrace()))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("store cart")
+                .hasMessageContaining("someone-else");
+    }
+
+    @Test
+    public void failsNamingTheSpanThatIsNotBelowTheHandlingOfItsCause() {
+        assertThatThrownBy(() -> given(addProductItem(cartId))
+                        .when(confirm(cartId, 1, "misplaced-cause"))
+                        .then(expectCorrelatedTrace()))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("audit");
+    }
+
+    @Test
+    public void failsNamingTheSpanCausedByAMessageThatNobodyHandled() {
+        assertThatThrownBy(() -> given(addProductItem(cartId))
+                        .when(confirm(cartId, 1, "unknown-cause"))
+                        .then(expectCorrelatedTrace()))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("store cart")
+                .hasMessageContaining("never-handled");
+    }
+
+    @Test
+    public void failsWhenNoSpanOfTheTraceCarriesACorrelation() {
+        assertThatThrownBy(() ->
+                        given(addProductItem(cartId)).when(getCart(cartId)).then(expectCorrelatedTrace()))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("correlation");
+    }
+
+    @Test
+    public void expectsTheIncreaseOfAMetricThatTheWhenStepCaused() {
+        given(addProductItem(cartId))
+                .when(confirm(cartId, 1))
+                .then(expectMetric("carts.confirmed", Map.of("status", "Confirmed"), 1));
+    }
+
+    @Test
+    public void countsOnlyTheIncreaseThatTheWhenStepCaused() {
+        given(addProductItem(cartId), confirm(cartId, 1))
+                .when(publish(new ConfirmCart(cartId)))
+                .then(expectMetric("carts.confirmed", Map.of("status", "Confirmed"), 1));
+    }
+
+    @Test
+    public void failsNamingTheMetricWhoseIncreaseDiffers() {
+        assertThatThrownBy(() -> given(addProductItem(cartId))
+                        .when(confirm(cartId, 1))
+                        .then(expectMetric("carts.confirmed", Map.of("status", "Confirmed"), 2)))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("carts.confirmed");
+    }
+
+    @Test
     public void ignoresTheTracesOfOtherScenarios() {
         var otherCartId = UUID.randomUUID();
         given(addProductItem(otherCartId)).when(confirm(otherCartId, 1)).then(expectResponse(NO_CONTENT));
@@ -364,6 +457,12 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
                 request.post().uri("/carts/{cartId}/confirm", cartId).header(HttpHeaders.IF_MATCH, weakETag(version));
     }
 
+    private static TestRequest confirm(UUID cartId, long version, String fault) {
+        return request -> request.post()
+                .uri("/carts/{cartId}/confirm?fault={fault}", cartId, fault)
+                .header(HttpHeaders.IF_MATCH, weakETag(version));
+    }
+
     private static TestRequest confirmLater(UUID cartId) {
         return request -> request.post().uri("/carts/{cartId}/confirm-later", cartId);
     }
@@ -402,10 +501,12 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
         private final Map<UUID, TraceContext> confirmations = new ConcurrentHashMap<>();
         private final DirectMessageBus messageBus;
         private final Tracer tracer;
+        private final MeterRegistry meters;
 
-        CountingCartController(DirectMessageBus messageBus, Tracer tracer) {
+        CountingCartController(DirectMessageBus messageBus, Tracer tracer, MeterRegistry meters) {
             this.messageBus = messageBus;
             this.tracer = tracer;
+            this.meters = meters;
             messageBus.subscribe("carts", ProductItemAdded.class, added -> add(added.cartId()));
             messageBus.subscribe("carts", ConfirmCart.class, confirm -> {
                 var confirmation = confirmations.get(confirm.cartId());
@@ -413,7 +514,7 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
                         .name("handle ConfirmCart")
                         .start();
                 try (var _ = tracer.withSpan(span)) {
-                    confirmCart(confirm.cartId());
+                    confirmCart(confirm.cartId(), "correlation-" + confirm.cartId(), "confirm-" + confirm.cartId());
                 } finally {
                     span.end();
                 }
@@ -456,7 +557,8 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
         ResponseEntity<?> confirm(
                 @PathVariable UUID cartId,
                 @RequestHeader(HttpHeaders.IF_MATCH) String ifMatch,
-                @RequestHeader(name = "traceparent", required = false) String traceparent) {
+                @RequestHeader(name = "traceparent", required = false) String traceparent,
+                @RequestParam(defaultValue = "") String fault) {
             var cart = carts.get(cartId);
 
             if (cart == null) return notFound(cartId);
@@ -468,13 +570,33 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
                                         .formatted(ifMatch.replaceAll("\\D", ""), cart.productItemsCount())))
                         .build();
 
-            var span = continuing(traceparent).name("confirm cart").start();
+            var correlationId = "correlation-" + cartId;
+            var messageId = "confirm-" + cartId;
+            var span = continuing(traceparent)
+                    .name("confirm cart")
+                    .tag("cart.id", cartId.toString())
+                    .tag("messaging.message.id", messageId)
+                    .tag("messaging.message.correlation_id", correlationId)
+                    .tag("messaging.message.causation_id", correlationId)
+                    .start();
             confirmations.put(cartId, span.context());
             try (var _ = tracer.withSpan(span)) {
-                inSpan("store cart", () -> {});
-                confirmCart(cartId);
+                inSpan(
+                        "store cart",
+                        fault.equals("foreign-correlation") ? "someone-else" : correlationId,
+                        fault.equals("unknown-cause") ? "never-handled" : messageId,
+                        () -> {});
+                confirmCart(cartId, correlationId, messageId);
             } finally {
                 span.end();
+            }
+            if (fault.equals("misplaced-cause")) {
+                var audit = continuing(traceparent)
+                        .name("audit")
+                        .tag("messaging.message.correlation_id", correlationId)
+                        .tag("messaging.message.causation_id", messageId)
+                        .start();
+                audit.end();
             }
 
             return ResponseEntity.noContent()
@@ -514,11 +636,14 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
                     (current, added) -> new Cart(cartId, current.productItemsCount() + 1, current.status()));
         }
 
-        private void confirmCart(UUID cartId) {
+        private void confirmCart(UUID cartId, String correlationId, String causationId) {
             var cart = carts.get(cartId);
             carts.put(cartId, new Cart(cartId, cart.productItemsCount(), "Confirmed"));
+            meters.counter("carts.confirmed", "status", "Confirmed").increment();
             inSpan(
                     "publish CartConfirmed",
+                    correlationId,
+                    causationId,
                     () -> messageBus.publish(List.of(new CartConfirmed(cartId, cart.productItemsCount()))));
         }
 
@@ -534,8 +659,12 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
                             .build());
         }
 
-        private void inSpan(String name, Runnable action) {
-            var span = tracer.nextSpan().name(name).start();
+        private void inSpan(String name, String correlationId, String causationId, Runnable action) {
+            var span = tracer.nextSpan()
+                    .name(name)
+                    .tag("messaging.message.correlation_id", correlationId)
+                    .tag("messaging.message.causation_id", causationId)
+                    .start();
             try (var _ = tracer.withSpan(span)) {
                 action.run();
             } finally {

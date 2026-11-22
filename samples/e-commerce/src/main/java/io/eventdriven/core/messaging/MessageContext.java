@@ -1,5 +1,8 @@
 package io.eventdriven.core.messaging;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
 import java.nio.charset.StandardCharsets;
@@ -12,11 +15,30 @@ public class MessageContext {
     public static final String CORRELATION_ID = "correlationId";
     public static final String CAUSATION_ID = "causationId";
     public static final String HANDLED_MESSAGE_ID = "handledMessageId";
+    private static final String MESSAGE_ID_ATTRIBUTE = "messaging.message.id";
+    private static final String CORRELATION_ID_ATTRIBUTE = "messaging.message.correlation_id";
+    private static final String CAUSATION_ID_ATTRIBUTE = "messaging.message.causation_id";
 
     private final Tracer tracer;
+    private final ObservationRegistry observations;
+    private final MeterRegistry meters;
 
-    public MessageContext(Tracer tracer) {
+    public MessageContext(Tracer tracer, ObservationRegistry observations, MeterRegistry meters) {
         this.tracer = tracer;
+        this.observations = observations;
+        this.meters = meters;
+    }
+
+    public MeterRegistry meters() {
+        return meters;
+    }
+
+    public Observation observation(String name) {
+        var observation = Observation.createNotStarted(name, observations);
+        baggage(CORRELATION_ID).ifPresent(id -> observation.highCardinalityKeyValue(CORRELATION_ID_ATTRIBUTE, id));
+        baggage(CAUSATION_ID).ifPresent(id -> observation.highCardinalityKeyValue(CAUSATION_ID_ATTRIBUTE, id));
+
+        return observation;
     }
 
     public MessageValues inherit() {
@@ -55,14 +77,18 @@ public class MessageContext {
     }
 
     public Scope handling(String stepName, EventMetadata metadata) {
-        var step = startStep(stepName, metadata);
+        var step = startStep(stepName, metadata)
+                .tag(MESSAGE_ID_ATTRIBUTE, metadata.messageId())
+                .tag(CORRELATION_ID_ATTRIBUTE, metadata.correlationId())
+                .tag(CAUSATION_ID_ATTRIBUTE, metadata.causationId());
 
         return stepScope(step, metadata.messageId(), metadata.correlationId());
     }
 
     public Scope continuing(String stepName, EventMetadata lastEvent) {
         var handledMessageId = baggage(HANDLED_MESSAGE_ID);
-        var step = startStep(stepName, lastEvent);
+        var step = startStep(stepName, lastEvent).tag(CORRELATION_ID_ATTRIBUTE, lastEvent.correlationId());
+        handledMessageId.ifPresent(messageId -> step.tag(MESSAGE_ID_ATTRIBUTE, messageId));
 
         return handledMessageId
                 .map(messageId -> stepScope(step, messageId, lastEvent.correlationId()))
@@ -71,9 +97,15 @@ public class MessageContext {
     }
 
     public Scope consuming(String stepName, String messageId) {
-        var step = tracer.nextSpan().name(stepName).start();
+        var correlationId = baggage(CORRELATION_ID).orElseGet(MessageContext::newId);
+        var step = tracer.nextSpan()
+                .name(stepName)
+                .tag(MESSAGE_ID_ATTRIBUTE, messageId)
+                .tag(CORRELATION_ID_ATTRIBUTE, correlationId)
+                .tag(CAUSATION_ID_ATTRIBUTE, baggage(CAUSATION_ID).orElse(correlationId))
+                .start();
 
-        return stepScope(step, messageId, baggage(CORRELATION_ID).orElseGet(MessageContext::newId));
+        return stepScope(step, messageId, correlationId);
     }
 
     private Scope stepScope(Span step, String messageId, String correlationId) {

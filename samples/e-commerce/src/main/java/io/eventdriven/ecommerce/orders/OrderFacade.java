@@ -38,7 +38,7 @@ public class OrderFacade {
                 command.totalPrice(),
                 now.get());
 
-        commandHandler.handle(command.orderId(), state -> place(decided, state));
+        commandHandler.handle(command.orderId(), decided, OrderDecider::place);
     }
 
     @AsyncListener(
@@ -48,7 +48,7 @@ public class OrderFacade {
                             description =
                                     "Records that the payment is authorized. If the products are set aside too, the order is confirmed."))
     public void recordOrderPaymentAuthorization(RecordOrderPaymentAuthorization command) {
-        commandHandler.handle(command.orderId(), state -> recordPaymentAuthorization(command, state));
+        commandHandler.handle(command.orderId(), command, OrderDecider::recordPaymentAuthorization);
     }
 
     @AsyncListener(
@@ -58,7 +58,7 @@ public class OrderFacade {
                             description =
                                     "Records that the products are set aside. If the payment is authorized too, the order is confirmed."))
     public void recordOrderStockReservation(RecordOrderStockReservation command) {
-        commandHandler.handle(command.orderId(), state -> recordStockReservation(command, state));
+        commandHandler.handle(command.orderId(), command, OrderDecider::recordStockReservation);
     }
 
     @AsyncListener(
@@ -67,7 +67,7 @@ public class OrderFacade {
                             channelName = OrdersConfig.internal,
                             description = "Records that the package was sent. Then the shop charges the customer."))
     public void recordOrderPackageSent(RecordOrderPackageSent command) {
-        commandHandler.handle(command.orderId(), state -> recordPackageSent(command, state));
+        commandHandler.handle(command.orderId(), command, OrderDecider::recordPackageSent);
     }
 
     @AsyncListener(
@@ -77,7 +77,7 @@ public class OrderFacade {
                             description =
                                     "Records that the customer was charged. If the package was sent, the order is completed."))
     public void recordOrderPaymentCapture(RecordOrderPaymentCapture command) {
-        commandHandler.handle(command.orderId(), state -> recordPaymentCapture(command, state));
+        commandHandler.handle(command.orderId(), command, OrderDecider::recordPaymentCapture);
     }
 
     @AsyncListener(
@@ -90,7 +90,7 @@ public class OrderFacade {
         var decided = new RecordOrderPaymentFailure(
                 command.orderId(), command.paymentId(), command.failedAt(), paymentTerms.dueAt(command.failedAt()));
 
-        commandHandler.handle(command.orderId(), state -> recordPaymentFailure(decided, state));
+        commandHandler.handle(command.orderId(), decided, OrderDecider::recordPaymentFailure);
     }
 
     @AsyncListener(
@@ -100,13 +100,13 @@ public class OrderFacade {
                             description =
                                     "Records that the products cannot ship. The order is canceled when the payment has answered."))
     public void recordOrderShipmentFailure(RecordOrderShipmentFailure command) {
-        commandHandler.handle(command.orderId(), state -> recordShipmentFailure(command, state));
+        commandHandler.handle(command.orderId(), command, OrderDecider::recordShipmentFailure);
     }
 
     public void retryOrderPayment(RetryOrderPayment command) {
         var decided = new RetryOrderPayment(command.orderId(), now.get());
 
-        commandHandler.handle(command.orderId(), state -> retryPayment(decided, state));
+        commandHandler.handle(command.orderId(), decided, OrderDecider::retryPayment);
     }
 
     @AsyncListener(
@@ -117,14 +117,13 @@ public class OrderFacade {
     public void closeUnpaidOrder(CloseUnpaidOrder command) {
         var decided = new CloseUnpaidOrder(command.orderId(), now.get());
 
-        commandHandler.handleContinuingTrace(
-                command.orderId(), CloseUnpaidOrder.class.getSimpleName(), state -> closeUnpaid(decided, state));
+        commandHandler.handleContinuingTrace(command.orderId(), decided, OrderDecider::closeUnpaid);
     }
 
     public void cancelOrder(CancelOrder command) {
         var decided = new CancelOrder(command.orderId(), command.cancellationReason(), now.get());
 
-        commandHandler.handle(command.orderId(), state -> cancel(decided, state));
+        commandHandler.handle(command.orderId(), decided, OrderDecider::cancel);
     }
 
     public interface PaymentTerms {

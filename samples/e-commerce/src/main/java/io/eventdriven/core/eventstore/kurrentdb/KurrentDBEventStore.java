@@ -2,6 +2,7 @@ package io.eventdriven.core.eventstore.kurrentdb;
 
 import io.eventdriven.core.eventstore.Checkpoint;
 import io.eventdriven.core.eventstore.EventStore;
+import io.eventdriven.core.eventstore.EventStoreObservations;
 import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.eventstore.Subscription;
 import io.eventdriven.core.eventstore.SubscriptionProgress;
@@ -45,6 +46,10 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
 
     @Override
     public ReadResult read(String streamId) {
+        return EventStoreObservations.observeRead(context, streamId, () -> readStream(streamId));
+    }
+
+    private ReadResult readStream(String streamId) {
         try {
             var result =
                     eventStore.readStream(streamId, ReadStreamOptions.get()).get();
@@ -69,6 +74,11 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
 
     @Override
     public AppendResult append(String streamId, ExpectedStreamVersion expectedVersion, Object... events) {
+        return EventStoreObservations.observeAppend(
+                context, streamId, events, () -> appendToStream(streamId, expectedVersion, events));
+    }
+
+    private AppendResult appendToStream(String streamId, ExpectedStreamVersion expectedVersion, Object... events) {
         if (events.length == 0)
             throw new IllegalArgumentException("Cannot append no events to stream %s".formatted(streamId));
 

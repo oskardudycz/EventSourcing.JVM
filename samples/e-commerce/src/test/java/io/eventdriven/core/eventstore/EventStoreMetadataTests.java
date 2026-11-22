@@ -9,8 +9,11 @@ import io.eventdriven.core.messaging.MessageContext;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
 import io.eventdriven.testing.messaging.TestMessages;
 import io.eventdriven.testing.tracing.TestTracing;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
@@ -64,6 +67,26 @@ public abstract class EventStoreMetadataTests {
                         .anyMatch(span -> span.getName().equals("handle Opened")
                                 && span.getTraceId().equals(stored.traceId())
                                 && span.getParentSpanId().equals(stored.spanId())));
+    }
+
+    @Test
+    public void theSubscribersSpanCarriesTheEventsIdAndTheProcessItBelongsTo() {
+        eventStore().subscribe("ids-" + UUID.randomUUID(), List.of(Opened.class), envelope -> {});
+
+        try (var scope = context.handling("m-1", "c-1")) {
+            eventStore().append(streamId, new Opened("cart"));
+        }
+
+        var stored = readMetadata(streamId).getFirst();
+        await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(tracing.finishedSpans())
+                        .filteredOn(span -> span.getName().equals("handle Opened"))
+                        .filteredOn(span ->
+                                stored.messageId().equals(attributesOf(span).get("messaging.message.id")))
+                        .singleElement()
+                        .satisfies(span -> assertThat(attributesOf(span))
+                                .containsEntry("messaging.message.correlation_id", "c-1")
+                                .containsEntry("messaging.message.causation_id", "m-1")));
     }
 
     @Test
@@ -145,6 +168,92 @@ public abstract class EventStoreMetadataTests {
         assertThat(publishedIds.get(1))
                 .isEqualTo(publishedIds.get(0))
                 .isNotEqualTo(readMetadata(streamId).getFirst().messageId());
+    }
+
+    @Test
+    public void anAppendRecordsItsStreamBatchAndCorrelationOnASpanInTheCallersTrace() {
+        var testSpan = tracing.tracer().nextSpan().name("test").start();
+
+        try (var ignored = tracing.tracer().withSpan(testSpan);
+                var scope = context.handling("m-1", "c-1")) {
+            eventStore().append(streamId, new Opened("cart"), new Added("cart", "shoes"));
+        } finally {
+            testSpan.end();
+        }
+
+        var append = storeSpansOf("eventStore.appendToStream").getLast();
+        assertThat(append.getParentSpanId()).isEqualTo(testSpan.context().spanId());
+        assertThat(attributesOf(append))
+                .containsEntry("eventdriven.eventstore.operation", "appendToStream")
+                .containsEntry("eventdriven.stream.name", streamId)
+                .containsEntry("eventdriven.eventstore.append.batch_size", "2")
+                .containsEntry("eventdriven.eventstore.append.status", "success")
+                .containsEntry("eventdriven.stream.version.after", "1")
+                .containsEntry("messaging.message.correlation_id", "c-1")
+                .containsEntry("messaging.message.causation_id", "m-1");
+    }
+
+    @Test
+    public void anAppendThatConflictsRecordsTheConflictOnItsSpan() {
+        eventStore().append(streamId, new Opened("cart"));
+
+        eventStore().append(streamId, ExpectedStreamVersion.noStream(), new Opened("cart"));
+
+        assertThat(attributesOf(storeSpansOf("eventStore.appendToStream").getLast()))
+                .containsEntry("eventdriven.eventstore.append.status", "conflict");
+    }
+
+    @Test
+    public void aReadRecordsTheEventsItFoundOnASpan() {
+        eventStore().append(streamId, new Opened("cart"), new Added("cart", "shoes"), new Added("cart", "shirt"));
+
+        eventStore().read(streamId);
+
+        assertThat(attributesOf(storeSpansOf("eventStore.readStream").getLast()))
+                .containsEntry("eventdriven.eventstore.operation", "readStream")
+                .containsEntry("eventdriven.stream.name", streamId)
+                .containsEntry("eventdriven.eventstore.read.status", "success")
+                .containsEntry("eventdriven.eventstore.read.event_count", "3")
+                .containsEntry("eventdriven.eventstore.read.event_types", "Opened,Added");
+    }
+
+    @Test
+    public void aReadOfAMissingStreamRecordsThatItFoundNoEvents() {
+        eventStore().read(streamId);
+
+        assertThat(attributesOf(storeSpansOf("eventStore.readStream").getLast()))
+                .containsEntry("eventdriven.eventstore.read.status", "success")
+                .containsEntry("eventdriven.eventstore.read.event_count", "0");
+    }
+
+    @Test
+    public void anAppendCountsEachEventByItsType() {
+        eventStore().append(streamId, new Opened("cart"), new Added("cart", "shoes"), new Added("cart", "shirt"));
+
+        assertThat(appendedCountOf("Opened")).isEqualTo(1);
+        assertThat(appendedCountOf("Added")).isEqualTo(2);
+    }
+
+    private double appendedCountOf(String eventType) {
+        var counter = tracing.meters()
+                .find("eventdriven.event.appending.count")
+                .tag("eventdriven.event.type", eventType)
+                .counter();
+
+        return counter != null ? counter.count() : 0;
+    }
+
+    private List<SpanData> storeSpansOf(String name) {
+        return tracing.finishedSpans().stream()
+                .filter(span -> span.getName().equals(name))
+                .filter(span -> streamId.equals(attributesOf(span).get("eventdriven.stream.name")))
+                .toList();
+    }
+
+    private static Map<String, String> attributesOf(SpanData span) {
+        var attributes = new HashMap<String, String>();
+        span.getAttributes().forEach((key, value) -> attributes.put(key.getKey(), String.valueOf(value)));
+        return attributes;
     }
 
     protected List<EventMetadata> readMetadata(String streamId) {

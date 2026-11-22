@@ -69,7 +69,7 @@ public class RabbitMQMessageBusFailureTests {
     }
 
     private RabbitMQMessageBus busWith(MessageQueue... queues) {
-        return TestRabbitMQ.busOn(
+        var bus = TestRabbitMQ.busOn(
                 connection,
                 messageContext,
                 applicationContext,
@@ -85,6 +85,9 @@ public class RabbitMQMessageBusFailureTests {
                 List.of(paymentRoutes()),
                 List.of(new MessageChannel(payments)),
                 List.of(queues));
+        bus.start();
+
+        return bus;
     }
 
     private MessageRoutes paymentRoutes() {
@@ -167,7 +170,7 @@ public class RabbitMQMessageBusFailureTests {
             messages.catchMessage(message);
         });
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         messageBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
@@ -184,7 +187,7 @@ public class RabbitMQMessageBusFailureTests {
             throw new IllegalStateException("Payment gateway unavailable");
         });
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         assertThat(queues.receiveAll(billing + "-dlq", 1)).hasSize(1);
         assertThat(attempts).hasValue(3);
@@ -196,7 +199,7 @@ public class RabbitMQMessageBusFailureTests {
             throw new IllegalStateException("Payment gateway unavailable");
         });
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         messageBus.whenCaughtUp();
         assertThat(queues.receiveAll(billing + "-dlq", 1)).hasSize(1);
@@ -213,7 +216,7 @@ public class RabbitMQMessageBusFailureTests {
         });
         messageBus.subscribe(shipping, PaymentReceived.class, messages::catchMessage);
 
-        publish(new PaymentReceived("payment-1"), new PaymentReceived("payment-2"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1"), new PaymentReceived("payment-2")));
 
         var deadLetters = queues.receiveAll(billing + "-dlq", 2);
         messageBus.whenCaughtUp();
@@ -229,7 +232,7 @@ public class RabbitMQMessageBusFailureTests {
         messageBus.subscribe(billing, PaymentReceived.class, messages::catchMessage);
         publishRaw("test.PaymentReceived", "{\"id\":");
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         var deadLetters = queues.receiveAll(billing + "-dlq", 1);
         messageBus.whenCaughtUp();
@@ -246,7 +249,7 @@ public class RabbitMQMessageBusFailureTests {
         messageBus.subscribe(billing, PaymentReceived.class, messages::catchMessage);
         publishRaw("java.lang.ProcessBuilder", "{}");
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         var deadLetters = queues.receiveAll(billing + "-dlq", 1);
         messageBus.whenCaughtUp();
@@ -269,7 +272,7 @@ public class RabbitMQMessageBusFailureTests {
         messageBus.subscribe(billing, PaymentReceived.class, messages::catchMessage);
         queues.send(payments, KEY, new Message("{}".getBytes(StandardCharsets.UTF_8)));
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         assertThat(queues.receiveAll(billing + "-dlq", 1)).hasSize(1);
         messageBus.whenCaughtUp();
@@ -281,7 +284,7 @@ public class RabbitMQMessageBusFailureTests {
         messageBus.subscribe(billing, PaymentReceived.class, messages::catchMessage);
         publishRaw("java.util.ArrayList", "[]");
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         assertThat(queues.receiveAll(billing + "-dlq", 1)).hasSize(1);
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
@@ -293,7 +296,7 @@ public class RabbitMQMessageBusFailureTests {
             throw new IllegalStateException("Payment gateway unavailable");
         });
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         queues.receiveAll(billing + "-dlq", 1);
         assertThat(meters.find(RabbitMQMessageBus.DEAD_LETTERED)
@@ -332,17 +335,11 @@ public class RabbitMQMessageBusFailureTests {
         assertThat(queues.messageCount(billing + "-dlq")).isZero();
     }
 
-    private void publish(Object... messages) {
-        if (!messageBus.isRunning()) messageBus.start();
-        messageBus.publish(List.of(messages));
-    }
-
     private void publishRaw(String typeName, String body) {
         var properties = MessagePropertiesBuilder.newInstance()
                 .setHeader(RabbitMQMessageBus.TYPE_ID, typeName)
                 .build();
         queues.send(payments, KEY, new Message(body.getBytes(StandardCharsets.UTF_8), properties));
-        if (!messageBus.isRunning()) messageBus.start();
     }
 
     private double deadLettered() {

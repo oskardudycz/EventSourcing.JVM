@@ -80,7 +80,7 @@ public class KafkaMessageBusFailureTests {
     }
 
     private KafkaMessageBus busWith(MessageQueue... queues) {
-        return KafkaMessageBus.connectingTo(
+        var bus = KafkaMessageBus.connectingTo(
                 bootstrapServers,
                 messageContext,
                 observations,
@@ -90,6 +90,9 @@ public class KafkaMessageBusFailureTests {
                 List.of(paymentRoutes()),
                 List.of(new MessageChannel(payments)),
                 List.of(queues));
+        bus.start();
+
+        return bus;
     }
 
     private MessageRoutes paymentRoutes() {
@@ -129,7 +132,7 @@ public class KafkaMessageBusFailureTests {
             messages.catchMessage(message);
         });
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         messageBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
@@ -144,7 +147,7 @@ public class KafkaMessageBusFailureTests {
             throw new IllegalStateException("Payment gateway unavailable");
         });
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         messageBus.whenCaughtUp();
         assertThat(KafkaTopics.recordsOf(bootstrapServers, billing + "-dlt")).hasSize(1);
@@ -161,7 +164,7 @@ public class KafkaMessageBusFailureTests {
         });
         messageBus.subscribe(shipping, PaymentReceived.class, messages::catchMessage);
 
-        publish(new PaymentReceived("payment-1"), new PaymentReceived("payment-2"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1"), new PaymentReceived("payment-2")));
 
         var deadLetters = deadLettersOf(billing, 2);
         messages.shouldReceiveMessages(new PaymentReceived("payment-1"), new PaymentReceived("payment-2"));
@@ -181,7 +184,7 @@ public class KafkaMessageBusFailureTests {
         var publisherSpan = tracer.nextSpan().name("publisher").start();
 
         try (var _ = tracer.withSpan(publisherSpan)) {
-            publish(new PaymentReceived("payment-1"));
+            messageBus.publish(List.of(new PaymentReceived("payment-1")));
         } finally {
             publisherSpan.end();
         }
@@ -200,7 +203,7 @@ public class KafkaMessageBusFailureTests {
         messageBus.subscribe(billing, PaymentReceived.class, messages::catchMessage);
         publishRaw("test.PaymentReceived", "{\"id\":");
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         var deadLetters = deadLettersOf(billing, 1);
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
@@ -215,7 +218,7 @@ public class KafkaMessageBusFailureTests {
         messageBus.subscribe(billing, PaymentReceived.class, messages::catchMessage);
         publishRaw("java.lang.ProcessBuilder", "{}");
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         var deadLetters = deadLettersOf(billing, 1);
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
@@ -231,7 +234,7 @@ public class KafkaMessageBusFailureTests {
         messageBus.subscribe(billing, PaymentReceived.class, messages::catchMessage);
         publishRaw("java.util.ArrayList", "[]");
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         deadLettersOf(billing, 1);
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
@@ -243,7 +246,7 @@ public class KafkaMessageBusFailureTests {
             throw new IllegalStateException("Payment gateway unavailable");
         });
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         deadLettersOf(billing, 1);
         assertThat(meters.find(KafkaMessageBus.DEAD_LETTERED)
@@ -318,11 +321,12 @@ public class KafkaMessageBusFailureTests {
                 List.of(paymentRoutes()),
                 List.of(new MessageChannel(payments)),
                 List.of(new MessageQueue(billing, payments, "#")));
+        messageBus.start();
         messageBus.subscribe(billing, PaymentReceived.class, message -> {
             throw new IllegalStateException("Payment gateway unavailable");
         });
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         assertThat(deadLettersOf(billing, 1)).hasSize(1);
         assertThat(deadLettered()).isEqualTo(1);
@@ -333,7 +337,7 @@ public class KafkaMessageBusFailureTests {
         messageBus.subscribe(billing, PaymentReceived.class, messages::catchMessage);
         publishRaw(new ProducerRecord<>(payments, KEY, "{}".getBytes(StandardCharsets.UTF_8)));
 
-        publish(new PaymentReceived("payment-1"));
+        messageBus.publish(List.of(new PaymentReceived("payment-1")));
 
         deadLettersOf(billing, 1);
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
@@ -355,11 +359,6 @@ public class KafkaMessageBusFailureTests {
         assertThat(KafkaTopics.recordsOf(bootstrapServers, billing + "-dlt")).isEmpty();
     }
 
-    private void publish(Object... messages) {
-        if (!messageBus.isRunning()) messageBus.start();
-        messageBus.publish(List.of(messages));
-    }
-
     private void publishRaw(String typeName, String body) {
         var record = new ProducerRecord<>(payments, KEY, body.getBytes(StandardCharsets.UTF_8));
         record.headers().add(KafkaMessageBus.TYPE_ID, typeName.getBytes(StandardCharsets.UTF_8));
@@ -371,7 +370,6 @@ public class KafkaMessageBusFailureTests {
                 new KafkaTemplate<>(KafkaMessageBus.producerFactory(bootstrapServers, TestKafka.PUBLISH_TIMEOUT));
         template.send(record).join();
         template.destroy();
-        if (!messageBus.isRunning()) messageBus.start();
     }
 
     private List<ConsumerRecord<String, byte[]>> deadLettersOf(String queue, int count) {

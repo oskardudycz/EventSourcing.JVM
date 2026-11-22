@@ -10,6 +10,7 @@ import static org.springframework.http.HttpStatus.SEE_OTHER;
 
 import io.eventdriven.ecommerce.orders.Order;
 import io.eventdriven.ecommerce.orders.OrderCommand.*;
+import io.eventdriven.ecommerce.orders.OrderFacade;
 import io.eventdriven.ecommerce.payments.Payment;
 import io.eventdriven.ecommerce.payments.PaymentCommand.*;
 import io.eventdriven.ecommerce.payments.PaymentProvider;
@@ -30,6 +31,7 @@ import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.testing.api.ApiE2ESpecification;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -96,14 +98,34 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                                 new RecordOrderStockReservation(orderId, shipmentId, now)),
                         expectTrace(span(
                                 "http post /customers/{customerId}/shopping-carts/current/checkout",
+                                handled("CheckOutShoppingCart"),
                                 span(
                                         "handle ShoppingCartCheckedOut",
                                         span(
                                                 "handle PlaceOrder",
                                                 span(
+                                                        "command.handle",
+                                                        Map.of(
+                                                                "eventdriven.command.type", "PlaceOrder",
+                                                                "eventdriven.command.status", "success",
+                                                                "eventdriven.command.event_types", "OrderPlaced",
+                                                                "eventdriven.stream.name",
+                                                                        OrderFacade.mapToStreamId(orderId),
+                                                                "eventdriven.stream.version.after", "0"),
+                                                        span(
+                                                                "eventStore.appendToStream",
+                                                                Map.of(
+                                                                        "eventdriven.eventstore.append.status",
+                                                                        "success"))),
+                                                span(
                                                         "handle OrderPlaced",
-                                                        span("handle AuthorizePayment"),
-                                                        span("handle ReserveStock")))))),
+                                                        span("handle AuthorizePayment", handled("AuthorizePayment")),
+                                                        span("handle ReserveStock", handled("ReserveStock"))))))),
+                        expectCorrelatedTrace(),
+                        expectMetric("command.handle", Map.of("eventdriven.command.type", "PlaceOrder"), 1),
+                        expectAppended("OrderPlaced", 1),
+                        expectAppended("PaymentAuthorizationRequested", 1),
+                        expectAppended("StockReserved", 1),
                         outcome ->
                                 assertThat(paymentProvider.callsFor(paymentId)).isEmpty());
     }
@@ -131,7 +153,13 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                                 new RequestFulfillment(shipmentId)),
                         expectTrace(span(
                                 "http post /customers/{customerId}/orders/{orderId}/payments/{paymentId}/checkout-session",
-                                span("handle ConfirmPaymentAuthorization", span("handle RequestFulfillment")))),
+                                span(
+                                        "handle ConfirmPaymentAuthorization",
+                                        handled("ConfirmPaymentAuthorization"),
+                                        span("handle RequestFulfillment", handled("RequestFulfillment"))))),
+                        expectCorrelatedTrace(),
+                        expectAppended("PaymentAuthorized", 1),
+                        expectAppended("OrderConfirmed", 1),
                         outcome ->
                                 assertThat(warehouse.wasAskedToSend(shipmentId)).isTrue());
     }
@@ -151,7 +179,12 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                                 new RecordOrderPaymentCapture(orderId, paymentId, now)),
                         expectTrace(span(
                                 "http post /customers/{customerId}/orders/{orderId}/payments/{paymentId}/checkout-session",
-                                span("handle ConfirmPackageSent", span("handle CapturePayment")))),
+                                span(
+                                        "handle ConfirmPackageSent",
+                                        span("handle CapturePayment", handled("CapturePayment"))))),
+                        expectCorrelatedTrace(),
+                        expectAppended("PaymentCaptured", 1),
+                        expectAppended("OrderCompleted", 1),
                         outcome -> assertThat(paymentProvider.callsFor(paymentId))
                                 .contains("capture:%s".formatted(totalPrice)));
     }
@@ -208,6 +241,11 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                                 new RecordOrderShipmentFailure(orderId, Order.CancellationReason.CouldNotShip, now),
                                 new CancelPayment(paymentId),
                                 new ReleaseStock(shipmentId)),
+                        expectCorrelatedTrace(),
+                        expectAppended("FulfillmentRejected", 1),
+                        expectAppended("OrderCanceled", 1),
+                        expectAppended("PaymentCanceled", 1),
+                        expectAppended("StockReleased", 1),
                         outcome ->
                                 assertThat(paymentProvider.callsFor(paymentId)).contains("cancel"));
     }
@@ -225,7 +263,15 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
                                 new RecordOrderPaymentFailure(orderId, paymentId, timedOutAt)),
                         expectTrace(span(
                                 "http post /customers/{customerId}/orders/{orderId}/payments/{paymentId}/checkout-session",
-                                span("handle TimeOutPayment", span("handle RecordOrderPaymentFailure")))),
+                                span(
+                                        "handle TimeOutPayment",
+                                        handled("TimeOutPayment"),
+                                        span(
+                                                "handle RecordOrderPaymentFailure",
+                                                handled("RecordOrderPaymentFailure"))))),
+                        expectCorrelatedTrace(),
+                        expectAppended("PaymentTimedOut", 1),
+                        expectAppended("OrderPaymentFailed", 1),
                         outcome ->
                                 assertThat(paymentProvider.callsFor(paymentId)).contains("expire-checkout-session"));
     }
@@ -271,14 +317,18 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
     public void aFailedCaptureAfterThePackageWasSentWaitsForTheCustomerToPayAgain() {
         given(paidOrder, paymentProvider.refusesEverythingAfterAuthorizing(paymentId))
                 .when(sendsThePackage(shipmentId))
-                .then(expectOnlyPublished(
-                        new ConfirmPackageSent(shipmentId, carrier, trackingNumber),
-                        new PackageWasSent(shipmentId, orderReference, carrier, trackingNumber, now),
-                        new RecordOrderPackageSent(orderId, carrier, trackingNumber, now),
-                        new CapturePayment(paymentId),
-                        new FailPaymentCapture(paymentId, Payment.CaptureFailureReason.UnexpectedError),
-                        new PaymentFailed(orderReference, paymentId, now),
-                        new RecordOrderPaymentFailure(orderId, paymentId, now)));
+                .then(
+                        expectOnlyPublished(
+                                new ConfirmPackageSent(shipmentId, carrier, trackingNumber),
+                                new PackageWasSent(shipmentId, orderReference, carrier, trackingNumber, now),
+                                new RecordOrderPackageSent(orderId, carrier, trackingNumber, now),
+                                new CapturePayment(paymentId),
+                                new FailPaymentCapture(paymentId, Payment.CaptureFailureReason.UnexpectedError),
+                                new PaymentFailed(orderReference, paymentId, now),
+                                new RecordOrderPaymentFailure(orderId, paymentId, now)),
+                        expectCorrelatedTrace(),
+                        expectAppended("PaymentCaptureFailed", 1),
+                        expectAppended("OrderPaymentFailed", 1));
     }
 
     @Test
@@ -320,6 +370,16 @@ public abstract class PurchaseTests extends ApiE2ESpecification {
         given(paidOrder, paymentProvider.refusesEverythingAfterAuthorizing(paymentId), sendsThePackage(shipmentId))
                 .when(time.passes(timeToPay.minusMinutes(1)))
                 .then(expectNothingPublished());
+    }
+
+    private static ExpectedSpan handled(String commandType) {
+        return span(
+                "command.handle",
+                Map.of("eventdriven.command.type", commandType, "eventdriven.command.status", "success"));
+    }
+
+    private static Expectation expectAppended(String eventType, double count) {
+        return expectMetric("eventdriven.event.appending.count", Map.of("eventdriven.event.type", eventType), count);
     }
 
     @Override
