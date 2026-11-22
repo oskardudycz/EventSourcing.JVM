@@ -52,4 +52,33 @@ public final class ShoppingCartRequests {
     public static TestRequest getCart(UUID customerId) {
         return request -> request.get().uri("/customers/{customerId}/shopping-carts/current", customerId);
     }
+
+    public static TestRequest productsPage(UUID customerId) {
+        return request -> request.get().uri("/shop/customers/{customerId}/products", customerId);
+    }
+
+    public static TestRequest cartPage(UUID customerId) {
+        return request -> request.get().uri("/shop/customers/{customerId}/cart", customerId);
+    }
+
+    public static TestRequest addToCartOnPage(UUID customerId, UUID productId, int quantity) {
+        return request -> request.post()
+                .uri("/shop/customers/{customerId}/cart/items", customerId)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body("productId=%s&quantity=%s".formatted(productId, quantity));
+    }
+
+    public static TestRequest removeFromCartOnPage(UUID customerId, UUID productId, int quantity, long version) {
+        return request -> request.post()
+                .uri("/shop/customers/{customerId}/cart/items/{productId}/remove", customerId, productId)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body("quantity=%s&version=%s".formatted(quantity, version));
+    }
+
+    public static TestRequest checkOutOnPage(UUID customerId, long version) {
+        return request -> request.post()
+                .uri("/shop/customers/{customerId}/cart/checkout", customerId)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body("version=%s".formatted(version));
+    }
 }

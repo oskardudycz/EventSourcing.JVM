@@ -33,4 +33,23 @@ public final class OrderRequests {
                         orderId.tail(),
                         paymentId.tail());
     }
+
+    public static TestRequest ordersPage(UUID customerId) {
+        return request -> request.get().uri("/shop/customers/{customerId}/orders", customerId);
+    }
+
+    public static TestRequest orderPage(UUID customerId, Order.Id orderId) {
+        return request ->
+                request.get().uri("/shop/customers/{customerId}/orders/{orderId}", customerId, orderId.tail());
+    }
+
+    public static TestRequest cancelOrderOnPage(UUID customerId, Order.Id orderId) {
+        return request ->
+                request.post().uri("/shop/customers/{customerId}/orders/{orderId}/cancel", customerId, orderId.tail());
+    }
+
+    public static TestRequest retryOrderPaymentOnPage(UUID customerId, Order.Id orderId) {
+        return request -> request.post()
+                .uri("/shop/customers/{customerId}/orders/{orderId}/retry-payment", customerId, orderId.tail());
+    }
 }

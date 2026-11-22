@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.client.RestTestClient;
@@ -261,6 +262,53 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
     }
 
     @Test
+    public void matchesFragmentsOfTheHtmlPage() {
+        given(addProductItem(cartId))
+                .when(getCartPage(cartId))
+                .then(expectResponse(
+                        OK, htmlContaining("<h1>Your cart</h1>", "1 item"), htmlNotContaining("Your cart is empty")));
+    }
+
+    @Test
+    public void failsNamingTheFragmentTheHtmlPageLacks() {
+        assertThatThrownBy(() -> given(addProductItem(cartId))
+                        .when(getCartPage(cartId))
+                        .then(expectResponse(OK, htmlContaining("2 items"))))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("2 items");
+    }
+
+    @Test
+    public void failsNamingTheFragmentTheHtmlPageShouldNotHave() {
+        assertThatThrownBy(() -> given(addProductItem(cartId))
+                        .when(getCartPage(cartId))
+                        .then(expectResponse(OK, htmlNotContaining("1 item"))))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("1 item");
+    }
+
+    @Test
+    public void failsWhenAnHtmlCheckGetsAResponseThatIsNotHtml() {
+        assertThatThrownBy(() -> given(addProductItem(cartId))
+                        .when(getCart(cartId))
+                        .then(expectResponse(OK, htmlContaining("1"))))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("application/json");
+    }
+
+    @Test
+    public void matchesARedirectByThePathOfItsLocation() {
+        given().when(backToTheCart(cartId)).then(expectResponse(FOUND, redirectsTo("/carts/%s".formatted(cartId))));
+    }
+
+    @Test
+    public void failsNamingTheLocationWhenARedirectGoesElsewhere() {
+        assertThatThrownBy(() -> given().when(backToTheCart(cartId)).then(expectResponse(FOUND, redirectsTo("/carts"))))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("http://shop.example/carts/%s;jsessionid=A1".formatted(cartId));
+    }
+
+    @Test
     public void failsWhenAnExpectedHeaderDiffers() {
         assertThatThrownBy(() -> given(addProductItem(cartId))
                         .when(confirm(cartId, 1))
@@ -320,6 +368,14 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
         return request -> request.post().uri("/carts/{cartId}/confirm-later", cartId);
     }
 
+    private static TestRequest getCartPage(UUID cartId) {
+        return request -> request.get().uri("/carts/{cartId}/page", cartId);
+    }
+
+    private static TestRequest backToTheCart(UUID cartId) {
+        return request -> request.post().uri("/carts/{cartId}/back", cartId);
+    }
+
     private static TestRequest getCart(UUID cartId) {
         return request -> request.get().uri("/carts/{cartId}", cartId);
     }
@@ -362,6 +418,22 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
                     span.end();
                 }
             });
+        }
+
+        @GetMapping(value = "/page", produces = MediaType.TEXT_HTML_VALUE)
+        ResponseEntity<?> page(@PathVariable UUID cartId) {
+            var cart = carts.get(cartId);
+
+            if (cart == null) return ResponseEntity.ok("<h1>Your cart</h1><p>Your cart is empty</p>");
+
+            return ResponseEntity.ok("<h1>Your cart</h1><p>%s item</p>".formatted(cart.productItemsCount()));
+        }
+
+        @PostMapping("/back")
+        ResponseEntity<?> back(@PathVariable UUID cartId) {
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .location(URI.create("http://shop.example/carts/%s;jsessionid=A1".formatted(cartId)))
+                    .build();
         }
 
         @GetMapping

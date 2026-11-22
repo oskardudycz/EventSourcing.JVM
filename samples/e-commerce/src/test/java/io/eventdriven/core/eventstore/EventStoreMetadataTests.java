@@ -127,6 +127,26 @@ public abstract class EventStoreMetadataTests {
         assertThat(caused.causationId()).isEqualTo(handled.messageId());
     }
 
+    @Test
+    public void aMessagePublishedAgainWhileHandlingARedeliveredEventKeepsItsId() {
+        var publishedIds = new CopyOnWriteArrayList<String>();
+        eventStore().subscribe("redelivered-" + UUID.randomUUID(), List.of(Opened.class), envelope -> {
+            if (!envelope.metadata().streamId().equals(streamId)) return;
+
+            publishedIds.add(context.inheritForPublished("test.Confirm", 0).messageId());
+
+            if (publishedIds.size() == 1) throw new IllegalStateException("The process crashed after publishing");
+        });
+
+        eventStore().append(streamId, new Opened("cart"));
+        eventStore().append(otherStreamId, new Opened("later"));
+
+        await().atMost(Duration.ofSeconds(30)).until(() -> publishedIds.size() >= 2);
+        assertThat(publishedIds.get(1))
+                .isEqualTo(publishedIds.get(0))
+                .isNotEqualTo(readMetadata(streamId).getFirst().messageId());
+    }
+
     protected List<EventMetadata> readMetadata(String streamId) {
         assertThat(eventStore().read(streamId)).isInstanceOf(EventStore.ReadResult.Success.class);
 

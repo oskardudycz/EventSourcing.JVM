@@ -5,6 +5,7 @@ import static org.springframework.http.HttpStatus.*;
 
 import io.eventdriven.ecommerce.OutsideWorld;
 import io.eventdriven.ecommerce.Time;
+import io.eventdriven.ecommerce.shop.DemoProducts;
 import io.eventdriven.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent.ShoppingCartCheckedOut;
 import io.eventdriven.ecommerce.shoppingcarts.pricing.ChangeablePrices;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
@@ -244,6 +245,67 @@ public class ShoppingCartsApiTests extends ApiE2ESpecification {
         @Test
         public void getCart_fails_withNotFound_afterCheckout() {
             given(checkedOutCart()).when(getCart(customerId)).then(expectError(NOT_FOUND));
+        }
+    }
+
+    @Nested
+    public class CartPages {
+        private final DemoProducts.Product tShirt = DemoProducts.all().getFirst();
+        private final String cart = "/shop/customers/%s/cart".formatted(customerId);
+
+        @Test
+        public void theProductsPageOffersEveryDemoProduct() {
+            given().when(productsPage(customerId))
+                    .then(expectResponse(
+                            OK,
+                            htmlContaining(DemoProducts.names().values().toArray(String[]::new)),
+                            htmlContaining("action=\"%s/items\"".formatted(cart))));
+        }
+
+        @Test
+        public void anEmptyCartSaysSo() {
+            given().when(cartPage(customerId)).then(expectResponse(OK, htmlContaining("Your cart is empty")));
+        }
+
+        @Test
+        public void addingAProductOnTheProductsPageOpensTheCart() {
+            given().when(addToCartOnPage(customerId, tShirt.id(), 1)).then(expectResponse(FOUND, redirectsTo(cart)));
+        }
+
+        @Test
+        public void theCartPageListsTheAddedProductAndOffersCheckout() {
+            given(addToCartOnPage(customerId, tShirt.id(), 1))
+                    .when(cartPage(customerId))
+                    .then(expectResponse(OK, htmlContaining(tShirt.name(), "Check out")));
+        }
+
+        @Test
+        public void removingAProductOnTheCartPageReturnsToTheCart() {
+            given(addToCartOnPage(customerId, tShirt.id(), 1))
+                    .when(removeFromCartOnPage(customerId, tShirt.id(), 1, 0))
+                    .then(expectResponse(FOUND, redirectsTo(cart)));
+        }
+
+        @Test
+        public void removingTheLastProductEmptiesTheCart() {
+            given(addToCartOnPage(customerId, tShirt.id(), 1), removeFromCartOnPage(customerId, tShirt.id(), 1, 0))
+                    .when(cartPage(customerId))
+                    .then(expectResponse(OK, htmlContaining("Your cart is empty")));
+        }
+
+        @Test
+        public void checkingOutOnTheCartPageOpensTheOrderPage() {
+            given(addToCartOnPage(customerId, tShirt.id(), 1))
+                    .when(checkOutOnPage(customerId, 0))
+                    .then(expectResponse(
+                            FOUND, redirectsTo("/shop/customers/%s/orders/%s".formatted(customerId, cartId.tail()))));
+        }
+
+        @Test
+        public void checkingOutAfterAPriceChangeReturnsToTheCart() {
+            given(addToCartOnPage(customerId, tShirt.id(), 1), prices.priceOf(tShirt.id(), 60))
+                    .when(checkOutOnPage(customerId, 0))
+                    .then(expectResponse(FOUND, redirectsTo(cart)));
         }
     }
 }

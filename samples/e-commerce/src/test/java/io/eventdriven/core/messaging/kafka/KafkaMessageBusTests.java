@@ -60,17 +60,15 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
     }
 
     @Override
-    protected Supplier<PublishedMessage> collectFirstPublishedTo(String channel) {
-        return () -> {
-            var record = recordsOf(channel, 1).getFirst();
-
-            return new PublishedMessage(
-                    KafkaTopics.header(record, KafkaMessageBus.TYPE_ID),
-                    KafkaTopics.header(record, KafkaMessageBus.MESSAGE_ID),
-                    KafkaTopics.header(record, "correlationId"),
-                    KafkaTopics.header(record, "causationId"),
-                    KafkaTopics.header(record, "traceparent"));
-        };
+    protected Supplier<List<PublishedMessage>> collectPublishedTo(String channel, int count) {
+        return () -> recordsOf(channel, count).stream()
+                .map(record -> new PublishedMessage(
+                        KafkaTopics.header(record, KafkaMessageBus.TYPE_ID),
+                        KafkaTopics.header(record, KafkaMessageBus.MESSAGE_ID),
+                        KafkaTopics.header(record, "correlationId"),
+                        KafkaTopics.header(record, "causationId"),
+                        KafkaTopics.header(record, "traceparent")))
+                .toList();
     }
 
     @Override
@@ -90,6 +88,19 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
     protected void dispose(MessageBus bus) {
         ((KafkaMessageBus) bus).close();
         KafkaTopics.deleteContaining(bootstrapServers, id);
+    }
+
+    @Test
+    public void publishToAChannelWithNoConsumerGroupSucceedsAndKeepsTheMessages() {
+        var responses = "payments-" + id + "-responses";
+        var bus = newBus(
+                List.of(new MessageRoutes().routeTarget(OrderPlaced.class, event -> responses)),
+                List.of(new MessageChannel(responses)),
+                List.of());
+
+        publish(bus, new OrderPlaced("order-1"), new OrderPlaced("order-2"));
+
+        assertThat(recordsOf(responses, 2)).hasSize(2);
     }
 
     @Test
