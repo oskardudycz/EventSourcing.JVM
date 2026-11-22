@@ -124,7 +124,7 @@ public class PostgreSQLEventStoreTests extends DurableEventStoreTests {
 
         var appended = eventStore.append(streamId, new ItemAdded(cartId, "t-shirt"));
 
-        subscription.awaitProcessed(((AppendResult.Success) appended).lastEvent(), PROCESSING_TIMEOUT);
+        subscription.whenProcessed(((AppendResult.Success) appended).lastEvent());
         assertThat(received).containsExactly(new ItemAdded(cartId, "t-shirt"));
     }
 

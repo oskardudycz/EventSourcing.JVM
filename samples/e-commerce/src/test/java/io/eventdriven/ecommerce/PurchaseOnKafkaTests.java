@@ -2,7 +2,6 @@ package io.eventdriven.ecommerce;
 
 import io.eventdriven.testing.TestDatabases;
 import io.eventdriven.testing.tracing.InMemorySpansConfiguration;
-import java.time.Duration;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -29,9 +28,5 @@ public class PurchaseOnKafkaTests extends PurchaseTests {
         registry.add("spring.kafka.bootstrap-servers", TestDatabases::kafkaBootstrapServers);
         registry.add("kurrentdb.connectionstring", TestDatabases::kurrentDBConnectionString);
         TestDatabases.addProjectionsDatabase(registry, postgreSQL);
-    }
-
-    public PurchaseOnKafkaTests() {
-        settleTime = Duration.ofSeconds(1);
     }
 }

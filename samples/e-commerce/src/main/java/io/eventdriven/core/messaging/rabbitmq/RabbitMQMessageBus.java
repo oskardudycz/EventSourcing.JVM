@@ -187,7 +187,7 @@ public class RabbitMQMessageBus implements MessageBus, SmartLifecycle, AutoClose
     // Each queue has one consumer that handles its messages in order, so when a probe sent after them comes back,
     // the messages before it are handled or dead-lettered.
     @Override
-    public void awaitCaughtUp(Duration timeout) {
+    public void whenCaughtUp(Duration timeout) {
         if (!running) return;
 
         var deadline = Instant.now().plus(timeout);

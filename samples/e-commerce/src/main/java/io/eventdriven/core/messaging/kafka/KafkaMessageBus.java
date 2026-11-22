@@ -233,16 +233,16 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
     }
 
     @Override
-    public void awaitCaughtUp(Duration timeout) {
+    public void whenCaughtUp(Duration timeout) {
         if (!running) return;
 
         var deadline = Instant.now().plus(timeout);
 
         try (var client = Admin.create(admin.getConfigurationProperties())) {
-            for (var container : routingContainers) awaitCaughtUp(client, container, deadline);
+            for (var container : routingContainers) whenCaughtUp(client, container, deadline);
 
             for (var container : containers)
-                if (!routingContainers.contains(container)) awaitCaughtUp(client, container, deadline);
+                if (!routingContainers.contains(container)) whenCaughtUp(client, container, deadline);
         }
     }
 
@@ -432,7 +432,7 @@ public class KafkaMessageBus implements MessageBus, SmartLifecycle, AutoCloseabl
 
     // A consumer has caught up when its group's committed offsets reach the end offsets taken at the start of the wait.
     // Kafka has no push notification for that, so the check is retried after a short delay until the deadline.
-    private static void awaitCaughtUp(
+    private static void whenCaughtUp(
             Admin client, ConcurrentMessageListenerContainer<String, byte[]> container, Instant deadline) {
         var group = container.getGroupId();
         var topic = container.getContainerProperties().getTopics()[0];

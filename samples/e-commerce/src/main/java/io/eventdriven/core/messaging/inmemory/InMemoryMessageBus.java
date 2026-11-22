@@ -77,5 +77,5 @@ public class InMemoryMessageBus implements MessageBus {
         middlewares.add(middleware);
     }
 
-    public void awaitCaughtUp(Duration timeout) {}
+    public void whenCaughtUp(Duration timeout) {}
 }

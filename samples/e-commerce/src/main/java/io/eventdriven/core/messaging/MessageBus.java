@@ -42,5 +42,9 @@ public interface MessageBus {
      * Waits until the queues this bus consumes have handled or dead-lettered every message published before the call.
      * A bus that isn't running handles nothing, so it returns at once. Fails when the wait takes longer than the timeout.
      */
-    void awaitCaughtUp(Duration timeout);
+    void whenCaughtUp(Duration timeout);
+
+    default void whenCaughtUp() {
+        whenCaughtUp(Duration.ofSeconds(30));
+    }
 }

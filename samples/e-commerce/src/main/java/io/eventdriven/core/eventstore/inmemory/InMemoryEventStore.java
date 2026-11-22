@@ -5,11 +5,13 @@ import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.eventstore.Subscription;
 import io.eventdriven.core.eventstore.SubscriptionProgress;
+import io.eventdriven.core.eventstore.SubscriptionsCatchUp;
 import io.eventdriven.core.messaging.EventEnvelope;
 import io.eventdriven.core.messaging.EventMetadata;
 import io.eventdriven.core.messaging.MessageContext;
 import io.eventdriven.core.messaging.MessageValues;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,6 +34,7 @@ public class InMemoryEventStore implements EventStore {
     private final List<LogEntry> log = new ArrayList<>();
     private final List<Consumer<Object>> middlewares = new ArrayList<>();
     private final List<Subscriber> subscribers = new ArrayList<>();
+    private final SubscriptionsCatchUp catchUp = new SubscriptionsCatchUp();
     private final Set<String> subscriptionNames = new HashSet<>();
     private boolean dispatching = false;
     private int lastMiddlewarePosition = -1;
@@ -80,6 +83,7 @@ public class InMemoryEventStore implements EventStore {
                     values.withMessageId(UUID.randomUUID().toString()));
             log.add(entry);
             stream.add(entry);
+            catchUp.appended(serializer.typeNameOf(event.getClass()), new Checkpoint(0, entry.logPosition()));
         }
 
         var lastLogPosition = log.size() - 1;
@@ -100,13 +104,11 @@ public class InMemoryEventStore implements EventStore {
             throw new IllegalArgumentException("Subscription name '%s' is already in use".formatted(name));
 
         var progress = new SubscriptionProgress(name);
-        subscribers.add(new Subscriber(
-                name,
-                types.stream()
-                        .flatMap(type -> serializer.typeNamesOf(type).stream())
-                        .collect(Collectors.toSet()),
-                handler,
-                progress));
+        var typeNames = types.stream()
+                .flatMap(type -> serializer.typeNamesOf(type).stream())
+                .collect(Collectors.toSet());
+        subscribers.add(new Subscriber(name, typeNames, handler, progress));
+        catchUp.subscribed(typeNames, progress);
 
         dispatch();
 
@@ -253,5 +255,10 @@ public class InMemoryEventStore implements EventStore {
         private boolean accepts(LogEntry entry) {
             return eventTypes.contains(entry.storedEvent().eventType());
         }
+    }
+
+    @Override
+    public void whenCaughtUp(Duration timeout) {
+        catchUp.whenCaughtUp(timeout);
     }
 }

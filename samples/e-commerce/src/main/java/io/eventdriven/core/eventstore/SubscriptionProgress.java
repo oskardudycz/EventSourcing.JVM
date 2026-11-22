@@ -26,7 +26,7 @@ public final class SubscriptionProgress implements Subscription {
     }
 
     @Override
-    public void awaitProcessed(Checkpoint checkpoint, Duration timeout) {
+    public void whenProcessed(Checkpoint checkpoint, Duration timeout) {
         var remaining = timeout.toNanos();
 
         lock.lock();

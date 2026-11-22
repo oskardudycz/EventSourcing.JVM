@@ -15,9 +15,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -176,9 +174,7 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
     }
 
     @Test
-    public void waitsForMessagesPublishedAfterTheResponse_whenTheScenarioSettles() {
-        settleTime = Duration.ofMillis(300);
-
+    public void waitsUntilTheBusCaughtUpWithMessagesPublishedAfterTheResponse() {
         given(addProductItem(cartId))
                 .when(confirmLater(cartId))
                 .then(expectResponse(ACCEPTED), expectPublished(new CartConfirmed(cartId, 1)));
@@ -416,8 +412,7 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
 
         @PostMapping("/confirm-later")
         ResponseEntity<?> confirmLater(@PathVariable UUID cartId) {
-            CompletableFuture.runAsync(
-                    () -> confirmCart(cartId), CompletableFuture.delayedExecutor(100, TimeUnit.MILLISECONDS));
+            messageBus.publishLater(new ConfirmCart(cartId), Duration.ofMillis(100));
 
             return ResponseEntity.accepted().build();
         }

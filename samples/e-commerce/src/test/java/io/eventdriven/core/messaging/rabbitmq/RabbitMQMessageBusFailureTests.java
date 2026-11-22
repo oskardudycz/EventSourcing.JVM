@@ -21,7 +21,6 @@ import io.eventdriven.testing.messaging.rabbitmq.RabbitMQQueues;
 import io.eventdriven.testing.messaging.rabbitmq.TestRabbitMQ;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,7 +42,6 @@ public class RabbitMQMessageBusFailureTests {
     public record RoomInspected(String room, String inspector) {}
 
     private static final String KEY = "ecommerce.payment.1";
-    private static final Duration CATCH_UP_TIMEOUT = Duration.ofSeconds(30);
 
     private final RabbitMQConnection connection = TestDatabases.rabbitMQ();
     private final RabbitMQManagement management = new RabbitMQManagement(connection);
@@ -171,7 +169,7 @@ public class RabbitMQMessageBusFailureTests {
 
         publish(new PaymentReceived("payment-1"));
 
-        awaitCaughtUp();
+        messageBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
         assertThat(attempts).hasValue(2);
         assertThat(queues.messageCount(billing + "-dlq")).isZero();
@@ -200,7 +198,7 @@ public class RabbitMQMessageBusFailureTests {
 
         publish(new PaymentReceived("payment-1"));
 
-        awaitCaughtUp();
+        messageBus.whenCaughtUp();
         assertThat(queues.receiveAll(billing + "-dlq", 1)).hasSize(1);
     }
 
@@ -218,7 +216,7 @@ public class RabbitMQMessageBusFailureTests {
         publish(new PaymentReceived("payment-1"), new PaymentReceived("payment-2"));
 
         var deadLetters = queues.receiveAll(billing + "-dlq", 2);
-        awaitCaughtUp();
+        messageBus.whenCaughtUp();
         messages.shouldReceiveMessages(new PaymentReceived("payment-1"), new PaymentReceived("payment-2"));
         assertThat(deadLetters).hasSize(2);
         assertThat(attempts).hasValue(6);
@@ -234,7 +232,7 @@ public class RabbitMQMessageBusFailureTests {
         publish(new PaymentReceived("payment-1"));
 
         var deadLetters = queues.receiveAll(billing + "-dlq", 1);
-        awaitCaughtUp();
+        messageBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
         assertThat(deadLetters).hasSize(1);
         assertThat(new String(deadLetters.getFirst().getBody(), StandardCharsets.UTF_8))
@@ -251,7 +249,7 @@ public class RabbitMQMessageBusFailureTests {
         publish(new PaymentReceived("payment-1"));
 
         var deadLetters = queues.receiveAll(billing + "-dlq", 1);
-        awaitCaughtUp();
+        messageBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
         assertThat(deadLetters).hasSize(1);
         assertThat(deadLetters.getFirst().getMessageProperties().<String>getHeader(RabbitMQMessageBus.TYPE_ID))
@@ -274,7 +272,7 @@ public class RabbitMQMessageBusFailureTests {
         publish(new PaymentReceived("payment-1"));
 
         assertThat(queues.receiveAll(billing + "-dlq", 1)).hasSize(1);
-        awaitCaughtUp();
+        messageBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
     }
 
@@ -325,7 +323,7 @@ public class RabbitMQMessageBusFailureTests {
         publishRaw("test.RoomInspected.v0", "{\"r\":\"102\"}");
         publishRaw("test.RoomInspected", "{\"room\":\"103\",\"inspector\":\"anna\"}");
 
-        awaitCaughtUp();
+        messageBus.whenCaughtUp();
         assertThat(messages.published)
                 .containsExactlyInAnyOrder(
                         new RoomInspected("101", "unknown"),
@@ -351,9 +349,5 @@ public class RabbitMQMessageBusFailureTests {
         return meters.find(RabbitMQMessageBus.DEAD_LETTERED).counters().stream()
                 .mapToDouble(counter -> counter.count())
                 .sum();
-    }
-
-    private void awaitCaughtUp() {
-        messageBus.awaitCaughtUp(CATCH_UP_TIMEOUT);
     }
 }

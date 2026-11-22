@@ -57,7 +57,7 @@ public class RabbitMQMessageBusRestartTests {
         afterRestart.subscribe(orders, MessageBusTests.OrderPlaced.class, messages::catchMessage);
         afterRestart.start();
 
-        afterRestart.awaitCaughtUp(Duration.ofSeconds(30));
+        afterRestart.whenCaughtUp(Duration.ofSeconds(30));
         assertThat(messages.published)
                 .containsExactlyInAnyOrder(
                         new MessageBusTests.OrderPlaced("order-1"), new MessageBusTests.OrderPlaced("order-2"));

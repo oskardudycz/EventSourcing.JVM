@@ -2,6 +2,7 @@ package io.eventdriven.testing.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.messaging.MessageBus;
 import io.eventdriven.testing.Transcript;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
@@ -42,7 +43,6 @@ import tools.jackson.databind.json.JsonMapper;
 public abstract class ApiE2ESpecification {
     private static final JsonMapper json = JsonMapper.builder().build();
     private static final Duration traceTimeout = Duration.ofSeconds(3);
-    private static final Duration catchUpTimeout = Duration.ofSeconds(60);
     private static final Map<MessageBus, List<Object>> publishedOn = Collections.synchronizedMap(new WeakHashMap<>());
 
     @Autowired
@@ -54,7 +54,8 @@ public abstract class ApiE2ESpecification {
     @Autowired(required = false)
     protected @Nullable InMemorySpanExporter spans;
 
-    protected Duration settleTime = Duration.ZERO;
+    @Autowired(required = false)
+    protected @Nullable EventStore eventStore;
 
     public interface TestStep {}
 
@@ -263,19 +264,17 @@ public abstract class ApiE2ESpecification {
 
     private @Nullable TestResponse run(TestStep step, Set<String> traceIds) {
         var response = runOnly(step, traceIds);
-        settle();
+        whenCaughtUp();
         return response;
     }
 
-    private void settle() {
-        if (settleTime.isZero()) return;
-
+    private void whenCaughtUp() {
         var published = published();
         int seen;
         do {
             seen = published.size();
-            if (messageBus != null) messageBus.awaitCaughtUp(catchUpTimeout);
-            pause(settleTime);
+            if (messageBus != null) messageBus.whenCaughtUp();
+            if (eventStore != null) eventStore.whenCaughtUp();
         } while (published.size() != seen);
     }
 

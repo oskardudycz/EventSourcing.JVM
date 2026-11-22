@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 public abstract class EventStoreTests {
-    protected static final Duration PROCESSING_TIMEOUT = Duration.ofSeconds(30);
 
     protected final String cartId = UUID.randomUUID().toString();
     protected final String streamId = "ShoppingCart-%s".formatted(cartId);
@@ -230,7 +229,7 @@ public abstract class EventStoreTests {
 
         var result = eventStore().append(streamId, new CartOpened(cartId));
 
-        marker.awaitProcessed(((AppendResult.Success) result).lastEvent(), PROCESSING_TIMEOUT);
+        marker.whenProcessed(((AppendResult.Success) result).lastEvent());
         assertThat(received).isEmpty();
     }
 
@@ -246,7 +245,7 @@ public abstract class EventStoreTests {
         var next = eventStore().append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "hoodie"));
 
         assertThat(failed.succeeded()).isFalse();
-        subscription.awaitProcessed(((AppendResult.Success) next).lastEvent(), PROCESSING_TIMEOUT);
+        subscription.whenProcessed(((AppendResult.Success) next).lastEvent());
         assertThat(received).containsExactly(new ItemAdded(cartId, "hoodie"));
     }
 
@@ -259,7 +258,7 @@ public abstract class EventStoreTests {
 
         var result = eventStore().append(streamId, new CartOpened(cartId), new ItemAdded(cartId, "t-shirt"));
 
-        subscription.awaitProcessed(((AppendResult.Success) result).lastEvent(), PROCESSING_TIMEOUT);
+        subscription.whenProcessed(((AppendResult.Success) result).lastEvent());
         assertThat(received).containsExactly(new ItemAdded(cartId, "t-shirt"));
     }
 
@@ -268,11 +267,11 @@ public abstract class EventStoreTests {
         var subscription = eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {});
         var earlier = eventStore().append(streamId, new ItemAdded(cartId, "t-shirt"));
         var later = eventStore().append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "hoodie"));
-        subscription.awaitProcessed(((AppendResult.Success) later).lastEvent(), PROCESSING_TIMEOUT);
+        subscription.whenProcessed(((AppendResult.Success) later).lastEvent());
 
         assertThatNoException()
-                .isThrownBy(() -> subscription.awaitProcessed(
-                        ((AppendResult.Success) earlier).lastEvent(), Duration.ofMillis(1)));
+                .isThrownBy(() ->
+                        subscription.whenProcessed(((AppendResult.Success) earlier).lastEvent(), Duration.ofMillis(1)));
     }
 
     @Test
@@ -284,9 +283,52 @@ public abstract class EventStoreTests {
         var result = eventStore().append(streamId, new ItemAdded(cartId, "t-shirt"));
 
         assertThatThrownBy(() ->
-                        subscription.awaitProcessed(((AppendResult.Success) result).lastEvent(), Duration.ofSeconds(1)))
+                        subscription.whenProcessed(((AppendResult.Success) result).lastEvent(), Duration.ofSeconds(1)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(name);
+    }
+
+    @Test
+    public void awaitingCatchUpReturnsOnceEverySubscriptionHandledWhatWasAppended() {
+        var openedCarts = new CopyOnWriteArrayList<Object>();
+        var addedItems = new CopyOnWriteArrayList<Object>();
+        eventStore().subscribe(subscriptionName(), List.of(CartOpened.class), envelope -> {
+            if (envelope.metadata().streamId().equals(streamId)) openedCarts.add(envelope.data());
+        });
+        eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
+            if (envelope.metadata().streamId().equals(streamId)) addedItems.add(envelope.data());
+        });
+
+        eventStore().append(streamId, new CartOpened(cartId), new ItemAdded(cartId, "t-shirt"));
+
+        eventStore().whenCaughtUp();
+        assertThat(openedCarts).containsExactly(new CartOpened(cartId));
+        assertThat(addedItems).containsExactly(new ItemAdded(cartId, "t-shirt"));
+    }
+
+    @Test
+    public void awaitingCatchUpFailsNamingTheSubscriptionThatDidNotHandleItsEventsInTime() {
+        var name = subscriptionName();
+        eventStore().subscribe(name, List.of(ItemAdded.class), envelope -> {
+            if (envelope.metadata().streamId().equals(streamId)) throw new IllegalStateException("Handler is down");
+        });
+
+        eventStore().append(streamId, new CartOpened(cartId), new ItemAdded(cartId, "t-shirt"));
+
+        assertThatThrownBy(() -> eventStore().whenCaughtUp(Duration.ofSeconds(1)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(name);
+    }
+
+    @Test
+    public void awaitingCatchUpDoesNotWaitForASubscriptionWhoseTypesWereNotAppended() {
+        eventStore().subscribe(subscriptionName(), List.of(ItemAdded.class), envelope -> {
+            if (envelope.metadata().streamId().equals(streamId)) throw new IllegalStateException("Handler is down");
+        });
+
+        eventStore().append(streamId, new CartOpened(cartId));
+
+        eventStore().whenCaughtUp(Duration.ofSeconds(5));
     }
 
     @Test

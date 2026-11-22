@@ -5,6 +5,7 @@ import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.eventstore.Subscription;
 import io.eventdriven.core.eventstore.SubscriptionProgress;
+import io.eventdriven.core.eventstore.SubscriptionsCatchUp;
 import io.eventdriven.core.messaging.EventEnvelope;
 import io.eventdriven.core.messaging.EventMetadata;
 import io.eventdriven.core.messaging.MessageContext;
@@ -14,13 +15,16 @@ import io.eventdriven.core.subscriptions.SubscriptionCheckpoints;
 import io.kurrent.dbclient.*;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -83,8 +87,10 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
                             eventsToAppend.iterator())
                     .get();
 
-            return new AppendResult.Success(
-                    result.getNextExpectedRevision().toRawLong(), checkpointOf(result.getLogPosition()));
+            var nextRevision = result.getNextExpectedRevision().toRawLong();
+            appendedRanges.add(new AppendedRange(streamId, nextRevision - events.length + 1, events.length));
+
+            return new AppendResult.Success(nextRevision, checkpointOf(result.getLogPosition()));
         } catch (InterruptedException | ExecutionException e) {
             observation.error(e);
 
@@ -141,6 +147,11 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
                 backOff,
                 scheduler);
         subscriptions.add(subscription);
+        catchUp.subscribed(
+                types.stream()
+                        .flatMap(type -> serializer.typeNamesOf(type).stream())
+                        .collect(Collectors.toSet()),
+                progress);
         subscription.start();
 
         return progress;
@@ -265,6 +276,11 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
     private final BackOff backOff;
     private final Set<String> subscriptionNames = ConcurrentHashMap.newKeySet();
     private final List<KurrentDBSubscriptionToAll> subscriptions = new CopyOnWriteArrayList<>();
+    private final SubscriptionsCatchUp catchUp = new SubscriptionsCatchUp();
+    private final Queue<AppendedRange> appendedRanges = new ConcurrentLinkedQueue<>();
+
+    private record AppendedRange(String streamId, long firstRevision, int count) {}
+
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
         var thread = new Thread(runnable, "kurrentdb-resubscribe");
         thread.setDaemon(true);
@@ -315,5 +331,36 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
         this.observations = observations;
         this.checkpoints = checkpoints;
         this.backOff = backOff;
+    }
+
+    @Override
+    public void whenCaughtUp(Duration timeout) {
+        for (var range = appendedRanges.poll(); range != null; range = appendedRanges.poll()) {
+            for (var resolvedEvent : appendedEventsOf(range)) {
+                var recorded = resolvedEvent.getEvent();
+                catchUp.appended(recorded.getEventType(), checkpointOf(recorded.getPosition()));
+            }
+        }
+
+        catchUp.whenCaughtUp(timeout);
+    }
+
+    private List<ResolvedEvent> appendedEventsOf(AppendedRange range) {
+        try {
+            return eventStore
+                    .readStream(
+                            range.streamId(),
+                            ReadStreamOptions.get()
+                                    .fromRevision(range.firstRevision())
+                                    .maxCount(range.count()))
+                    .get()
+                    .getEvents();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException(
+                    "Reading the events appended to stream %s failed".formatted(range.streamId()), e);
+        }
     }
 }

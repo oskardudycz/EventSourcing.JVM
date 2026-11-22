@@ -105,7 +105,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
 
         var appended = store.append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "hoodie"));
 
-        subscription.awaitProcessed(((EventStore.AppendResult.Success) appended).lastEvent(), PROCESSING_TIMEOUT);
+        subscription.whenProcessed(((EventStore.AppendResult.Success) appended).lastEvent());
         assertThat(received).containsExactly(new ItemAdded(cartId, "t-shirt"), new ItemAdded(cartId, "hoodie"));
     }
 
@@ -122,7 +122,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
 
         var appended = eventStore().append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "t-shirt"));
 
-        subscription.awaitProcessed(((EventStore.AppendResult.Success) appended).lastEvent(), PROCESSING_TIMEOUT);
+        subscription.whenProcessed(((EventStore.AppendResult.Success) appended).lastEvent());
         assertThat(received).containsExactly(new ItemAdded(cartId, "t-shirt"));
     }
 
@@ -149,7 +149,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
             if (envelope.metadata().streamId().equals(streamId)) received.add(envelope.data());
         });
 
-        subscription.awaitProcessed(((EventStore.AppendResult.Success) readable).lastEvent(), PROCESSING_TIMEOUT);
+        subscription.whenProcessed(((EventStore.AppendResult.Success) readable).lastEvent());
         await().atMost(Duration.ofSeconds(30)).until(() -> reads.get() > 1);
         assertThat(received).containsExactly(new ItemAdded(cartId, "t-shirt"));
         assertThat(ProjectionsDatabase.H2.bean(SubscriptionCheckpoints.class).lastProcessed(name))
@@ -272,13 +272,13 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         var subscription = store.subscribe(name, List.of(ItemAdded.class), envelope -> {});
         var appended = store.append(streamId, new ItemAdded(cartId, "t-shirt"));
         var checkpoint = ((EventStore.AppendResult.Success) appended).lastEvent();
-        subscription.awaitProcessed(checkpoint, PROCESSING_TIMEOUT);
+        subscription.whenProcessed(checkpoint);
         close(store);
 
         var restarted = newStore(ProjectionsDatabase.H2);
         var restartedSubscription = restarted.subscribe(name, List.of(ItemAdded.class), envelope -> {});
 
-        assertThatNoException().isThrownBy(() -> restartedSubscription.awaitProcessed(checkpoint, PROCESSING_TIMEOUT));
+        assertThatNoException().isThrownBy(() -> restartedSubscription.whenProcessed(checkpoint));
     }
 
     @Test
@@ -295,7 +295,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
                 new ItemAdded(cartId, "hoodie"),
                 new ItemAdded(cartId, "socks"));
         var result = store.append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "scarf"));
-        subscription.awaitProcessed(((EventStore.AppendResult.Success) result).lastEvent(), PROCESSING_TIMEOUT);
+        subscription.whenProcessed(((EventStore.AppendResult.Success) result).lastEvent());
         close(store);
         forwarded.clear();
 
@@ -305,8 +305,7 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
         });
         var gloves = restarted.append(streamId, ExpectedStreamVersion.any(), new ItemAdded(cartId, "gloves"));
 
-        restartedSubscription.awaitProcessed(
-                ((EventStore.AppendResult.Success) gloves).lastEvent(), PROCESSING_TIMEOUT);
+        restartedSubscription.whenProcessed(((EventStore.AppendResult.Success) gloves).lastEvent());
         assertThat(forwarded).containsExactly(new ItemAdded(cartId, "gloves"));
     }
 
@@ -356,12 +355,12 @@ public abstract class DurableEventStoreTests extends EventStoreTests {
             if (isCounterOf(envelope, warmUpCounterId) || isCounterOf(envelope, counterId)) counters.handle(envelope);
         });
         var warmUp = store.append(streamOf(warmUpCounterId), new CounterEvent.Started(warmUpCounterId));
-        subscription.awaitProcessed(((EventStore.AppendResult.Success) warmUp).lastEvent(), PROCESSING_TIMEOUT);
+        subscription.whenProcessed(((EventStore.AppendResult.Success) warmUp).lastEvent());
         checkpoints.handle(name, Long.MAX_VALUE, Long.MAX_VALUE, () -> {});
 
         var appended = store.append(streamOf(counterId), new CounterEvent.Started(counterId));
 
-        subscription.awaitProcessed(((EventStore.AppendResult.Success) appended).lastEvent(), PROCESSING_TIMEOUT);
+        subscription.whenProcessed(((EventStore.AppendResult.Success) appended).lastEvent());
         assertThat(repository.findById(counterId)).isEmpty();
         assertThat(checkpoints.lastProcessedPosition(name)).hasValue(Long.MAX_VALUE);
     }
