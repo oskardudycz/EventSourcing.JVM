@@ -65,6 +65,18 @@ public class SandboxCheckoutPageTests {
     }
 
     @Test
+    public void theCheckoutPageOffersTheTestCardsWithOneClick() throws Exception {
+        var shopper = new Shopper(mvc).checksOut();
+        var checkoutPage = shopper.opensCheckout(shopper.firstPaymentTail);
+
+        mvc.perform(get(checkoutPage))
+                .andExpect(content().string(containsString("value=\"4242 4242 4242 4242\"")))
+                .andExpect(content().string(containsString("Pay with a card that works")))
+                .andExpect(content().string(containsString("value=\"4000 0000 0000 0002\"")))
+                .andExpect(content().string(containsString("Try a card that is declined")));
+    }
+
+    @Test
     public void aCheckoutThatDoesNotExistIsNotFound() throws Exception {
         mvc.perform(get("/sandbox/checkout/unknown")).andExpect(status().isNotFound());
     }

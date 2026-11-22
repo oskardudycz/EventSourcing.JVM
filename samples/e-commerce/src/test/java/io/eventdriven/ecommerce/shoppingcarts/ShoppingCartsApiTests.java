@@ -1,6 +1,7 @@
 package io.eventdriven.ecommerce.shoppingcarts;
 
 import static io.eventdriven.ecommerce.shoppingcarts.ShoppingCartRequests.*;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.http.HttpStatus.*;
 
 import io.eventdriven.ecommerce.OutsideWorld;
@@ -12,6 +13,7 @@ import io.eventdriven.ecommerce.shoppingcarts.pricing.ChangeablePrices;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.testing.api.ApiE2ESpecification;
+import io.eventdriven.testing.eventstore.RecordedEventsConfiguration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -25,7 +27,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 @ActiveProfiles("in-memory")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(OutsideWorld.class)
+@Import({OutsideWorld.class, RecordedEventsConfiguration.class})
 public class ShoppingCartsApiTests extends ApiE2ESpecification {
     @Autowired
     private ChangeablePrices prices;
@@ -67,7 +69,7 @@ public class ShoppingCartsApiTests extends ApiE2ESpecification {
         @Test
         public void addProductItem_succeeds_withFirstVersion_forCustomerWithoutOpenCart() {
             given().when(addProductItem(customerId, shoes, 2))
-                    .then(expectResponse(OK, headers(Map.of(HttpHeaders.ETAG, weakETag(0)))));
+                    .then(expectResponse(OK, headers(Map.of(HttpHeaders.ETAG, weakETag(0)))), expectNothingPublished());
         }
 
         @Test
@@ -108,7 +110,17 @@ public class ShoppingCartsApiTests extends ApiE2ESpecification {
         public void removeProductItem_succeeds_forAllOfTheQuantity() {
             given(cartWithTwoShoes())
                     .when(removeProductItem(customerId, shoes, 2, weakETag(0)))
-                    .then(expectResponse(OK));
+                    .then(expectResponse(OK), expectNothingPublished());
+        }
+
+        @Test
+        public void removeProductItem_recordsTheRemovalAtThePriceInTheCart_afterTheProductsPriceChanged() {
+            given(cartWithAChangedPrice())
+                    .when(removeProductItem(customerId, shoes, 1, weakETag(0)))
+                    .then(
+                            expectResponse(OK),
+                            expectAppended(new ShoppingCartEvent.ProductItemRemovedFromShoppingCart(
+                                    cartId, new PricedProductItem(new ProductItem(shoes, 1), 50), time.now())));
         }
 
         @Test
@@ -162,6 +174,20 @@ public class ShoppingCartsApiTests extends ApiE2ESpecification {
                                     customerId,
                                     new PricedProductItem[] {new PricedProductItem(new ProductItem(shoes, 2), 50)},
                                     100,
+                                    time.now())));
+        }
+
+        @Test
+        public void checkOut_succeeds_withTheNewPrices_afterTheCustomerSawThem() {
+            given(cartWhoseCheckoutFoundAChangedPrice())
+                    .when(checkOut(customerId, weakETag(1)))
+                    .then(
+                            expectResponse(ACCEPTED),
+                            expectPublished(new ShoppingCartCheckedOut(
+                                    cartId,
+                                    customerId,
+                                    new PricedProductItem[] {new PricedProductItem(new ProductItem(shoes, 2), 60)},
+                                    120,
                                     time.now())));
         }
 
@@ -324,8 +350,22 @@ public class ShoppingCartsApiTests extends ApiE2ESpecification {
         }
     }
 
+    @Nested
+    public class ReceivingMessages {
+        @Test
+        public void customerCommandsArrivingOnTheBusAreRefused_becauseOnlyTheCustomerSendsThem() {
+            var command =
+                    new ShoppingCartCommand.AddProductItemToShoppingCart(cartId, customerId, new ProductItem(shoes, 1));
+
+            assertThatThrownBy(() -> given().when(send(command)).then())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining(ShoppingCartCommand.AddProductItemToShoppingCart.class.getName());
+        }
+    }
+
     @Override
     protected boolean isAbout(Object message) {
-        return message instanceof ShoppingCartExternalEvent;
+        return (message instanceof ShoppingCartExternalEvent || message instanceof ShoppingCartEvent)
+                && message.toString().contains(customerId.toString());
     }
 }

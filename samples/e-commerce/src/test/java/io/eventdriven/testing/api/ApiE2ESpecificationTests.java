@@ -16,6 +16,7 @@ import io.micrometer.tracing.TraceContext;
 import io.micrometer.tracing.Tracer;
 import java.net.URI;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -247,7 +248,12 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
         return new MessageEnvelope<>(
                 event,
                 new MessageMetadata(
-                        id, correlationId, causationId, null, null, new MessageSource.InStream("Cart-1", 0, 0, 0)));
+                        id,
+                        correlationId,
+                        causationId,
+                        null,
+                        null,
+                        new MessageSource.InStream("Cart-1", 0, 0, 0, Instant.EPOCH)));
     }
 
     @Test
@@ -289,6 +295,18 @@ public class ApiE2ESpecificationTests extends ApiE2ESpecification {
         given(addProductItem(cartId))
                 .when(confirm(cartId, 1))
                 .then(expectTrace(span("confirm cart", span("store cart"), span("publish CartConfirmed"))));
+    }
+
+    @Test
+    public void aTracedStepSendsTheTraceparentThatTheTraceExpectationFollows() {
+        given(addProductItem(cartId))
+                .when(traced(traceparent -> restTestClient
+                        .post()
+                        .uri("/carts/{cartId}/confirm", cartId)
+                        .header(HttpHeaders.IF_MATCH, weakETag(1))
+                        .header("traceparent", traceparent)
+                        .exchange()))
+                .then(expectTrace(span("confirm cart", span("store cart"))));
     }
 
     @Test

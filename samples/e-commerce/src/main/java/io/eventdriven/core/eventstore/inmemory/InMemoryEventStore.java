@@ -14,6 +14,7 @@ import io.eventdriven.core.messaging.MessageSource;
 import io.eventdriven.core.messaging.MessageValues;
 import io.eventdriven.core.messaging.versioning.MessageSerializer;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -92,7 +93,8 @@ public class InMemoryEventStore implements EventStore {
                     stream.size(),
                     log.size(),
                     serialize(event),
-                    values.withMessageId(UUID.randomUUID().toString()));
+                    values.withMessageId(UUID.randomUUID().toString()),
+                    Instant.now());
             log.add(entry);
             stream.add(entry);
             catchUp.appended(serializer.typeNameOf(event.getClass()), new Checkpoint(0, entry.logPosition()));
@@ -112,7 +114,7 @@ public class InMemoryEventStore implements EventStore {
         if (types.isEmpty())
             throw new IllegalArgumentException("Subscription '%s' needs at least one event type".formatted(name));
 
-        EventStoreObservations.countAppended(context, types);
+        EventStoreObservations.subscribed(context, name, types);
 
         if (!subscriptionNames.add(name))
             throw new IllegalArgumentException("Subscription name '%s' is already in use".formatted(name));
@@ -172,6 +174,7 @@ public class InMemoryEventStore implements EventStore {
                                                     .getSimpleName()),
                                     envelope.metadata())) {
                                 subscriber.handler.accept(envelope);
+                                EventStoreObservations.handled(context, subscriber.name, envelope.metadata());
                                 subscriber.progress.handled(new Checkpoint(0, position));
                             }
                         } catch (RuntimeException e) {
@@ -213,7 +216,8 @@ public class InMemoryEventStore implements EventStore {
                         values.causationId(),
                         values.traceId(),
                         values.spanId(),
-                        new MessageSource.InStream(entry.streamId(), entry.streamPosition(), entry.logPosition(), 0)));
+                        new MessageSource.InStream(
+                                entry.streamId(), entry.streamPosition(), entry.logPosition(), 0, entry.appendedAt())));
     }
 
     private long versionOf(String streamId) {
@@ -244,7 +248,12 @@ public class InMemoryEventStore implements EventStore {
     record StoredEvent(String eventType, byte[] data) {}
 
     record LogEntry(
-            String streamId, long streamPosition, long logPosition, StoredEvent storedEvent, MessageValues values) {}
+            String streamId,
+            long streamPosition,
+            long logPosition,
+            StoredEvent storedEvent,
+            MessageValues values,
+            Instant appendedAt) {}
 
     private static final class Subscriber {
         private final String name;

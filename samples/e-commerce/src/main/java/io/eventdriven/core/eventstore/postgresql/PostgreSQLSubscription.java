@@ -1,6 +1,7 @@
 package io.eventdriven.core.eventstore.postgresql;
 
 import io.eventdriven.core.eventstore.Checkpoint;
+import io.eventdriven.core.eventstore.EventStoreObservations;
 import io.eventdriven.core.eventstore.SubscriptionProgress;
 import io.eventdriven.core.eventstore.postgresql.PostgreSQLEventStore.StoredMessage;
 import io.eventdriven.core.messaging.MessageContext;
@@ -123,6 +124,7 @@ final class PostgreSQLSubscription {
                     metadata.stream().logPosition(),
                     () -> handler.accept(envelope));
         }
+        EventStoreObservations.handled(context, name, metadata);
     }
 
     private List<StoredMessage> nextMessages() throws SQLException {

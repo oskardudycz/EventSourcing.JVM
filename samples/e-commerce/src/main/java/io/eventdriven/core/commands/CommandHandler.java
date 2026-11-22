@@ -4,6 +4,7 @@ import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.messaging.MessageContext;
 import io.eventdriven.core.messaging.MessageEnvelope;
+import io.micrometer.core.instrument.Counter;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
@@ -82,6 +83,9 @@ public class CommandHandler<Id, State, Event> {
         var events = eventsOf(id);
         var version = events.size() - 1L;
 
+        var handled = handledCounter(commandType, "success");
+        var failed = handledCounter(commandType, "failure");
+
         try (MessageContext.Scope _ = continuingTrace ? scopeOf(commandType, events) : () -> {}) {
             var observation = messageContext
                     .observation("eventdriven.command.handle", "command.handle")
@@ -108,14 +112,24 @@ public class CommandHandler<Id, State, Event> {
                 observation
                         .highCardinalityKeyValue(STREAM_VERSION_AFTER, String.valueOf(nextVersion))
                         .lowCardinalityKeyValue(COMMAND_STATUS, "success");
+                handled.increment();
                 return nextVersion;
             } catch (RuntimeException failure) {
                 observation.lowCardinalityKeyValue(COMMAND_STATUS, "failure").error(failure);
+                failed.increment();
                 throw failure;
             } finally {
                 observation.stop();
             }
         }
+    }
+
+    private Counter handledCounter(String commandType, String status) {
+        return Counter.builder("eventdriven.command.handling.count")
+                .description("Commands handled, by type and status")
+                .tag(COMMAND_TYPE, commandType)
+                .tag(COMMAND_STATUS, status)
+                .register(messageContext.meters());
     }
 
     private MessageContext.Scope scopeOf(String commandType, List<MessageEnvelope<Object>> events) {

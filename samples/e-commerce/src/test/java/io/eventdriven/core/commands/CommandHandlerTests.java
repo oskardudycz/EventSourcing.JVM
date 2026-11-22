@@ -213,6 +213,26 @@ public class CommandHandlerTests {
     }
 
     @Test
+    public void handlingACommandCountsItAsHandledAndStartsItsFailuresAtZero() {
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+
+        assertThat(handledCount("Open", "success")).isEqualTo(1);
+        assertThat(handledCount("Open", "failure")).isEqualTo(0);
+    }
+
+    @Test
+    public void aFailedCommandCountsAsAFailure() {
+        handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
+        handler.handle(counterId, new CounterCommand.Increment(1), this::decide);
+
+        assertThatThrownBy(() -> handler.handle(counterId, 0, new CounterCommand.Increment(10), this::decide))
+                .isInstanceOf(ConcurrentModificationException.class);
+
+        assertThat(handledCount("Increment", "success")).isEqualTo(1);
+        assertThat(handledCount("Increment", "failure")).isEqualTo(1);
+    }
+
+    @Test
     public void aFailedCommandMarksItsSpanAsFailedWithTheException() {
         handler.handle(counterId, new CounterCommand.Open("clicks"), this::decide);
         handler.handle(counterId, new CounterCommand.Increment(1), this::decide);
@@ -333,6 +353,18 @@ public class CommandHandlerTests {
 
     private static String mapToStreamId(UUID id) {
         return "Counter-%s".formatted(id);
+    }
+
+    private double handledCount(String commandType, String status) {
+        var counter = tracing.meters()
+                .find("eventdriven.command.handling.count")
+                .tags("eventdriven.command.type", commandType, "eventdriven.command.status", status)
+                .counter();
+
+        assertThat(counter)
+                .as("Counter of %s with status %s", commandType, status)
+                .isNotNull();
+        return counter.count();
     }
 
     sealed interface CounterCommand {

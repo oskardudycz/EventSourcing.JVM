@@ -59,6 +59,12 @@ input:focus { outline: 2px solid rgba(99, 91, 255, 0.35); border-color: var(--ac
 .error { color: #df1b41; font-size: 14px; margin: 12px 0 0; }
 .hint { color: var(--muted); font-size: 13px; margin-top: 16px; }
 
+.test-cards { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+.test-cards .hint { width: 100%; margin-bottom: 0; }
+.test-cards form { margin: 0; }
+.link { padding: 0; font: inherit; font-size: 14px; color: var(--accent); background: none; border: 0; cursor: pointer; }
+.link:hover { text-decoration: underline; }
+
 .button { display: inline-block; padding: 10px 18px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); text-decoration: none; }
 
 @media (max-width: 760px) {

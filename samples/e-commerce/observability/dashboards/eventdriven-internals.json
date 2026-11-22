@@ -31,7 +31,7 @@
       "id": 2,
       "type": "stat",
       "title": "Commands handled",
-      "description": "Commands handled in the selected time range.",
+      "description": "Commands handled since the application started.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -56,7 +56,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(eventdriven_command_handle_milliseconds_count[$__range])) or vector(0)",
+          "expr": "sum(eventdriven_command_handling_count_total) or vector(0)",
           "legendFormat": "",
           "range": false,
           "instant": true
@@ -93,7 +93,24 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "decimals": 1
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -104,7 +121,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(eventdriven_command_handle_milliseconds_count{eventdriven_command_status=\"success\"}[$__range])) / sum(increase(eventdriven_command_handle_milliseconds_count[$__range])) * 100",
+          "expr": "sum(increase(eventdriven_command_handling_count_total{eventdriven_command_status=\"success\"}[$__range])) / sum(increase(eventdriven_command_handling_count_total[$__range])) * 100",
           "legendFormat": "",
           "range": false,
           "instant": true
@@ -175,7 +192,7 @@
       "id": 5,
       "type": "stat",
       "title": "Events appended",
-      "description": "Events appended to the event store in the selected time range.",
+      "description": "Events appended to the event store since the application started.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -200,7 +217,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(eventdriven_event_appending_count_total[$__range])) or vector(0)",
+          "expr": "sum(eventdriven_event_appending_count_total) or vector(0)",
           "legendFormat": "",
           "range": false,
           "instant": true
@@ -268,7 +285,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (eventdriven_command_type, eventdriven_command_status) (increase(eventdriven_command_handle_milliseconds_count[$__interval]))",
+          "expr": "sum by (eventdriven_command_type, eventdriven_command_status) (increase(eventdriven_command_handling_count_total[$__interval]))",
           "legendFormat": "{{eventdriven_command_type}} {{eventdriven_command_status}}",
           "range": true,
           "instant": false
@@ -473,7 +490,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (eventdriven_eventstore_read_status) (increase(eventdriven_eventstore_read_milliseconds_count[$__interval]))",
+          "expr": "sum by (eventdriven_eventstore_read_status) (increase(eventdriven_eventstore_read_count_total[$__interval]))",
           "legendFormat": "read {{eventdriven_eventstore_read_status}}",
           "range": true,
           "instant": false
@@ -484,7 +501,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (eventdriven_eventstore_append_status) (increase(eventdriven_eventstore_append_milliseconds_count[$__interval]))",
+          "expr": "sum by (eventdriven_eventstore_append_status) (increase(eventdriven_eventstore_append_count_total[$__interval]))",
           "legendFormat": "append {{eventdriven_eventstore_append_status}}",
           "range": true,
           "instant": false
@@ -679,6 +696,65 @@
           "mode": "multi"
         }
       }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Subscription lag",
+      "description": "How long after its append each subscription handled an event: the 95th percentile and the worst case. A growing lag means a subscription falls behind its events, for example because a handler fails and is retried.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 23,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, eventdriven_subscription_name) (rate(eventdriven_subscription_lag_milliseconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95 {{eventdriven_subscription_name}}",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (eventdriven_subscription_name) (eventdriven_subscription_lag_milliseconds_max)",
+          "legendFormat": "max {{eventdriven_subscription_name}}",
+          "range": true,
+          "instant": false
+        }
+      ]
     }
   ]
 }

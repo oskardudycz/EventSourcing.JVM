@@ -11,6 +11,7 @@ import io.eventdriven.testing.messaging.TestMessages;
 import io.eventdriven.testing.tracing.TestTracing;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -210,6 +211,38 @@ public abstract class EventStoreMetadataTests {
     }
 
     @Test
+    public void anAppendCountsAsASuccessAndStartsConflictsAndFailuresAtZero() {
+        eventStore().append(streamId, new Opened("cart"));
+
+        assertThat(countOf("eventdriven.eventstore.append.count", "eventdriven.eventstore.append.status", "success"))
+                .isGreaterThanOrEqualTo(1);
+        assertThat(countOf("eventdriven.eventstore.append.count", "eventdriven.eventstore.append.status", "conflict"))
+                .isEqualTo(0);
+        assertThat(countOf("eventdriven.eventstore.append.count", "eventdriven.eventstore.append.status", "failure"))
+                .isEqualTo(0);
+    }
+
+    @Test
+    public void anAppendThatConflictsCountsAsAConflict() {
+        eventStore().append(streamId, new Opened("cart"));
+
+        eventStore().append(streamId, ExpectedStreamVersion.noStream(), new Opened("cart"));
+
+        assertThat(countOf("eventdriven.eventstore.append.count", "eventdriven.eventstore.append.status", "conflict"))
+                .isEqualTo(1);
+    }
+
+    @Test
+    public void aReadCountsAsASuccessAndStartsFailuresAtZero() {
+        eventStore().read(streamId);
+
+        assertThat(countOf("eventdriven.eventstore.read.count", "eventdriven.eventstore.read.status", "success"))
+                .isGreaterThanOrEqualTo(1);
+        assertThat(countOf("eventdriven.eventstore.read.count", "eventdriven.eventstore.read.status", "failure"))
+                .isEqualTo(0);
+    }
+
+    @Test
     public void aReadRecordsTheEventsItFoundOnASpan() {
         eventStore().append(streamId, new Opened("cart"), new Added("cart", "shoes"), new Added("cart", "shirt"));
         tracing.observations().clear();
@@ -239,6 +272,33 @@ public abstract class EventStoreMetadataTests {
     }
 
     @Test
+    public void readEventsCarryTheTimeTheyWereAppended() {
+        var before = Instant.now().minusSeconds(1);
+
+        eventStore().append(streamId, new Opened("cart"));
+
+        assertThat(readMetadata(streamId).getFirst().stream().appendedAt())
+                .isBetween(before, Instant.now().plusSeconds(1));
+    }
+
+    @Test
+    public void aSubscriptionRecordsHowLongAfterTheAppendItHandledEachEvent() {
+        var name = "lag-" + UUID.randomUUID();
+        var subscription = eventStore().subscribe(name, List.of(Opened.class), envelope -> {});
+
+        var appended = eventStore().append(streamId, new Opened("cart"));
+
+        subscription.whenProcessed(((EventStore.AppendResult.Success) appended).lastEvent());
+        await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(tracing.meters()
+                                .find("eventdriven.subscription.lag")
+                                .tag("eventdriven.subscription.name", name)
+                                .timer())
+                        .isNotNull()
+                        .satisfies(lag -> assertThat(lag.count()).isPositive()));
+    }
+
+    @Test
     public void anAppendCountsEachEventByItsType() {
         eventStore().append(streamId, new Opened("cart"), new Added("cart", "shoes"), new Added("cart", "shirt"));
 
@@ -255,6 +315,13 @@ public abstract class EventStoreMetadataTests {
                         .tag("eventdriven.event.type", "Added")
                         .counter())
                 .isNotNull();
+    }
+
+    private double countOf(String name, String statusTag, String status) {
+        var counter = tracing.meters().find(name).tag(statusTag, status).counter();
+
+        assertThat(counter).as("Counter %s with %s", name, status).isNotNull();
+        return counter.count();
     }
 
     private double appendedCountOf(String eventType) {

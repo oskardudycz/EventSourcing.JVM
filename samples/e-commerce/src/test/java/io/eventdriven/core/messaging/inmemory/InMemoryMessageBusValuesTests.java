@@ -10,6 +10,7 @@ import io.eventdriven.core.messaging.MessageQueue;
 import io.eventdriven.core.messaging.MessageRoutes;
 import io.eventdriven.core.messaging.MessageSource;
 import io.eventdriven.testing.tracing.TestTracing;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -61,8 +62,8 @@ public class InMemoryMessageBusValuesTests {
 
     @Test
     public void aHandledEventWithoutStoredCorrelationGivesTheSamePublishedIdsOnRedelivery() {
-        var legacyEvent =
-                new MessageMetadata("m-1", "m-1", "m-1", null, null, new MessageSource.InStream("Stream-1", 0, 0, 0));
+        var legacyEvent = new MessageMetadata(
+                "m-1", "m-1", "m-1", null, null, new MessageSource.InStream("Stream-1", 0, 0, 0, Instant.EPOCH));
 
         for (var delivery = 0; delivery < 2; delivery++)
             try (var _ = tracing.messageContext().handling("handle First", legacyEvent)) {
@@ -75,8 +76,8 @@ public class InMemoryMessageBusValuesTests {
 
     @Test
     public void aContinuingScopeWithoutAHandledMessageGivesRandomPublishedIds() {
-        var lastEvent =
-                new MessageMetadata("m-1", "c-1", "c-1", null, null, new MessageSource.InStream("Stream-1", 0, 0, 0));
+        var lastEvent = new MessageMetadata(
+                "m-1", "c-1", "c-1", null, null, new MessageSource.InStream("Stream-1", 0, 0, 0, Instant.EPOCH));
 
         for (var attempt = 0; attempt < 2; attempt++)
             try (var _ = tracing.messageContext().continuing("continue", lastEvent)) {

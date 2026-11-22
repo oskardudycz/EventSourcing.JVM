@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -66,10 +67,22 @@ public class ShopPagesTests {
     }
 
     @Test
-    public void loggingOutForgetsTheCustomer() throws Exception {
-        mvc.perform(post("/shop/logout").cookie(new Cookie("customer", "Marty%20McFly")))
+    public void theHeaderLinksTheOrdersAndGrafana() throws Exception {
+        mvc.perform(get(shop + "/products").cookie(new Cookie("customer", "Marty%20McFly")))
+                .andExpect(content().string(containsString(shop + "/orders")))
+                .andExpect(content().string(containsString("href=\"http://localhost:3000\"")))
+                .andExpect(content().string(containsString("Grafana")));
+    }
+
+    @Test
+    public void loggingOutForgetsTheCustomerAndEndsTheSession() throws Exception {
+        var session = new MockHttpSession();
+
+        mvc.perform(post("/shop/logout").session(session).cookie(new Cookie("customer", "Marty%20McFly")))
                 .andExpect(redirectedUrl("/shop/login"))
                 .andExpect(cookie().maxAge("customer", 0));
+
+        assertThat(session.isInvalid()).isTrue();
     }
 
     private String logIn(String name) throws Exception {

@@ -123,7 +123,7 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
         if (types.isEmpty())
             throw new IllegalArgumentException("Subscription '%s' needs at least one event type".formatted(name));
 
-        EventStoreObservations.countAppended(context, types);
+        EventStoreObservations.subscribed(context, name, types);
 
         if (!subscriptionNames.add(name))
             throw new IllegalArgumentException("Subscription name '%s' is already in use".formatted(name));
@@ -155,6 +155,7 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
                                 () -> handler.accept(new MessageEnvelope<>(event, metadata)));
                     }
 
+                    EventStoreObservations.handled(context, name, metadata);
                     progress.handled(metadata.stream().checkpoint());
                 },
                 backOff,
@@ -279,7 +280,8 @@ public class KurrentDBEventStore implements EventStore, AutoCloseable {
                         recorded.getStreamId(),
                         recorded.getRevision(),
                         recorded.getPosition().getCommitUnsigned(),
-                        0));
+                        0,
+                        recorded.getCreated()));
     }
 
     private final KurrentDBClient eventStore;

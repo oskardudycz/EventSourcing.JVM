@@ -20,6 +20,7 @@ import io.eventdriven.ecommerce.shoppingcarts.external.ShoppingCartExternalEvent
 import io.eventdriven.ecommerce.shoppingcarts.productitems.PricedProductItem;
 import io.eventdriven.ecommerce.shoppingcarts.productitems.ProductItem;
 import io.eventdriven.testing.api.ApiE2ESpecification;
+import io.eventdriven.testing.eventstore.RecordedEventsConfiguration;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -37,7 +38,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 @ActiveProfiles("in-memory")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(OutsideWorld.class)
+@Import({OutsideWorld.class, RecordedEventsConfiguration.class})
 public class OrdersApiTests extends ApiE2ESpecification {
     private static final double unitPrice = 100;
     private static final Duration checkoutSessionLifetime = Duration.ofMinutes(30);
@@ -96,8 +97,27 @@ public class OrdersApiTests extends ApiE2ESpecification {
         }
 
         @Test
+        public void cancelOrder_succeeds_withAcceptedButChangesNothing_forPaidOrderNotSentYet() {
+            given(paidOrder)
+                    .when(cancelOrder(customerId, orderId))
+                    .then(expectResponse(ACCEPTED), expectNothingAppended(), expectNothingPublished());
+        }
+
+        @Test
         public void cancelOrder_fails_withNotFound_forUnknownOrder() {
             given().when(cancelOrder(customerId, orderId)).then(expectError(NOT_FOUND));
+        }
+    }
+
+    @Nested
+    public class ReceivingMessages {
+        @Test
+        public void customerCommandsArrivingOnTheBusAreIgnored_becauseOnlyTheCustomerSendsThem() {
+            given(orderWithFailedPayment)
+                    .when(send(
+                            new OrderCommand.RetryOrderPayment(orderId),
+                            new OrderCommand.CancelOrder(orderId, Order.CancellationReason.Requested)))
+                    .then(expectNothingAppended());
         }
     }
 
