@@ -137,7 +137,7 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
 
         publish(bus, new ConfirmOrder("order-1"), new OrderCanceled("order-1"));
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveSingleEvent(new ConfirmOrder("order-1"));
         canceled.shouldReceiveSingleEvent(new OrderCanceled("order-1"));
     }
@@ -194,7 +194,7 @@ public class RabbitMQMessageBusTests extends BrokerMessageBusTests {
         publish(messageBus, new OrderPlaced("order-1"));
 
         try {
-            assertThatThrownBy(() -> messageBus.awaitCaughtUp(Duration.ofSeconds(1)))
+            assertThatThrownBy(() -> messageBus.whenCaughtUp(Duration.ofSeconds(1)))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining(orders);
         } finally {

@@ -82,8 +82,8 @@ public abstract class MessageBusTests {
         bus.publish(List.of(messages));
     }
 
-    protected void awaitCaughtUp() {
-        buses.forEach(bus -> bus.awaitCaughtUp(CATCH_UP_TIMEOUT));
+    protected void whenCaughtUp() {
+        buses.forEach(bus -> bus.whenCaughtUp());
     }
 
     protected abstract List<SpanData> finishedSpans();
@@ -94,7 +94,7 @@ public abstract class MessageBusTests {
 
         publish(messageBus, new OrderPlaced("order-1"));
 
-        awaitCaughtUp();
+        whenCaughtUp();
         await().atMost(CATCH_UP_TIMEOUT)
                 .untilAsserted(() -> assertThat(finishedSpans())
                         .extracting(SpanData::getName)
@@ -108,7 +108,7 @@ public abstract class MessageBusTests {
 
         publish(messageBus, new OrderPlaced("order-1"));
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveMessages(
                 new Handled("first", new OrderPlaced("order-1")), new Handled("second", new OrderPlaced("order-1")));
     }
@@ -120,7 +120,7 @@ public abstract class MessageBusTests {
 
         publish(messageBus, new ConfirmOrder("order-1"), new OrderPlaced("order-1"));
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveMessages(new ConfirmOrder("order-1"), new OrderPlaced("order-1"));
     }
 
@@ -131,7 +131,7 @@ public abstract class MessageBusTests {
         assertThatNoException()
                 .isThrownBy(() -> publish(messageBus, new ConfirmOrder("order-1"), new OrderPlaced("order-1")));
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
@@ -143,7 +143,7 @@ public abstract class MessageBusTests {
 
         publish(messageBus, new OrderPlaced("order-1"), new OrderCanceled("order-1"));
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderCanceled("order-1"));
         supertypeSubscriber.shouldNotReceiveAnyEvent();
     }
@@ -179,7 +179,7 @@ public abstract class MessageBusTests {
 
         publish(bus, new OrderPlaced("order-1"));
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
         billingMessages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
@@ -200,7 +200,7 @@ public abstract class MessageBusTests {
 
         publish(bus, new OrderPlaced("ecommerce.order.1"), new OrderPlaced("ecommerce.invoice.7"));
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("ecommerce.order.1"));
         invoices.shouldReceiveSingleEvent(new OrderPlaced("ecommerce.invoice.7"));
     }
@@ -225,7 +225,7 @@ public abstract class MessageBusTests {
                 new OrderPlaced("ecommerce.order"),
                 new OrderPlaced("ecommerce.order.1"));
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("ecommerce.order"));
         assertThat(hash.published)
                 .containsExactlyInAnyOrder(
@@ -250,7 +250,7 @@ public abstract class MessageBusTests {
 
         publish(bus, new OrderPlaced("order-1"), new ConfirmOrder("order-1"));
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
         paymentsMessages.shouldReceiveSingleEvent(new ConfirmOrder("order-1"));
     }
@@ -299,7 +299,7 @@ public abstract class MessageBusTests {
 
         publish(bus, new OrderPlaced("order-1"), new ConfirmOrder("order-1"));
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
         commandMessages.shouldReceiveSingleEvent(new ConfirmOrder("order-1"));
     }

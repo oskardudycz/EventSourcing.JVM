@@ -10,6 +10,7 @@ import io.eventdriven.core.eventstore.inmemory.InMemoryEventStore;
 import io.eventdriven.core.messaging.EventEnvelope;
 import io.eventdriven.testing.messaging.TestMessages;
 import io.eventdriven.testing.tracing.TestTracing;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
@@ -248,6 +249,11 @@ public class CommandHandlerTests {
         @Override
         public Subscription subscribe(String name, List<Class<?>> types, Consumer<EventEnvelope<Object>> handler) {
             return store.subscribe(name, types, handler);
+        }
+
+        @Override
+        public void whenCaughtUp(Duration timeout) {
+            store.whenCaughtUp(timeout);
         }
     }
 }

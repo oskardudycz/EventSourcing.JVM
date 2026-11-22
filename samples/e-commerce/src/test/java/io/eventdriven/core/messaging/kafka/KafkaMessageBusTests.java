@@ -165,7 +165,7 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
         lateBus.subscribe(late, OrderPlaced.class, messages::catchMessage);
         start((KafkaMessageBus) lateBus);
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
@@ -182,7 +182,7 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
         publish(messageBus, new OrderPlaced("order-1"));
 
         try {
-            assertThatThrownBy(() -> messageBus.awaitCaughtUp(Duration.ofSeconds(1)))
+            assertThatThrownBy(() -> messageBus.whenCaughtUp(Duration.ofSeconds(1)))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining(orders);
         } finally {
@@ -255,7 +255,7 @@ public class KafkaMessageBusTests extends BrokerMessageBusTests {
 
         publish(bus, new OrderPlaced("ecommerce.order.9"));
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("ecommerce.order.9"));
         assertThat(recordsOf(queue, 1)).hasSize(1);
     }

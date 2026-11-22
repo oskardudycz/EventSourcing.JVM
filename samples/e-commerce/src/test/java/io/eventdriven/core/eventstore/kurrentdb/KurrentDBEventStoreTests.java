@@ -109,7 +109,7 @@ public class KurrentDBEventStoreTests extends DurableEventStoreTests {
         checkpoints.handle(
                 name, ((EventStore.AppendResult.Success) earlier).lastEvent().position(), () -> {});
 
-        subscription.awaitProcessed(((EventStore.AppendResult.Success) appended).lastEvent(), PROCESSING_TIMEOUT);
+        subscription.whenProcessed(((EventStore.AppendResult.Success) appended).lastEvent());
         assertThat(received).containsExactly(new ItemAdded(cartId, "t-shirt"));
     }
 

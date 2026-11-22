@@ -58,7 +58,7 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
         sendRaw("test.OrderPlaced", "{\"id\":\"order-1\"}".getBytes(StandardCharsets.UTF_8));
         beforePublish(messageBus);
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
@@ -100,7 +100,7 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
 
         publish(bus, authorized);
 
-        awaitCaughtUp();
+        whenCaughtUp();
         assertThat(messages.published).contains(authorized);
     }
 
@@ -112,7 +112,7 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
         publish(messageBus, new OrderPlaced("order-1"));
 
         assertThat(published.get().typeId()).isEqualTo("test.OrderPlaced");
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 
@@ -132,7 +132,7 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
 
         publish(bus, authorized);
 
-        awaitCaughtUp();
+        whenCaughtUp();
         assertThat(messages.published).hasSize(1);
         assertThat(((PaymentEvent.PaymentAuthorized) messages.published.getFirst()).authorizedAt())
                 .isEqualTo(authorizedAt)
@@ -187,7 +187,7 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
         }
 
         var messageId = published.get().messageId();
-        awaitCaughtUp();
+        whenCaughtUp();
         assertThat(seen).hasSize(4);
         assertThat(seen.subList(0, 3))
                 .containsExactly(
@@ -209,7 +209,7 @@ public abstract class BrokerMessageBusTests extends MessageBusTests {
 
         publish(messageBus, new OrderPlaced("order-1"));
 
-        awaitCaughtUp();
+        whenCaughtUp();
         messages.shouldReceiveSingleEvent(new OrderPlaced("order-1"));
     }
 }

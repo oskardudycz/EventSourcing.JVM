@@ -5,6 +5,7 @@ import io.eventdriven.core.eventstore.Checkpoint;
 import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.eventstore.Subscription;
+import io.eventdriven.core.eventstore.SubscriptionsCatchUp;
 import io.eventdriven.core.messaging.EventEnvelope;
 import io.eventdriven.core.messaging.EventMetadata;
 import io.eventdriven.core.messaging.MessageContext;
@@ -32,6 +33,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -212,6 +214,11 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
         var subscription =
                 new PostgreSQLSubscription(dataSource, name, types, handler, context, serializer, checkpoints, backOff);
         subscriptions.add(subscription);
+        catchUp.subscribed(
+                types.stream()
+                        .flatMap(type -> serializer.typeNamesOf(type).stream())
+                        .collect(Collectors.toSet()),
+                subscription.progress());
 
         return subscription.progress();
     }
@@ -269,10 +276,15 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
                 if (!rows.getBoolean("success")) return failedAppend(expectedVersion, streamPosition);
 
                 var globalPositions = (Long[]) rows.getArray("global_positions").getArray();
+                var transactionId = rows.getLong("transaction_id");
+
+                for (var i = 0; i < events.length; i++)
+                    catchUp.appended(
+                            serializer.typeNameOf(events[i].getClass()),
+                            new Checkpoint(transactionId, globalPositions[i]));
 
                 return new AppendResult.Success(
-                        streamPosition,
-                        new Checkpoint(rows.getLong("transaction_id"), globalPositions[globalPositions.length - 1]));
+                        streamPosition, new Checkpoint(transactionId, globalPositions[globalPositions.length - 1]));
             }
         }
     }
@@ -381,6 +393,7 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
     private final BackOff backOff;
     private final Set<String> subscriptionNames = ConcurrentHashMap.newKeySet();
     private final List<PostgreSQLSubscription> subscriptions = new CopyOnWriteArrayList<>();
+    private final SubscriptionsCatchUp catchUp = new SubscriptionsCatchUp();
     private final ScheduledExecutorService poller = Executors.newSingleThreadScheduledExecutor(runnable -> {
         var thread = new Thread(runnable, "postgresql-event-store-poller");
         thread.setDaemon(true);
@@ -450,5 +463,10 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
         } catch (RuntimeException e) {
             logger.error("Polling the event store failed", e);
         }
+    }
+
+    @Override
+    public void whenCaughtUp(Duration timeout) {
+        catchUp.whenCaughtUp(timeout);
     }
 }

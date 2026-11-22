@@ -2,7 +2,6 @@ package io.eventdriven.ecommerce;
 
 import io.eventdriven.testing.TestDatabases;
 import io.eventdriven.testing.tracing.InMemorySpansConfiguration;
-import java.time.Duration;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -25,9 +24,5 @@ public class PurchaseOnRabbitMQTests extends PurchaseTests {
         TestDatabases.addProjectionsDatabase(registry, postgreSQL);
         TestDatabases.addPostgreSQLEventStore(registry, postgreSQL);
         TestDatabases.addRabbitMQ(registry, rabbitMQ);
-    }
-
-    public PurchaseOnRabbitMQTests() {
-        settleTime = Duration.ofSeconds(1);
     }
 }

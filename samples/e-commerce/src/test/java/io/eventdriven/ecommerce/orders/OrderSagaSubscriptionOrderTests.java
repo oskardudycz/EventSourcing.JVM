@@ -6,6 +6,7 @@ import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.eventstore.ExpectedStreamVersion;
 import io.eventdriven.core.eventstore.Subscription;
 import io.eventdriven.core.messaging.EventEnvelope;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -73,6 +74,11 @@ public class OrderSagaSubscriptionOrderTests {
             subscriptionNames.add(name);
 
             return store.subscribe(name, types, handler);
+        }
+
+        @Override
+        public void whenCaughtUp(Duration timeout) {
+            store.whenCaughtUp(timeout);
         }
     }
 }

@@ -51,7 +51,6 @@ public class KafkaMessageBusFailureTests {
     public record RoomInspected(String room, String inspector) {}
 
     private static final String KEY = "ecommerce.payment.1";
-    private static final Duration CATCH_UP_TIMEOUT = Duration.ofSeconds(30);
 
     private final String bootstrapServers = TestDatabases.kafkaBootstrapServers();
     private final String id = UUID.randomUUID().toString().substring(0, 8);
@@ -132,7 +131,7 @@ public class KafkaMessageBusFailureTests {
 
         publish(new PaymentReceived("payment-1"));
 
-        awaitCaughtUp();
+        messageBus.whenCaughtUp();
         messages.shouldReceiveSingleEvent(new PaymentReceived("payment-1"));
         assertThat(attempts).hasValue(2);
         assertThat(KafkaTopics.recordsOf(bootstrapServers, billing + "-dlt")).isEmpty();
@@ -147,7 +146,7 @@ public class KafkaMessageBusFailureTests {
 
         publish(new PaymentReceived("payment-1"));
 
-        awaitCaughtUp();
+        messageBus.whenCaughtUp();
         assertThat(KafkaTopics.recordsOf(bootstrapServers, billing + "-dlt")).hasSize(1);
     }
 
@@ -347,7 +346,7 @@ public class KafkaMessageBusFailureTests {
         publishRaw("test.RoomInspected.v0", "{\"r\":\"102\"}");
         publishRaw("test.RoomInspected", "{\"room\":\"103\",\"inspector\":\"anna\"}");
 
-        awaitCaughtUp();
+        messageBus.whenCaughtUp();
         assertThat(messages.published)
                 .containsExactlyInAnyOrder(
                         new RoomInspected("101", "unknown"),
@@ -376,16 +375,12 @@ public class KafkaMessageBusFailureTests {
     }
 
     private List<ConsumerRecord<String, byte[]>> deadLettersOf(String queue, int count) {
-        awaitCaughtUp();
+        messageBus.whenCaughtUp();
 
         var records = KafkaTopics.recordsOf(bootstrapServers, queue + "-dlt");
         assertThat(records).hasSize(count);
 
         return records;
-    }
-
-    private void awaitCaughtUp() {
-        messageBus.awaitCaughtUp(CATCH_UP_TIMEOUT);
     }
 
     private double deadLettered() {
