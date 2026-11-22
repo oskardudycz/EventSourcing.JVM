@@ -6,6 +6,7 @@ import io.eventdriven.core.eventstore.EventStore;
 import io.eventdriven.core.messaging.MessageBus;
 import io.eventdriven.core.messaging.MessageEnvelope;
 import io.eventdriven.testing.Transcript;
+import io.eventdriven.testing.api.SpanTree.RecordedSpan;
 import io.eventdriven.testing.eventstore.RecordingEventStore;
 import io.eventdriven.testing.tracing.FinishedSpans;
 import io.micrometer.core.instrument.Counter;
@@ -84,6 +85,12 @@ public abstract class ApiE2ESpecification {
     @FunctionalInterface
     public interface TestAction extends TestStep {
         void run();
+    }
+
+    /** A step that takes part in the scenario's trace by sending the {@code traceparent} it gets. */
+    @FunctionalInterface
+    public interface TracedStep extends TestStep {
+        void run(String traceparent);
     }
 
     public record Publish(List<Object> messages) implements TestStep {}
@@ -185,6 +192,10 @@ public abstract class ApiE2ESpecification {
 
     public static TestStep attempt(TestRequest request) {
         return new Attempt(request);
+    }
+
+    public static TestStep traced(TracedStep step) {
+        return step;
     }
 
     public static TestStep send(Object... commands) {
@@ -350,12 +361,11 @@ public abstract class ApiE2ESpecification {
 
     public static Expectation expectTrace(ExpectedSpan root) {
         return outcome -> {
-            var mismatch = mismatchOf(root, outcome.spans().get());
+            var spans = recorded(outcome.spans().get());
+            var mismatch = SpanTree.mismatchOf(root, spans);
 
             assertThat(mismatch)
-                    .as(
-                            "%s%nFinished spans:%n%s",
-                            mismatch.orElse(""), describe(outcome.spans().get()))
+                    .as("%s%nFinished spans:%n%s", mismatch.orElse(""), SpanTree.describe(spans))
                     .isEmpty();
         };
     }
@@ -370,12 +380,11 @@ public abstract class ApiE2ESpecification {
 
     public static Expectation expectCorrelatedTrace() {
         return outcome -> {
-            var mismatch = correlationMismatchOf(outcome.spans().get());
+            var spans = recorded(outcome.spans().get());
+            var mismatch = correlationMismatchOf(spans);
 
             assertThat(mismatch)
-                    .as(
-                            "%s%nFinished spans:%n%s",
-                            mismatch.orElse(""), describe(outcome.spans().get()))
+                    .as("%s%nFinished spans:%n%s", mismatch.orElse(""), SpanTree.describe(spans))
                     .isEmpty();
         };
     }
@@ -486,6 +495,12 @@ public abstract class ApiE2ESpecification {
                 action.run();
                 return null;
             }
+            case TracedStep traced -> {
+                var traceId = randomHex(16);
+                traceIds.add(traceId);
+                traced.run("00-%s-%s-01".formatted(traceId, randomHex(8)));
+                return null;
+            }
             default -> throw new IllegalArgumentException("Unknown test step: " + step);
         }
     }
@@ -508,91 +523,19 @@ public abstract class ApiE2ESpecification {
         return spans == null ? List.of() : spans.getFinishedSpanItems();
     }
 
-    private static Optional<String> mismatchOf(ExpectedSpan expected, List<SpanData> spans) {
-        var named = spans.stream()
-                .filter(span -> span.getName().equals(expected.name()))
-                .toList();
-
-        if (named.isEmpty()) return Optional.of("No span '%s'".formatted(expected.name()));
-
-        var candidates = named.stream().filter(span -> matches(span, expected)).toList();
-
-        if (candidates.isEmpty())
-            return Optional.of("No span '%s' with attributes %s, the spans of that name have %s"
-                    .formatted(
-                            expected.name(),
-                            expected.attributes(),
-                            named.stream()
-                                    .map(ApiE2ESpecification::attributesOf)
-                                    .toList()));
-
-        Optional<String> firstMismatch = Optional.empty();
-        for (var candidate : candidates) {
-            var mismatch = mismatchBelow(expected, candidate, spans);
-            if (mismatch.isEmpty()) return Optional.empty();
-            if (firstMismatch.isEmpty()) firstMismatch = mismatch;
-        }
-        return firstMismatch;
-    }
-
-    private static Optional<String> mismatchBelow(ExpectedSpan expected, SpanData parent, List<SpanData> spans) {
-        for (var child : expected.children()) {
-            var named = spans.stream()
-                    .filter(span -> span.getName().equals(child.name()) && isBelow(span, parent, spans))
-                    .toList();
-
-            if (named.isEmpty()) return Optional.of("No span '%s' below '%s'".formatted(child.name(), expected.name()));
-
-            var candidates = named.stream().filter(span -> matches(span, child)).toList();
-
-            if (candidates.isEmpty())
-                return Optional.of("No span '%s' with attributes %s below '%s', the spans of that name have %s"
-                        .formatted(
-                                child.name(),
-                                child.attributes(),
-                                expected.name(),
-                                named.stream()
-                                        .map(ApiE2ESpecification::attributesOf)
-                                        .toList()));
-
-            Optional<String> firstMismatch = Optional.empty();
-            var matched = false;
-            for (var candidate : candidates) {
-                var mismatch = mismatchBelow(child, candidate, spans);
-                if (mismatch.isEmpty()) {
-                    matched = true;
-                    break;
-                }
-                if (firstMismatch.isEmpty()) firstMismatch = mismatch;
-            }
-            if (!matched) return firstMismatch;
-        }
-        return Optional.empty();
-    }
-
-    private static boolean matches(SpanData span, ExpectedSpan expected) {
-        return attributesOf(span).entrySet().containsAll(expected.attributes().entrySet());
-    }
-
-    private static Map<String, String> attributesOf(SpanData span) {
-        var attributes = new TreeMap<String, String>();
-        span.getAttributes().forEach((key, value) -> attributes.put(key.getKey(), String.valueOf(value)));
-        return attributes;
-    }
-
-    private static Optional<String> correlationMismatchOf(List<SpanData> spans) {
+    private static Optional<String> correlationMismatchOf(List<RecordedSpan> spans) {
         var correlated = spans.stream()
-                .filter(span -> attributesOf(span).containsKey(CORRELATION_ID))
+                .filter(span -> span.attributes().containsKey(CORRELATION_ID))
                 .toList();
 
         if (correlated.isEmpty()) return Optional.of("No span carries the attribute " + CORRELATION_ID);
 
-        var traces = correlated.stream().collect(Collectors.groupingBy(SpanData::getTraceId));
+        var traces = correlated.stream().collect(Collectors.groupingBy(RecordedSpan::traceId));
 
         for (var trace : traces.values()) {
             var correlationId = trace.stream()
-                    .collect(Collectors.groupingBy(
-                            span -> attributesOf(span).get(CORRELATION_ID), Collectors.counting()))
+                    .collect(
+                            Collectors.groupingBy(span -> span.attributes().get(CORRELATION_ID), Collectors.counting()))
                     .entrySet()
                     .stream()
                     .max(Map.Entry.comparingByValue())
@@ -600,33 +543,43 @@ public abstract class ApiE2ESpecification {
                     .getKey();
 
             for (var span : trace) {
-                var spanCorrelationId = attributesOf(span).get(CORRELATION_ID);
+                var spanCorrelationId = span.attributes().get(CORRELATION_ID);
                 if (!spanCorrelationId.equals(correlationId))
                     return Optional.of("Span '%s' carries correlation '%s', but its trace carries '%s'"
-                            .formatted(span.getName(), spanCorrelationId, correlationId));
+                            .formatted(span.name(), spanCorrelationId, correlationId));
             }
         }
 
         var handlersOf = spans.stream()
-                .filter(span -> attributesOf(span).containsKey(MESSAGE_ID))
-                .collect(Collectors.groupingBy(span -> attributesOf(span).get(MESSAGE_ID)));
+                .filter(span -> span.attributes().containsKey(MESSAGE_ID))
+                .collect(Collectors.groupingBy(span -> span.attributes().get(MESSAGE_ID)));
 
         for (var span : spans) {
-            var causationId = attributesOf(span).get(CAUSATION_ID);
-            if (causationId == null || causationId.equals(attributesOf(span).get(CORRELATION_ID))) continue;
+            var causationId = span.attributes().get(CAUSATION_ID);
+            if (causationId == null || causationId.equals(span.attributes().get(CORRELATION_ID))) continue;
 
             var handlers = handlersOf.getOrDefault(causationId, List.of());
 
             if (handlers.isEmpty())
                 return Optional.of("Span '%s' was caused by message %s, but no span handled that message"
-                        .formatted(span.getName(), causationId));
+                        .formatted(span.name(), causationId));
 
-            if (handlers.stream().noneMatch(handler -> handler == span || isBelow(span, handler, spans)))
+            if (handlers.stream().noneMatch(handler -> handler == span || SpanTree.isBelow(span, handler, spans)))
                 return Optional.of("Span '%s' was caused by message %s, but is not below '%s' that handled it"
-                        .formatted(
-                                span.getName(), causationId, handlers.getFirst().getName()));
+                        .formatted(span.name(), causationId, handlers.getFirst().name()));
         }
         return Optional.empty();
+    }
+
+    private static List<RecordedSpan> recorded(List<SpanData> spans) {
+        return spans.stream()
+                .map(span -> {
+                    var attributes = new TreeMap<String, String>();
+                    span.getAttributes().forEach((key, value) -> attributes.put(key.getKey(), String.valueOf(value)));
+                    return new RecordedSpan(
+                            span.getTraceId(), span.getSpanId(), span.getParentSpanId(), span.getName(), attributes);
+                })
+                .toList();
     }
 
     private Map<Meter.Id, Double> metricCounts() {
@@ -653,35 +606,6 @@ public abstract class ApiE2ESpecification {
             case FunctionCounter counter -> counter.count();
             default -> 0;
         };
-    }
-
-    private static boolean isBelow(SpanData span, SpanData ancestor, List<SpanData> spans) {
-        if (!span.getTraceId().equals(ancestor.getTraceId())) return false;
-
-        var byId = spans.stream()
-                .filter(each -> each.getTraceId().equals(ancestor.getTraceId()))
-                .collect(Collectors.toMap(SpanData::getSpanId, each -> each, (first, second) -> first));
-        var parentId = span.getParentSpanId();
-
-        while (byId.containsKey(parentId)) {
-            if (parentId.equals(ancestor.getSpanId())) return true;
-            parentId = byId.get(parentId).getParentSpanId();
-        }
-        return parentId.equals(ancestor.getSpanId());
-    }
-
-    private static String describe(List<SpanData> spans) {
-        var lines = new ArrayList<String>();
-        for (var span : spans) {
-            lines.add("  %s (trace %s, span %s, parent %s) %s"
-                    .formatted(
-                            span.getName(),
-                            span.getTraceId(),
-                            span.getSpanId(),
-                            span.getParentSpanId(),
-                            attributesOf(span)));
-        }
-        return String.join("\n", lines);
     }
 
     private static String randomHex(int bytes) {

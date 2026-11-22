@@ -37,6 +37,17 @@
       <button class="pay" type="submit" th:text="${'Pay $' + #numbers.formatDecimal(checkout.amount(), 1, 'COMMA', 2, 'POINT')}">Pay</button>
       <p class="hint">Sandbox: 4242 4242 4242 4242 pays, 4000 0000 0000 0002 is declined.</p>
     </form>
+    <div th:unless="${expired}" class="test-cards">
+      <p class="hint">Or use a test card:</p>
+      <form method="post" th:action="@{/sandbox/checkout/{id}(id=${checkout.id()})}">
+        <input type="hidden" name="cardNumber" value="4242 4242 4242 4242">
+        <button class="link" type="submit">Pay with a card that works</button>
+      </form>
+      <form method="post" th:action="@{/sandbox/checkout/{id}(id=${checkout.id()})}">
+        <input type="hidden" name="cardNumber" value="4000 0000 0000 0002">
+        <button class="link" type="submit">Try a card that is declined</button>
+      </form>
+    </div>
   </section>
 </div>
 </body>

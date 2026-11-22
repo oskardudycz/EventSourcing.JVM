@@ -597,7 +597,7 @@ The rest of the provider's API is called by small clients that react to the paym
 
 [FulfillmentServiceClient](./src/main/java/io/eventdriven/ecommerce/shipments/fulfillment/FulfillmentServiceClient.java) sends the request to the fulfillment service when the shipment records `FulfillmentRequested`. The service answers later by sending a command back: `ConfirmPackageSent` with the carrier and the tracking number, or `RejectFulfillment`, and later `DeliverPackage`. If the call itself fails, nothing is recorded, and the order is canceled when the authorization expires.
 
-**The sandboxes.** When the application runs, sandboxes play both outside systems, so that you can go through a purchase without an account at a real provider. [SandboxPaymentGateway](./src/main/java/io/eventdriven/ecommerce/payments/sandbox/SandboxPaymentGateway.java) serves its own payment page, laid out like Stripe Checkout, and takes Stripe's test cards: 4242 4242 4242 4242 pays, and 4000 0000 0000 0002 is declined and stays on the page, so the customer can try again. Paying sends `ConfirmPaymentAuthorization` with a 7-day `captureBefore`, as the webhook would, and sends the browser to the `successUrl`. A charge is confirmed at once. [SandboxFulfillmentService](./src/main/java/io/eventdriven/ecommerce/shipments/sandbox/SandboxFulfillmentService.java) plays the fulfillment service: it sends every package at once, with the carrier "Sandbox Express". In the tests, test doubles play both systems and send the same commands.
+**The sandboxes.** When the application runs, sandboxes play both outside systems, so that you can go through a purchase without an account at a real provider. [SandboxPaymentGateway](./src/main/java/io/eventdriven/ecommerce/payments/sandbox/SandboxPaymentGateway.java) serves its own payment page, laid out like Stripe Checkout, and takes Stripe's test cards: 4242 4242 4242 4242 pays, and 4000 0000 0000 0002 is declined and stays on the page, so the customer can try again. Two buttons under the form pay with either card in one click. Paying sends `ConfirmPaymentAuthorization` with a 7-day `captureBefore`, as the webhook would, and sends the browser to the `successUrl`. A charge is confirmed at once. [SandboxFulfillmentService](./src/main/java/io/eventdriven/ecommerce/shipments/sandbox/SandboxFulfillmentService.java) plays the fulfillment service: it sends every package at once, with the carrier "Sandbox Express". In the tests, test doubles play both systems and send the same commands.
 
 ### The web API and the shop
 
@@ -686,7 +686,19 @@ The purchases across the modules are scenarios in [PurchaseTests](./src/test/jav
     }
 ```
 
-The same scenarios run on three setups: in memory ([PurchaseInMemoryTests](./src/test/java/io/eventdriven/ecommerce/PurchaseInMemoryTests.java)), on Kafka with KurrentDB and PostgreSQL ([PurchaseOnKafkaTests](./src/test/java/io/eventdriven/ecommerce/PurchaseOnKafkaTests.java)), and on RabbitMQ with PostgreSQL ([PurchaseOnRabbitMQTests](./src/test/java/io/eventdriven/ecommerce/PurchaseOnRabbitMQTests.java)). After each step, the test waits until the event store and the bus have caught up, because the handlers run after the request answered. Each round waits for the store, then the bus, then the store again, and the rounds repeat until one publishes nothing new. The workers aren't scheduled in the tests (`workers.scheduled=false`): `time.passes(...)` moves the clock and runs them, as the scheduler would. [ShopInBrowserTests](./src/test/java/io/eventdriven/ecommerce/shop/ShopInBrowserTests.java) goes through the shop in Chromium with [Playwright](https://playwright.dev/java/), checks that the browser reports no errors, and takes the screenshots of [HOWTO.md](./HOWTO.md). The browser tests run apart from the build, with `./gradlew e2eTest`, because they start Chromium.
+The same scenarios run on three setups: in memory ([PurchaseInMemoryTests](./src/test/java/io/eventdriven/ecommerce/PurchaseInMemoryTests.java)), on Kafka with KurrentDB and PostgreSQL ([PurchaseOnKafkaTests](./src/test/java/io/eventdriven/ecommerce/PurchaseOnKafkaTests.java)), and on RabbitMQ with PostgreSQL ([PurchaseOnRabbitMQTests](./src/test/java/io/eventdriven/ecommerce/PurchaseOnRabbitMQTests.java)). After each step, the test waits until the event store and the bus have caught up, because the handlers run after the request answered. Each round waits for the store, then the bus, then the store again, and the rounds repeat until one publishes nothing new. The workers aren't scheduled in the tests (`workers.scheduled=false`): `time.passes(...)` moves the clock and runs them, as the scheduler would. The browser tests extend [BrowserE2ESpecification](./src/test/java/io/eventdriven/testing/browser/BrowserE2ESpecification.java), the same specification in [Playwright](https://playwright.dev/java/) and Chromium. A step is what a person does on the pages, and [Customer](./src/test/java/io/eventdriven/ecommerce/shop/Customer.java) names those steps. Each browser step sends a `traceparent` header, so `expectTrace` follows the requests it made. Next to the other expectations, a test checks the page, and fails when the browser reports an error:
+
+```java
+given(paymentPage)
+        .when(customer.paysWithACardThatWorks())
+        .then(
+                expectPageShowing("Completed", "Sandbox Express"),
+                expectPageNotShowing("Pay now"),
+                expectUpdatedInPlace(),
+                expectNoFailedResponses());
+```
+
+[ShopInBrowserTests](./src/test/java/io/eventdriven/ecommerce/shop/ShopInBrowserTests.java) goes through the shop and takes the screenshots of [HOWTO.md](./HOWTO.md) with `screenshot(name)` steps. The browser tests run apart from the build, with `./gradlew e2eTest`, because they start Chromium.
 
 The application runs on real infrastructure by default: Kafka, KurrentDB and PostgreSQL. `./gradlew bootRun` starts them with Spring Boot's Docker Compose support, as [the HOWTO](./HOWTO.md#1-start-the-application) describes. The `in-memory` Spring profile switches the application back to the in-memory bus, event store and projections, with no Docker. The module tests and the in-memory purchase scenarios use that profile. The tests of the Kafka, RabbitMQ, KurrentDB and PostgreSQL implementations, and the purchase scenarios on Kafka and RabbitMQ, use the servers of the Docker Compose project when they run, and start them with [Testcontainers](https://testcontainers.com/) when they don't. So running them needs only Docker. A test class that starts the application on shared servers needs `@DirtiesContext` and `TestDatabases.newPostgreSQLDatabase()`, so that its projections and checkpoints don't mix with the ones of another class.
 
@@ -720,17 +732,46 @@ The application sends all three over OTLP, OpenTelemetry's protocol. The Docker 
 - `command.handle`, for each command that [CommandHandler](./src/main/java/io/eventdriven/core/commands/CommandHandler.java) handles: the command type, the stream, the stream's version before and after, the events it appended, and whether it succeeded. A failed command also marks its span as an error, with the exception.
 - `eventStore.readStream` and `eventStore.appendToStream`, for each read and append, in every event store: the stream, the events read or appended, and whether it succeeded or hit a version conflict.
 
-The same steps give the metrics: the time to handle a command and to read or append a stream, by command type and outcome, and the number of events appended of each type. Counting the events is how the dashboards count orders, payments and shipments.
+The same steps give the metrics:
+
+- `eventdriven.command.handling.count` counts the commands by type and status, and the `eventdriven.command.handle` timer times them;
+- `eventdriven.eventstore.read.count` and `eventdriven.eventstore.append.count` count the reads and appends by status (`success`, `conflict` or `failure`), and timers of the same names without `.count` time them;
+- `eventdriven.event.appending.count` counts the appended events of each type. Counting the events is how the dashboards count orders, payments and shipments;
+- `eventdriven.subscription.lag` is the time from appending an event to a subscription handling it, for each subscription.
+
+Prometheus computes `increase()` and `rate()` from the difference between two samples of a series. A series that starts at 1 has no earlier sample, so its first count doesn't show. That's why the counters register all their statuses at 0 the first time they count: the first conflict or failed command then shows as an increase, and an alert on it fires. [Axon](https://docs.axoniq.io/axon-framework-reference/4.10/monitoring/metrics/) does the same. The very first command of each type still starts at 1, so the totals since the start, such as **Commands handled**, use the counter's value itself, not `increase()`.
 
 **How a purchase stays together.** Every message of a purchase carries the same *correlation id*. Each message also carries a *causation id*: the id of the message that was being handled when it was written. An HTTP request starts a new correlation id. While a message is handled, [MessageContext](./src/main/java/io/eventdriven/core/messaging/MessageContext.java) keeps both ids next to the trace context, as tracing *baggage*: values that travel with the trace. So every event the handler appends and every message it publishes takes them over. The event stores keep them in each event's metadata (KurrentDB as `$correlationId` and `$causationId`), the brokers carry them in the message headers, and the handler of the next message reads them back. Only the ids travel, not where an event is stored: the stream and its positions stay inside the module that owns them. A handler that runs again after a redelivery publishes its messages with the same ids, because each id is derived from the id of the message it handles, so the receivers can tell the repeat apart.
 
 **Dashboards.** Three dashboards come with the sample, from [observability/dashboards](./observability/dashboards):
 
 - **Purchases** counts what customers do and what goes wrong: orders, payments and shipments, and, under **Watch out**, the failed commands, version conflicts, timeouts, dead letters and failed message handlers;
-- **Commands and event store** shows the command handlers and the event store, in the same shape as Emmett's dashboard;
+- **Commands and event store** shows the command handlers, the event store and how far each subscription lags behind the appends, in the same shape as Emmett's dashboard;
 - **Purchase flow** shows the messages published, handled and failed in each channel.
 
-**Testing it.** [PurchaseTests](./src/test/java/io/eventdriven/ecommerce/PurchaseTests.java) checks the telemetry of the important purchases, on every setup. `expectTrace` checks the spans and their attributes, `expectCorrelatedTrace()` checks that the trace has one correlation id and that each span sits below the handling of the message that caused it, and `expectMetric` checks how much a metric grew. `expectCausation` checks the ids themselves, as the messages and events carry them: given a tree such as `published(cartCheckedOut(), sent(placeOrder(), appended(orderPlaced(), ...)))`, it checks that every message in it has the correlation id of the first one, and that each one's causation id is the id of the message above it. [OtlpExportTests](./src/test/java/io/eventdriven/ecommerce/OtlpExportTests.java) sends a purchase to a real Grafana LGTM and checks that the trace reaches Tempo, that every dashboard query is valid, and that the panels a purchase fills have data. [ShopTelemetryInBrowserTests](./src/test/java/io/eventdriven/ecommerce/ShopTelemetryInBrowserTests.java) buys in Chromium on Kafka, KurrentDB and PostgreSQL, then finds the purchase in Grafana as one trace, as metrics and as logs, and takes the screenshots of the dashboards. When the Docker Compose Grafana runs, the other tests send it their telemetry too, so you can look at a test run there.
+**Testing it.** [PurchaseTests](./src/test/java/io/eventdriven/ecommerce/PurchaseTests.java) checks the telemetry of the important purchases, on every setup. `expectTrace` checks the spans and their attributes, `expectCorrelatedTrace()` checks that the trace has one correlation id and that each span sits below the handling of the message that caused it, and `expectMetric` checks how much a metric grew. `expectCausation` checks the ids themselves, as the messages and events carry them: given a tree such as `published(cartCheckedOut(), sent(placeOrder(), appended(orderPlaced(), ...)))`, it checks that every message in it has the correlation id of the first one, and that each one's causation id is the id of the message above it. [OtlpExportTests](./src/test/java/io/eventdriven/ecommerce/OtlpExportTests.java) sends a purchase to a real Grafana LGTM and checks it with the expectations of [GrafanaApi](./src/test/java/io/eventdriven/testing/grafana/GrafanaApi.java). They wait until Grafana has the data, because the export is asynchronous:
+
+```java
+given(addProductItem(customerId, UUID.randomUUID(), 2))
+        .when(checkOut(customerId, weakETag(0)))
+        .then(
+                expectResponse(ACCEPTED),
+                flushed(tracerProvider, loggerProvider),
+                grafanaApi.expectTraceInTempo(span(
+                        "http post /customers/{customerId}/shopping-carts/current/checkout",
+                        span(
+                                "handle ShoppingCartCheckedOut",
+                                span(
+                                        "handle PlaceOrder",
+                                        span(
+                                                "command.handle",
+                                                Map.of("eventdriven.command.type", "PlaceOrder")))))),
+                grafanaApi.expectCommandsHandled("PlaceOrder"),
+                grafanaApi.expectEventsAppended("OrderPlaced"),
+                grafanaApi.expectLogsOf("e-commerce"));
+```
+
+`expectTraceInTempo` takes the same span tree as `expectTrace`, and matches it against what Tempo has. `expectValidDashboardQueries` checks that every dashboard query is valid PromQL, and `expectDashboardShowing` that the named panels show data. [ShopTelemetryInBrowserTests](./src/test/java/io/eventdriven/ecommerce/ShopTelemetryInBrowserTests.java) buys in Chromium on Kafka, KurrentDB and PostgreSQL, then finds the purchase in Grafana as one trace, as metrics and as logs, and takes the screenshots of the dashboards. When the Docker Compose Grafana runs, the other tests send it their telemetry too, so you can look at a test run there.
 
 **When something looks wrong.**
 
@@ -738,6 +779,7 @@ The same steps give the metrics: the time to handle a command and to read or app
 - *A purchase forms two traces.* That is expected: **Pay now** is a new HTTP request. Both traces have the same correlation id, so search for it.
 - *A trace stops at a broker.* The trace context travels in the message headers. In a `@SpringBootTest`, Spring Boot turns tracing off unless the test has `@AutoConfigureTracing`, and the trace then starts again at every broker.
 - *The API answers `503` with `Retry-After`.* A view is behind its write by more than a second. Ask again after the given seconds, and look at the failed commands and the append latency on **Commands and event store**.
+- *A panel shows no data after one purchase.* Prometheus needs two samples of a series to show an increase. The timers, such as the HTTP requests, start at 1, so their first request doesn't show. The next one does.
 - *A message ends up in a dead-letter queue.* The **Dead letters** panel on **Purchases** names the queue and the message type, and the message's trace in Tempo has the exception of each attempt.
 
 ### Documenting the messages

@@ -59,9 +59,17 @@ public class RecordingEventStore implements EventStore, AutoCloseable {
         if (result instanceof AppendResult.Success(var nextStreamVersion, var lastEvent)
                 && store.read(streamId) instanceof ReadResult.Success(var events))
             events.stream()
-                    .filter(event -> event.metadata().stream().streamPosition() > nextStreamVersion - count)
-                    .forEach(appended::add);
+                    .filter(event -> event.metadata().stream().streamPosition() > nextStreamVersion - count
+                            && event.metadata().stream().streamPosition() <= nextStreamVersion)
+                    .forEach(this::recordInLogOrder);
 
         return result;
+    }
+
+    private synchronized void recordInLogOrder(MessageEnvelope<Object> event) {
+        var logPosition = event.metadata().stream().logPosition();
+        var index = appended.size();
+        while (index > 0 && appended.get(index - 1).metadata().stream().logPosition() > logPosition) index--;
+        appended.add(index, event);
     }
 }

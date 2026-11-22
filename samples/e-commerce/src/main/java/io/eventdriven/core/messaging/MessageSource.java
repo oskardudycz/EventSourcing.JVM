@@ -1,9 +1,10 @@
 package io.eventdriven.core.messaging;
 
 import io.eventdriven.core.eventstore.Checkpoint;
+import java.time.Instant;
 
 public sealed interface MessageSource {
-    record InStream(String streamId, long streamPosition, long logPosition, long transactionId)
+    record InStream(String streamId, long streamPosition, long logPosition, long transactionId, Instant appendedAt)
             implements MessageSource {
         public Checkpoint checkpoint() {
             return new Checkpoint(transactionId, logPosition);

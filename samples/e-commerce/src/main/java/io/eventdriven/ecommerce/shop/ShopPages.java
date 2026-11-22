@@ -3,12 +3,14 @@ package io.eventdriven.ecommerce.shop;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.Locale;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,7 +44,10 @@ public class ShopPages {
     }
 
     @PostMapping("/logout")
-    public String logOut(HttpServletResponse response) {
+    public String logOut(HttpServletRequest request, HttpServletResponse response) {
+        var session = request.getSession(false);
+        if (session != null) session.invalidate();
+
         var cookie = new Cookie(customerCookie, "");
         cookie.setPath("/");
         cookie.setMaxAge(0);
@@ -57,6 +62,17 @@ public class ShopPages {
 
     @ControllerAdvice(basePackages = "io.eventdriven.ecommerce")
     public static class Layout {
+        private final String grafanaUrl;
+
+        public Layout(@Value("${shop.grafana-url:http://localhost:3000}") String grafanaUrl) {
+            this.grafanaUrl = grafanaUrl;
+        }
+
+        @ModelAttribute("grafanaUrl")
+        public String grafanaUrl() {
+            return grafanaUrl;
+        }
+
         @ModelAttribute("customerName")
         public @Nullable String customerName(
                 @CookieValue(name = customerCookie, required = false) @Nullable String customer) {

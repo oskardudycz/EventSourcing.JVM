@@ -456,7 +456,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (eventdriven_command_type) (increase(eventdriven_command_handle_milliseconds_count{eventdriven_command_status=\"failure\"}[$__interval]))",
+          "expr": "sum by (eventdriven_command_type) (increase(eventdriven_command_handling_count_total{eventdriven_command_status=\"failure\"}[$__interval]))",
           "legendFormat": "{{eventdriven_command_type}}",
           "range": true,
           "instant": false
@@ -717,6 +717,65 @@
           "mode": "multi"
         }
       }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Subscription lag",
+      "description": "How long after its append each subscription handled an event: the 95th percentile and the worst case. A growing lag means a subscription falls behind its events, for example because a handler fails and is retried.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, eventdriven_subscription_name) (rate(eventdriven_subscription_lag_milliseconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95 {{eventdriven_subscription_name}}",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (eventdriven_subscription_name) (eventdriven_subscription_lag_milliseconds_max)",
+          "legendFormat": "max {{eventdriven_subscription_name}}",
+          "range": true,
+          "instant": false
+        }
+      ]
     }
   ]
 }

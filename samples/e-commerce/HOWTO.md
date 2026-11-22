@@ -66,7 +66,7 @@ Type any name and click **Log in**. There is no password. The shop makes the cus
 
 ## 3. Add products to the cart
 
-The shop opens the **Products** page. The header shows your name.
+The shop opens the **Products** page. The header has links to your **Products**, **Cart** and **Orders**, and to **Grafana**, where you can see what the shop did (step 11). It also shows your name.
 
 ![The products page](./assets/howto/2-products.png)
 
@@ -95,7 +95,7 @@ Click **Pay now**. The shop sends you to the payment provider's page. This is th
 
 ![The sandbox payment page](./assets/howto/5-sandbox-checkout.png)
 
-Type the card number `4242 4242 4242 4242` and click the **Pay** button, which shows the amount. You can leave the other fields empty.
+Type the card number `4242 4242 4242 4242` and click the **Pay** button, which shows the amount. You can leave the other fields empty. Or click **Pay with a card that works** under the form, which does the same in one click. **Try a card that is declined** uses `4000 0000 0000 0002`: the page says the card was declined and you can try again.
 
 To see a declined card, use `4000 0000 0000 0002` instead. The page shows the decline and you can try again with another card, as on Stripe's page.
 

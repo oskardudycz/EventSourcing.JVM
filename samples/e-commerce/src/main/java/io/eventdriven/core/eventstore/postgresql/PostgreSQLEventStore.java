@@ -21,6 +21,8 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -48,7 +50,7 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
 
     static final String COLUMNS =
             "stream_id, stream_position, global_position, transaction_id::text::bigint as transaction_id,"
-                    + " message_id, message_type, message_data::text, message_metadata::text";
+                    + " message_id, message_type, message_data::text, message_metadata::text, created";
 
     private static final String CREATE_SCHEMA = """
             create table if not exists streams(
@@ -219,7 +221,7 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
         if (types.isEmpty())
             throw new IllegalArgumentException("Subscription '%s' needs at least one event type".formatted(name));
 
-        EventStoreObservations.countAppended(context, types);
+        EventStoreObservations.subscribed(context, name, types);
 
         if (!subscriptionNames.add(name))
             throw new IllegalArgumentException("Subscription name '%s' is already in use".formatted(name));
@@ -351,7 +353,8 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
             String messageId,
             String type,
             String data,
-            String metadata) {
+            String metadata,
+            Instant created) {
         static StoredMessage of(ResultSet row) throws SQLException {
             return new StoredMessage(
                     row.getString("stream_id"),
@@ -361,7 +364,8 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
                     row.getString("message_id"),
                     row.getString("message_type"),
                     row.getString("message_data"),
-                    row.getString("message_metadata"));
+                    row.getString("message_metadata"),
+                    row.getObject("created", OffsetDateTime.class).toInstant());
         }
 
         Checkpoint checkpoint() {
@@ -392,7 +396,8 @@ public class PostgreSQLEventStore implements EventStore, AutoCloseable {
                                 message.streamId(),
                                 message.streamPosition(),
                                 message.globalPosition(),
-                                message.transactionId())));
+                                message.transactionId(),
+                                message.created())));
     }
 
     private static final String TRACE_ID = "traceId";
