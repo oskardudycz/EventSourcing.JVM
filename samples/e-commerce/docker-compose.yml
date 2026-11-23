@@ -118,6 +118,8 @@ services:
   otel-lgtm:
     profiles: [ otel, otel-all, all, sample ]
     image: grafana/otel-lgtm:0.41.0
+    environment:
+      - GF_PLUGINS_PREINSTALL_AUTO_UPDATE=false
     volumes:
       - ./observability/tempo-config.yaml:/otel-lgtm/tempo-config.yaml:ro
       - ./observability/dashboards:/otel-lgtm/dashboards:ro

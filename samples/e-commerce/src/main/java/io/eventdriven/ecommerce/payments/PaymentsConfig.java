@@ -99,7 +99,12 @@ public class PaymentsConfig {
             Payment.Validity paymentValidity,
             Supplier<OffsetDateTime> now) {
         var commandHandler = new CommandHandler<Payment.Id, Payment, PaymentEvent>(
-                eventStore, messageContext, PaymentFacade::mapToStreamId, Payment::initial, Payment::evolve);
+                eventStore,
+                messageContext,
+                PaymentCommand.class,
+                PaymentFacade::mapToStreamId,
+                Payment::initial,
+                Payment::evolve);
 
         var facade = new PaymentFacade(commandHandler, paymentValidity, paymentGateway, now);
 

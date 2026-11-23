@@ -5,6 +5,7 @@ import io.eventdriven.ecommerce.shipments.Shipment;
 import io.eventdriven.ecommerce.shoppingcarts.ShoppingCart;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public sealed interface OrderEvent {
     record OrderPlaced(
@@ -49,7 +50,7 @@ public sealed interface OrderEvent {
             Order.Id orderId,
             Payment.Id paymentId, // the order's current payment, authorized or not
             Order.PaymentStatus paymentStatus,
-            Shipment.Id shipmentId, // nullable — an order canceled before the reservation has none
+            Shipment.@Nullable Id shipmentId, // nullable — an order canceled before the reservation has none
             Order.ShipmentStatus shipmentStatus,
             Order.CancellationReason reason,
             OffsetDateTime canceledAt)

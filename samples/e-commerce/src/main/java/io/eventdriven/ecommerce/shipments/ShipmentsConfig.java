@@ -88,7 +88,12 @@ public class ShipmentsConfig {
             Function<Shipment.ProductItem, Boolean> isProductAvailable,
             Supplier<OffsetDateTime> now) {
         var commandHandler = new CommandHandler<Shipment.Id, Shipment, ShipmentEvent>(
-                eventStore, messageContext, ShipmentFacade::mapToStreamId, Shipment::initial, Shipment::evolve);
+                eventStore,
+                messageContext,
+                ShipmentCommand.class,
+                ShipmentFacade::mapToStreamId,
+                Shipment::initial,
+                Shipment::evolve);
 
         var facade = new ShipmentFacade(commandHandler, isProductAvailable, now);
 

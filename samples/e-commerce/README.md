@@ -734,6 +734,43 @@ public void theProvidersConfirmationConfirmsTheOrderAndRequestsFulfillmentInTheP
 
 The same scenarios run on three setups: in memory ([PurchaseInMemoryTests](./src/test/java/io/eventdriven/ecommerce/PurchaseInMemoryTests.java)), on Kafka with KurrentDB and PostgreSQL ([PurchaseOnKafkaTests](./src/test/java/io/eventdriven/ecommerce/PurchaseOnKafkaTests.java)), and on RabbitMQ with PostgreSQL ([PurchaseOnRabbitMQTests](./src/test/java/io/eventdriven/ecommerce/PurchaseOnRabbitMQTests.java)). After each step, the test waits until the event store and the bus have caught up, because the handlers run after the request answered. Each round waits for the store, then the bus, then the store again, and the rounds repeat until one publishes nothing new. The workers aren't scheduled in the tests (`workers.scheduled=false`): `time.passes(...)` moves the clock and runs them, as the scheduler would.
 
+#### The format of the messages and the web API bodies
+
+The tests above write and read each message with the same code, so they still pass after a field is renamed. What breaks is what holds the old JSON: an event stored before the rename, a message still waiting on the bus, or a client that reads the web API. The contract tests catch that change in the build. They use [Strictland](https://github.com/event-driven-io/strictland): each test serializes an example with the application's `JsonMapper` and compares the JSON with the approved snapshot, a file in [src/test/resources/contract-registry](./src/test/resources/contract-registry). The folders there follow the type names that the event store and the bus write, for example `io/eventdriven/ecommerce/payments/PaymentEvent/PaymentCanceled`.
+
+Each module has one test class, such as [PaymentContractTests](./src/test/java/io/eventdriven/ecommerce/payments/PaymentContractTests.java), with a `@Nested` class for each kind of message: `StoredEvent`, `CommandOnTheBus` and `PublishedEvent`, for the external events. Each nested class has an example of each of its messages, and checks them one by one:
+
+```java
+@Nested
+class StoredEvent {
+    static Stream<Named<Object>> examples() {
+        return Contracts.examples(
+                new PaymentAuthorizationRequested(paymentId, referenceId, 129.99, at, at.plusMinutes(30)),
+                new CheckoutSessionCreated(
+                        paymentId, URI.create("https://checkout.example.com/session/1"), at.plusMinutes(30)),
+                new PaymentAuthorized(paymentId, at, at.plusDays(7)),
+                new PaymentCaptureRequested(paymentId, 129.99, at),
+                new PaymentEvent.PaymentCaptured(paymentId, 129.99, at),
+                new PaymentCaptureFailed(paymentId, Payment.CaptureFailureReason.UnexpectedError, at),
+                new PaymentCanceled(paymentId, at),
+                new PaymentTimedOut(paymentId, at),
+                new PaymentAuthorizationExpired(paymentId, at));
+    }
+
+    @ParameterizedTest
+    @MethodSource("examples")
+    void keepsItsFormat(Object event) {
+        MessageContract.specification(options).given(event).whenSerialized().thenContractIsUnchanged();
+    }
+}
+```
+
+[Contracts](./src/test/java/io/eventdriven/testing/contracts/Contracts.java) gives all of them the same `options`, with the application's `JsonMapper`, and fixed values for the dates and the ids, so that the JSON is the same on every run. `Contracts.examples` names each case after its class, so a failure names the message, for example `PaymentCanceled`. A message with optional fields, the ones marked `@Nullable`, has two shapes, so it gets two snapshots: the example in `examples()` provides all fields, and the one in `examplesWithRequiredData()` only the required ones. The second test of the nested class saves it as a variant of the same contract, with `whenSerializedAs(SnapshotVariant.named("WithRequiredData"))`. Most commands have both: a sender leaves `now` empty, and the facade that gets the command sets it. `OrderCanceled` has both too, because an order canceled before the reservation has no shipment.
+
+The web API bodies have their tests next to their documents: [CartContractTests](./src/test/java/io/eventdriven/ecommerce/shoppingcarts/getcart/CartContractTests.java), [CustomerOrderContractTests](./src/test/java/io/eventdriven/ecommerce/orders/getcustomerorders/CustomerOrderContractTests.java) and [OrderStatusContractTests](./src/test/java/io/eventdriven/ecommerce/orders/getorderstatus/OrderStatusContractTests.java). The request body of an added product is in the `RequestBody` class of [ShoppingCartContractTests](./src/test/java/io/eventdriven/ecommerce/shoppingcarts/ShoppingCartContractTests.java). The commands that a facade gets directly are never serialized, so they have no contract: the cart's commands, `RetryOrderPayment`, `CancelOrder` and `RecordCheckoutSession`.
+
+When the JSON differs, the test fails with the difference and writes the new JSON next to the approved file, as `.snap.received.json`. If the change is intended, replace the approved file with the received one and commit it with the code. The stored events and the messages on the bus written before the change keep the old format, so the new code must still read them. A new message has no approved file yet: its first run writes one, which you review and commit with the test.
+
 #### Browser tests
 
 The browser tests extend [BrowserE2ESpecification](./src/test/java/io/eventdriven/testing/browser/BrowserE2ESpecification.java), the same specification in [Playwright](https://playwright.dev/java/) and Chromium. A step is what a person does on the pages, and [Customer](./src/test/java/io/eventdriven/ecommerce/shop/Customer.java) names those steps. Each browser step sends a `traceparent` header, so `expectTrace` follows the requests it made. Next to the other expectations, a test checks the page, and fails when the browser reports an error. This test, from [ShopTelemetryInBrowserTests](./src/test/java/io/eventdriven/ecommerce/ShopTelemetryInBrowserTests.java), shops on Kafka, KurrentDB and PostgreSQL, where the views catch up after the writes:
@@ -767,7 +804,7 @@ A purchase goes through four modules and two brokers, so the log of one module t
 - *metrics* count and time what happens, for example how many orders were completed in the last hour;
 - *logs* are the application's log lines, each with the id of the trace it belongs to.
 
-The application sends all three over OTLP, OpenTelemetry's protocol. The Docker Compose services include Grafana LGTM, which receives them: Tempo keeps the traces, Prometheus the metrics and Loki the logs, and Grafana, at <http://localhost:3000>, shows them. If Grafana doesn't run, the application works the same, and the exporters stay quiet. [HOWTO.md](./HOWTO.md#11-look-at-the-purchase-in-grafana) walks through a purchase in Grafana.
+The application sends all three over OTLP, OpenTelemetry's protocol. The Docker Compose services include Grafana LGTM, which receives them: Tempo keeps the traces, Prometheus the metrics and Loki the logs, and Grafana, at <http://localhost:3000>, shows them. If Grafana doesn't run, the application works the same, and the exporters stay quiet. Grafana keeps the plugin versions it comes with (`GF_PLUGINS_PREINSTALL_AUTO_UPDATE=false`, in Docker Compose and in the tests). By default, about a minute after it starts, Grafana downloads a newer Prometheus plugin and swaps it in, and during the swap the Prometheus queries answer `404 Unable to find datasource plugin`. [HOWTO.md](./HOWTO.md#11-look-at-the-purchase-in-grafana) walks through a purchase in Grafana.
 
 **What a trace shows.** The trace of a checkout starts with the HTTP request and goes through every module that the purchase reaches. Four kinds of spans come from this sample. Their names and attributes follow [Emmett](https://github.com/event-driven-io/emmett)'s, with the prefix `eventdriven.`:
 
@@ -801,7 +838,7 @@ While a message is handled, [MessageContext](./src/main/java/io/eventdriven/core
 - `ecommerce.orders.in.progress`: how many orders are still running;
 - `ecommerce.orders.awaiting.payment`: how many orders wait for the customer to pay again.
 
-**Why the counters start at 0.** Prometheus shows how much a counter grew between two of its readings. A counter that appears for the first time at 1 has no earlier reading, so that first 1 never shows as growth. For a failed command, that would hide the first failure from the dashboards and the alerts. So the command and event store counters create all their statuses at 0 the first time they count anything, as [Axon](https://docs.axoniq.io/axon-framework-reference/4.10/monitoring/metrics/)'s `MessageCountingMonitor` creates its success, failure and ignored counters on the first message. The count of appended events of each type that a subscription handles also starts at 0, when the subscription starts, so the first `PaymentCaptureFailed` already fires **Capture failed**. The first command of each type still starts at 1, so the "since the start" totals, such as **Commands handled**, show the counter's value instead of its growth, as Emmett's dashboard does.
+**Why the counters start at 0.** Prometheus shows how much a counter grew between two of its readings. A counter that appears for the first time at 1 has no earlier reading, so that first 1 never shows as growth. For a failed command, that would hide the first failure from the dashboards and the alerts. So the event store counters create all their statuses at 0 the first time they count anything, as [Axon](https://docs.axoniq.io/axon-framework-reference/4.10/monitoring/metrics/)'s `MessageCountingMonitor` creates its success, failure and ignored counters on the first message. That isn't enough for the commands: the success counter of a command counts at once, so the first reading of a command type would still be 1. So each module's `CommandHandler` creates the success and failure counters of all the module's commands at 0 when the application starts. It gets them from the module's sealed command interface, such as `PaymentCommand`. The count of appended events of each type that a subscription handles also starts at 0, when the subscription starts, so the first `PaymentCaptureFailed` already fires **Capture failed**. The "since the start" totals, such as **Commands handled**, show the counter's value instead of its growth, as Emmett's dashboard does.
 
 **Dashboards.** Three dashboards come with the sample, from [observability/dashboards](./observability/dashboards):
 

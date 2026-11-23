@@ -69,6 +69,7 @@ public class ShoppingCartsConfig {
         var commandHandler = new CommandHandler<ShoppingCart.Id, ShoppingCart, ShoppingCartEvent>(
                 eventStore,
                 messageContext,
+                ShoppingCartCommand.class,
                 ShoppingCartFacade::mapToStreamId,
                 ShoppingCart::initial,
                 ShoppingCart::evolve);

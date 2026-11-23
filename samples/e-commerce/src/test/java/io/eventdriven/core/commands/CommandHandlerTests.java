@@ -33,9 +33,22 @@ public class CommandHandlerTests {
     private final CompetingWriterEventStore eventStore = new CompetingWriterEventStore(inMemoryEventStore);
     private final List<Counter> statesDecidedOn = new ArrayList<>();
     private final CommandHandler<UUID, Counter, CounterEvent> handler = new CommandHandler<>(
-            eventStore, messageContext, CommandHandlerTests::mapToStreamId, Counter::initial, Counter::evolve);
+            eventStore,
+            messageContext,
+            CounterCommand.class,
+            CommandHandlerTests::mapToStreamId,
+            Counter::initial,
+            Counter::evolve);
 
     private final UUID counterId = UUID.randomUUID();
+
+    @Test
+    public void everyCommandTypeIsCountedAtZeroBeforeItsFirstCommand() {
+        assertThat(handledCount("Open", "success")).isZero();
+        assertThat(handledCount("Open", "failure")).isZero();
+        assertThat(handledCount("Increment", "success")).isZero();
+        assertThat(handledCount("Increment", "failure")).isZero();
+    }
 
     @Test
     public void handlingACommandFoldsTheStreamAndAppendsWithTheVersionRead() {
