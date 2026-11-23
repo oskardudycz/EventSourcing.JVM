@@ -14,6 +14,7 @@ import io.opentelemetry.sdk.logs.SdkLoggerProvider;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -21,10 +22,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.awaitility.core.ConditionTimeoutException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -238,14 +242,51 @@ public final class GrafanaApi {
         });
     }
 
-    /** Every query of every dashboard is valid PromQL. */
+    /** Every query of every dashboard is valid PromQL. A server error of Grafana is asked again. */
     public Expectation expectValidDashboardQueries() {
         return outcome -> {
-            for (var query : dashboardQueries())
-                assertThat(prometheusResponse(query).path("status").asString())
-                        .as("Status of the query %s", query)
+            for (var query : dashboardQueries()) {
+                var answer = answerOfPrometheus(query);
+                assertThat(answer.json().path("status").asString())
+                        .as("Status of the query %s, answered with HTTP %s: %s", query, answer.status(), answer.body())
                         .isEqualTo("success");
+            }
         };
+    }
+
+    private record HttpAnswer(int status, String body) {
+        boolean isServerError() {
+            return status >= 500;
+        }
+
+        JsonNode json() {
+            try {
+                return body.isEmpty() ? json.missingNode() : json.readTree(body);
+            } catch (JacksonException notJson) {
+                return json.missingNode();
+            }
+        }
+    }
+
+    private HttpAnswer answerOfPrometheus(String query) {
+        var answer = new AtomicReference<HttpAnswer>();
+        try {
+            await().atMost(INGESTION).until(() -> {
+                answer.set(answerTo(proxied("prometheus", "/api/v1/query", "query", query)));
+                return !answer.get().isServerError();
+            });
+        } catch (ConditionTimeoutException stillFailing) {
+            return answer.get();
+        }
+        return answer.get();
+    }
+
+    private HttpAnswer answerTo(String path) {
+        return http.get()
+                .uri(URI.create(grafana.url() + path))
+                .exchange((request, response) -> new HttpAnswer(
+                        response.getStatusCode().value(),
+                        new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8)));
     }
 
     /** The dashboard has these panels, and each of them shows data. */

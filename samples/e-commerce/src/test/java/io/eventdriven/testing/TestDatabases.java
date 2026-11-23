@@ -166,6 +166,7 @@ public final class TestDatabases {
 
     private static final class SharedGrafana {
         private static final LgtmStackContainer container = new LgtmStackContainer(GRAFANA_IMAGE)
+                .withEnv("GF_PLUGINS_PREINSTALL_AUTO_UPDATE", "false")
                 .withCopyFileToContainer(MountableFile.forHostPath("observability/dashboards"), "/otel-lgtm/dashboards")
                 .withCopyFileToContainer(
                         MountableFile.forHostPath("observability/dashboards.yaml"),

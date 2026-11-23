@@ -108,7 +108,12 @@ public class OrdersConfig {
             OrderFacade.PaymentTerms paymentTerms,
             Supplier<OffsetDateTime> now) {
         var commandHandler = new CommandHandler<Order.Id, Order, OrderEvent>(
-                eventStore, messageContext, OrderFacade::mapToStreamId, Order::initial, Order::evolve);
+                eventStore,
+                messageContext,
+                OrderCommand.class,
+                OrderFacade::mapToStreamId,
+                Order::initial,
+                Order::evolve);
 
         var facade = new OrderFacade(commandHandler, paymentTerms, now);
 

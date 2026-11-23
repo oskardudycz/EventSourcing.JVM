@@ -99,6 +99,9 @@ dependencies {
   testImplementation 'org.testcontainers:testcontainers-rabbitmq'
   testImplementation 'org.testcontainers:testcontainers-grafana'
   testImplementation 'com.microsoft.playwright:playwright:1.65.1'
+
+  // Contract tests of the messages and the web API bodies
+  testImplementation 'io.event-driven:strictland:0.5.0'
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
   mockitoAgent('org.mockito:mockito-core') { transitive = false }
 }

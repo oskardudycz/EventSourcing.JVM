@@ -40,6 +40,7 @@ public class CommandHandler<Id, State, Event> {
     public CommandHandler(
             EventStore eventStore,
             MessageContext messageContext,
+            Class<?> commands,
             Function<Id, String> mapToStreamId,
             Supplier<State> initial,
             BiFunction<State, Event, State> evolve) {
@@ -48,6 +49,19 @@ public class CommandHandler<Id, State, Event> {
         this.mapToStreamId = mapToStreamId;
         this.initial = initial;
         this.evolve = evolve;
+
+        countAtZero(commands);
+    }
+
+    // Prometheus shows no increase for a counter whose first sample is already 1, so each type starts at 0.
+    private void countAtZero(Class<?> commands) {
+        if (!commands.isSealed())
+            throw new IllegalArgumentException("%s must be a sealed interface of the commands".formatted(commands));
+
+        for (var command : commands.getPermittedSubclasses()) {
+            handledCounter(command.getSimpleName(), "success");
+            handledCounter(command.getSimpleName(), "failure");
+        }
     }
 
     public State get(Id id) {

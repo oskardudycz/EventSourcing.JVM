@@ -1,0 +1,1 @@
+{"orderId":"urn:ecommerce:order:00000000-0000-0000-0000-000000000002","cartId":"urn:ecommerce:cart:00000000-0000-0000-0000-000000000001-1","customerId":"00000000-0000-0000-0000-000000000001","productItems":[{"productId":"00000000-0000-0000-0000-000000000005","quantity":2,"unitPrice":64.995}],"totalPrice":129.99,"placedAt":"2026-01-01T12:00:00Z"}
