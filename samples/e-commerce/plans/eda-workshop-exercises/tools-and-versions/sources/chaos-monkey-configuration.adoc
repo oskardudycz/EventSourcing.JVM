@@ -1,0 +1,189 @@
+[[configuration]]
+== Configuration ==
+
+Chaos Monkey for Spring Boot can be customized to your planned experiment.
+You can decide which attacks you want to run and which parts of your application should be attacked.
+
+=== Properties
+
+.Main
+|===
+|Property |Description |Values |Default
+
+|chaos.monkey.enabled
+|Determine whether should execute or not
+|TRUE or FALSE
+|FALSE
+|===
+
+.Assaults
+|===
+|Property |Description |Values |Default
+
+|chaos.monkey.assaults.level
+|How many requests are to be attacked.
+1 each request, 5 each 5th request is attacked
+|1-10000
+|1
+
+|chaos.monkey.assaults.deterministic
+|Whether the level should be used as a deterministic value (attack every x requests) or a chance (on average, 1 in x requests will be attacked)
+|TRUE or FALSE
+|FALSE
+
+|chaos.monkey.assaults.latencyRangeStart
+|Minimum latency in ms added to the request
+|Integer.MIN_VALUE, Integer.MAX_VALUE
+|1000
+
+|chaos.monkey.assaults.latencyRangeEnd
+|Maximum latency in ms added to the request
+|Integer.MIN_VALUE, Integer.MAX_VALUE
+|3000
+
+|chaos.monkey.assaults.latencyActive
+|Latency assault active
+|TRUE or FALSE
+|FALSE
+
+|chaos.monkey.assaults.exceptionsActive
+|Exception assault active
+|TRUE or FALSE
+|FALSE
+
+|chaos.monkey.assaults.exception.type
+|Exception to be thrown
+|Class name
+|java.lang.RuntimeException
+
+|chaos.monkey.assaults.exception.method
+|Exception constructor or static creator method
+|<init> for constructor or method name
+|<init>
+
+|chaos.monkey.assaults.exception.arguments[0].type
+|Exception argument types (repeatable)
+|Class name
+|java.lang.String
+
+|chaos.monkey.assaults.exception.arguments[0].value
+|Exception argument types (repeatable)
+|primitive or json value matching the respective type
+|"Chaos Monkey - RuntimeException"
+
+|chaos.monkey.assaults.killApplicationActive
+|AppKiller assault active
+|TRUE or FALSE
+|FALSE
+
+|chaos.monkey.assaults.killApplication.cron.expression
+|Cron expression like `*/1 * * * * ?` can be set to enable chaos monkey AppKiller assault on a schedule
+|Any valid cron expression (or OFF)
+|OFF
+
+|chaos.monkey.assaults.memoryActive
+|Memory assault active
+|TRUE or FALSE
+|FALSE
+
+|chaos.monkey.assaults.memoryMillisecondsHoldFilledMemory
+|Duration to assault memory when requested fill amount is reached in ms.
+|min=1500, max=Integer.MAX_VALUE
+|90000
+
+|chaos.monkey.assaults.memoryMillisecondsWaitNextIncrease
+|Time in ms between increases of memory usage.
+|min=100, max=30000
+|1000
+
+|chaos.monkey.assaults.memoryFillIncrementFraction
+|Fraction of one individual memory increase iteration. `1.0` equals 100 %.
+|min=0.01, max=1.0
+|0.15
+
+|chaos.monkey.assaults.memoryFillTargetFraction
+|Final fraction of used memory by assault. `0.95` equals 95 %.
+|min=0.01, max=0.95
+|0.25
+
+|chaos.monkey.assaults.memory.cron.expression
+|Cron expression like `*/1 * * * * ?` can be set to enable chaos monkey memory assault on a schedule
+|Any valid cron expression (or OFF)
+|OFF
+
+|chaos.monkey.assaults.cpuActive
+|CPU assault active
+|TRUE or FALSE
+|FALSE
+
+|chaos.monkey.assaults.cpuMillisecondsHoldLoad
+|Duration to assault cpu when requested load is reached in ms.
+|min=1500, max=Integer.MAX_VALUE
+|90000
+
+|chaos.monkey.assaults.cpuLoadTargetFraction
+|Final fraction of used cpu by assault. `0.95` equals 95 %.
+|min=0.1, max=1.0
+|0.9
+
+|chaos.monkey.assaults.cpu.cron.expression
+|Cron expression like `*/1 * * * * ?` can be set to enable chaos monkey cpu assault on a schedule
+|Any valid cron expression (or OFF)
+|OFF
+
+|chaos.monkey.assaults.watchedCustomServices
+|Limits watched packages/classes/methods
+|List of fully qualified packages, class and/or method names
+|Empty list
+
+|===
+
+.Watcher
+|===
+|Property |Description |Values |Default
+
+|chaos.monkey.watcher.controller
+|Controller watcher active
+|TRUE or FALSE
+|FALSE
+
+|chaos.monkey.watcher.restController
+|RestController watcher active
+|TRUE or FALSE
+|FALSE
+
+|chaos.monkey.watcher.service
+|Service watcher active
+|TRUE or FALSE
+|FALSE
+
+|chaos.monkey.watcher.repository
+|Repository watcher active
+|TRUE or FALSE
+|FALSE
+
+|chaos.monkey.watcher.component
+|Component watcher active
+|TRUE or FALSE
+|FALSE
+
+|chaos.monkey.watcher.actuatorHealth
+|Spring actuator health watcher active
+|TRUE or FALSE
+|FALSE
+
+|chaos.monkey.watcher.beans
+|Bean watcher for given beans
+|List of bean names
+|Empty list
+
+|chaos.monkey.watcher.beanClasses
+|Bean watcher for given beans classes
+|List of bean classes
+|Empty list
+
+|chaos.monkey.watcher.exclude
+|Exclude classes from proxying. Use if proxying a class breaks it.
+|List of class names
+|Empty list
+|===

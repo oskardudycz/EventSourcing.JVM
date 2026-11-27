@@ -1,0 +1,104 @@
+
+Events should be as small as possible, right?
+
+ 2021-04-14
+ oskar dudycz
+
+Tags:Event Sourcing
+
+Guides:Events on the inside, events on the outside (2/2)
+
+TV size? The bigger, the better. Debt amount? Opposite. It’s hard to find the right size that suits all. How big should the event be? What amount of information should it contain? Unfortunately, we haven’t managed to standardise the SI unit on that yet. In this post, I’ll discuss basic rules on that topic.
+
+The most common statement is that the event should be as small as possible. It is roughly accurate. What does “as small as possible” mean? The answer is not apparent. Let’s think about the reason for publishing events. An event is information about a fact in the past (Read more about event basics in my other article “What’s the difference between a command and an event?”).
+
+It is an inverted type of communication. In the classic HTTP API, the interested client must request the service. By publishing the event, we inform all listening modules of its occurrence. We might not even know if anyone is interested. We’re unsure and don’t know what will happen after the message is received. That’s okay most of the time, as it allows for decoupling of services and setting correct boundaries.
+
+Contract definition practices and review are pretty standard for Web API. There’s a lot of discussion about whether or not we’re designing a system according to REST practices. For some reason, such an approach is not typical for the events’ definition.
+
+In my opinion, Web API and events’ design are not so different. Both of them should be treated as the public API. Of course, they have other formats, protocols, etc.; however, general design principles are the same. If we’re using an API-first approach, we should define public API as the first step of our design process. By public, I mean “public-public” available for all and an “internal public” API between our services. The API definition should be our starting point for the system design.
+
+The contrary approach is “Backend for frontend”, where API is tailored for the client applications’ needs. In this approach, the client’s preferences are the most important. The client application should be able to use endpoints as effectively as possible.
+
+Both approaches have advantages and disadvantages. “API first” is usually more consistent, more organic. Nevertheless, it can cause difficulties for the clients, as they need to adapt and sometimes do workarounds. “Backend for frontend” allows clients to work more efficiently. However, it moves more effort on the backend. The duplication is more significant, and it may be harder to maintain a consistent vision.
+
+Why am I writing about Web API when I should write about events? By creating an event-based system, we will not avoid these dilemmas. Let’s take the invoicing process as an example. After the final confirmation of the order:
+
+The Financial module should issue an invoice.
+
+The Shipment module should send it.
+
+The Notification module should send an e-mail.
+
+Accordingly, we can define an OrderConfirmed event with all the information collected during the process, e.g. the buyer’s data, address, total amount, and order details. However, it may turn out that the shipment module does not need detailed financial data. It only needs to know where and to whom to send the product. The financial module does not need address data for shipment, but only the company data (which may differ from personal). The notification module, in turn, should not know anything about the buyer except his name and e-mail. The only thing that we’ll be sending in an e-mail is a link to the order page.
+
+Therefore, it may turn out that the OrderConfirmed event in such an amassed form will have redundant data. Adding GDPR into the equation makes things more challenging. We might not want to send all data everywhere. Therefore, instead of one event, you can publish three:
+
+OrderConfirmed with necessary order data.
+
+OrderReadyForShipment with data for the shipment module (like address, etc.).
+
+OrderPaid with financial information.
+
+Thanks to this, each module will be listening to a specific event. Those events can be sent to different stream/queue/topic/subscription. As with “Backend for frontend”, this can cause duplication of data and a slightly higher maintenance cost. However, it can be a much better solution than one event to rule them all. We’re also risking bigger coupling between services. We need to know what other modules need, and our module must adapt.
+
+On the other hand, a common mistake is taking the rule that events should be as granular as possible literally. Let’s go back to our invoicing example. Before we place an order lot of things may happen:
+
+User shopping can be initiated.
+
+Product may be added to cart.
+
+Deliver address may be selected.
+
+Product availability may be confirmed or denied.
+
+etc.
+
+All of those events are relevant and meaningful for the ordering module. We want to gather as much business information as we can. It’s perfectly fine to have them as granular as possible. However, if we’re going to publish all of them outside, that could be a huge issue. By doing that, we’re asking other modules to:
+
+get user data from BucketAssignedToUser.
+
+product data from ProductAddedToBucket.
+
+address data from DeliveryAddressSelected.
+
+In short, we’re demanding other modules know all the internal details of our process. It is the first step to a distributed monolith.
+
+What if we extend the process by an additional event? What if we change the shape of events? For example, if the financial module does not know that we added the ProductQuantityUpdated event, it might not be able to not generate the correct data for the invoice.
+
+It gets demanding not only for others but also for us. We can ignore other’s needs and provide breaking changes. However, if we care for our product’s success, then we need to develop coordination. Inform others about breaking changes, etc.
+
+I suggest splitting events into Internal and External. Internal are meaningful in the specific module context. External are understandable in the context of the entire system and overall business process.
+
+Can an event be internal and external at the same time? Of course they can, even the previously mentioned OrderConfirmed. However, if we have five events that change the order status, it might not be convenient to pass them externally. If other modules are only interested in information about the status change, we can do an event mapping. We can create an internal Event Handler that will listen for internal events, then map to the external OrderStatusChanged event and publish it outside. In EventStoreDB, you can use projections for events transformations and subscriptions for listening to the projected stream and forwarding it further.
+
+So there is no best answer. As usual: it depends.
+
+Therefore, our events should be as small as possible, but not smaller. When designing them, let’s keep a healthy pragmatism and not forget that they’re also an essential part of our public contract.
+
+Read also the extended follow up to this article Internal and private events, or how to design event-driven API.
+
+Cheers!
+
+Oskar
+
+p.s. Check my two other articles where I expand more on the events in different contexts:
+
+How to create projections of events for nested object structures?.
+
+How to (not) do the events versioning?.
+
+Why a bank account is not the best example of Event Sourcing?
+
+👋 If you found this article helpful and want to get notification about the next one, subscribe to Architecture Weekly.
+
+✉️ Join over 11500 subscribers, get the best resources to boost your skills, and stay updated with Software Architecture trends!
+Subscribe to Architecture Weekly
+
+Guide: Events on the inside, events on the outside — step 2 of 2
+SHARE
+
+Oskar Dudycz is an independent software architect and consultant who helps teams design and deliver event-driven systems. He builds Open Source tools such as Emmett and shares practical experience with Event Sourcing, CQRS, and software architecture. Learn more about Oskar, explore his training and workshops, or discuss consulting.
+Later articleHow to enhance and configure your site search with Algolia?2021-04-21
+Earlier articleHow to create projections of events for nested object structures?2021-04-07
+
